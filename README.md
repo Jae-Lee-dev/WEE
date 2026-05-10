@@ -27,6 +27,7 @@ pnpm storybook        # http://localhost:6006
 pnpm lint
 pnpm typecheck
 pnpm build
+pnpm verify           # lint + typecheck + build
 pnpm build-storybook
 ```
 
@@ -42,9 +43,7 @@ GitHub Actions workflow는 `.github/workflows/ci.yml`에 있으며 `develop`/`ma
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm lint
-pnpm typecheck
-pnpm build
+pnpm verify
 ```
 
 ## Project Notes
