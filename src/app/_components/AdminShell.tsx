@@ -34,7 +34,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen min-w-[1180px] bg-gray-100 text-gray-900">
       <AdminSidebar currentSection={currentSection} />
       <div className="min-w-0 flex-1 bg-gray-100">
-        <AdminHeader title={currentSection.label} />
+        <AdminHeader
+          title={currentSection.label}
+          showInviteCodeAction={currentSection.key === "workers"}
+        />
         <SectionTabs pathname={pathname} tabs={currentSection.tabs} />
         <main className="px-5 pb-5 pt-7">{children}</main>
       </div>
@@ -164,11 +167,27 @@ function SidebarIcon({ name }: { name: AdminIconName }) {
   );
 }
 
-function AdminHeader({ title }: { title: string }) {
+function AdminHeader({
+  title,
+  showInviteCodeAction,
+}: {
+  title: string;
+  showInviteCodeAction: boolean;
+}) {
   return (
     <header className="flex h-[92px] items-center justify-between border-b border-gray-200 bg-white px-5">
       <h1 className="text-h-20 text-gray-900">{title}</h1>
-      <HeaderNotificationSlot />
+      <div className="flex items-center gap-5">
+        {showInviteCodeAction ? (
+          <button
+            type="button"
+            className="flex h-[42px] items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-18-regular text-gray-700 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+          >
+            참여 코드 복사
+          </button>
+        ) : null}
+        <HeaderNotificationSlot />
+      </div>
     </header>
   );
 }
