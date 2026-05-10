@@ -1,6 +1,5 @@
-import { AdminRoutePage } from "@/app/_components/AdminRoutePage";
-import { findScreenByHref } from "@/app/_config/admin-navigation";
+import { PayrollCalculationScreen } from "@/features/payroll/payroll-calculation-screen";
 
 export default function Page() {
-  return <AdminRoutePage screen={findScreenByHref("/payroll")} />;
+  return <PayrollCalculationScreen />;
 }
