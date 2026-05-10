@@ -1,0 +1,192 @@
+"use client";
+
+import { useState, type CSSProperties } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { IconCheck, IconSearch } from "@/components/icons";
+import { cn } from "@/lib/utils";
+import {
+  workerTagEditDialog,
+  workerTagRows,
+  type WorkerTagRow,
+  type WorkerTagTone,
+} from "./worker-tags-fixtures";
+
+type BadgeToneConfig = {
+  variant: "green" | "red" | "grey";
+  style?: CSSProperties;
+};
+
+const tagToneConfig: Record<WorkerTagTone, BadgeToneConfig> = {
+  green: {
+    variant: "green",
+    style: { color: "var(--color-green-400)" },
+  },
+  red: {
+    variant: "red",
+    style: { color: "var(--color-red-500)" },
+  },
+  grey: {
+    variant: "grey",
+  },
+};
+
+export function WorkerTagsScreen() {
+  const [editOpen, setEditOpen] = useState(false);
+
+  return (
+    <section className="min-h-[812px] rounded-[8px] bg-white p-5">
+      <div className="flex h-[42px] items-center justify-between">
+        <h2 className="text-h-20 text-gray-900">근무자 태그 관리</h2>
+        <Button type="button" variant="secondary" className="h-[42px] rounded-full px-4">
+          태그 추가
+        </Button>
+      </div>
+
+      <div className="mt-5 flex flex-col gap-5">
+        {workerTagRows.map((tag, index) => (
+          <WorkerTagCard
+            key={tag.id}
+            tag={tag}
+            first={index === 0}
+            onEdit={() => setEditOpen(true)}
+          />
+        ))}
+      </div>
+
+      {editOpen ? <WorkerTagEditDialog onClose={() => setEditOpen(false)} /> : null}
+    </section>
+  );
+}
+
+function WorkerTagCard({
+  tag,
+  first,
+  onEdit,
+}: {
+  tag: WorkerTagRow;
+  first: boolean;
+  onEdit: () => void;
+}) {
+  return (
+    <div className="flex h-[82px] items-center justify-between rounded-[8px] border border-gray-100 px-4">
+      <div className="flex items-center gap-3">
+        <WorkerTagBadge tag={tag} />
+        <span className="text-h-18-semibold text-gray-900">{tag.countText}</span>
+      </div>
+      <div className="flex items-center gap-3">
+        <Button
+          type="button"
+          variant="danger"
+          className="h-[50px] rounded-[8px] px-6"
+        >
+          삭제
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          data-testid={first ? "worker-tags-edit-trigger-first" : undefined}
+          onClick={first ? onEdit : undefined}
+          className="h-[50px] rounded-[8px] px-6"
+        >
+          수정
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function WorkerTagBadge({ tag }: { tag: WorkerTagRow }) {
+  const tone = tagToneConfig[tag.tone];
+
+  return (
+    <Badge variant={tone.variant} size="L" style={tone.style}>
+      {tag.label}
+    </Badge>
+  );
+}
+
+function WorkerTagEditDialog({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[155px]">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="worker-tags-dialog-title"
+        data-testid="worker-tags-edit-dialog"
+        className="flex h-[769px] w-[680px] flex-col rounded-[8px] bg-white px-10 py-10 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
+      >
+        <h2 id="worker-tags-dialog-title" className="text-h-20 text-gray-900">
+          근무자 태그 수정
+        </h2>
+
+        <label className="mt-10 block">
+          <span className="text-h-18-semibold text-gray-900">태그명</span>
+          <input
+            readOnly
+            value={workerTagEditDialog.selectedTag.label}
+            className="mt-3 h-[49px] w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular text-gray-500 outline-none"
+          />
+        </label>
+
+        <div className="mt-8">
+          <div className="flex items-center gap-2">
+            <h3 className="text-h-18-semibold text-gray-900">현재 받고 있는 조교</h3>
+            <Badge variant="grey" size="M">
+              {workerTagEditDialog.currentCountText}
+            </Badge>
+          </div>
+          <label className="mt-3 flex h-[49px] items-center gap-3 rounded-[8px] border border-gray-200 bg-white px-4">
+            <span className="sr-only">조교 이름 검색</span>
+            <input
+              readOnly
+              value=""
+              placeholder={workerTagEditDialog.searchPlaceholder}
+              className="min-w-0 flex-1 bg-transparent text-h-18-regular text-gray-900 outline-none placeholder:text-gray-400"
+            />
+            <IconSearch className="size-6 shrink-0 text-green-400" />
+          </label>
+        </div>
+
+        <div className="mt-8 overflow-hidden rounded-[8px] border border-gray-100">
+          {workerTagEditDialog.workers.map((worker) => (
+            <div
+              key={worker.id}
+              className="flex h-[49px] items-center justify-between border-b border-gray-100 px-4 last:border-b-0"
+            >
+              <span className="text-h-18-semibold text-gray-900">
+                {worker.name}
+              </span>
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "flex size-5 items-center justify-center rounded-[2px]",
+                  worker.disabled ? "bg-gray-200 text-white" : "bg-green-400 text-white",
+                )}
+              >
+                {worker.checked ? <IconCheck className="size-4" /> : null}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-auto flex justify-end gap-3">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onClose}
+            className="h-[50px] rounded-[8px] px-6"
+          >
+            취소
+          </Button>
+          <Button
+            type="button"
+            className="h-[50px] rounded-[8px] px-7"
+          >
+            저장
+          </Button>
+        </div>
+      </section>
+    </div>
+  );
+}

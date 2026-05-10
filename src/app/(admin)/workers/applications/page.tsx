@@ -1,6 +1,5 @@
-import { AdminRoutePage } from "@/app/_components/AdminRoutePage";
-import { findScreenByHref } from "@/app/_config/admin-navigation";
+import { WorkerApplicationsScreen } from "@/features/workers/worker-applications-screen";
 
 export default function Page() {
-  return <AdminRoutePage screen={findScreenByHref("/workers/applications")} />;
+  return <WorkerApplicationsScreen />;
 }
