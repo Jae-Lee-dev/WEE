@@ -2,10 +2,14 @@ import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import type { Page } from "playwright";
 
-export type VisualViewportName = "desktop-1920" | "laptop-1366";
+export type VisualViewportName =
+  | "desktop-1920"
+  | "desktop-1920-tall"
+  | "laptop-1366";
 
 export const visualViewports = {
   "desktop-1920": { width: 1920, height: 1080 },
+  "desktop-1920-tall": { width: 1920, height: 1813 },
   "laptop-1366": { width: 1366, height: 768 },
 } as const satisfies Record<VisualViewportName, { width: number; height: number }>;
 

@@ -12,6 +12,7 @@ import {
   type AdminTab,
 } from "@/app/_config/admin-navigation";
 import { HeaderNotificationSlot } from "@/app/_components/HeaderNotificationSlot";
+import { IconChevronLeft } from "@/components/icons";
 import { SlidingTabTextMask } from "@/components/ui/sliding-tab-text-mask";
 import { useSlidingTabIndicator } from "@/components/ui/use-sliding-tab-indicator";
 import { demoWorkspace } from "@/app/_data/admin-demo";
@@ -29,19 +30,31 @@ const shellIconPathMap: Record<AdminIconName, string> = {
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const currentSection = findSectionByPath(pathname);
+  const workerDetail = isWorkerDetailPath(pathname);
 
   return (
     <div className="flex min-h-screen min-w-[1180px] bg-gray-100 text-gray-900">
       <AdminSidebar currentSection={currentSection} />
       <div className="min-w-0 flex-1 bg-gray-100">
         <AdminHeader
-          title={currentSection.label}
+          title={workerDetail ? "조교 상세" : currentSection.label}
+          backHref={workerDetail ? "/workers" : undefined}
           showInviteCodeAction={currentSection.key === "workers"}
         />
-        <SectionTabs pathname={pathname} tabs={currentSection.tabs} />
+        {workerDetail ? null : (
+          <SectionTabs pathname={pathname} tabs={currentSection.tabs} />
+        )}
         <main className="px-5 pb-5 pt-7">{children}</main>
       </div>
     </div>
+  );
+}
+
+function isWorkerDetailPath(pathname: string) {
+  return (
+    pathname.startsWith("/workers/") &&
+    !pathname.startsWith("/workers/applications") &&
+    !pathname.startsWith("/workers/tags")
   );
 }
 
@@ -169,14 +182,27 @@ function SidebarIcon({ name }: { name: AdminIconName }) {
 
 function AdminHeader({
   title,
+  backHref,
   showInviteCodeAction,
 }: {
   title: string;
+  backHref?: string;
   showInviteCodeAction: boolean;
 }) {
   return (
     <header className="flex h-[92px] items-center justify-between border-b border-gray-200 bg-white px-5">
-      <h1 className="text-h-20 text-gray-900">{title}</h1>
+      <div className="flex items-center gap-4">
+        {backHref ? (
+          <Link
+            href={backHref}
+            aria-label="조교 목록으로 돌아가기"
+            className="flex size-6 items-center justify-center text-gray-800 transition-colors duration-150 ease-out hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+          >
+            <IconChevronLeft className="size-6" />
+          </Link>
+        ) : null}
+        <h1 className="text-h-20 text-gray-900">{title}</h1>
+      </div>
       <div className="flex items-center gap-5">
         {showInviteCodeAction ? (
           <button
