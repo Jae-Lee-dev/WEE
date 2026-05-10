@@ -56,6 +56,17 @@ export const Variants: Story = {
   ),
 };
 
+export const FigmaButtonM: Story = {
+  name: "Figma button_M",
+  render: () => (
+    <div className="flex flex-wrap items-center gap-3">
+      <Button variant="primary">저장</Button>
+      <Button variant="secondary">취소</Button>
+      <Button variant="danger">반려</Button>
+    </div>
+  ),
+};
+
 export const Sizes: Story = {
   render: () => (
     <div className="flex flex-wrap items-center gap-3">
