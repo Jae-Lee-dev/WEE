@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ComponentType, ReactNode } from "react";
+import { useMemo, type ComponentType, type ReactNode } from "react";
 import {
   IconBook,
   IconCalendar,
@@ -20,6 +20,8 @@ import {
   type AdminSection,
   type AdminTab,
 } from "@/app/_config/admin-navigation";
+import { SlidingTabTextMask } from "@/components/ui/sliding-tab-text-mask";
+import { useSlidingTabIndicator } from "@/components/ui/use-sliding-tab-indicator";
 
 type IconComponent = ComponentType<{ className?: string }>;
 
@@ -163,10 +165,35 @@ function SectionTabs({
   tabs: AdminTab[];
 }) {
   const activeTabHref = findActiveTabHref(pathname, tabs);
+  const tabOptions = useMemo(
+    () =>
+      tabs.map((tab) => ({
+        value: tab.href,
+        label: tab.label,
+      })),
+    [tabs],
+  );
+  const { indicatorStyle, listRef, slidingTabValueAttribute } =
+    useSlidingTabIndicator<string, HTMLElement>({
+      options: tabOptions,
+      value: activeTabHref ?? "",
+    });
 
   return (
     <div className="px-5 pt-7">
-      <nav className="flex h-[34px] items-end gap-8 border-b border-gray-200">
+      <nav
+        ref={listRef}
+        className="relative isolate flex h-[34px] items-end gap-8 overflow-hidden border-b border-gray-200"
+      >
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute bottom-0 left-0 z-0 h-0.5 rounded-full bg-green-400 transition-[opacity,transform,width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+          style={{
+            opacity: indicatorStyle ? 1 : 0,
+            width: indicatorStyle?.width ?? 0,
+            transform: `translateX(${indicatorStyle?.x ?? 0}px)`,
+          }}
+        />
         {tabs.map((tab) => {
           const active = activeTabHref === tab.href;
 
@@ -175,9 +202,10 @@ function SectionTabs({
               key={tab.href}
               href={tab.href}
               aria-current={active ? "page" : undefined}
-              className={`flex h-[34px] items-start border-b-2 text-h-18-semibold transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 ${
+              {...{ [slidingTabValueAttribute]: tab.href }}
+              className={`relative z-10 flex h-[34px] items-start border-b-2 text-h-18-semibold transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 ${
                 active
-                  ? "border-green-400 text-green-400"
+                  ? "border-transparent text-gray-500 hover:text-gray-800 active:text-gray-900"
                   : "border-transparent text-gray-500 hover:border-gray-200 hover:text-gray-800 active:text-gray-900"
               }`}
             >
@@ -185,6 +213,11 @@ function SectionTabs({
             </Link>
           );
         })}
+        <SlidingTabTextMask
+          indicatorStyle={indicatorStyle}
+          options={tabOptions}
+          variant="line"
+        />
       </nav>
     </div>
   );

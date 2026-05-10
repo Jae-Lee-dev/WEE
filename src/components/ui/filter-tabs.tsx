@@ -1,5 +1,6 @@
 "use client";
 
+import { SlidingTabTextMask } from "@/components/ui/sliding-tab-text-mask";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSlidingTabIndicator } from "@/components/ui/use-sliding-tab-indicator";
 import { cn } from "@/lib/utils";
@@ -53,6 +54,11 @@ function FilterTabs<T extends string>({
             {option.label}
           </TabsTrigger>
         ))}
+        <SlidingTabTextMask
+          indicatorStyle={indicatorStyle}
+          options={options}
+          variant="filter"
+        />
       </TabsList>
     </Tabs>
   );

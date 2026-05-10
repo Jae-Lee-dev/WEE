@@ -11,14 +11,17 @@ type IndicatorStyle = {
 
 const slidingTabValueAttribute = "data-sliding-tab-value";
 
-function useSlidingTabIndicator<T extends string>({
+function useSlidingTabIndicator<
+  T extends string,
+  TElement extends HTMLElement = HTMLDivElement,
+>({
   options,
   value,
 }: {
   options: IndicatorOption<T>[];
   value: T;
 }) {
-  const listRef = React.useRef<HTMLDivElement>(null);
+  const listRef = React.useRef<TElement>(null);
   const [indicatorStyle, setIndicatorStyle] =
     React.useState<IndicatorStyle | null>(null);
 
