@@ -13,8 +13,9 @@ for (const viewport of viewports) {
     await expect(
       page.getByRole("navigation", { name: "관리자 메뉴" }),
     ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "대시보드" })).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "운영 인박스" }),
+      page.getByRole("heading", { name: "확인 필요" }),
     ).toBeVisible();
     await captureActualScreenshot({
       page,

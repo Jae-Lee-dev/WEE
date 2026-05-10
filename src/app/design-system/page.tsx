@@ -466,9 +466,9 @@ export default function Page() {
       </section>
 
       <section className="mb-16">
-        <h2 className="mb-2 text-h-20 text-gray-900">Icons (임시)</h2>
+        <h2 className="mb-2 text-h-20 text-gray-900">Icons</h2>
         <p className="mb-6 text-detail-12 text-gray-500">
-          Figma 정확 SVG 추출 전 generic line icons. arrow 4방향 + nav 8 + search/check
+          Figma-aligned base icon set. arrow 4방향 + nav 7 + search/check
         </p>
         <div className="space-y-6">
           <div>
