@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,13 +18,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -34,7 +26,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Toaster } from "@/components/ui/sonner";
 import {
   Tooltip,
   TooltipContent,
@@ -117,21 +108,6 @@ export const DropdownExample: Story = {
   ),
 };
 
-export const SelectExample: Story = {
-  render: () => (
-    <Select defaultValue="all">
-      <SelectTrigger className="w-[220px]">
-        <SelectValue placeholder="상태 선택" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all">전체</SelectItem>
-        <SelectItem value="active">활성</SelectItem>
-        <SelectItem value="inactive">비활성</SelectItem>
-      </SelectContent>
-    </Select>
-  ),
-};
-
 export const TooltipExample: Story = {
   render: () => (
     <Tooltip>
@@ -142,37 +118,5 @@ export const TooltipExample: Story = {
       </TooltipTrigger>
       <TooltipContent>승인 대기 항목을 확인합니다.</TooltipContent>
     </Tooltip>
-  ),
-};
-
-export const ToastExample: Story = {
-  render: () => (
-    <div>
-      <Toaster />
-      <Button onClick={() => toast.success("저장되었습니다.")}>토스트 표시</Button>
-    </div>
-  ),
-};
-
-export const FigmaToast: Story = {
-  render: () => (
-    <div className="grid place-items-center gap-4">
-      <Toaster />
-      <div className="rounded-full bg-gray-500 px-4 py-2 text-body-14-medium text-white shadow-[0_0_7px_rgba(0,0,0,0.05)]">
-        매칭이 종료되었어요
-      </div>
-      <Button
-        variant="secondary"
-        onClick={() =>
-          toast.custom(() => (
-            <div className="rounded-full bg-gray-500 px-4 py-2 text-body-14-medium text-white shadow-[0_0_7px_rgba(0,0,0,0.05)]">
-              매칭이 종료되었어요
-            </div>
-          ))
-        }
-      >
-        Figma 토스트 표시
-      </Button>
-    </div>
   ),
 };
