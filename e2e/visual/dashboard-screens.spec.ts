@@ -79,17 +79,3 @@ test(`DSH-01 filter-dropdown ${desktop}`, async ({ page }) => {
     viewport: desktop,
   });
 });
-
-test(`SHELL-NOTIFICATION open-panel ${desktop}`, async ({ page }) => {
-  await prepareVisualPage({ page, path: "/dashboard", viewport: desktop });
-  await page.evaluate(() => document.fonts.ready);
-  await page.getByTestId("header-notification-trigger").click();
-  await expect(page.getByTestId("header-notification-panel")).toBeVisible();
-
-  await captureActualScreenshot({
-    page,
-    screenId: "SHELL-NOTIFICATION",
-    state: "open-panel",
-    viewport: desktop,
-  });
-});

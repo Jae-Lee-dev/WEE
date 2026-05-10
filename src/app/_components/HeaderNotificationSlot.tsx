@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { IconNotice } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
-import { dashboardNotifications } from "@/features/dashboard/dashboard-fixtures";
+import { headerNotifications } from "@/features/notifications/header-notification-fixtures";
 import { cn } from "@/lib/utils";
 
 const notificationToneClassNames = {
@@ -59,12 +59,12 @@ function NotificationPanel() {
         <h2 className="text-h-20 text-gray-900">확인 필요</h2>
       </div>
       <div className="mt-3 border-t border-gray-200">
-        {dashboardNotifications.map((notification, index) => (
+        {headerNotifications.map((notification, index) => (
           <div
             key={notification.id}
             className={cn(
               "flex min-h-[94px] gap-[18px] border-b border-gray-200 px-4 pt-5",
-              index < dashboardNotifications.length - 1 && "bg-gray-50",
+              index < headerNotifications.length - 1 && "bg-gray-50",
             )}
           >
             <div className="w-[70px] shrink-0">
