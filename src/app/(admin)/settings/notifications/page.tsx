@@ -1,8 +1,5 @@
-import { AdminRoutePage } from "@/app/_components/AdminRoutePage";
-import { findScreenByHref } from "@/app/_config/admin-navigation";
+import { SettingsNotificationsScreen } from "@/features/settings/settings-notifications-screen";
 
 export default function Page() {
-  return (
-    <AdminRoutePage screen={findScreenByHref("/settings/notifications")} />
-  );
+  return <SettingsNotificationsScreen />;
 }

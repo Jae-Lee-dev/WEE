@@ -147,15 +147,15 @@ export const adminSections: AdminSection[] = [
     href: "/settings",
     icon: "settings",
     tabs: [
-      { label: "사업장 일반", href: "/settings", screenId: "SET-01" },
-      { label: "근무지 관리", href: "/settings/locations", screenId: "SET-02" },
+      { label: "사업장", href: "/settings", screenId: "SET-01" },
+      { label: "근무지", href: "/settings/locations", screenId: "SET-02" },
       {
-        label: "운영/정산 기준",
+        label: "운영 설정",
         href: "/settings/rules",
         screenId: "SET-03",
       },
-      { label: "알림 설정", href: "/settings/notifications", screenId: "SET-04" },
-      { label: "요금제/결제", href: "/settings/billing", screenId: "SET-05" },
+      { label: "알림", href: "/settings/notifications", screenId: "SET-04" },
+      { label: "요금제", href: "/settings/billing", screenId: "SET-05" },
     ],
   },
 ];
@@ -369,7 +369,7 @@ export const adminRouteRegistry: AdminRouteMeta[] = [
   {
     screenId: "SET-01",
     href: "/settings",
-    title: "사업장 일반",
+    title: "사업장",
     figmaBacked: true,
     status: "figma-backed",
     authoritativeFrameId: "15:5475",
@@ -377,7 +377,7 @@ export const adminRouteRegistry: AdminRouteMeta[] = [
   {
     screenId: "SET-02",
     href: "/settings/locations",
-    title: "근무지 관리",
+    title: "근무지",
     figmaBacked: true,
     status: "figma-backed",
     authoritativeFrameId: "66:8153",
@@ -385,7 +385,7 @@ export const adminRouteRegistry: AdminRouteMeta[] = [
   {
     screenId: "SET-03",
     href: "/settings/rules",
-    title: "운영/정산 기준",
+    title: "운영 설정",
     figmaBacked: true,
     status: "figma-backed",
     authoritativeFrameId: "66:9305",
@@ -393,7 +393,7 @@ export const adminRouteRegistry: AdminRouteMeta[] = [
   {
     screenId: "SET-04",
     href: "/settings/notifications",
-    title: "알림 설정",
+    title: "알림",
     figmaBacked: true,
     status: "figma-backed",
     authoritativeFrameId: "66:9792",
@@ -401,7 +401,7 @@ export const adminRouteRegistry: AdminRouteMeta[] = [
   {
     screenId: "SET-05",
     href: "/settings/billing",
-    title: "요금제/결제",
+    title: "요금제",
     figmaBacked: true,
     status: "figma-backed",
     authoritativeFrameId: "66:10190",

@@ -1,6 +1,5 @@
-import { AdminRoutePage } from "@/app/_components/AdminRoutePage";
-import { findScreenByHref } from "@/app/_config/admin-navigation";
+import { SettingsWorkspaceScreen } from "@/features/settings/settings-workspace-screen";
 
 export default function Page() {
-  return <AdminRoutePage screen={findScreenByHref("/settings")} />;
+  return <SettingsWorkspaceScreen />;
 }
