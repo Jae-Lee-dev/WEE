@@ -10,10 +10,11 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "verify:intake:self-test": "node scripts/test-github-intake.mjs",
     "verify:phase-scope": "node scripts/check-figma-first-guardrails.mjs",
     "verify:phase-scope:self-test": "node scripts/test-figma-first-guardrails.mjs",
     "verify:intake": "node scripts/check-github-intake.mjs",
-    "verify": "pnpm verify:intake && pnpm verify:phase-scope:self-test && pnpm verify:phase-scope && pnpm lint && pnpm typecheck && pnpm build",
+    "verify": "pnpm verify:intake:self-test && pnpm verify:intake && pnpm verify:phase-scope:self-test && pnpm verify:phase-scope && pnpm lint && pnpm typecheck && pnpm build",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },
