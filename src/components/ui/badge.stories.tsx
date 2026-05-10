@@ -1,10 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-
-import { Tag } from "./Tag";
+import { Badge } from "@/components/ui/badge";
 
 const meta = {
-  title: "Components/Tag",
-  component: Tag,
+  title: "Design System/UI/Badge",
+  component: Badge,
+  tags: ["autodocs"],
   argTypes: {
     variant: {
       control: "select",
@@ -24,29 +24,23 @@ const meta = {
     size: "M",
     interactive: false,
   },
-} satisfies Meta<typeof Tag>;
+} satisfies Meta<typeof Badge>;
 
 export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-export const Default: Story = {};
-
-export const Large: Story = {
-  args: {
-    size: "L",
-  },
-};
+export const Playground: Story = {};
 
 export const Variants: Story = {
   render: () => (
     <div className="flex flex-wrap items-center gap-2">
-      <Tag variant="green">승인</Tag>
-      <Tag variant="orange">대기</Tag>
-      <Tag variant="red">반려</Tag>
-      <Tag variant="blue">정보</Tag>
-      <Tag variant="grey">비활성</Tag>
-      <Tag variant="outline">선택</Tag>
+      <Badge variant="green">승인</Badge>
+      <Badge variant="orange">대기</Badge>
+      <Badge variant="red">반려</Badge>
+      <Badge variant="blue">정보</Badge>
+      <Badge variant="grey">비활성</Badge>
+      <Badge variant="outline">선택</Badge>
     </div>
   ),
 };
@@ -54,17 +48,21 @@ export const Variants: Story = {
 export const Sizes: Story = {
   render: () => (
     <div className="flex flex-wrap items-center gap-2">
-      <Tag size="M">승인 대기</Tag>
-      <Tag size="L">승인 대기</Tag>
+      <Badge size="M">승인 대기</Badge>
+      <Badge size="L">승인 대기</Badge>
     </div>
   ),
 };
 
 export const Interactive: Story = {
-  args: {
-    interactive: true,
-    size: "L",
-    variant: "outline",
-    children: "선택",
-  },
+  render: () => (
+    <div className="flex flex-wrap items-center gap-2">
+      <Badge interactive variant="green">
+        승인
+      </Badge>
+      <Badge interactive variant="outline" size="L">
+        선택
+      </Badge>
+    </div>
+  ),
 };

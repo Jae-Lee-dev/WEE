@@ -1,4 +1,12 @@
-import { Tag } from "@/components/Tag";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type {
   AdminScreen,
   AdminScreenMetric,
@@ -30,42 +38,37 @@ export function AdminRoutePage({ screen }: { screen: AdminScreen }) {
           <h3 className="text-h-18-semibold text-gray-900">
             {screen.tableTitle}
           </h3>
-          <Tag variant="outline" size="M" interactive>
+          <Badge variant="outline" size="M" interactive>
             {screen.tableRows.length}건
-          </Tag>
+          </Badge>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] border-collapse text-left">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50">
+          <Table className="min-w-[760px]">
+            <TableHeader>
+              <TableRow>
                 {screen.tableColumns.map((column) => (
-                  <th
-                    key={column}
-                    className="px-5 py-3 text-label-14-medium text-gray-500"
-                  >
+                  <TableHead key={column}>
                     {column}
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {screen.tableRows.map((row) => (
-                <tr
+                <TableRow
                   key={row.join("-")}
-                  className="border-b border-gray-100 transition-colors duration-150 ease-out last:border-b-0 hover:bg-gray-50 active:bg-gray-100"
                 >
                   {row.map((cell, index) => (
-                    <td
+                    <TableCell
                       key={`${cell}-${index}`}
-                      className="px-5 py-4 text-body-14-regular text-gray-800"
                     >
                       {cell}
-                    </td>
+                    </TableCell>
                   ))}
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </section>
     </div>
@@ -79,9 +82,9 @@ function MetricCard({ metric }: { metric: AdminScreenMetric }) {
         <div className="truncate text-label-18 text-gray-800">
           {metric.label}
         </div>
-        <Tag variant={metric.tone ?? "green"} size="M">
+        <Badge variant={metric.tone ?? "green"} size="M">
           {metric.tag}
-        </Tag>
+        </Badge>
       </div>
       <div className="mt-1 flex items-baseline gap-1 text-green-400">
         <span className="text-[36px] font-semibold leading-[1.25]">

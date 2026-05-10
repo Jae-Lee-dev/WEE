@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/Button";
-import { SearchField } from "@/components/SearchField";
-import { Tag } from "@/components/Tag";
-import { Segment } from "@/components/Segment";
-import { FilterTabs } from "@/components/FilterTabs";
+import { Button } from "@/components/ui/button";
+import { SearchField } from "@/components/ui/search-field";
+import { Badge as Tag } from "@/components/ui/badge";
+import { Segment } from "@/components/ui/segment";
+import { FilterTabs } from "@/components/ui/filter-tabs";
 import {
   IconSearch,
   IconCheck,
