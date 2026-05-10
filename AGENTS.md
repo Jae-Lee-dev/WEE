@@ -22,11 +22,13 @@ Local product context docs live outside this repo:
 - Vitest 4 browser mode via Playwright
 
 <!-- BEGIN:nextjs-agent-rules -->
+
 ## Next.js 16 Rule
 
 This is NOT the Next.js you know.
 
 This version has breaking changes. APIs, conventions, and file structure may differ from training data. Before changing Next.js routing, metadata, config, server/client component boundaries, or framework APIs, read the relevant guide in `node_modules/next/dist/docs/` in the active repo/worktree and heed deprecation notices.
+
 <!-- END:nextjs-agent-rules -->
 
 ## Working Rules
