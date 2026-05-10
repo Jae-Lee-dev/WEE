@@ -4,7 +4,7 @@
 
 ## Stack
 
-- Next.js 16 (App Router, Turbopack)
+- Next.js 16 (App Router; local dev uses Webpack via `pnpm dev`)
 - React 19
 - Tailwind CSS v4 (CSS-first `@theme`)
 - Pretendard (Variable, dynamic-subset)
@@ -17,20 +17,34 @@
 ```bash
 pnpm install
 pnpm dev              # http://localhost:3000
+pnpm dev:turbo        # Turbopack dev server, kept for explicit reproduction/debugging
 pnpm storybook        # http://localhost:6006
+pnpm lint
+pnpm typecheck
 pnpm build
 pnpm build-storybook
-pnpm lint
 ```
 
 ## Design Tokens
 
 디자인 토큰은 `src/app/globals.css`의 `@theme` 블록에 정의된다. 토큰 명세 reference 문서는 본 repo 밖 (`WEE/docs/wee-design-tokens-v1.0.md`) 에서 별도 공유된다.
 
-루트(`/`) 페이지에 토큰 시안 (color · typography · components) 이 임시로 들어가 있다. 컴포넌트 스토리는 Storybook으로 후속 이전 예정.
+루트(`/`)는 `/dashboard`로 redirect된다. 토큰·컴포넌트 쇼케이스는 `/design-system`과 Storybook에서 확인한다.
+
+## CI
+
+GitHub Actions workflow는 `.github/workflows/ci.yml`에 있으며 `develop`/`main` push와 pull request에서 실행된다.
+
+```bash
+pnpm install --frozen-lockfile
+pnpm lint
+pnpm typecheck
+pnpm build
+```
 
 ## Project Notes
 
 - 본 repo는 어드민 웹 단독. 조교 앱(Flutter), Cloud Functions 등은 별도 repo 또는 후속 디렉토리.
 - SRS·IA 문서는 repo 외부에서 별도 공유.
 - Next.js 16의 변경점은 `AGENTS.md` 및 `node_modules/next/dist/docs/` 참조.
+- 현재 화면 구현 phase는 Figma-first static UI에 집중한다. Firebase, CRUD, 승인/반려/확정 같은 실제 상태 전이는 후속 phase에서 다룬다.
