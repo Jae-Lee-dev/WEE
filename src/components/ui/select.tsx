@@ -93,14 +93,14 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        "grid w-fit grid-cols-[max-content_auto] items-center gap-x-1.5 whitespace-nowrap rounded-[6px] border border-gray-200 bg-white px-2.5 py-2 text-label-18 text-gray-700 transition-colors outline-none select-none hover:border-gray-300 focus-visible:border-gray-300 focus-visible:ring-2 focus-visible:ring-gray-200 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-red-500 aria-invalid:ring-2 aria-invalid:ring-red-100 data-placeholder:text-gray-500 data-open:border-gray-200 data-open:focus-visible:border-gray-200 data-open:focus-visible:ring-gray-200 data-[size=default]:min-h-[42px] data-[size=sm]:min-h-9 data-[size=sm]:px-2 data-[size=sm]:py-1.5 data-[size=sm]:text-label-14-medium *:data-[slot=select-value]:col-start-1 *:data-[slot=select-value]:row-start-1 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 data-open:[&_svg]:rotate-180 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        "grid w-fit grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1.5 whitespace-nowrap rounded-[6px] border border-gray-200 bg-white px-2.5 py-2 text-label-18 text-gray-700 transition-colors outline-none select-none hover:border-gray-300 focus-visible:border-gray-300 focus-visible:ring-2 focus-visible:ring-gray-200 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-red-500 aria-invalid:ring-2 aria-invalid:ring-red-100 data-placeholder:text-gray-500 data-open:border-gray-200 data-open:focus-visible:border-gray-200 data-open:focus-visible:ring-gray-200 data-[size=default]:min-h-[42px] data-[size=sm]:min-h-9 data-[size=sm]:px-2 data-[size=sm]:py-1.5 data-[size=sm]:text-label-14-medium *:data-[slot=select-value]:col-start-1 *:data-[slot=select-value]:row-start-1 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 data-open:[&_svg]:rotate-180 [&_svg]:pointer-events-none [&_svg]:shrink-0",
         className
       )}
       {...props}
     >
       {children}
       <SelectPrimitive.Icon asChild>
-        <ChevronDownIcon className="pointer-events-none col-start-2 row-start-1 size-5 text-gray-700 transition-transform duration-150 ease-out" />
+        <ChevronDownIcon className="pointer-events-none col-start-2 row-start-1 size-5 justify-self-end text-gray-700 transition-transform duration-150 ease-out" />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   )
