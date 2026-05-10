@@ -1,6 +1,5 @@
-import { AdminRoutePage } from "@/app/_components/AdminRoutePage";
-import { findScreenByHref } from "@/app/_config/admin-navigation";
+import { RecordMainScreen } from "@/features/records/record-main-screen";
 
 export default function Page() {
-  return <AdminRoutePage screen={findScreenByHref("/records")} />;
+  return <RecordMainScreen />;
 }

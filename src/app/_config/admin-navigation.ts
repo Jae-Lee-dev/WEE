@@ -11,6 +11,7 @@ export type AdminTab = {
   label: string;
   href: string;
   screenId: string;
+  badge?: string;
 };
 
 export type AdminSection = {
@@ -107,7 +108,7 @@ export const adminSections: AdminSection[] = [
     icon: "records",
     badge: "22",
     tabs: [
-      { label: "근무기록", href: "/records", screenId: "REC-01" },
+      { label: "근무기록", href: "/records", screenId: "REC-01", badge: "6" },
       {
         label: "이상감지처리 이력",
         href: "/records/anomaly-history",

@@ -235,6 +235,9 @@ function SectionTabs({
             tab.href === "/workers/applications" && pathname !== "/workers";
           const showScheduleApprovalBadge =
             tab.href === "/schedule" && pathname.startsWith("/schedule");
+          const badge = tab.badge ?? (
+            showWorkersApplicationBadge || showScheduleApprovalBadge ? "6" : undefined
+          );
 
           return (
             <Link
@@ -256,14 +259,9 @@ function SectionTabs({
               >
                 <span className="flex items-center gap-2">
                   <span>{tab.label}</span>
-                  {showWorkersApplicationBadge ? (
+                  {badge ? (
                     <span className="rounded-full bg-green-400 px-2 py-0.5 text-detail-16-semibold text-white">
-                      6
-                    </span>
-                  ) : null}
-                  {showScheduleApprovalBadge ? (
-                    <span className="rounded-full bg-green-400 px-2 py-0.5 text-detail-16-semibold text-white">
-                      6
+                      {badge}
                     </span>
                   ) : null}
                 </span>
