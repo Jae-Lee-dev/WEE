@@ -1,0 +1,134 @@
+name: Backend phase switch request
+description: Request explicit approval to move from Figma-first static UI work into backend integration.
+title: "[Phase Switch] "
+labels:
+  - backend
+  - phase-switch
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this only when the project is ready to explicitly leave the Figma-first/static UI phase for a named backend scope.
+        Filing this request does not authorize broad backend work; the accepted issue must define the exact scope and remaining guardrails.
+  - type: dropdown
+    id: requested-scope
+    attributes:
+      label: Requested backend scope
+      description: Pick the narrowest backend phase scope that should become allowed.
+      options:
+        - Auth setup only
+        - Firestore data model and rules only
+        - Server action or route handler strategy only
+        - One domain flow from static fixture to live data
+        - Full backend integration phase
+        - Other, explain below
+    validations:
+      required: true
+  - type: textarea
+    id: scope-notes
+    attributes:
+      label: Scope notes
+      description: Define exactly what should become allowed and what must remain deferred.
+      placeholder: |
+        Allowed:
+        - Auth provider setup for manager login
+
+        Still deferred:
+        - Payroll confirmation mutation
+        - Optimistic UI
+    validations:
+      required: true
+  - type: dropdown
+    id: explicit-capabilities
+    attributes:
+      label: Explicitly requested capabilities
+      description: Select only the capabilities this phase switch should unlock.
+      multiple: true
+      options:
+        - Firebase client setup
+        - Firebase Admin setup
+        - Auth provider setup
+        - Firestore collections and indexes
+        - Firestore security rules
+        - Route handlers
+        - Server actions
+        - Validation schemas
+        - CRUD mutations
+        - Optimistic UI
+        - Cloud Functions
+        - Other, explain in scope notes
+    validations:
+      required: true
+  - type: textarea
+    id: environments
+    attributes:
+      label: Firebase environments and project IDs
+      description: List only confirmed environments. Write "not decided" where unknown.
+      placeholder: |
+        Development:
+        Staging:
+        Production:
+    validations:
+      required: true
+  - type: textarea
+    id: auth-requirements
+    attributes:
+      label: Auth requirements
+      description: Confirm providers, manager roles, session behavior, and any onboarding impact.
+      placeholder: |
+        Providers:
+        Roles:
+        Session policy:
+        Onboarding impact:
+    validations:
+      required: true
+  - type: textarea
+    id: data-model
+    attributes:
+      label: Data model and ownership
+      description: List collections, domain owners, migration boundaries, and fixture replacement order.
+      placeholder: |
+        Collections:
+        Security/rules owner:
+        Static fixtures to replace first:
+        Static fixtures to keep:
+    validations:
+      required: true
+  - type: textarea
+    id: repo-boundary
+    attributes:
+      label: Repo and runtime boundary
+      description: State whether backend code belongs in this admin-web repo or a separate functions/service repo.
+      placeholder: |
+        Backend repo boundary:
+        Runtime:
+        Deployment impact:
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Required verification
+      description: List local, CI, emulator, deployment, and visual checks expected for this phase.
+      placeholder: |
+        - pnpm verify
+        - Firebase emulator checks
+        - Visual regression evidence for touched screens
+        - Preview deployment smoke test
+    validations:
+      required: true
+  - type: checkboxes
+    id: guardrail-acknowledgement
+    attributes:
+      label: Guardrail acknowledgement
+      options:
+        - label: This request explicitly changes the Figma-first guardrails only for the accepted scope.
+          required: true
+        - label: Static UI and Figma-backed visual evidence must not regress for screens touched by backend work.
+          required: true
+        - label: Any approval/rejection/confirmation/save/delete flow must be named before implementation starts.
+          required: true
+        - label: Environment variables and secrets must not be committed.
+          required: true
+        - label: Firestore rules, Auth roles, and deployment ownership have a named reviewer or owner.
+          required: true
