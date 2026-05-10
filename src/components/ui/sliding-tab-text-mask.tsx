@@ -8,12 +8,14 @@ type SlidingTabOption<T extends string> = {
 };
 
 type SlidingTabTextMaskProps<T extends string> = {
+  className?: string;
   indicatorStyle: { width: number; x: number } | null;
   options: SlidingTabOption<T>[];
   variant: "filter" | "line" | "segment";
 };
 
 function SlidingTabTextMask<T extends string>({
+  className,
   indicatorStyle,
   options,
   variant,
@@ -31,6 +33,7 @@ function SlidingTabTextMask<T extends string>({
         variant === "filter" && "gap-1.5 p-1",
         variant === "line" && "items-start gap-8 text-green-400",
         variant === "segment" && "p-1",
+        className,
       )}
       style={{ clipPath }}
     >

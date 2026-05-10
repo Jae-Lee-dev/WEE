@@ -28,7 +28,7 @@ function LineTabs<T extends string>({
       <TabsList
         ref={listRef}
         variant="line"
-        className={cn("relative isolate overflow-hidden", className)}
+        className={cn("group/line-tabs relative isolate overflow-hidden", className)}
       >
         <span
           aria-hidden="true"
@@ -44,13 +44,14 @@ function LineTabs<T extends string>({
             key={option.value}
             variant="line"
             value={option.value}
-            className="relative z-10 data-active:border-transparent data-active:text-gray-500 data-active:hover:border-gray-200 data-active:hover:text-gray-800 data-active:active:text-gray-900"
+            className="relative z-10 data-active:border-transparent data-active:text-green-400 data-active:hover:border-transparent data-active:hover:text-green-450 data-active:active:border-transparent data-active:active:text-green-500"
             {...{ [slidingTabValueAttribute]: option.value }}
           >
             {option.label}
           </TabsTrigger>
         ))}
         <SlidingTabTextMask
+          className="group-has-[[data-state=active]:hover]/line-tabs:text-green-450 group-has-[[data-state=active]:active]/line-tabs:text-green-500"
           indicatorStyle={indicatorStyle}
           options={options}
           variant="line"
