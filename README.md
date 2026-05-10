@@ -27,7 +27,8 @@ pnpm storybook        # http://localhost:6006
 pnpm lint
 pnpm typecheck
 pnpm build
-pnpm verify           # lint + typecheck + build
+pnpm verify:phase-scope
+pnpm verify           # phase-scope audit + lint + typecheck + build
 pnpm build-storybook
 ```
 
@@ -45,6 +46,8 @@ GitHub Actions workflow는 `.github/workflows/ci.yml`에 있으며 `develop`/`ma
 pnpm install --frozen-lockfile
 pnpm verify
 ```
+
+During the current Figma-first static UI phase, `pnpm verify` starts with `pnpm verify:phase-scope` to fail on accidental Firebase/backend/server/data-access additions before lint, typecheck, and build.
 
 ## Project Notes
 
