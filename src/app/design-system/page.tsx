@@ -135,7 +135,6 @@ const tagVariants = ["green", "orange", "red", "blue", "grey", "outline"] as con
 
 const filterOptions = [
   { value: "active", label: "활성 17" },
-  { value: "all", label: "전체 20" },
   { value: "inactive", label: "비활성 3" },
 ];
 const filterChipOptions = [
