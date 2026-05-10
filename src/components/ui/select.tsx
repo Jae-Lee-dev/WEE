@@ -6,10 +6,28 @@ import { Select as SelectPrimitive } from "radix-ui"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
+type SelectSizingContextValue = {
+  itemLabels: React.ReactNode[]
+}
+
+const SelectSizingContext = React.createContext<SelectSizingContextValue>({
+  itemLabels: [],
+})
+
 function Select({
+  children,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />
+  const itemLabels = React.useMemo(() => getSelectItemLabels(children), [children])
+  const sizingContext = React.useMemo(() => ({ itemLabels }), [itemLabels])
+
+  return (
+    <SelectSizingContext.Provider value={sizingContext}>
+      <SelectPrimitive.Root data-slot="select" {...props}>
+        {children}
+      </SelectPrimitive.Root>
+    </SelectSizingContext.Provider>
+  )
 }
 
 function SelectGroup({
@@ -39,20 +57,32 @@ function SelectTrigger({
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
   size?: "sm" | "default"
 }) {
+  const { itemLabels } = React.useContext(SelectSizingContext)
+
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        "flex w-fit items-center justify-between gap-1.5 whitespace-nowrap rounded-[6px] border border-gray-200 bg-white px-2.5 py-2 text-label-18 text-gray-700 transition-colors outline-none select-none hover:border-gray-300 focus-visible:border-green-400 focus-visible:ring-2 focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-red-500 aria-invalid:ring-2 aria-invalid:ring-red-100 data-placeholder:text-gray-500 data-open:border-gray-200 data-[size=default]:min-h-[42px] data-[size=sm]:min-h-9 data-[size=sm]:px-2 data-[size=sm]:py-1.5 data-[size=sm]:text-label-14-medium *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 data-open:[&_svg]:rotate-180 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        "grid w-fit grid-cols-[max-content_auto] items-center gap-x-1.5 whitespace-nowrap rounded-[6px] border border-gray-200 bg-white px-2.5 py-2 text-label-18 text-gray-700 transition-colors outline-none select-none hover:border-gray-300 focus-visible:border-gray-300 focus-visible:ring-2 focus-visible:ring-gray-200 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-red-500 aria-invalid:ring-2 aria-invalid:ring-red-100 data-placeholder:text-gray-500 data-open:border-gray-200 data-open:focus-visible:border-gray-200 data-open:focus-visible:ring-gray-200 data-[size=default]:min-h-[42px] data-[size=sm]:min-h-9 data-[size=sm]:px-2 data-[size=sm]:py-1.5 data-[size=sm]:text-label-14-medium *:data-[slot=select-value]:col-start-1 *:data-[slot=select-value]:row-start-1 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 data-open:[&_svg]:rotate-180 [&_svg]:pointer-events-none [&_svg]:shrink-0",
         className
       )}
       {...props}
     >
       {children}
       <SelectPrimitive.Icon asChild>
-        <ChevronDownIcon className="pointer-events-none size-5 text-gray-700 transition-transform duration-150 ease-out" />
+        <ChevronDownIcon className="pointer-events-none col-start-2 row-start-1 size-5 text-gray-700 transition-transform duration-150 ease-out" />
       </SelectPrimitive.Icon>
+      {itemLabels.map((label, index) => (
+        <span
+          key={index}
+          aria-hidden="true"
+          className="invisible pointer-events-none col-span-2 col-start-1 row-start-1 flex items-center gap-3 whitespace-nowrap"
+        >
+          <span>{label}</span>
+          <CheckIcon className="size-5 stroke-[2.4]" />
+        </span>
+      ))}
     </SelectPrimitive.Trigger>
   )
 }
@@ -119,17 +149,17 @@ function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex w-full cursor-default items-center gap-3 border-b border-gray-200 py-3 pr-0 pl-0 text-label-18 text-gray-700 outline-hidden select-none first:pt-0 last:border-b-0 last:pb-0 focus:text-gray-900 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        "relative grid w-full cursor-default grid-cols-[1fr_20px] items-center gap-3 border-b border-gray-200 py-3 pr-0 pl-0 text-label-18 text-gray-700 outline-hidden select-none first:pt-0 last:border-b-0 last:pb-0 focus:text-gray-900 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
         className
       )}
       {...props}
     >
-      <span className="pointer-events-none absolute right-0 flex size-5 items-center justify-center text-green-400">
+      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+      <span className="pointer-events-none flex size-5 items-center justify-center text-green-400">
         <SelectPrimitive.ItemIndicator>
           <CheckIcon className="pointer-events-none size-5 stroke-[2.4]" />
         </SelectPrimitive.ItemIndicator>
       </span>
-      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
     </SelectPrimitive.Item>
   )
 }
@@ -183,6 +213,36 @@ function SelectScrollDownButton({
       />
     </SelectPrimitive.ScrollDownButton>
   )
+}
+
+function getSelectItemLabels(children: React.ReactNode) {
+  const labels: React.ReactNode[] = []
+
+  collectSelectItemLabels(children, labels)
+
+  return labels
+}
+
+function collectSelectItemLabels(
+  node: React.ReactNode,
+  labels: React.ReactNode[],
+) {
+  React.Children.forEach(node, (child) => {
+    if (!React.isValidElement(child)) {
+      return
+    }
+
+    const element = child as React.ReactElement<{ children?: React.ReactNode }>
+
+    if (element.type === SelectItem) {
+      labels.push(element.props.children)
+      return
+    }
+
+    if (element.props.children) {
+      collectSelectItemLabels(element.props.children, labels)
+    }
+  })
 }
 
 export {
