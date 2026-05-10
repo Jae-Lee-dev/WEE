@@ -19,9 +19,9 @@ env:
 
 jobs:
   verify:
-    name: Lint, typecheck, and build
+    name: Verify app and Storybook
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -44,3 +44,6 @@ jobs:
 
       - name: Verify
         run: pnpm verify
+
+      - name: Build Storybook
+        run: pnpm build-storybook
