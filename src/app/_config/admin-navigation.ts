@@ -86,12 +86,12 @@ export const adminSections: AdminSection[] = [
     icon: "schedule",
     badge: "12",
     tabs: [
-      { label: "승인 대기", href: "/schedule", screenId: "SCH-01" },
       {
-        label: "전체 시간표 타임라인",
+        label: "근무 시간표",
         href: "/schedule/timeline",
         screenId: "SCH-02",
       },
+      { label: "승인 대기", href: "/schedule", screenId: "SCH-01" },
       { label: "근무 목록", href: "/schedule/duties", screenId: "DUT-01" },
       {
         label: "근무 태그 관리",

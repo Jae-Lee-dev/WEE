@@ -1,6 +1,5 @@
-import { AdminRoutePage } from "@/app/_components/AdminRoutePage";
-import { findScreenByHref } from "@/app/_config/admin-navigation";
+import { DutyListScreen } from "@/features/schedule/duty-list-screen";
 
 export default function Page() {
-  return <AdminRoutePage screen={findScreenByHref("/schedule/duties")} />;
+  return <DutyListScreen />;
 }

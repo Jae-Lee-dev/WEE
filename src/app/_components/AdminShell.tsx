@@ -233,6 +233,8 @@ function SectionTabs({
           const active = activeTabHref === tab.href;
           const showWorkersApplicationBadge =
             tab.href === "/workers/applications" && pathname !== "/workers";
+          const showScheduleApprovalBadge =
+            tab.href === "/schedule" && pathname.startsWith("/schedule");
 
           return (
             <Link
@@ -255,6 +257,11 @@ function SectionTabs({
                 <span className="flex items-center gap-2">
                   <span>{tab.label}</span>
                   {showWorkersApplicationBadge ? (
+                    <span className="rounded-full bg-green-400 px-2 py-0.5 text-detail-16-semibold text-white">
+                      6
+                    </span>
+                  ) : null}
+                  {showScheduleApprovalBadge ? (
                     <span className="rounded-full bg-green-400 px-2 py-0.5 text-detail-16-semibold text-white">
                       6
                     </span>

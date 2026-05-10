@@ -1,6 +1,5 @@
-import { AdminRoutePage } from "@/app/_components/AdminRoutePage";
-import { findScreenByHref } from "@/app/_config/admin-navigation";
+import { ScheduleApprovalScreen } from "@/features/schedule/schedule-approval-screen";
 
 export default function Page() {
-  return <AdminRoutePage screen={findScreenByHref("/schedule")} />;
+  return <ScheduleApprovalScreen />;
 }
