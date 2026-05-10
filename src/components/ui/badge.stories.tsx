@@ -45,6 +45,63 @@ export const Variants: Story = {
   ),
 };
 
+export const FigmaTagMatrix: Story = {
+  name: "Figma tag_M / tag_L",
+  render: () => {
+    const tags = [
+      ["green", "근무중"],
+      ["orange", "승인 대기"],
+      ["red", "확인 필요"],
+      ["blue", "정산 완료"],
+      ["grey", "비활성"],
+      ["outline", "선택 안함"],
+    ] as const;
+
+    return (
+      <div className="grid gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {tags.map(([variant, label]) => (
+            <Badge key={`m-${variant}`} variant={variant} size="M">
+              {label}
+            </Badge>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {tags.map(([variant, label]) => (
+            <Badge key={`l-${variant}`} variant={variant} size="L">
+              {label}
+            </Badge>
+          ))}
+        </div>
+      </div>
+    );
+  },
+};
+
+export const FilterTags: Story = {
+  render: () => (
+    <div className="flex flex-wrap items-center gap-2">
+      <Badge
+        interactive
+        size="L"
+        className="rounded-full bg-green-400 text-white hover:bg-green-450"
+      >
+        선택됨
+      </Badge>
+      <Badge interactive variant="outline" size="L" className="rounded-full">
+        미선택
+      </Badge>
+      <Badge
+        interactive
+        size="L"
+        className="rounded-full border-red-500 bg-white text-red-500 hover:bg-red-50"
+      >
+        확인 필요
+      </Badge>
+    </div>
+  ),
+};
+
 export const Sizes: Story = {
   render: () => (
     <div className="flex flex-wrap items-center gap-2">
