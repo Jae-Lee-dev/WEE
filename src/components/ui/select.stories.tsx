@@ -1,39 +1,33 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { OptionSelect } from "@/components/ui/select";
 
 const meta = {
   title: "Design System/UI/Select",
-  component: Select,
+  component: OptionSelect,
   tags: ["autodocs"],
   parameters: {
     layout: "centered",
   },
-} satisfies Meta<typeof Select>;
+} satisfies Meta<typeof OptionSelect>;
 
 export default meta;
 
 type Story = StoryObj<typeof meta>;
 
+const statusOptions = [
+  { value: "all", label: "전체" },
+  { value: "active", label: "활성" },
+  { value: "inactive", label: "비활성" },
+];
+
 export const Status: Story = {
-  render: () => (
-    <Select defaultValue="all">
-      <SelectTrigger>
-        <SelectValue placeholder="상태 선택" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all">전체</SelectItem>
-        <SelectItem value="active">활성</SelectItem>
-        <SelectItem value="inactive">비활성</SelectItem>
-      </SelectContent>
-    </Select>
-  ),
+  args: {
+    defaultValue: "all",
+    options: statusOptions,
+    placeholder: "상태 선택",
+  },
+  render: (args) => <OptionSelect {...args} />,
 };
 
 const pendingOptions = [
@@ -47,29 +41,24 @@ const pendingOptions = [
 ];
 
 export const FigmaPendingSelect: Story = {
+  args: {
+    options: pendingOptions,
+    placeholder: "대기 항목 선택",
+  },
   name: "Figma tag_L select",
   render: function Render() {
     const [value, setValue] = useState("membership");
     const [open, setOpen] = useState(true);
 
     return (
-      <Select
-        value={value}
-        open={open}
+      <OptionSelect
         onValueChange={setValue}
         onOpenChange={setOpen}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder="대기 항목 선택" />
-        </SelectTrigger>
-        <SelectContent>
-          {pendingOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        open={open}
+        options={pendingOptions}
+        placeholder="대기 항목 선택"
+        value={value}
+      />
     );
   },
 };

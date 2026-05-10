@@ -6,27 +6,58 @@ import { Select as SelectPrimitive } from "radix-ui"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-type SelectSizingContextValue = {
-  itemLabels: React.ReactNode[]
+type SelectOption = {
+  disabled?: boolean
+  label: React.ReactNode
+  value: string
 }
 
-const SelectSizingContext = React.createContext<SelectSizingContextValue>({
-  itemLabels: [],
-})
+type OptionSelectProps = Omit<
+  React.ComponentProps<typeof SelectPrimitive.Root>,
+  "children"
+> & {
+  contentClassName?: string
+  itemClassName?: string
+  options: SelectOption[]
+  placeholder?: React.ReactNode
+  size?: "sm" | "default"
+  triggerClassName?: string
+}
 
 function Select({
-  children,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  const itemLabels = React.useMemo(() => getSelectItemLabels(children), [children])
-  const sizingContext = React.useMemo(() => ({ itemLabels }), [itemLabels])
+  return <SelectPrimitive.Root data-slot="select" {...props} />
+}
 
+function OptionSelect({
+  contentClassName,
+  itemClassName,
+  options,
+  placeholder,
+  size = "default",
+  triggerClassName,
+  ...props
+}: OptionSelectProps) {
   return (
-    <SelectSizingContext.Provider value={sizingContext}>
-      <SelectPrimitive.Root data-slot="select" {...props}>
-        {children}
-      </SelectPrimitive.Root>
-    </SelectSizingContext.Provider>
+    <Select {...props}>
+      <SelectTrigger className={triggerClassName} size={size}>
+        <SelectValue placeholder={placeholder} />
+        <SelectTriggerSizer options={options} />
+      </SelectTrigger>
+      <SelectContent className={contentClassName}>
+        {options.map((option) => (
+          <SelectItem
+            key={option.value}
+            className={itemClassName}
+            disabled={option.disabled}
+            value={option.value}
+          >
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 
@@ -57,8 +88,6 @@ function SelectTrigger({
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
   size?: "sm" | "default"
 }) {
-  const { itemLabels } = React.useContext(SelectSizingContext)
-
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
@@ -73,17 +102,24 @@ function SelectTrigger({
       <SelectPrimitive.Icon asChild>
         <ChevronDownIcon className="pointer-events-none col-start-2 row-start-1 size-5 text-gray-700 transition-transform duration-150 ease-out" />
       </SelectPrimitive.Icon>
-      {itemLabels.map((label, index) => (
+    </SelectPrimitive.Trigger>
+  )
+}
+
+function SelectTriggerSizer({ options }: { options: SelectOption[] }) {
+  return (
+    <>
+      {options.map((option) => (
         <span
-          key={index}
+          key={option.value}
           aria-hidden="true"
           className="invisible pointer-events-none col-span-2 col-start-1 row-start-1 flex items-center gap-3 whitespace-nowrap"
         >
-          <span>{label}</span>
+          <span>{option.label}</span>
           <CheckIcon className="size-5 stroke-[2.4]" />
         </span>
       ))}
-    </SelectPrimitive.Trigger>
+    </>
   )
 }
 
@@ -215,37 +251,8 @@ function SelectScrollDownButton({
   )
 }
 
-function getSelectItemLabels(children: React.ReactNode) {
-  const labels: React.ReactNode[] = []
-
-  collectSelectItemLabels(children, labels)
-
-  return labels
-}
-
-function collectSelectItemLabels(
-  node: React.ReactNode,
-  labels: React.ReactNode[],
-) {
-  React.Children.forEach(node, (child) => {
-    if (!React.isValidElement(child)) {
-      return
-    }
-
-    const element = child as React.ReactElement<{ children?: React.ReactNode }>
-
-    if (element.type === SelectItem) {
-      labels.push(element.props.children)
-      return
-    }
-
-    if (element.props.children) {
-      collectSelectItemLabels(element.props.children, labels)
-    }
-  })
-}
-
 export {
+  OptionSelect,
   Select,
   SelectContent,
   SelectGroup,
@@ -257,3 +264,4 @@ export {
   SelectTrigger,
   SelectValue,
 }
+export type { OptionSelectProps, SelectOption }
