@@ -19,6 +19,7 @@ import {
   dutyEditTimeDialog,
   dutyListRows,
   dutyLocationOptions,
+  selectedDutyDetailRouteId,
   dutyStatusFilterOptions,
   dutyTagFilterOptions,
   selectedDutyDetail,
@@ -111,8 +112,18 @@ const timelineColumnCount = scheduleTimelineTimeSlots.length;
 const selectedFixtureBlockId = selectedDutyDetail.duty.timeRows[0].id;
 const selectedFixtureDutyId = selectedDutyDetail.duty.id;
 
-export function DutyListScreen() {
-  const [selectedBlockId, setSelectedBlockId] = useState<string>();
+export function DutyListScreen({
+  initialSelectedDutyId,
+}: {
+  initialSelectedDutyId?: string;
+} = {}) {
+  const initialSelectedBlockId =
+    initialSelectedDutyId === selectedDutyDetailRouteId
+      ? selectedFixtureBlockId
+      : undefined;
+  const [selectedBlockId, setSelectedBlockId] = useState<string | undefined>(
+    initialSelectedBlockId,
+  );
   const [dialog, setDialog] = useState<DialogState>(null);
   const dutyBlocks = useMemo(() => buildDutyGridBlocks(), []);
   const selectedBlock = dutyBlocks.find((block) => block.id === selectedBlockId);
@@ -122,6 +133,7 @@ export function DutyListScreen() {
       aria-label="근무 목록"
       className="flex h-[calc(100vh-202px)] min-h-[878px] w-full flex-col gap-5"
       data-duty-list-state={selectedBlock ? "selected" : "default"}
+      data-testid="duty-list-screen"
     >
       <DutyToolbar onCreate={() => setDialog("create")} />
 
@@ -392,7 +404,10 @@ function DutyDetailPanel({
         };
 
   return (
-    <aside className="flex h-full flex-col rounded-[8px] border border-gray-200 bg-white p-5">
+    <aside
+      className="flex h-full flex-col rounded-[8px] border border-gray-200 bg-white p-5"
+      data-testid="duty-detail-panel"
+    >
       <h2 className="text-h-20 tracking-normal text-gray-900">
         {detail.basicInfo.name}
       </h2>
@@ -761,17 +776,19 @@ function EditTimeWorkerList({
         {fixture.assignedWorkers.map((worker) => (
           <div
             key={worker.id}
-            className="grid h-[51px] grid-cols-[minmax(0,1fr)_auto_20px] items-center gap-3 border-b border-gray-100 px-4 last:border-b-0"
+            className="flex h-[51px] items-center justify-between gap-4 border-b border-gray-100 px-4 last:border-b-0"
           >
-            <span className="min-w-0 truncate text-h-18-semibold tracking-normal text-gray-900">
-              {worker.name}
-            </span>
-            <span className="text-h-18-regular tracking-normal text-gray-500">
-              {worker.weekday} {worker.time}
-            </span>
+            <div className="flex min-w-0 items-center gap-5">
+              <span className="min-w-0 truncate text-h-18-semibold tracking-normal text-gray-900">
+                {worker.name}
+              </span>
+              <span className="shrink-0 text-h-18-regular tracking-normal text-gray-500">
+                {worker.weekday} {worker.time}
+              </span>
+            </div>
             <span
               aria-hidden="true"
-              className="flex size-5 items-center justify-center rounded-[2px] bg-green-400 text-white"
+              className="flex size-5 shrink-0 items-center justify-center rounded-[2px] bg-green-400 text-white"
             >
               <Check className="size-4" strokeWidth={2.6} />
             </span>

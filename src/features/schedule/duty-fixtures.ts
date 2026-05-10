@@ -311,12 +311,17 @@ export const dutyListRows = [
   },
 ] as const satisfies readonly DutyListRow[];
 
+const selectedDutyDetailTag = {
+  ...dutyTags[0],
+  tone: "green",
+} as const satisfies DutyTag;
+
 export const selectedDutyDetail = {
   duty: dutyListRows[3],
   basicInfo: {
     name: "영어 C반",
     location: "잠실 C학원",
-    tags: [dutyTags[0]],
+    tags: [selectedDutyDetailTag],
     weekday: "월요일",
     time: "19:00~21:00",
   },
@@ -337,6 +342,8 @@ export const selectedDutyDetail = {
   editBasicButtonLabel: "기본 정보 수정",
   editTimeButtonLabel: "시간 조정",
 } as const satisfies DutySelectedDetailFixture;
+
+export const selectedDutyDetailRouteId = "duty_english_c";
 
 export const dutyCreateDialog = {
   title: "근무 개설",
