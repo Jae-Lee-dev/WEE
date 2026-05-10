@@ -20,7 +20,7 @@ function LineTabs<T extends string>({
   onChange,
   className,
 }: LineTabsProps<T>) {
-  const { indicatorStyle, listRef, slidingTabValueAttribute } =
+  const { indicatorStyle, itemStyles, listRef, slidingTabValueAttribute } =
     useSlidingTabIndicator({ options, value });
 
   return (
@@ -44,18 +44,19 @@ function LineTabs<T extends string>({
             key={option.value}
             variant="line"
             value={option.value}
-            className="relative z-10 data-active:border-transparent data-active:text-green-400 data-active:hover:border-transparent data-active:hover:text-green-450 data-active:active:border-transparent data-active:active:text-green-500"
+            className="relative z-10 data-[state=active]:border-transparent data-[state=active]:text-gray-500 data-[state=active]:hover:border-transparent data-[state=active]:hover:text-gray-800 data-[state=active]:active:border-transparent data-[state=active]:active:text-gray-900"
             {...{ [slidingTabValueAttribute]: option.value }}
           >
-            {option.label}
+            <SlidingTabTextMask
+              activeClassName="text-green-400 group-has-[[data-state=active]:hover]/line-tabs:text-green-450 group-has-[[data-state=active]:active]/line-tabs:text-green-500"
+              indicatorStyle={indicatorStyle}
+              itemStyle={itemStyles[option.value]}
+              overlayClassName="items-start justify-center"
+            >
+              {option.label}
+            </SlidingTabTextMask>
           </TabsTrigger>
         ))}
-        <SlidingTabTextMask
-          className="group-has-[[data-state=active]:hover]/line-tabs:text-green-450 group-has-[[data-state=active]:active]/line-tabs:text-green-500"
-          indicatorStyle={indicatorStyle}
-          options={options}
-          variant="line"
-        />
       </TabsList>
     </Tabs>
   );

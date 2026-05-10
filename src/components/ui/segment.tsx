@@ -20,7 +20,7 @@ function Segment<T extends string>({
   onChange,
   className,
 }: SegmentProps<T>) {
-  const { indicatorStyle, listRef, slidingTabValueAttribute } =
+  const { indicatorStyle, itemStyles, listRef, slidingTabValueAttribute } =
     useSlidingTabIndicator({ options, value });
 
   return (
@@ -51,14 +51,16 @@ function Segment<T extends string>({
             value={option.value}
             {...{ [slidingTabValueAttribute]: option.value }}
           >
-            {option.label}
+            <SlidingTabTextMask
+              activeClassName="text-white"
+              indicatorStyle={indicatorStyle}
+              itemStyle={itemStyles[option.value]}
+              overlayClassName="items-center justify-center"
+            >
+              {option.label}
+            </SlidingTabTextMask>
           </TabsTrigger>
         ))}
-        <SlidingTabTextMask
-          indicatorStyle={indicatorStyle}
-          options={options}
-          variant="segment"
-        />
       </TabsList>
     </Tabs>
   );

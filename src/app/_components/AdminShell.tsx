@@ -173,7 +173,7 @@ function SectionTabs({
       })),
     [tabs],
   );
-  const { indicatorStyle, listRef, slidingTabValueAttribute } =
+  const { indicatorStyle, itemStyles, listRef, slidingTabValueAttribute } =
     useSlidingTabIndicator<string, HTMLElement>({
       options: tabOptions,
       value: activeTabHref ?? "",
@@ -205,20 +205,21 @@ function SectionTabs({
               {...{ [slidingTabValueAttribute]: tab.href }}
               className={`relative z-10 flex h-[34px] items-start border-b-2 text-h-18-semibold transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 ${
                 active
-                  ? "border-transparent text-green-400 hover:text-green-450 active:text-green-500"
+                  ? "border-transparent text-gray-500 hover:text-gray-800 active:text-gray-900"
                   : "border-transparent text-gray-500 hover:border-gray-200 hover:text-gray-800 active:text-gray-900"
               }`}
             >
-              {tab.label}
+              <SlidingTabTextMask
+                activeClassName="text-green-400 group-has-[[aria-current=page]:hover]/section-tabs:text-green-450 group-has-[[aria-current=page]:active]/section-tabs:text-green-500"
+                indicatorStyle={indicatorStyle}
+                itemStyle={itemStyles[tab.href]}
+                overlayClassName="items-start justify-center"
+              >
+                {tab.label}
+              </SlidingTabTextMask>
             </Link>
           );
         })}
-        <SlidingTabTextMask
-          className="group-has-[[aria-current=page]:hover]/section-tabs:text-green-450 group-has-[[aria-current=page]:active]/section-tabs:text-green-500"
-          indicatorStyle={indicatorStyle}
-          options={tabOptions}
-          variant="line"
-        />
       </nav>
     </div>
   );

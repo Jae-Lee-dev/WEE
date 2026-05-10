@@ -9,7 +9,37 @@ type IndicatorStyle = {
   x: number;
 };
 
+type IndicatorStyleMap = Record<string, IndicatorStyle>;
+
+type IndicatorState = {
+  indicatorStyle: IndicatorStyle | null;
+  itemStyles: IndicatorStyleMap;
+};
+
 const slidingTabValueAttribute = "data-sliding-tab-value";
+
+function areIndicatorStylesEqual(
+  currentStyle: IndicatorStyle | null | undefined,
+  nextStyle: IndicatorStyle | null | undefined,
+) {
+  return (
+    currentStyle?.width === nextStyle?.width && currentStyle?.x === nextStyle?.x
+  );
+}
+
+function areIndicatorStyleMapsEqual(
+  currentStyles: IndicatorStyleMap,
+  nextStyles: IndicatorStyleMap,
+) {
+  const currentKeys = Object.keys(currentStyles);
+  const nextKeys = Object.keys(nextStyles);
+
+  if (currentKeys.length !== nextKeys.length) return false;
+
+  return nextKeys.every((key) =>
+    areIndicatorStylesEqual(currentStyles[key], nextStyles[key]),
+  );
+}
 
 function useSlidingTabIndicator<
   T extends string,
@@ -22,46 +52,66 @@ function useSlidingTabIndicator<
   value: T;
 }) {
   const listRef = React.useRef<TElement>(null);
-  const [indicatorStyle, setIndicatorStyle] =
-    React.useState<IndicatorStyle | null>(null);
+  const [indicatorState, setIndicatorState] = React.useState<IndicatorState>({
+    indicatorStyle: null,
+    itemStyles: {},
+  });
+  const optionKey = options.map((option) => option.value).join("\u0000");
 
   const updateIndicator = React.useCallback(() => {
     const list = listRef.current;
     if (!list) return;
 
-    const activeTrigger = Array.from(
+    const triggers = Array.from(
       list.querySelectorAll<HTMLElement>(`[${slidingTabValueAttribute}]`),
-    ).find(
-      (trigger) => trigger.getAttribute(slidingTabValueAttribute) === value,
+    );
+    const listRect = list.getBoundingClientRect();
+    const nextItemStyles = triggers.reduce<IndicatorStyleMap>(
+      (styles, trigger) => {
+        const itemValue = trigger.getAttribute(slidingTabValueAttribute);
+        if (!itemValue) return styles;
+
+        const triggerRect = trigger.getBoundingClientRect();
+        styles[itemValue] = {
+          width: triggerRect.width,
+          x: triggerRect.left - listRect.left,
+        };
+
+        return styles;
+      },
+      {},
     );
 
-    if (!activeTrigger) {
-      setIndicatorStyle(null);
-      return;
-    }
+    const nextIndicatorStyle = nextItemStyles[value] ?? null;
 
-    const listRect = list.getBoundingClientRect();
-    const triggerRect = activeTrigger.getBoundingClientRect();
-    const nextStyle = {
-      width: triggerRect.width,
-      x: triggerRect.left - listRect.left,
-    };
+    setIndicatorState((currentState) => {
+      const itemStyles = areIndicatorStyleMapsEqual(
+        currentState.itemStyles,
+        nextItemStyles,
+      )
+        ? currentState.itemStyles
+        : nextItemStyles;
+      const indicatorStyle = areIndicatorStylesEqual(
+        currentState.indicatorStyle,
+        nextIndicatorStyle,
+      )
+        ? currentState.indicatorStyle
+        : nextIndicatorStyle;
 
-    setIndicatorStyle((currentStyle) => {
       if (
-        currentStyle?.width === nextStyle.width &&
-        currentStyle.x === nextStyle.x
+        itemStyles === currentState.itemStyles &&
+        indicatorStyle === currentState.indicatorStyle
       ) {
-        return currentStyle;
+        return currentState;
       }
 
-      return nextStyle;
+      return { indicatorStyle, itemStyles };
     });
   }, [value]);
 
   React.useLayoutEffect(() => {
     updateIndicator();
-  }, [options, updateIndicator]);
+  }, [optionKey, updateIndicator]);
 
   React.useEffect(() => {
     const list = listRef.current;
@@ -81,10 +131,11 @@ function useSlidingTabIndicator<
       resizeObserver.disconnect();
       window.removeEventListener("resize", updateIndicator);
     };
-  }, [options, updateIndicator]);
+  }, [optionKey, updateIndicator]);
 
   return {
-    indicatorStyle,
+    indicatorStyle: indicatorState.indicatorStyle,
+    itemStyles: indicatorState.itemStyles,
     listRef,
     slidingTabValueAttribute,
   };
