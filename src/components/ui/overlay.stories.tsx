@@ -10,14 +10,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -29,6 +21,7 @@ import {
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
@@ -91,32 +84,17 @@ export const SheetExample: Story = {
   ),
 };
 
-export const DropdownExample: Story = {
-  render: () => (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="secondary">작업</Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuLabel>근무 기록</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem>상세 보기</DropdownMenuItem>
-        <DropdownMenuItem>보정 요청</DropdownMenuItem>
-        <DropdownMenuItem variant="destructive">반려</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  ),
-};
-
 export const TooltipExample: Story = {
   render: () => (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button size="icon" variant="secondary" aria-label="도움말">
-          ?
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>승인 대기 항목을 확인합니다.</TooltipContent>
-    </Tooltip>
+    <TooltipProvider>
+      <Tooltip defaultOpen>
+        <TooltipTrigger asChild>
+          <Button size="icon" variant="secondary" aria-label="도움말">
+            ?
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>승인 대기 항목을 확인합니다.</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   ),
 };
