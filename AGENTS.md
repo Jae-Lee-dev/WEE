@@ -60,8 +60,8 @@ This version has breaking changes. APIs, conventions, and file structure may dif
 
 - Reuse existing tokens in `src/app/globals.css`; do not invent raw colors when a token exists.
 - Match Figma-derived components before creating new variants.
-- Current exact-Figma SVG extraction is still pending; `src/components/icons.tsx` contains temporary generic line icons.
-- The root `/` page is a temporary token/component showcase until real app routes replace it.
+- Base icon exports in `src/components/icons.tsx` use Figma-aligned inline SVGs; sidebar shell assets live under `public/admin-shell/*`.
+- The root `/` route redirects to `/dashboard`; use `/design-system` for token/component showcase work.
 - Storybook stories should document component states and use realistic Korean admin-domain labels.
 
 ## Product Notes
