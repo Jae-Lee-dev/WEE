@@ -27,10 +27,11 @@ pnpm storybook        # http://localhost:6006
 pnpm lint
 pnpm typecheck
 pnpm build
+pnpm verify:intake:self-test
 pnpm verify:intake
 pnpm verify:phase-scope:self-test
 pnpm verify:phase-scope
-pnpm verify           # intake + phase-scope self-test + audit + lint + typecheck + build
+pnpm verify           # intake self-test + intake + phase-scope self-test + audit + lint + typecheck + build
 pnpm build-storybook
 ```
 
@@ -49,7 +50,7 @@ pnpm install --frozen-lockfile
 pnpm verify
 ```
 
-During the current Figma-first static UI phase, `pnpm verify` starts with GitHub intake verification, the phase-scope guardrail self-test, and `pnpm verify:phase-scope` to fail on unstructured process changes or accidental Firebase/backend/server/data-access additions before lint, typecheck, and build.
+During the current Figma-first static UI phase, `pnpm verify` starts with GitHub intake self-test/verification, the phase-scope guardrail self-test, and `pnpm verify:phase-scope` to fail on unstructured process changes or accidental Firebase/backend/server/data-access additions before lint, typecheck, and build.
 
 ## Project Notes
 
