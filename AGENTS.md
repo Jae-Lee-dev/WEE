@@ -38,7 +38,9 @@ This version has breaking changes. APIs, conventions, and file structure may dif
 - Do not add `Co-Authored-By` trailers to commits.
 - Prefer small, verifiable changes. Avoid speculative abstractions and unrelated cleanup.
 - Check `git status --short --branch` before and after edits.
-- Run `pnpm lint` before handing off code changes. Run `pnpm exec tsc --noEmit` for TypeScript-sensitive changes. Run `pnpm build-storybook` when Storybook stories or preview config change.
+- Run `pnpm verify` before handing off app/runtime changes; it covers lint, typecheck, and production build.
+- For docs-only or instruction-only changes, run at least `git diff --check`.
+- Run `pnpm build-storybook` when Storybook stories or preview config change.
 
 ## Worktree And Branch Discipline
 
