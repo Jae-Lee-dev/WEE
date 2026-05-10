@@ -1,0 +1,119 @@
+name: Alert component request
+description: Request designer-confirmed operational alert component work beyond the completed toast helper.
+title: "[Alert Component] "
+labels:
+  - design-system
+  - alert
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when a designer confirms an Alert component or provides an authoritative Figma frame.
+        Keep this request in the Figma-first/static UI scope unless the project explicitly switches phase.
+  - type: input
+    id: component-name
+    attributes:
+      label: Component or pattern name
+      description: Name the requested Alert component, primitive, or screen-owned pattern.
+      placeholder: OperationalAlert
+    validations:
+      required: true
+  - type: input
+    id: authoritative-frame
+    attributes:
+      label: Authoritative Figma frame ID
+      description: Required before implementation can be dispatched.
+      placeholder: "12:3456"
+    validations:
+      required: true
+  - type: dropdown
+    id: ownership
+    attributes:
+      label: Expected ownership
+      description: Pick the smallest appropriate component ownership boundary.
+      options:
+        - Shared primitive under src/components/ui
+        - Shared pattern under src/components/patterns
+        - Screen-owned component under src/features
+        - Other, explain below
+    validations:
+      required: true
+  - type: textarea
+    id: ownership-notes
+    attributes:
+      label: Ownership notes
+      description: Explain only if ownership is screen-specific or the dropdown needs context.
+      placeholder: This appears only inside REC-01 anomaly review, so it should stay under src/features/records.
+  - type: textarea
+    id: usage-surfaces
+    attributes:
+      label: Usage surfaces
+      description: List routes, screens, or Storybook contexts where the component should appear.
+      placeholder: |
+        - /records: anomaly review alert
+        - /payroll: pending confirmation alert
+        - Storybook: static component states
+    validations:
+      required: true
+  - type: textarea
+    id: variants
+    attributes:
+      label: Required variants
+      description: List visual variants confirmed by Figma or design review.
+      placeholder: |
+        - info
+        - warning
+        - danger
+        - success
+    validations:
+      required: true
+  - type: textarea
+    id: visual-states
+    attributes:
+      label: Required visual states
+      description: List static states and interactions that must be represented visually.
+      placeholder: |
+        - default
+        - hover/focus
+        - dismissible visual state
+        - with action
+        - compact density
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence paths
+      description: Use absolute artifact paths after screenshots are captured.
+      placeholder: |
+        Figma: ../../artifacts/figma/ALERT-01/default-1920.png
+        Actual: ../../artifacts/actual/ALERT-01/default-desktop-1920.png
+  - type: checkboxes
+    id: storybook
+    attributes:
+      label: Storybook expectations
+      options:
+        - label: Storybook story required
+        - label: Include static Korean admin-domain examples
+        - label: Include variant/state coverage
+  - type: checkboxes
+    id: phase-safety
+    attributes:
+      label: Phase-scope safety
+      options:
+        - label: No Firebase imports or setup
+          required: true
+        - label: No fetch
+          required: true
+        - label: No route handlers or server actions
+          required: true
+        - label: No validation schema generation
+          required: true
+        - label: No CRUD/business state transition logic
+          required: true
+        - label: No optimistic UI
+          required: true
+        - label: No local array add/edit/delete mutation
+          required: true
+        - label: No submit-driven approval/rejection/confirmation/save/delete behavior
+          required: true
