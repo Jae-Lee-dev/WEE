@@ -70,7 +70,7 @@ const tabsTriggerVariants = cva(
         segment:
           "flex-1 rounded-[10px] px-4 py-3 text-h-18-semibold text-gray-700 hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100 data-active:bg-green-400 data-active:text-white data-active:hover:bg-green-450 data-active:active:bg-green-500",
         filter:
-          "rounded-full px-2.5 py-1 text-label-18 text-gray-500 hover:bg-gray-50 hover:text-gray-700 active:bg-gray-100 data-active:bg-green-400 data-active:text-white data-active:hover:bg-green-450 data-active:active:bg-green-500",
+          "relative z-10 rounded-full bg-transparent px-2.5 py-1 text-label-18 text-gray-500 hover:bg-transparent hover:text-gray-700 active:bg-transparent active:text-gray-700 data-active:bg-transparent data-active:text-white data-active:hover:bg-transparent data-active:hover:text-white data-active:active:bg-transparent data-active:active:text-white",
       },
     },
     defaultVariants: {
