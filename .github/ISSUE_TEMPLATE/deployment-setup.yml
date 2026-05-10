@@ -1,0 +1,94 @@
+name: Deployment setup request
+description: Provide GitHub and Vercel details needed to connect admin-web deployment.
+title: "[Deployment] "
+labels:
+  - deployment
+  - infrastructure
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when the admin-web repo is ready to connect to GitHub/Vercel.
+        This request should not introduce Firebase, Auth, Firestore, server actions, route handlers, or business logic.
+  - type: input
+    id: github-owner
+    attributes:
+      label: GitHub owner or organization
+      placeholder: eduU-org
+    validations:
+      required: true
+  - type: input
+    id: github-repo
+    attributes:
+      label: GitHub repository name
+      placeholder: wee-admin-web
+    validations:
+      required: true
+  - type: dropdown
+    id: default-branch
+    attributes:
+      label: Default branch policy
+      options:
+        - "Use develop as the default/integration branch"
+        - "Create main as the protected production branch"
+        - "Other, explain below"
+    validations:
+      required: true
+  - type: textarea
+    id: branch-notes
+    attributes:
+      label: Branch policy notes
+      description: Explain production branch, preview branch, and protection rules if known.
+      placeholder: |
+        Production branch:
+        Preview branches:
+        Required checks:
+  - type: input
+    id: vercel-team
+    attributes:
+      label: Vercel team or account
+      placeholder: eduU
+    validations:
+      required: true
+  - type: input
+    id: vercel-project
+    attributes:
+      label: Vercel project name
+      placeholder: wee-admin-web
+    validations:
+      required: true
+  - type: input
+    id: production-domain
+    attributes:
+      label: Production domain
+      placeholder: admin.wee.example.com
+  - type: dropdown
+    id: preview-deployments
+    attributes:
+      label: Pull request preview deployments
+      options:
+        - "Enable previews for pull requests"
+        - "Disable previews for now"
+        - "Other, explain below"
+    validations:
+      required: true
+  - type: textarea
+    id: env-vars
+    attributes:
+      label: Environment variables
+      description: Current Figma-first static UI phase requires none. List only deployment-specific variables if truly needed.
+      placeholder: |
+        None for current phase.
+  - type: checkboxes
+    id: readiness
+    attributes:
+      label: Readiness confirmation
+      options:
+        - label: GitHub remote can be added to the local repo.
+          required: true
+        - label: Vercel project/account access is available.
+          required: true
+        - label: No Firebase/Auth/Firestore variables are being added in this request.
+          required: true
+        - label: CI should run `pnpm install --frozen-lockfile` and `pnpm verify`.
+          required: true
