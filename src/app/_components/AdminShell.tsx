@@ -1,17 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, type ComponentType, type ReactNode } from "react";
-import {
-  IconBook,
-  IconCalendar,
-  IconHome,
-  IconMoney,
-  IconNote,
-  IconPerson,
-  IconSetting,
-} from "@/components/icons";
+import { useMemo, type ReactNode } from "react";
 import {
   adminSections,
   findSectionByPath,
@@ -24,16 +16,14 @@ import { SlidingTabTextMask } from "@/components/ui/sliding-tab-text-mask";
 import { useSlidingTabIndicator } from "@/components/ui/use-sliding-tab-indicator";
 import { demoWorkspace } from "@/app/_data/admin-demo";
 
-type IconComponent = ComponentType<{ className?: string }>;
-
-const iconMap: Record<AdminIconName, IconComponent> = {
-  dashboard: IconHome,
-  workers: IconPerson,
-  schedule: IconCalendar,
-  records: IconNote,
-  payroll: IconMoney,
-  handover: IconBook,
-  settings: IconSetting,
+const shellIconPathMap: Record<AdminIconName, string> = {
+  dashboard: "/admin-shell/icon-home.svg",
+  workers: "/admin-shell/icon-person.svg",
+  schedule: "/admin-shell/icon-calendar.svg",
+  records: "/admin-shell/icon-note.svg",
+  payroll: "/admin-shell/icon-money.svg",
+  handover: "/admin-shell/icon-book.svg",
+  settings: "/admin-shell/icon-setting.svg",
 };
 
 export function AdminShell({ children }: { children: ReactNode }) {
@@ -41,12 +31,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const currentSection = findSectionByPath(pathname);
 
   return (
-    <div className="flex min-h-screen min-w-[1180px] bg-white text-gray-900">
+    <div className="flex min-h-screen min-w-[1180px] bg-gray-100 text-gray-900">
       <AdminSidebar currentSection={currentSection} />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 bg-gray-100">
         <AdminHeader title={currentSection.label} />
         <SectionTabs pathname={pathname} tabs={currentSection.tabs} />
-        <main className="px-5 pb-12 pt-7">{children}</main>
+        <main className="px-5 pb-5 pt-7">{children}</main>
       </div>
     </div>
   );
@@ -62,10 +52,17 @@ function AdminSidebar({
       <div>
         <Link
           href="/dashboard"
-          className="flex h-[72px] items-center gap-3 rounded-[8px] px-1 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+          className="flex h-[68px] items-center gap-4 rounded-[8px] transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
         >
-          <div className="flex size-12 shrink-0 items-center justify-center rounded-[10px] bg-green-400 text-h-24 text-white">
-            W
+          <div className="relative size-12 shrink-0 overflow-hidden">
+            <Image
+              src="/admin-shell/logo.png"
+              alt=""
+              width={48}
+              height={34}
+              priority
+              className="absolute left-1/2 top-1/2 h-[34px] w-12 -translate-x-1/2 -translate-y-1/2 object-contain"
+            />
           </div>
           <div className="min-w-0">
             <div className="text-h-20 text-gray-800">Wee</div>
@@ -89,9 +86,13 @@ function AdminSidebar({
       </div>
 
       <div className="flex items-center gap-3 rounded-[8px] px-1 py-2">
-        <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-green-100 text-h-18-semibold text-green-400">
-          김
-        </div>
+        <Image
+          src="/admin-shell/avatar.png"
+          alt=""
+          width={48}
+          height={48}
+          className="size-12 shrink-0 rounded-full"
+        />
         <div className="min-w-0">
           <div className="truncate text-h-18-semibold text-gray-800">
             {demoWorkspace.managerName}
@@ -112,7 +113,6 @@ function SidebarItem({
   section: AdminSection;
   active: boolean;
 }) {
-  const Icon = iconMap[section.icon];
   const badgeClassName =
     section.badgeTone === "ai"
       ? "bg-green-100 text-green-300"
@@ -128,7 +128,7 @@ function SidebarItem({
           : "text-gray-600 hover:bg-gray-50 hover:text-gray-800 active:bg-gray-100"
       }`}
     >
-      <Icon className="size-6 shrink-0" />
+      <SidebarIcon name={section.icon} />
       <span
         className={`min-w-0 flex-1 truncate ${
           active ? "text-h-18-semibold" : "text-h-18-regular"
@@ -147,9 +147,26 @@ function SidebarItem({
   );
 }
 
+function SidebarIcon({ name }: { name: AdminIconName }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="size-5 shrink-0 bg-current"
+      style={{
+        WebkitMaskImage: `url(${shellIconPathMap[name]})`,
+        WebkitMaskRepeat: "no-repeat",
+        WebkitMaskSize: "100% 100%",
+        maskImage: `url(${shellIconPathMap[name]})`,
+        maskRepeat: "no-repeat",
+        maskSize: "100% 100%",
+      }}
+    />
+  );
+}
+
 function AdminHeader({ title }: { title: string }) {
   return (
-    <header className="flex h-[92px] items-center justify-between px-5">
+    <header className="flex h-[92px] items-center justify-between border-b border-gray-200 bg-white px-5">
       <h1 className="text-h-20 text-gray-900">{title}</h1>
       <HeaderNotificationSlot />
     </header>
@@ -202,7 +219,7 @@ function SectionTabs({
               href={tab.href}
               aria-current={active ? "page" : undefined}
               {...{ [slidingTabValueAttribute]: tab.href }}
-              className={`relative z-10 flex h-[34px] items-start border-b-2 text-h-18-semibold transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 ${
+              className={`relative z-10 flex h-[34px] items-start border-b-2 text-h-20 transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 ${
                 active
                   ? "border-transparent text-gray-500 hover:text-gray-800 active:text-gray-900"
                   : "border-transparent text-gray-500 hover:border-gray-200 hover:text-gray-800 active:text-gray-900"
