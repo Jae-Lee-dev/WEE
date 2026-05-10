@@ -32,7 +32,7 @@ function LineTabs<T extends string>({
       >
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute bottom-0 left-0 z-0 h-0.5 rounded-full bg-green-400 transition-[opacity,transform,width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+          className="pointer-events-none absolute bottom-0 left-0 z-0 h-0.5 rounded-full bg-green-400 transition-opacity duration-150 ease-out"
           style={{
             opacity: indicatorStyle ? 1 : 0,
             width: indicatorStyle?.width ?? 0,

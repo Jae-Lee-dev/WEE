@@ -36,7 +36,7 @@ function FilterTabs<T extends string>({
         <span
           aria-hidden="true"
           className={cn(
-            "pointer-events-none absolute left-0 top-1 bottom-1 z-0 rounded-full bg-green-400 shadow-sm transition-[opacity,transform,width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            "pointer-events-none absolute left-0 top-1 bottom-1 z-0 rounded-full bg-green-400 shadow-sm transition-opacity duration-150 ease-out",
             indicatorStyle ? "opacity-100" : "opacity-0",
           )}
           style={{
