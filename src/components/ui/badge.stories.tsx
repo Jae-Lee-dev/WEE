@@ -14,15 +14,11 @@ const meta = {
       control: "inline-radio",
       options: ["M", "L"],
     },
-    interactive: {
-      control: "boolean",
-    },
   },
   args: {
     children: "승인 대기",
     variant: "green",
     size: "M",
-    interactive: false,
   },
 } satisfies Meta<typeof Badge>;
 
@@ -83,19 +79,6 @@ export const Sizes: Story = {
     <div className="flex flex-wrap items-center gap-2">
       <Badge size="M">승인 대기</Badge>
       <Badge size="L">승인 대기</Badge>
-    </div>
-  ),
-};
-
-export const Interactive: Story = {
-  render: () => (
-    <div className="flex flex-wrap items-center gap-2">
-      <Badge interactive variant="green">
-        승인
-      </Badge>
-      <Badge interactive variant="outline" size="L">
-        선택
-      </Badge>
     </div>
   ),
 };

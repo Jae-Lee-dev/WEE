@@ -21,42 +21,8 @@ const badgeVariants = cva(
         M: "px-1.5 py-0.5 text-detail-16-semibold",
         L: "px-2.5 py-1 text-h-18-semibold",
       },
-      interactive: {
-        true: "cursor-pointer transition-[background-color,border-color,color,filter] duration-150 ease-out",
-        false: "",
-      },
     },
     compoundVariants: [
-      {
-        interactive: true,
-        variant: ["default", "green"],
-        className: "hover:bg-green-200 active:bg-green-300 active:text-green-500",
-      },
-      {
-        interactive: true,
-        variant: "orange",
-        className: "hover:bg-orange-100 hover:brightness-95 active:brightness-90",
-      },
-      {
-        interactive: true,
-        variant: "red",
-        className: "hover:bg-red-100 active:bg-red-100",
-      },
-      {
-        interactive: true,
-        variant: "blue",
-        className: "hover:bg-blue-50 hover:brightness-95 active:brightness-90",
-      },
-      {
-        interactive: true,
-        variant: "grey",
-        className: "hover:bg-gray-200 active:bg-gray-200",
-      },
-      {
-        interactive: true,
-        variant: "outline",
-        className: "hover:border-gray-400 hover:bg-gray-50 active:bg-gray-100",
-      },
       {
         size: "M",
         variant: "grey",
@@ -66,7 +32,6 @@ const badgeVariants = cva(
     defaultVariants: {
       variant: "default",
       size: "M",
-      interactive: false,
     },
   }
 );
@@ -75,7 +40,6 @@ function Badge({
   className,
   variant = "default",
   size = "M",
-  interactive = false,
   asChild = false,
   ...props
 }: React.ComponentProps<"span"> &
@@ -87,7 +51,7 @@ function Badge({
       data-slot="badge"
       data-variant={variant}
       data-size={size}
-      className={cn(badgeVariants({ variant, size, interactive }), className)}
+      className={cn(badgeVariants({ variant, size }), className)}
       {...props}
     />
   );
