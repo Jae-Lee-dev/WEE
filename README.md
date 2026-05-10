@@ -14,6 +14,11 @@
 
 ## Getting Started
 
+Recommended runtime:
+
+- Node.js 22 (`.nvmrc`)
+- pnpm 10.28.2 (`packageManager`)
+
 ```bash
 pnpm install
 pnpm dev              # http://localhost:3000
