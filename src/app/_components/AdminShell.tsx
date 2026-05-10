@@ -9,7 +9,6 @@ import {
   IconHome,
   IconMoney,
   IconNote,
-  IconNotice,
   IconPerson,
   IconSetting,
 } from "@/components/icons";
@@ -20,8 +19,10 @@ import {
   type AdminSection,
   type AdminTab,
 } from "@/app/_config/admin-navigation";
+import { HeaderNotificationSlot } from "@/app/_components/HeaderNotificationSlot";
 import { SlidingTabTextMask } from "@/components/ui/sliding-tab-text-mask";
 import { useSlidingTabIndicator } from "@/components/ui/use-sliding-tab-indicator";
+import { demoWorkspace } from "@/app/_data/admin-demo";
 
 type IconComponent = ComponentType<{ className?: string }>;
 
@@ -69,7 +70,7 @@ function AdminSidebar({
           <div className="min-w-0">
             <div className="text-h-20 text-gray-800">Wee</div>
             <div className="truncate text-h-18-regular text-gray-600">
-              Wee 학원
+              {demoWorkspace.name}
             </div>
           </div>
         </Link>
@@ -92,8 +93,12 @@ function AdminSidebar({
           김
         </div>
         <div className="min-w-0">
-          <div className="truncate text-h-18-semibold text-gray-800">김민채</div>
-          <div className="text-body-14-regular text-gray-500">관리자</div>
+          <div className="truncate text-h-18-semibold text-gray-800">
+            {demoWorkspace.managerName}
+          </div>
+          <div className="text-body-14-regular text-gray-500">
+            {demoWorkspace.managerRole}
+          </div>
         </div>
       </div>
     </aside>
@@ -146,13 +151,7 @@ function AdminHeader({ title }: { title: string }) {
   return (
     <header className="flex h-[92px] items-center justify-between px-5">
       <h1 className="text-h-20 text-gray-900">{title}</h1>
-      <button
-        type="button"
-        aria-label="알림"
-        className="flex size-10 items-center justify-center rounded-[8px] text-gray-600 transition-colors duration-150 ease-out hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
-      >
-        <IconNotice hasNotice className="size-6" />
-      </button>
+      <HeaderNotificationSlot />
     </header>
   );
 }

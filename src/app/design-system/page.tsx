@@ -7,6 +7,15 @@ import { Badge as Tag } from "@/components/ui/badge";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { Segment } from "@/components/ui/segment";
 import { FilterTabs } from "@/components/ui/filter-tabs";
+import { DataTable, type DataTableColumn } from "@/app/_components/data-table";
+import {
+  MetricStrip,
+  PageFrame,
+  PageFrameHeader,
+  SectionTitle,
+  ToolbarRow,
+} from "@/app/_components/page-frame";
+import { demoInboxItems, foundationMetrics } from "@/app/_data/admin-demo";
 import {
   IconSearch,
   IconCheck,
@@ -166,6 +175,41 @@ const arrowIcons = [
   { name: "ChevronRight", Cmp: IconChevronRight },
 ];
 
+type DemoInboxItem = (typeof demoInboxItems)[number];
+
+const foundationColumns: DataTableColumn<DemoInboxItem>[] = [
+  {
+    id: "type",
+    header: "유형",
+    cell: (row) => (
+      <Tag
+        variant={row.type.includes("이상") ? "red" : "orange"}
+        size="M"
+      >
+        {row.type}
+      </Tag>
+    ),
+  },
+  { id: "target", header: "대상", cell: (row) => row.target },
+  { id: "location", header: "근무지", cell: (row) => row.location },
+  {
+    id: "description",
+    header: "내용",
+    cell: (row) => row.description,
+    className: "min-w-[280px]",
+  },
+  { id: "date", header: "일시", cell: (row) => row.date },
+  {
+    id: "status",
+    header: "상태",
+    cell: (row) => (
+      <Tag variant="green" size="M">
+        {row.status}
+      </Tag>
+    ),
+  },
+];
+
 export default function Page() {
   const [filterValue, setFilterValue] = useState("active");
   const [filterChipValue, setFilterChipValue] = useState("all");
@@ -180,6 +224,36 @@ export default function Page() {
           docs/wee-design-tokens-v1.0.md · Pretendard · letter-spacing -0.02em
         </p>
       </header>
+
+      <section className="mb-16">
+        <h2 className="mb-2 text-h-20 text-gray-900">
+          Admin Screen Foundation
+        </h2>
+        <p className="mb-6 text-detail-12 text-gray-500">
+          Shared page frame, metric strip, toolbar, and dense table preview
+        </p>
+        <PageFrame className="max-w-full">
+          <PageFrameHeader
+            eyebrow="DSH-01"
+            title="운영 인박스"
+            description="도메인 화면 branch가 재사용할 기본 밀도와 공통 레이아웃입니다."
+          />
+          <MetricStrip metrics={foundationMetrics} className="xl:grid-cols-3" />
+          <ToolbarRow>
+            <FilterChip variant="selected">전체 유형</FilterChip>
+            <SearchField
+              placeholder="검색어를 입력해 주세요"
+              className="w-[416px]"
+            />
+          </ToolbarRow>
+          <SectionTitle title="확인 필요" count="24건" />
+          <DataTable
+            columns={foundationColumns}
+            rows={demoInboxItems}
+            selectedRowId="inbox_schedule_lee"
+          />
+        </PageFrame>
+      </section>
 
       <section className="mb-16">
         <h2 className="mb-6 text-h-20 text-gray-900">Color</h2>

@@ -167,6 +167,286 @@ export const entryRoutes = [
   { label: "운영 기준 설정", href: "/onboarding/setup" },
 ] as const;
 
+export type AdminRouteImplementationStatus =
+  | "figma-backed"
+  | "deferred"
+  | "detail-ready";
+
+export type AdminRouteMeta = {
+  screenId: string;
+  href: string;
+  title: string;
+  figmaBacked: boolean;
+  status: AdminRouteImplementationStatus;
+  authoritativeFrameId?: string;
+  sampleHref?: string;
+  deferredReason?: string;
+};
+
+export const adminRouteRegistry: AdminRouteMeta[] = [
+  {
+    screenId: "DSH-01",
+    href: "/dashboard",
+    title: "운영 인박스",
+    figmaBacked: true,
+    status: "figma-backed",
+    authoritativeFrameId: "1:2",
+  },
+  {
+    screenId: "DSH-02",
+    href: "/dashboard/locations",
+    title: "근무지별 대시보드",
+    figmaBacked: false,
+    status: "deferred",
+    deferredReason: "No dedicated Figma frame found in register.",
+  },
+  {
+    screenId: "DSH-03",
+    href: "/dashboard/workers",
+    title: "근무자별 대시보드",
+    figmaBacked: false,
+    status: "deferred",
+    deferredReason: "No dedicated Figma frame found in register.",
+  },
+  {
+    screenId: "DSH-04",
+    href: "/dashboard/ai-monitoring",
+    title: "AI 이상탐지 ∙ 모니터링",
+    figmaBacked: false,
+    status: "deferred",
+    deferredReason:
+      "Registered dashboard anomaly frames are DSH-01 inbox filter states.",
+  },
+  {
+    screenId: "WKR-01",
+    href: "/workers/applications",
+    title: "소속 신청",
+    figmaBacked: true,
+    status: "figma-backed",
+    authoritativeFrameId: "52:4791",
+  },
+  {
+    screenId: "WKR-02",
+    href: "/workers",
+    title: "조교 목록",
+    figmaBacked: true,
+    status: "figma-backed",
+    authoritativeFrameId: "10:2322",
+  },
+  {
+    screenId: "WKR-03",
+    href: "/workers/[workerId]",
+    title: "조교 상세-기본 정보",
+    figmaBacked: true,
+    status: "detail-ready",
+    authoritativeFrameId: "19:10529",
+    sampleHref: "/workers/worker_kim_seoyeon",
+  },
+  {
+    screenId: "WKR-04",
+    href: "/workers/[workerId]/schedule",
+    title: "조교 상세-시간표",
+    figmaBacked: true,
+    status: "detail-ready",
+    authoritativeFrameId: "52:3183",
+    sampleHref: "/workers/worker_kim_seoyeon/schedule",
+  },
+  {
+    screenId: "WKR-05",
+    href: "/workers/[workerId]/payroll",
+    title: "조교 상세-급여 현황",
+    figmaBacked: true,
+    status: "detail-ready",
+    authoritativeFrameId: "52:4087",
+    sampleHref: "/workers/worker_kim_seoyeon/payroll",
+  },
+  {
+    screenId: "WKR-06",
+    href: "/workers/tags",
+    title: "근무자 태그 관리",
+    figmaBacked: true,
+    status: "figma-backed",
+    authoritativeFrameId: "52:6431",
+  },
+  {
+    screenId: "SCH-01",
+    href: "/schedule",
+    title: "승인 대기",
+    figmaBacked: true,
+    status: "figma-backed",
+    authoritativeFrameId: "57:5653",
+  },
+  {
+    screenId: "SCH-02",
+    href: "/schedule/timeline",
+    title: "전체 시간표 타임라인",
+    figmaBacked: true,
+    status: "figma-backed",
+    authoritativeFrameId: "10:2939",
+  },
+  {
+    screenId: "DUT-01",
+    href: "/schedule/duties",
+    title: "근무 목록",
+    figmaBacked: true,
+    status: "figma-backed",
+    authoritativeFrameId: "57:7431",
+  },
+  {
+    screenId: "DUT-02",
+    href: "/schedule/duties/[dutyId]",
+    title: "근무 상세",
+    figmaBacked: true,
+    status: "detail-ready",
+    authoritativeFrameId: "57:8000",
+    sampleHref: "/schedule/duties/duty_english_c",
+  },
+  {
+    screenId: "DUT-03",
+    href: "/schedule/duty-tags",
+    title: "근무 태그 관리",
+    figmaBacked: true,
+    status: "figma-backed",
+    authoritativeFrameId: "57:9966",
+  },
+  {
+    screenId: "REC-01",
+    href: "/records",
+    title: "근무기록",
+    figmaBacked: true,
+    status: "figma-backed",
+    authoritativeFrameId: "15:4152",
+  },
+  {
+    screenId: "REC-02",
+    href: "/records/anomaly-history",
+    title: "이상감지처리 이력",
+    figmaBacked: true,
+    status: "figma-backed",
+    authoritativeFrameId: "61:8549",
+  },
+  {
+    screenId: "REC-03",
+    href: "/records/corrections",
+    title: "이의신청 이력",
+    figmaBacked: true,
+    status: "figma-backed",
+    authoritativeFrameId: "61:10252",
+  },
+  {
+    screenId: "REC-04",
+    href: "/records/attendance",
+    title: "출퇴근 이력",
+    figmaBacked: true,
+    status: "figma-backed",
+    authoritativeFrameId: "61:10580",
+  },
+  {
+    screenId: "PAY-01",
+    href: "/payroll",
+    title: "급여 산정",
+    figmaBacked: true,
+    status: "figma-backed",
+    authoritativeFrameId: "15:4706",
+  },
+  {
+    screenId: "PAY-02",
+    href: "/payroll/statements",
+    title: "급여 명세",
+    figmaBacked: true,
+    status: "figma-backed",
+    authoritativeFrameId: "54:7269",
+  },
+  {
+    screenId: "HO-01",
+    href: "/handover",
+    title: "문서 편집",
+    figmaBacked: true,
+    status: "figma-backed",
+    authoritativeFrameId: "66:10947",
+  },
+  {
+    screenId: "SET-01",
+    href: "/settings",
+    title: "사업장 일반",
+    figmaBacked: true,
+    status: "figma-backed",
+    authoritativeFrameId: "15:5475",
+  },
+  {
+    screenId: "SET-02",
+    href: "/settings/locations",
+    title: "근무지 관리",
+    figmaBacked: true,
+    status: "figma-backed",
+    authoritativeFrameId: "66:8153",
+  },
+  {
+    screenId: "SET-03",
+    href: "/settings/rules",
+    title: "운영/정산 기준",
+    figmaBacked: true,
+    status: "figma-backed",
+    authoritativeFrameId: "66:9305",
+  },
+  {
+    screenId: "SET-04",
+    href: "/settings/notifications",
+    title: "알림 설정",
+    figmaBacked: true,
+    status: "figma-backed",
+    authoritativeFrameId: "66:9792",
+  },
+  {
+    screenId: "SET-05",
+    href: "/settings/billing",
+    title: "요금제/결제",
+    figmaBacked: true,
+    status: "figma-backed",
+    authoritativeFrameId: "66:10190",
+  },
+  {
+    screenId: "AUTH-01",
+    href: "/login",
+    title: "로그인",
+    figmaBacked: false,
+    status: "deferred",
+    deferredReason: "No entry/auth Figma frame found in register.",
+  },
+  {
+    screenId: "AUTH-02",
+    href: "/signup",
+    title: "회원가입",
+    figmaBacked: false,
+    status: "deferred",
+    deferredReason: "No entry/auth Figma frame found in register.",
+  },
+  {
+    screenId: "AUTH-03",
+    href: "/forgot-password",
+    title: "비밀번호 찾기",
+    figmaBacked: false,
+    status: "deferred",
+    deferredReason: "No entry/auth Figma frame found in register.",
+  },
+  {
+    screenId: "ONB-01",
+    href: "/onboarding/workspace",
+    title: "사업장 생성",
+    figmaBacked: false,
+    status: "deferred",
+    deferredReason: "No entry/onboarding Figma frame found in register.",
+  },
+  {
+    screenId: "ONB-02",
+    href: "/onboarding/setup",
+    title: "초기 설정 가이드",
+    figmaBacked: false,
+    status: "deferred",
+    deferredReason: "No entry/onboarding Figma frame found in register.",
+  },
+];
+
 export const adminScreens: Record<string, AdminScreen> = {
   "/dashboard": {
     href: "/dashboard",
@@ -595,4 +875,10 @@ export function findSectionByPath(pathname: string) {
 
 export function findScreenByHref(href: string) {
   return adminScreens[href];
+}
+
+export function findRouteMetaByHref(href: string) {
+  return adminRouteRegistry.find(
+    (route) => route.href === href || route.sampleHref === href,
+  );
 }

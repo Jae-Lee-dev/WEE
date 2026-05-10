@@ -1,99 +1,67 @@
 import { Badge } from "@/components/ui/badge";
+import { DataTable, type DataTableColumn } from "@/app/_components/data-table";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import type {
-  AdminScreen,
-  AdminScreenMetric,
+  MetricStrip,
+  PageFrame,
+  PageFrameHeader,
+  SectionTitle,
+} from "@/app/_components/page-frame";
+import {
+  findRouteMetaByHref,
+  type AdminScreen,
 } from "@/app/_config/admin-navigation";
 
+type PlaceholderRow = {
+  id: string;
+  cells: string[];
+};
+
 export function AdminRoutePage({ screen }: { screen: AdminScreen }) {
+  const routeMeta = findRouteMetaByHref(screen.href);
+  const rows = screen.tableRows.map((cells, index) => ({
+    id: `${screen.screenId}-${index}`,
+    cells,
+  }));
+  const columns: DataTableColumn<PlaceholderRow>[] = screen.tableColumns.map(
+    (column, index) => ({
+      id: `${screen.screenId}-${column}`,
+      header: column,
+      cell: (row) => row.cells[index],
+    }),
+  );
+
   return (
-    <div className="space-y-7">
-      <header className="flex items-start justify-between gap-6">
-        <div>
-          <div className="mb-2 text-label-12-medium text-gray-400">
-            {screen.screenId}
-          </div>
-          <h2 className="text-h-24 text-gray-900">{screen.title}</h2>
-          <p className="mt-2 max-w-[680px] text-body-16-regular text-gray-500">
-            {screen.description}
-          </p>
-        </div>
-      </header>
+    <PageFrame>
+      <PageFrameHeader
+        eyebrow={screen.screenId}
+        title={screen.title}
+        description={screen.description}
+      />
 
-      <section className="flex flex-wrap gap-4" aria-label="요약 지표">
-        {screen.metrics.map((metric) => (
-          <MetricCard key={metric.label} metric={metric} />
-        ))}
-      </section>
+      <PlaceholderNotice figmaBacked={routeMeta?.figmaBacked ?? false} />
 
-      <section className="overflow-hidden rounded-[10px] border border-gray-200 bg-white">
-        <div className="flex h-[60px] items-center justify-between border-b border-gray-100 px-5">
-          <h3 className="text-h-18-semibold text-gray-900">
-            {screen.tableTitle}
-          </h3>
-          <Badge variant="outline" size="M">
-            {screen.tableRows.length}건
-          </Badge>
-        </div>
-        <div className="overflow-x-auto">
-          <Table className="min-w-[760px]">
-            <TableHeader>
-              <TableRow>
-                {screen.tableColumns.map((column) => (
-                  <TableHead key={column}>
-                    {column}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {screen.tableRows.map((row) => (
-                <TableRow
-                  key={row.join("-")}
-                >
-                  {row.map((cell, index) => (
-                    <TableCell
-                      key={`${cell}-${index}`}
-                    >
-                      {cell}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </section>
-    </div>
+      <MetricStrip metrics={screen.metrics} className="xl:grid-cols-3" />
+
+      <SectionTitle
+        title={screen.tableTitle}
+        count={`${screen.tableRows.length}건`}
+      />
+      <DataTable columns={columns} rows={rows} />
+    </PageFrame>
   );
 }
 
-function MetricCard({ metric }: { metric: AdminScreenMetric }) {
+function PlaceholderNotice({ figmaBacked }: { figmaBacked: boolean }) {
   return (
-    <div className="w-[250px] rounded-[10px] border border-gray-200 bg-white px-5 py-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="truncate text-label-18 text-gray-800">
-          {metric.label}
-        </div>
-        <Badge variant={metric.tone ?? "green"} size="M">
-          {metric.tag}
-        </Badge>
-      </div>
-      <div className="mt-1 flex items-baseline gap-1 text-green-400">
-        <span className="text-[36px] font-semibold leading-[1.25]">
-          {metric.value}
-        </span>
-        {metric.unit ? (
-          <span className="text-h-20 text-green-400">{metric.unit}</span>
-        ) : null}
-      </div>
+    <div className="flex min-h-[44px] items-center justify-between gap-4 rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3">
+      <p className="text-body-14-regular text-gray-600">
+        {figmaBacked
+          ? "Figma-backed 화면입니다. 도메인 branch에서 등록된 frame 기준으로 교체됩니다."
+          : "Figma frame 미확정 deferred placeholder입니다. 사용자 승인 전 구현하지 않습니다."}
+      </p>
+      <Badge variant={figmaBacked ? "green" : "grey"} size="M">
+        {figmaBacked ? "queued" : "deferred"}
+      </Badge>
     </div>
   );
 }
