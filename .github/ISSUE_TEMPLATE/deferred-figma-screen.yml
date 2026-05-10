@@ -1,0 +1,92 @@
+name: Deferred Figma screen request
+description: Request implementation for a deferred screen after Figma frame correction or explicit fallback approval.
+title: "[Figma Screen] "
+labels:
+  - figma
+  - screen
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this only for screens that are currently deferred or need frame-register correction.
+        Do not use this for Firebase, CRUD, server actions, route handlers, or business state transitions.
+  - type: input
+    id: screen-id
+    attributes:
+      label: Screen ID
+      description: "Example: DSH-02, AUTH-01, ONB-01"
+      placeholder: DSH-02
+    validations:
+      required: true
+  - type: input
+    id: route-url
+    attributes:
+      label: Route URL
+      description: The intended admin-web route.
+      placeholder: /dashboard/locations
+    validations:
+      required: true
+  - type: input
+    id: authoritative-frame
+    attributes:
+      label: Authoritative Figma frame ID
+      description: Required for Figma-backed implementation. Leave blank only if requesting an actual-only fallback.
+      placeholder: "12:3456"
+  - type: textarea
+    id: why-authoritative
+    attributes:
+      label: Why this frame is authoritative
+      description: Explain why this frame should replace the current deferred register row.
+      placeholder: This frame contains the dedicated screen, current admin shell, and route-specific content.
+  - type: textarea
+    id: states
+    attributes:
+      label: Required visual states
+      description: List dialogs, sheets, dropdowns, selected states, and their Figma node IDs if any.
+      placeholder: |
+        - default: 12:3456
+        - dropdown-open: 12:3460
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence paths
+      description: Use absolute artifact paths after screenshots are captured.
+      placeholder: |
+        Figma: ../../artifacts/figma/DSH-02/default-1920.png
+        Actual: ../../artifacts/actual/DSH-02/default-desktop-1920.png
+  - type: dropdown
+    id: fallback
+    attributes:
+      label: Is this an actual-only fallback request?
+      options:
+        - "No, Figma-backed frame is available"
+        - "Yes, actual-only fallback needs explicit approval"
+    validations:
+      required: true
+  - type: textarea
+    id: fallback-reason
+    attributes:
+      label: Actual-only fallback reason
+      description: Required only when requesting actual-only work.
+      placeholder: No Figma frame exists, but user explicitly approved implementing a placeholder/static route.
+  - type: checkboxes
+    id: phase-safety
+    attributes:
+      label: Phase-scope safety
+      options:
+        - label: No Firebase imports or setup
+          required: true
+        - label: No fetch
+          required: true
+        - label: No route handlers or server actions
+          required: true
+        - label: No validation schema generation
+          required: true
+        - label: No CRUD/business state transition logic
+          required: true
+        - label: No optimistic UI
+          required: true
+        - label: No local array add/edit/delete mutation
+          required: true
+        - label: No submit-driven approval/rejection/confirmation/save/delete behavior
+          required: true
