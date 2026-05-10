@@ -27,8 +27,10 @@ export function FilterTabs<T extends string>({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(opt.value)}
-            className={`text-label-18 rounded-full px-2.5 py-1 transition-colors ${
-              active ? "bg-green-400 text-white" : "text-gray-500"
+            className={`text-label-18 rounded-full px-2.5 py-1 transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 focus-visible:ring-offset-1 ${
+              active
+                ? "bg-green-400 text-white hover:bg-green-500 active:bg-green-500"
+                : "text-gray-500 hover:bg-gray-50 hover:text-gray-700 active:bg-gray-100"
             }`}
           >
             {opt.label}

@@ -6,6 +6,7 @@ type TagSize = "M" | "L";
 type TagProps = {
   variant?: TagVariant;
   size?: TagSize;
+  interactive?: boolean;
   className?: string;
   children: ReactNode;
 };
@@ -45,15 +46,29 @@ const sizeTextStyles: Record<TagSize, Record<TagVariant, string>> = {
   },
 };
 
+const interactiveStyles: Record<TagVariant, string> = {
+  green: "hover:bg-green-200 active:bg-green-200",
+  orange: "hover:brightness-95 active:brightness-90",
+  red: "hover:bg-red-100 active:bg-red-100",
+  blue: "hover:brightness-95 active:brightness-90",
+  grey: "hover:bg-gray-200 active:bg-gray-200",
+  outline: "hover:border-gray-400 hover:bg-gray-50 active:bg-gray-100",
+};
+
 export function Tag({
   variant = "green",
   size = "M",
+  interactive = false,
   className = "",
   children,
 }: TagProps) {
   return (
     <span
-      className={`inline-flex items-center justify-center ${sizeBoxStyles[size]} ${colorStyles[variant]} ${sizeTextStyles[size][variant]} ${className}`}
+      className={`inline-flex items-center justify-center ${sizeBoxStyles[size]} ${colorStyles[variant]} ${sizeTextStyles[size][variant]} ${
+        interactive
+          ? `cursor-pointer transition-[background-color,border-color,filter] duration-150 ease-out ${interactiveStyles[variant]}`
+          : ""
+      } ${className}`}
     >
       {children}
     </span>

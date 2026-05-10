@@ -27,8 +27,10 @@ export function Segment<T extends string>({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(opt.value)}
-            className={`text-h-18-semibold flex-1 rounded-[10px] px-4 py-3 transition-colors ${
-              active ? "bg-green-400 text-white" : "bg-white text-gray-700"
+            className={`text-h-18-semibold flex-1 rounded-[10px] px-4 py-3 transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 focus-visible:ring-offset-1 ${
+              active
+                ? "bg-green-400 text-white hover:bg-green-500 active:bg-green-500"
+                : "bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100"
             }`}
           >
             {opt.label}
