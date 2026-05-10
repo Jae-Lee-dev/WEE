@@ -78,30 +78,6 @@ export const FigmaTagMatrix: Story = {
   },
 };
 
-export const FilterTags: Story = {
-  render: () => (
-    <div className="flex flex-wrap items-center gap-2">
-      <Badge
-        interactive
-        size="L"
-        className="rounded-full bg-green-400 text-white hover:bg-green-450"
-      >
-        선택됨
-      </Badge>
-      <Badge interactive variant="outline" size="L" className="rounded-full">
-        미선택
-      </Badge>
-      <Badge
-        interactive
-        size="L"
-        className="rounded-full border-red-500 bg-white text-red-500 hover:bg-red-50"
-      >
-        확인 필요
-      </Badge>
-    </div>
-  ),
-};
-
 export const Sizes: Story = {
   render: () => (
     <div className="flex flex-wrap items-center gap-2">

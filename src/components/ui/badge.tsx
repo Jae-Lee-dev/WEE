@@ -22,7 +22,7 @@ const badgeVariants = cva(
         L: "px-2.5 py-1 text-h-18-semibold",
       },
       interactive: {
-        true: "cursor-pointer transition-[background-color,border-color,filter] duration-150 ease-out",
+        true: "cursor-pointer transition-[background-color,border-color,color,filter] duration-150 ease-out",
         false: "",
       },
     },
@@ -30,12 +30,12 @@ const badgeVariants = cva(
       {
         interactive: true,
         variant: ["default", "green"],
-        className: "hover:bg-green-200 active:bg-green-200",
+        className: "hover:bg-green-200 active:bg-green-300 active:text-green-500",
       },
       {
         interactive: true,
         variant: "orange",
-        className: "hover:brightness-95 active:brightness-90",
+        className: "hover:bg-orange-100 hover:brightness-95 active:brightness-90",
       },
       {
         interactive: true,
@@ -45,7 +45,7 @@ const badgeVariants = cva(
       {
         interactive: true,
         variant: "blue",
-        className: "hover:brightness-95 active:brightness-90",
+        className: "hover:bg-blue-50 hover:brightness-95 active:brightness-90",
       },
       {
         interactive: true,

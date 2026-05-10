@@ -38,7 +38,7 @@ export function AdminRoutePage({ screen }: { screen: AdminScreen }) {
           <h3 className="text-h-18-semibold text-gray-900">
             {screen.tableTitle}
           </h3>
-          <Badge variant="outline" size="M" interactive>
+          <Badge variant="outline" size="M">
             {screen.tableRows.length}건
           </Badge>
         </div>

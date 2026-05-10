@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SearchField } from "@/components/ui/search-field";
 import { Badge as Tag } from "@/components/ui/badge";
+import { FilterChip } from "@/components/ui/filter-chip";
 import { Segment } from "@/components/ui/segment";
 import { FilterTabs } from "@/components/ui/filter-tabs";
 import {
@@ -47,6 +48,7 @@ const colorGroups = [
       { token: "green-200", className: "bg-green-200", hex: "#C6F5D9" },
       { token: "green-300", className: "bg-green-300", hex: "#83DAA6" },
       { token: "green-400", className: "bg-green-400", hex: "#30C179" },
+      { token: "green-450", className: "bg-green-450", hex: "#23A866" },
       { token: "green-500", className: "bg-green-500", hex: "#178D52" },
     ],
   },
@@ -136,6 +138,11 @@ const filterOptions = [
   { value: "all", label: "전체 20" },
   { value: "inactive", label: "비활성 3" },
 ];
+const filterChipOptions = [
+  { value: "all", label: "전체" },
+  { value: "active", label: "활성" },
+  { value: "inactive", label: "비활성" },
+];
 const segmentOptions = [
   { value: "hourly", label: "시급" },
   { value: "monthly", label: "월급" },
@@ -162,6 +169,7 @@ const arrowIcons = [
 
 export default function Page() {
   const [filterValue, setFilterValue] = useState("active");
+  const [filterChipValue, setFilterChipValue] = useState("all");
   const [segmentValue, setSegmentValue] = useState("hourly");
   const [searchValue, setSearchValue] = useState("");
 
@@ -311,6 +319,45 @@ export default function Page() {
               ))}
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="mb-16">
+        <h2 className="mb-2 text-h-20 text-gray-900">FilterChip</h2>
+        <p className="mb-6 text-detail-12 text-gray-500">
+          Figma: tag_L state (15:4656) · selectable single filter chip
+        </p>
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterChip variant="selected" aria-pressed>
+              전체
+            </FilterChip>
+            <FilterChip variant="neutral" aria-pressed={false}>
+              전체
+            </FilterChip>
+            <FilterChip variant="danger" aria-pressed={false}>
+              전체
+            </FilterChip>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {filterChipOptions.map((option) => {
+              const isSelected = filterChipValue === option.value;
+
+              return (
+                <FilterChip
+                  key={option.value}
+                  variant={isSelected ? "selected" : "neutral"}
+                  aria-pressed={isSelected}
+                  onClick={() => setFilterChipValue(option.value)}
+                >
+                  {option.label}
+                </FilterChip>
+              );
+            })}
+          </div>
+          <p className="text-detail-12 text-gray-500">
+            value: {filterChipValue}
+          </p>
         </div>
       </section>
 
