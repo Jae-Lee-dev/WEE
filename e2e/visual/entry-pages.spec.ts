@@ -647,7 +647,9 @@ test("ONB-01 completes Starter flow without billing", async ({ page }) => {
   await page.getByRole("button", { name: "소속 코드 발급" }).click();
 
   await expect(page.getByTestId("workspace-onboarding-step-code")).toBeVisible();
-  await expect(page.getByText("건너뜀")).toBeVisible();
+  await expect(
+    page.getByTestId("workspace-creation-progress").getByText("건너뜀"),
+  ).toBeVisible();
   await expect(page.getByText(/^WEE-\d{6}$/).first()).toBeVisible();
   await expect(
     page.getByRole("link", { name: "관리자 설정으로 이동" }),
@@ -718,6 +720,9 @@ test("ONB-02 sends setup tasks to admin interfaces", async ({ page }) => {
   await expect(
     page.getByRole("link", { name: "근무 개설 열기" }),
   ).toHaveAttribute("href", "/schedule/duties");
+  await expect(page.getByRole("link", { name: "대시보드로 이동" })).toHaveCount(
+    0,
+  );
 });
 
 test("workspace-missing users are forced to workspace creation from admin routes", async ({

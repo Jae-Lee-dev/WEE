@@ -78,6 +78,8 @@ type AdminSetupActionCardProps = {
   description: string;
   href: string;
   actionLabel: string;
+  badgeLabel: string;
+  highlighted?: boolean;
 };
 
 type WorkspaceOnboardingStepId =
@@ -106,6 +108,12 @@ type WorkspaceFormField = keyof WorkspaceFormState;
 type BillingFormField = keyof BillingFormState;
 type WorkspaceFormErrors = Partial<Record<WorkspaceFormField, string>>;
 type BillingFormErrors = Partial<Record<BillingFormField, string>>;
+type WorkspaceStepStatusTone = "active" | "complete" | "pending" | "skipped";
+type WorkspaceStepStatus = {
+  badgeVariant: "blue" | "green" | "grey" | "outline";
+  label: string;
+  tone: WorkspaceStepStatusTone;
+};
 
 const onboardingProgressSteps = [
   {
@@ -470,11 +478,12 @@ export function WorkspaceOnboardingScreen() {
         <WorkspaceCreationProgress
           activeStepIndex={activeStepIndex}
           selectedPlan={selectedPlan}
+          workspaceCode={workspaceCode}
         />
 
-        <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,720px)_minmax(280px,1fr)] xl:items-start">
           <section
-            className="min-h-[480px] rounded-[8px] border border-gray-200 bg-white p-5"
+            className="rounded-[8px] border border-gray-200 bg-white p-5 sm:p-6"
             data-testid={`workspace-onboarding-step-${activeStep.id}`}
           >
             {activeStep.id === "workspace-info" ? (
@@ -560,7 +569,7 @@ function WorkspaceInfoStep({
   showErrors: boolean;
 }) {
   return (
-    <div className="flex h-full flex-col">
+    <div>
       <SectionHeading
         icon={Building2}
         title="사업장 정보 입력"
@@ -606,7 +615,7 @@ function WorkspaceInfoStep({
         />
       </div>
 
-      <div className="mt-auto flex justify-end pt-8">
+      <div className="mt-7 flex justify-end">
         <Button
           type="button"
           onClick={onContinue}
@@ -636,7 +645,7 @@ function PlanSelectionStep({
   const selectedPlanLabel = getPlanLabel(selectedPlan);
 
   return (
-    <div className="flex h-full flex-col">
+    <div>
       <SectionHeading
         icon={CreditCard}
         title="요금제 선택"
@@ -657,13 +666,18 @@ function PlanSelectionStep({
         ))}
       </div>
 
-      <div className="mt-5 rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3 text-body-14-regular tracking-normal text-gray-600">
-        현재 선택한 요금제는{" "}
-        <span className="font-medium text-gray-900">{selectedPlanLabel}</span>
-        입니다.
+      <div className="mt-5 flex items-center gap-2 text-body-14-regular tracking-normal text-gray-600">
+        <CircleCheck
+          className="size-4 shrink-0 text-green-400"
+          strokeWidth={2.2}
+        />
+        <span>
+          선택한 요금제{" "}
+          <span className="font-medium text-gray-900">{selectedPlanLabel}</span>
+        </span>
       </div>
 
-      <div className="mt-auto flex flex-wrap justify-between gap-3 pt-8">
+      <div className="mt-7 flex flex-wrap justify-between gap-3">
         <Button
           type="button"
           variant="secondary"
@@ -714,7 +728,7 @@ function BillingStep({
   showErrors: boolean;
 }) {
   return (
-    <div className="flex h-full flex-col">
+    <div>
       <SectionHeading
         icon={CreditCard}
         title="결제 정보 등록"
@@ -769,7 +783,7 @@ function BillingStep({
         Starter로 시작할 수 있습니다.
       </div>
 
-      <div className="mt-auto flex flex-wrap justify-between gap-3 pt-8">
+      <div className="mt-7 flex flex-wrap justify-between gap-3">
         <Button
           type="button"
           variant="secondary"
@@ -821,7 +835,7 @@ function WorkspaceCodeStep({
   workspaceName: string;
 }) {
   return (
-    <div className="flex h-full flex-col">
+    <div>
       <SectionHeading
         icon={ShieldCheck}
         title="소속 코드 발급 완료"
@@ -863,7 +877,7 @@ function WorkspaceCodeStep({
         </Button>
       </div>
 
-      <div className="mt-auto flex justify-start pt-8">
+      <div className="mt-7 flex justify-start">
         <Button
           type="button"
           variant="ghost"
@@ -881,59 +895,68 @@ function WorkspaceCodeStep({
 function WorkspaceCreationProgress({
   activeStepIndex,
   selectedPlan,
+  workspaceCode,
 }: {
   activeStepIndex: number;
   selectedPlan: WorkspacePlanId;
+  workspaceCode: string;
 }) {
   return (
     <nav
       aria-label="소속 생성 세부 단계"
-      className="grid gap-3 md:grid-cols-4"
+      className="rounded-[8px] border border-gray-200 bg-white px-3 py-3"
       data-testid="workspace-creation-progress"
     >
-      {workspaceCreationSteps.map((step, index) => {
-        const active = activeStepIndex === index;
-        const billingSkipped =
-          step.id === "billing" &&
-          selectedPlan === "starter" &&
-          activeStepIndex === 3;
-        const complete = index < activeStepIndex && !billingSkipped;
-        const reached = active || complete || billingSkipped;
+      <ol className="grid gap-2 md:grid-cols-4">
+        {workspaceCreationSteps.map((step, index) => {
+          const status = getWorkspaceStepStatus({
+            activeStepIndex,
+            index,
+            selectedPlan,
+            stepId: step.id,
+            workspaceCode,
+          });
+          const reached = status.tone !== "pending";
 
-        return (
-          <div
-            key={step.id}
-            aria-current={active ? "step" : undefined}
-            className={cn(
-              "min-h-[116px] rounded-[8px] border bg-white p-4",
-              reached ? "border-green-200" : "border-gray-200",
-            )}
-          >
-            <div className="flex items-center justify-between gap-3">
+          return (
+            <li
+              key={step.id}
+              aria-current={status.tone === "active" ? "step" : undefined}
+              className={cn(
+                "flex min-w-0 items-center gap-3 rounded-[6px] px-2 py-2",
+                status.tone === "active"
+                  ? "bg-green-50"
+                  : reached
+                    ? "bg-white"
+                    : "bg-gray-50",
+              )}
+            >
               <span
                 className={cn(
                   "flex size-7 shrink-0 items-center justify-center rounded-full text-label-12-medium tracking-normal",
-                  reached ? "bg-green-400 text-white" : "bg-gray-100 text-gray-500",
+                  reached ? "bg-green-400 text-white" : "bg-white text-gray-500",
                 )}
               >
-                {complete ? <Check className="size-4" strokeWidth={2.4} /> : index + 1}
+                {status.tone === "complete" || status.tone === "skipped" ? (
+                  <Check className="size-4" strokeWidth={2.4} />
+                ) : (
+                  index + 1
+                )}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-label-14-medium tracking-normal text-gray-900">
+                {step.title}
               </span>
               <Badge
-                variant={active ? "green" : billingSkipped ? "grey" : complete ? "blue" : "outline"}
+                variant={status.badgeVariant}
                 size="M"
+                className="text-label-12-medium"
               >
-                {active ? "진행중" : billingSkipped ? "건너뜀" : complete ? "완료" : "대기"}
+                {status.label}
               </Badge>
-            </div>
-            <div className="mt-3 text-label-14-medium tracking-normal text-gray-900">
-              {step.title}
-            </div>
-            <div className="mt-1 text-label-12-regular tracking-normal text-gray-500">
-              {step.description}
-            </div>
-          </div>
-        );
-      })}
+            </li>
+          );
+        })}
+      </ol>
     </nav>
   );
 }
@@ -952,51 +975,136 @@ function WorkspaceCreationSummary({
   workspaceForm: WorkspaceFormState;
 }) {
   const planLabel = getPlanLabel(planId);
-  const billingStatus =
-    planId === "starter" ? "불필요" : billingComplete ? "등록 완료" : "등록 전";
   const status = activeStepIndex === 3 ? "발급 완료" : "진행 중";
+  const activeStep = workspaceCreationSteps[activeStepIndex];
+  const nextStep = workspaceCreationSteps[activeStepIndex + 1];
 
   return (
     <aside className="h-fit rounded-[8px] border border-gray-200 bg-white p-5">
       <div className="flex items-center justify-between gap-3">
         <div className="text-h-16-semibold tracking-normal text-gray-900">
-          생성 요약
+          진행 상태
         </div>
         <Badge variant={activeStepIndex === 3 ? "green" : "grey"} size="M">
           {status}
         </Badge>
       </div>
 
-      <dl className="mt-5 space-y-3 text-body-14-regular tracking-normal">
-        <InfoPair
-          label="소속 이름"
-          value={workspaceForm.workspaceName.trim() || "입력 전"}
-        />
-        <InfoPair
-          label="사업자등록번호"
-          value={
-            workspaceForm.businessNumber
-              ? formatBusinessNumber(workspaceForm.businessNumber)
-              : "입력 전"
-          }
-        />
-        <InfoPair
-          label="대표자"
-          value={workspaceForm.ownerName.trim() || "입력 전"}
-        />
-        <InfoPair label="요금제" value={planLabel} />
-        <InfoPair label="결제 정보" value={billingStatus} />
-      </dl>
+      <div className="mt-5 space-y-3">
+        {workspaceCreationSteps.map((step, index) => (
+          <WorkspaceStatusRow
+            key={step.id}
+            description={step.description}
+            status={getWorkspaceStepStatus({
+              activeStepIndex,
+              billingComplete,
+              index,
+              selectedPlan: planId,
+              stepId: step.id,
+              workspaceCode,
+            })}
+            title={step.title}
+          />
+        ))}
+      </div>
 
-      <div className="mt-5 border-t border-gray-200 pt-5">
-        <div className="text-label-12-medium tracking-normal text-gray-500">
-          조교 소속 신청 코드
-        </div>
-        <div className="mt-2 text-[28px] font-semibold leading-none tracking-normal text-green-500">
-          {workspaceCode || "발급 전"}
-        </div>
+      <div className="mt-5 rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-4">
+        {activeStepIndex === 0 ? (
+          <>
+            <div className="text-label-12-medium tracking-normal text-gray-500">
+              다음 단계
+            </div>
+            <p className="mt-1 text-body-14-medium tracking-normal text-gray-900">
+              {nextStep?.title ?? activeStep.title}
+            </p>
+            <p className="mt-1 text-body-14-regular tracking-normal text-gray-500">
+              사업장 정보를 확인한 뒤 요금제를 선택합니다.
+            </p>
+          </>
+        ) : (
+          <dl className="space-y-3 text-body-14-regular tracking-normal">
+            <SummaryInfoPair
+              label="소속 이름"
+              value={workspaceForm.workspaceName.trim() || "-"}
+            />
+            <SummaryInfoPair label="요금제" value={planLabel} />
+            {workspaceCode ? (
+              <SummaryInfoPair label="신청 코드" value={workspaceCode} highlight />
+            ) : null}
+          </dl>
+        )}
       </div>
     </aside>
+  );
+}
+
+function WorkspaceStatusRow({
+  description,
+  status,
+  title,
+}: {
+  description: string;
+  status: WorkspaceStepStatus;
+  title: string;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <span
+        className={cn(
+          "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border",
+          status.tone === "pending"
+            ? "border-gray-200 bg-white text-gray-400"
+            : "border-green-200 bg-green-100 text-green-400",
+        )}
+      >
+        {status.tone === "pending" || status.tone === "active" ? (
+          <span className="size-2 rounded-full bg-current" />
+        ) : (
+          <Check className="size-3.5" strokeWidth={2.4} />
+        )}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-3">
+          <div className="text-label-14-medium tracking-normal text-gray-900">
+            {title}
+          </div>
+          <Badge
+            variant={status.badgeVariant}
+            size="M"
+            className="text-label-12-medium"
+          >
+            {status.label}
+          </Badge>
+        </div>
+        <p className="mt-1 text-label-12-regular tracking-normal text-gray-500">
+          {description}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function SummaryInfoPair({
+  highlight = false,
+  label,
+  value,
+}: {
+  highlight?: boolean;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <dt className="text-gray-500">{label}</dt>
+      <dd
+        className={cn(
+          "font-medium",
+          highlight ? "text-green-500" : "text-gray-800",
+        )}
+      >
+        {value}
+      </dd>
+    </div>
   );
 }
 
@@ -1127,6 +1235,49 @@ function getPlanLabel(planId: WorkspacePlanId) {
   return planId === "starter" ? "Starter" : "Standard";
 }
 
+function getWorkspaceStepStatus({
+  activeStepIndex,
+  billingComplete = false,
+  index,
+  selectedPlan,
+  stepId,
+  workspaceCode,
+}: {
+  activeStepIndex: number;
+  billingComplete?: boolean;
+  index: number;
+  selectedPlan: WorkspacePlanId;
+  stepId: WorkspaceOnboardingStepId;
+  workspaceCode: string;
+}): WorkspaceStepStatus {
+  const billingSkipped =
+    stepId === "billing" &&
+    selectedPlan === "starter" &&
+    activeStepIndex === 3;
+
+  if (billingSkipped) {
+    return { badgeVariant: "grey", label: "건너뜀", tone: "skipped" };
+  }
+
+  if (stepId === "code" && workspaceCode) {
+    return { badgeVariant: "green", label: "발급 완료", tone: "complete" };
+  }
+
+  if (stepId === "billing" && billingComplete) {
+    return { badgeVariant: "blue", label: "등록 완료", tone: "complete" };
+  }
+
+  if (activeStepIndex === index) {
+    return { badgeVariant: "green", label: "진행중", tone: "active" };
+  }
+
+  if (index < activeStepIndex) {
+    return { badgeVariant: "blue", label: "완료", tone: "complete" };
+  }
+
+  return { badgeVariant: "outline", label: "대기", tone: "pending" };
+}
+
 function getWorkspaceCreationErrorMessage(error: unknown) {
   return error instanceof Error
     ? error.message
@@ -1149,19 +1300,51 @@ export function SetupGuideScreen() {
   return (
     <EntryShell
       title="관리자 설정으로 이어가기"
-      description="근무지와 첫 근무는 실제 운영 데이터가 쌓이는 관리자 화면에서 설정합니다."
+      description="근무지와 첫 근무를 등록해야 대시보드로 이동합니다."
       activeStepIndex={1}
     >
       <div className="w-full" data-testid="setup-guide-screen">
-        <section className="rounded-[8px] border border-gray-200 bg-white p-5">
+        <section className="rounded-[8px] border border-gray-200 bg-white p-5 sm:p-6">
           <SectionHeading
             icon={ShieldCheck}
             title="초기 운영 설정"
-            description="소속 생성 후에는 관리자 인터페이스에서 근무지와 근무를 바로 관리합니다."
+            description="운영을 시작하기 전에 근무지와 첫 근무를 차례대로 등록합니다."
           />
+
+          <div className="mt-6 grid gap-3 md:grid-cols-3">
+            {["근무지 등록", "첫 근무 개설", "대시보드 진입"].map(
+              (item, index) => (
+                <div
+                  key={item}
+                  className={cn(
+                    "flex items-center gap-3 rounded-[8px] border px-4 py-3",
+                    index === 0
+                      ? "border-green-200 bg-green-50"
+                      : "border-gray-200 bg-gray-50",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex size-7 shrink-0 items-center justify-center rounded-full text-label-12-medium tracking-normal",
+                      index === 0
+                        ? "bg-green-400 text-white"
+                        : "bg-white text-gray-500",
+                    )}
+                  >
+                    {index + 1}
+                  </span>
+                  <span className="text-label-14-medium tracking-normal text-gray-900">
+                    {item}
+                  </span>
+                </div>
+              ),
+            )}
+          </div>
 
           <div className="mt-5 grid gap-4 lg:grid-cols-2">
             <AdminSetupActionCard
+              badgeLabel="먼저 진행"
+              highlighted
               icon={MapPin}
               title="근무지 관리"
               description="주소와 출퇴근 허용 반경을 등록합니다. 반경은 숫자로 입력하고 m 단위가 붙습니다."
@@ -1169,6 +1352,7 @@ export function SetupGuideScreen() {
               actionLabel="근무지 관리 열기"
             />
             <AdminSetupActionCard
+              badgeLabel="다음 단계"
               icon={Clock3}
               title="근무 목록"
               description="요일, 시간, 시급 기준으로 조교가 배정될 첫 근무를 개설합니다."
@@ -1176,26 +1360,11 @@ export function SetupGuideScreen() {
               actionLabel="근무 개설 열기"
             />
           </div>
-        </section>
 
-        <div className="mt-6 flex flex-wrap justify-end gap-3">
-          <Button
-            asChild
-            variant="secondary"
-            className="h-[50px] rounded-[8px] px-7 text-h-18-semibold tracking-normal"
-          >
-            <Link href="/dashboard">대시보드로 이동</Link>
-          </Button>
-          <Button
-            asChild
-            className="h-[50px] rounded-[8px] px-7 text-h-18-semibold tracking-normal"
-          >
-            <Link href="/settings/locations">
-              근무지부터 설정
-              <ArrowRight className="size-5" strokeWidth={2.2} />
-            </Link>
-          </Button>
-        </div>
+          <div className="mt-5 rounded-[8px] border border-blue-50 bg-blue-50 px-4 py-3 text-body-14-regular tracking-normal text-gray-600">
+            두 설정을 마치면 Wee 대시보드에서 운영 현황을 볼 수 있습니다.
+          </div>
+        </section>
       </div>
     </EntryShell>
   );
@@ -1272,10 +1441,10 @@ function OnboardingProgress({ activeIndex }: { activeIndex: number }) {
   return (
     <nav
       aria-label="온보딩 진행 단계"
-      className="mt-7"
+      className="mt-6"
       data-testid="onboarding-progress"
     >
-      <ol className="grid gap-3 sm:grid-cols-2">
+      <ol className="grid gap-2 sm:grid-cols-2">
         {onboardingProgressSteps.map((step, index) => {
           const active = index === activeIndex;
           const reached = index <= activeIndex;
@@ -1285,32 +1454,32 @@ function OnboardingProgress({ activeIndex }: { activeIndex: number }) {
               key={step.title}
               aria-current={active ? "step" : undefined}
               className={cn(
-                "min-h-[94px] rounded-[10px] border bg-white p-4 shadow-[0_12px_32px_rgba(17,24,39,0.04)]",
-                reached ? "border-green-200" : "border-gray-200",
+                "flex items-center gap-3 rounded-[8px] border bg-white px-4 py-3",
+                active
+                  ? "border-green-200 bg-green-50"
+                  : reached
+                    ? "border-green-200"
+                    : "border-gray-200",
               )}
             >
               <span
                 className={cn(
-                  "block h-1.5 rounded-full",
-                  reached ? "bg-green-400" : "bg-gray-200",
+                  "flex size-8 shrink-0 items-center justify-center rounded-full text-label-12-medium tracking-normal",
+                  reached ? "bg-green-400 text-white" : "bg-gray-100 text-gray-500",
                 )}
-              />
-              <span className="mt-3 flex items-start gap-3">
-                <span
-                  className={cn(
-                    "flex size-7 shrink-0 items-center justify-center rounded-full text-label-12-medium tracking-normal",
-                    reached ? "bg-green-400 text-white" : "bg-gray-100 text-gray-500",
-                  )}
-                >
-                  {index + 1}
+              >
+                {activeIndex > index ? (
+                  <Check className="size-4" strokeWidth={2.4} />
+                ) : (
+                  index + 1
+                )}
+              </span>
+              <span className="min-w-0">
+                <span className="block text-label-14-medium tracking-normal text-gray-900">
+                  {step.title}
                 </span>
-                <span className="min-w-0">
-                  <span className="block text-label-14-medium tracking-normal text-gray-900">
-                    {step.title}
-                  </span>
-                  <span className="mt-1 block text-label-12-regular tracking-normal text-gray-500">
-                    {step.description}
-                  </span>
+                <span className="mt-0.5 block text-label-12-regular tracking-normal text-gray-500">
+                  {step.description}
                 </span>
               </span>
             </li>
@@ -1368,6 +1537,8 @@ function AuthLogo() {
 }
 
 function AdminSetupActionCard({
+  badgeLabel,
+  highlighted = false,
   icon: Icon,
   title,
   description,
@@ -1375,7 +1546,28 @@ function AdminSetupActionCard({
   actionLabel,
 }: AdminSetupActionCardProps) {
   return (
-    <article className="rounded-[8px] border border-gray-200 bg-gray-50 p-5">
+    <article
+      className={cn(
+        "rounded-[8px] border p-5",
+        highlighted
+          ? "border-green-200 bg-green-50"
+          : "border-gray-200 bg-gray-50",
+      )}
+    >
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <Badge
+          variant={highlighted ? "green" : "grey"}
+          size="M"
+          className="text-label-12-medium"
+        >
+          {badgeLabel}
+        </Badge>
+        {highlighted ? (
+          <span className="text-label-12-medium tracking-normal text-green-500">
+            필수
+          </span>
+        ) : null}
+      </div>
       <div className="flex items-start gap-3">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-[8px] bg-white text-green-400">
           <Icon className="size-5" />
@@ -1392,7 +1584,7 @@ function AdminSetupActionCard({
 
       <Button
         asChild
-        variant="secondary"
+        variant={highlighted ? "primary" : "secondary"}
         className="mt-5 h-[46px] w-full justify-between rounded-[8px] px-4 text-h-16-semibold tracking-normal"
       >
         <Link href={href}>
@@ -1442,15 +1634,6 @@ function SectionHeading({ icon: Icon, title, description }: SectionHeadingProps)
           </p>
         ) : null}
       </div>
-    </div>
-  );
-}
-
-function InfoPair({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <dt className="text-gray-500">{label}</dt>
-      <dd className="font-medium text-gray-800">{value}</dd>
     </div>
   );
 }
