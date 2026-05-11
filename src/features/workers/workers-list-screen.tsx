@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, type CSSProperties, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -196,32 +197,58 @@ function WorkerListTable({
 
       <div>
         {rows.map((row) => (
-          <div
-            key={row.id}
-            className={cn(
-              "grid min-h-[46px] grid-cols-[15%_24%_19%_24%_1fr] items-center border-b border-gray-100 px-5 text-h-18-regular text-gray-900 last:border-b-0",
-              status === "inactive" && "min-h-[73px]",
-            )}
-          >
-            <div>{row.name}</div>
-            <div>{row.registeredAt}</div>
-            <div>
-              <WorkerTagBadge tag={row.tag} />
-            </div>
-            <div>{row.pay}</div>
-            <div className="flex flex-col items-start gap-1">
-              <WorkerStatusBadge status={row.status} />
-              {row.statusDate ? (
-                <span className="text-label-14-regular text-gray-500">
-                  {row.statusDate}
-                </span>
-              ) : null}
-            </div>
-          </div>
+          <WorkerListRowItem key={row.id} row={row} status={status} />
         ))}
       </div>
     </div>
   );
+}
+
+function WorkerListRowItem({
+  row,
+  status,
+}: {
+  row: WorkerListRow;
+  status: WorkerListStatus;
+}) {
+  const className = cn(
+    "grid min-h-[46px] grid-cols-[15%_24%_19%_24%_1fr] items-center border-b border-gray-100 px-5 text-h-18-regular text-gray-900 last:border-b-0",
+    status === "inactive" && "min-h-[73px]",
+    row.detailHref &&
+      "transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200",
+  );
+  const content = (
+    <>
+      <div>{row.name}</div>
+      <div>{row.registeredAt}</div>
+      <div>
+        <WorkerTagBadge tag={row.tag} />
+      </div>
+      <div>{row.pay}</div>
+      <div className="flex flex-col items-start gap-1">
+        <WorkerStatusBadge status={row.status} />
+        {row.statusDate ? (
+          <span className="text-label-14-regular text-gray-500">
+            {row.statusDate}
+          </span>
+        ) : null}
+      </div>
+    </>
+  );
+
+  if (row.detailHref) {
+    return (
+      <Link
+        href={row.detailHref}
+        aria-label={`${row.name} 조교 상세 보기`}
+        className={className}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return <div className={className}>{content}</div>;
 }
 
 function WorkerTagBadge({ tag }: { tag: WorkerTag }) {

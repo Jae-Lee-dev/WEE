@@ -73,3 +73,13 @@ test(`WKR-02 filtering ${desktop}`, async ({ page }) => {
     viewport: desktop,
   });
 });
+
+test("WKR-02 opens worker detail from linked row", async ({ page }) => {
+  await prepareVisualPage({ page, path: "/workers", viewport: desktop });
+  await page.getByRole("link", { name: "김서연 조교 상세 보기" }).click();
+
+  await expect(page).toHaveURL(/\/workers\/worker_kim_seoyeon$/);
+  await expect(
+    page.getByRole("heading", { name: "인적사항 · 계좌" }),
+  ).toBeVisible();
+});

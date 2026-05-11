@@ -14,6 +14,7 @@ export type WorkerListRow = {
   tag: WorkerTag;
   pay: string;
   status: "활성" | "비활성";
+  detailHref?: string;
   statusDate?: string;
 };
 
@@ -34,7 +35,14 @@ export const workerListStatusFilters = [
 ] as const satisfies readonly { value: WorkerListStatus; label: string }[];
 
 export const workerListActiveRows = [
-  row("worker-kim-seoyeon", "김서연", "2025.07.05", workerTagOptions[0], "시급 ₩10000"),
+  row(
+    "worker_kim_seoyeon",
+    "김서연",
+    "2025.07.05",
+    workerTagOptions[0],
+    "시급 ₩10000",
+    "/workers/worker_kim_seoyeon",
+  ),
   row("worker-park-junghoon", "박정훈", "2024.12.11", workerTagOptions[1], "시급 ₩8500"),
   row("worker-lee-minji", "이민지", "2024.09.22", workerTagOptions[2], "시급 ₩9200"),
   row("worker-choi-yujin", "최유진", "2025.01.10", workerTagOptions[3], "시급 ₩11000"),
@@ -59,6 +67,7 @@ export const workerListInactiveRows = [
     tag: workerTagOptions[0],
     pay: "시급 ₩10000",
     status: "비활성",
+    detailHref: "/workers/worker_kim_seoyeon",
     statusDate: "2026.03.10",
   },
   {
@@ -68,6 +77,7 @@ export const workerListInactiveRows = [
     tag: workerTagOptions[0],
     pay: "시급 ₩10000",
     status: "비활성",
+    detailHref: "/workers/worker_kim_seoyeon",
     statusDate: "2026.03.10",
   },
   {
@@ -77,6 +87,7 @@ export const workerListInactiveRows = [
     tag: workerTagOptions[0],
     pay: "시급 ₩10000",
     status: "비활성",
+    detailHref: "/workers/worker_kim_seoyeon",
     statusDate: "2026.03.10",
   },
 ] as const satisfies readonly WorkerListRow[];
@@ -93,6 +104,7 @@ function row(
   registeredAt: string,
   tag: WorkerTag,
   pay: string,
+  detailHref?: string,
 ): WorkerListRow {
   return {
     id,
@@ -101,5 +113,6 @@ function row(
     tag,
     pay,
     status: "활성",
+    detailHref,
   };
 }
