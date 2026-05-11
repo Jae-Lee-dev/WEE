@@ -875,6 +875,57 @@ export function LoginPlaceholder() {
     },
   },
   {
+    name: "entry firebase auth signup transition passes",
+    expectSuccess: true,
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "package.json",
+        JSON.stringify({ dependencies: { firebase: "^12.13.0" }, devDependencies: {} }),
+      );
+      writeFixtureFile(
+        root,
+        "src/lib/firebase/client.ts",
+        `import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+
+export function getFirebaseAuth() {
+  const app = initializeApp({
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  });
+  return getAuth(app);
+}
+`,
+      );
+      writeFixtureFile(
+        root,
+        "src/features/entry/signup-form.tsx",
+        `"use client";
+
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { useRouter } from "next/navigation";
+import { getFirebaseAuth } from "@/lib/firebase/client";
+
+export function SignupForm() {
+  const router = useRouter();
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await createUserWithEmailAndPassword(getFirebaseAuth(), "admin@wee.kr", "password1");
+    router.push("/onboarding/workspace");
+  }
+
+  return (
+    <form onSubmit={submit}>
+      <button type="submit">가입</button>
+    </form>
+  );
+}
+`,
+      );
+    },
+  },
+  {
     name: "fetch call is blocked",
     expectSuccess: false,
     expectedOutput: "fetch call",

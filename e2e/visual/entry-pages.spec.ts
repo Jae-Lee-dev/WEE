@@ -72,12 +72,6 @@ test("AUTH-01 keeps login layout compact without page scroll", async ({ page }) 
     const body = document.body;
     const loginScreen = document.querySelector('[data-testid="login-screen"]');
     const card = loginScreen?.parentElement?.parentElement;
-    const socialButtons = Array.from(
-      document.querySelectorAll('[aria-label="소셜 로그인"] button'),
-    );
-    const socialRects = socialButtons.map((button) =>
-      button.getBoundingClientRect(),
-    );
     const checkbox = document.querySelector('[role="checkbox"]');
 
     return {
@@ -90,24 +84,139 @@ test("AUTH-01 keeps login layout compact without page scroll", async ({ page }) 
         root.scrollHeight - root.clientHeight,
         body.scrollHeight - body.clientHeight,
       ),
-      socialButtonCount: socialButtons.length,
-      socialButtonHeights: socialRects.map((rect) => rect.height),
-      socialButtonTops: socialRects.map((rect) => rect.top),
-      socialButtonWidths: socialRects.map((rect) => rect.width),
+      socialLoginCount: document.querySelectorAll('[aria-label="소셜 로그인"]')
+        .length,
     };
   });
 
   expect(metrics.pageOverflowY).toBeLessThanOrEqual(1);
   expect(metrics.cardWidth).toBeLessThanOrEqual(480);
   expect(metrics.checkboxBackground).not.toBe("rgb(0, 0, 0)");
-  expect(metrics.socialButtonCount).toBe(3);
+  expect(metrics.socialLoginCount).toBe(0);
+});
 
-  for (const [index, width] of metrics.socialButtonWidths.entries()) {
-    expect(
-      Math.abs(width - metrics.socialButtonHeights[index]),
-    ).toBeLessThanOrEqual(1);
-    expect(
-      Math.abs(metrics.socialButtonTops[0] - metrics.socialButtonTops[index]),
-    ).toBeLessThanOrEqual(1);
-  }
+test("AUTH-02 validates native signup before Firebase submit", async ({
+  page,
+}) => {
+  await prepareVisualPage({ page, path: "/signup", viewport: "laptop-1366" });
+  await page.evaluate(() => document.fonts.ready);
+  const signupAlert = page.locator('[data-testid="signup-screen"] [role="alert"]');
+
+  await page.getByRole("button", { name: "인증 메일 보내기" }).click();
+  await expect(signupAlert).toHaveText(
+    "이름, 이메일, 비밀번호를 모두 입력해 주세요.",
+  );
+
+  await page.getByLabel("이름").fill("김민채");
+  await page.getByLabel("이메일").fill("admin@wee.kr");
+  await page.getByLabel("비밀번호", { exact: true }).fill("password");
+  await page.getByLabel("비밀번호 확인").fill("password");
+  await page.getByRole("button", { name: "인증 메일 보내기" }).click();
+  await expect(signupAlert).toHaveText(
+    "비밀번호는 영문과 숫자를 모두 포함해야 합니다.",
+  );
+});
+
+test("AUTH-02 submits native signup through Firebase Auth", async ({
+  page,
+}) => {
+  const authRequests: string[] = [];
+
+  await page.route(
+    /https:\/\/identitytoolkit\.googleapis\.com\/v1\/accounts:(signUp|lookup|update|sendOobCode).*/,
+    async (route) => {
+      const requestUrl = route.request().url();
+      authRequests.push(requestUrl);
+
+      if (requestUrl.includes("accounts:signUp")) {
+        await route.fulfill({
+          contentType: "application/json",
+          json: {
+            email: "manager@wee.kr",
+            expiresIn: "3600",
+            idToken: "mock-id-token",
+            kind: "identitytoolkit#SignupNewUserResponse",
+            localId: "test-manager-uid",
+            refreshToken: "mock-refresh-token",
+          },
+        });
+        return;
+      }
+
+      if (requestUrl.includes("accounts:update")) {
+        await route.fulfill({
+          contentType: "application/json",
+          json: {
+            displayName: "김민채",
+            email: "manager@wee.kr",
+            expiresIn: "3600",
+            idToken: "mock-id-token",
+            kind: "identitytoolkit#SetAccountInfoResponse",
+            localId: "test-manager-uid",
+            refreshToken: "mock-refresh-token",
+          },
+        });
+        return;
+      }
+
+      if (requestUrl.includes("accounts:lookup")) {
+        await route.fulfill({
+          contentType: "application/json",
+          json: {
+            kind: "identitytoolkit#GetAccountInfoResponse",
+            users: [
+              {
+                displayName: "김민채",
+                email: "manager@wee.kr",
+                emailVerified: false,
+                localId: "test-manager-uid",
+                providerUserInfo: [
+                  {
+                    email: "manager@wee.kr",
+                    providerId: "password",
+                    rawId: "manager@wee.kr",
+                  },
+                ],
+                validSince: "0",
+              },
+            ],
+          },
+        });
+        return;
+      }
+
+      await route.fulfill({
+        contentType: "application/json",
+        json: {
+          email: "manager@wee.kr",
+          kind: "identitytoolkit#GetOobConfirmationCodeResponse",
+        },
+      });
+    },
+  );
+
+  await prepareVisualPage({ page, path: "/signup", viewport: "laptop-1366" });
+  await page.evaluate(() => document.fonts.ready);
+
+  await page.getByLabel("이름").fill("김민채");
+  await page.getByLabel("이메일").fill("manager@wee.kr");
+  await page.getByLabel("비밀번호", { exact: true }).fill("password1");
+  await page.getByLabel("비밀번호 확인").fill("password1");
+  await page
+    .getByRole("checkbox", {
+      name: "서비스 이용약관과 개인정보 처리방침에 동의합니다.",
+    })
+    .click();
+  await page.getByRole("button", { name: "인증 메일 보내기" }).click();
+
+  await expect(page).toHaveURL(/\/onboarding\/workspace$/);
+  expect(authRequests.some((url) => url.includes("accounts:signUp"))).toBe(
+    true,
+  );
+  expect(authRequests.some((url) => url.includes("accounts:update"))).toBe(
+    true,
+  );
+  expect(authRequests.some((url) => url.includes("accounts:sendOobCode"))).toBe(
+    true,
+  );
 });

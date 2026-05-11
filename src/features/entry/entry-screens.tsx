@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { SignupForm } from "./signup-form";
 
 type EntryScreenId = "AUTH-01" | "AUTH-02" | "AUTH-03" | "ONB-01" | "ONB-02";
 
@@ -83,12 +84,6 @@ const workspaceSupportItems = [
   },
 ] as const satisfies readonly SupportItem[];
 
-const socialProviders = [
-  { label: "Google로 계속", mark: "G" },
-  { label: "Apple로 계속", mark: "A" },
-  { label: "카카오로 계속", mark: "K" },
-] as const;
-
 const workspaceSteps = ["사업장 정보", "요금제 선택", "결제 정보", "코드 발급"];
 const setupSteps = ["근무지 등록", "근무 개설", "운영 시작"];
 
@@ -131,9 +126,6 @@ export function LoginScreen() {
           <Link href="/dashboard">로그인</Link>
         </Button>
 
-        <FormDivider label="또는 소셜 로그인" />
-        <SocialProviderButtons />
-
         <p className="mt-4 text-center text-body-14-regular tracking-normal text-gray-500">
           계정이 없나요?{" "}
           <Link
@@ -157,59 +149,7 @@ export function SignupScreen() {
       cardClassName="max-w-[680px]"
     >
       <div className="w-full" data-testid="signup-screen">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <EntryField label="이름" placeholder="김민채" />
-          <EntryField
-            label="이메일"
-            type="email"
-            placeholder="admin@wee.kr"
-          />
-          <EntryField
-            label="비밀번호"
-            type="password"
-            placeholder="8자 이상"
-          />
-          <EntryField
-            label="비밀번호 확인"
-            type="password"
-            placeholder="비밀번호 재입력"
-          />
-        </div>
-
-        <div className="mt-5 rounded-[8px] border border-green-100 bg-green-50 px-4 py-3">
-          <div className="text-label-14-medium tracking-normal text-gray-800">
-            비밀번호 조건
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {["최소 8자", "영문·숫자 조합", "특수문자 선택"].map((item) => (
-              <span
-                key={item}
-                className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3 text-label-12-medium tracking-normal text-gray-600"
-              >
-                <Check className="size-3.5 text-green-400" strokeWidth={2.4} />
-                {item}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-5 space-y-3">
-          <CheckboxLine
-            id="signup-terms"
-            label="서비스 이용약관과 개인정보 처리방침에 동의합니다."
-          />
-          <CheckboxLine
-            id="signup-notifications"
-            label="운영 알림 수신에 동의합니다."
-          />
-        </div>
-
-        <Button
-          asChild
-          className="mt-7 h-[50px] w-full rounded-[8px] text-h-18-semibold tracking-normal"
-        >
-          <Link href="/onboarding/workspace">인증 메일 보내기</Link>
-        </Button>
+        <SignupForm />
 
         <p className="mt-5 text-center text-body-14-regular tracking-normal text-gray-500">
           이미 계정이 있나요?{" "}
@@ -699,39 +639,6 @@ function EntryNav({
         );
       })}
     </nav>
-  );
-}
-
-function SocialProviderButtons() {
-  return (
-    <div
-      className="flex items-center justify-center gap-3"
-      aria-label="소셜 로그인"
-    >
-      {socialProviders.map((provider) => (
-        <button
-          key={provider.label}
-          type="button"
-          aria-label={provider.label}
-          title={provider.label}
-          className="flex size-12 items-center justify-center rounded-full border border-gray-200 bg-white text-label-14-medium tracking-normal text-gray-700 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
-        >
-          <span aria-hidden="true">
-            {provider.mark}
-          </span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function FormDivider({ label }: { label: string }) {
-  return (
-    <div className="my-5 flex items-center gap-3 text-label-12-medium tracking-normal text-gray-400">
-      <span className="h-px flex-1 bg-gray-100" />
-      <span>{label}</span>
-      <span className="h-px flex-1 bg-gray-100" />
-    </div>
   );
 }
 

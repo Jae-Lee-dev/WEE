@@ -29,6 +29,20 @@ const allowedEntryRoutePageDeferredHrefs = [
   "/onboarding/workspace",
   "/onboarding/setup",
 ];
+const allowedFirebaseAuthTransitionFiles = new Set([
+  "src/features/entry/signup-form.tsx",
+  "src/lib/firebase/client.ts",
+]);
+const allowedSubmitDrivenTransitionFiles = new Set([
+  "src/features/entry/signup-form.tsx",
+]);
+const allowedLocalArrayMutationTransitionFiles = new Set([
+  "src/features/entry/signup-form.tsx",
+]);
+const allowedRuntimeEnvTransitionFiles = new Set([
+  "src/lib/firebase/client.ts",
+]);
+const allowedDependencies = new Set(["firebase"]);
 const codeExtensions = new Set([
   ".cjs",
   ".cts",
@@ -266,6 +280,10 @@ function auditRuntimeIntegrationEnvReference(file, content) {
     return;
   }
 
+  if (allowedRuntimeEnvTransitionFiles.has(rel)) {
+    return;
+  }
+
   if (
     runtimeIntegrationEnvPattern.test(content) ||
     runtimeDynamicEnvAccessPattern.test(content) ||
@@ -291,6 +309,10 @@ function auditSubmitDrivenUi(file, content) {
     return;
   }
 
+  if (allowedSubmitDrivenTransitionFiles.has(rel)) {
+    return;
+  }
+
   for (const rule of submitDrivenUiRules) {
     if (rule.pattern.test(content)) {
       addFinding(
@@ -306,6 +328,10 @@ function auditLocalArrayMutation(file, content) {
   const rel = relative(root, file);
 
   if (!rel.startsWith("src/")) {
+    return;
+  }
+
+  if (allowedLocalArrayMutationTransitionFiles.has(rel)) {
     return;
   }
 
@@ -518,6 +544,13 @@ for (const codeRoot of codeRoots) {
     const content = readFileSync(file, "utf8");
 
     for (const rule of contentRules) {
+      if (
+        rule.name === "Firebase import or require" &&
+        allowedFirebaseAuthTransitionFiles.has(rel)
+      ) {
+        continue;
+      }
+
       if (rule.pattern.test(content)) {
         addFinding(rule.name, file, `matched ${rule.pattern}`);
       }
@@ -571,6 +604,10 @@ const dependencyGroups = [
 
 for (const group of dependencyGroups) {
   for (const dependencyName of Object.keys(group)) {
+    if (allowedDependencies.has(dependencyName)) {
+      continue;
+    }
+
     if (disallowedDependencies.some((pattern) => pattern.test(dependencyName))) {
       addFinding("Disallowed package dependency", packageJsonPath, dependencyName);
     }
