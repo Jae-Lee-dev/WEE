@@ -353,7 +353,7 @@ test("AUTH-02 submits native signup through Firebase Auth", async ({
         await route.fulfill({
           contentType: "application/json",
           json: {
-            email: "manager@gmail.com",
+            email: "manager@wee.kr",
             expiresIn: "3600",
             idToken: "mock-id-token",
             kind: "identitytoolkit#SignupNewUserResponse",
@@ -369,7 +369,7 @@ test("AUTH-02 submits native signup through Firebase Auth", async ({
           contentType: "application/json",
           json: {
             displayName: "김민채",
-            email: "manager@gmail.com",
+            email: "manager@wee.kr",
             expiresIn: "3600",
             idToken: "mock-id-token",
             kind: "identitytoolkit#SetAccountInfoResponse",
@@ -388,14 +388,14 @@ test("AUTH-02 submits native signup through Firebase Auth", async ({
             users: [
               {
                 displayName: "김민채",
-                email: "manager@gmail.com",
+                email: "manager@wee.kr",
                 emailVerified: false,
                 localId: "test-manager-uid",
                 providerUserInfo: [
                   {
-                    email: "manager@gmail.com",
+                    email: "manager@wee.kr",
                     providerId: "password",
-                    rawId: "manager@gmail.com",
+                    rawId: "manager@wee.kr",
                   },
                 ],
                 validSince: "0",
@@ -409,7 +409,7 @@ test("AUTH-02 submits native signup through Firebase Auth", async ({
       await route.fulfill({
         contentType: "application/json",
         json: {
-          email: "manager@gmail.com",
+          email: "manager@wee.kr",
           kind: "identitytoolkit#GetOobConfirmationCodeResponse",
         },
       });
@@ -422,13 +422,64 @@ test("AUTH-02 submits native signup through Firebase Auth", async ({
   await page.getByLabel("이름").fill("김민채");
   await page.getByLabel("이메일", { exact: true }).fill("manager");
   await page.getByRole("combobox", { name: "이메일 도메인 선택" }).click();
-  await page.getByRole("option", { name: "gmail.com" }).click();
+  await page.getByRole("option", { name: "직접입력" }).click();
   await expect(page.getByLabel("이메일", { exact: true })).toHaveValue(
     "manager",
   );
   await expect(
     page.getByRole("combobox", { name: "이메일 도메인 선택" }),
-  ).toContainText("gmail.com");
+  ).toBeVisible();
+  await page.getByLabel("이메일 도메인 직접 입력").fill("wee.kr");
+  await expect(page.getByLabel("이메일 도메인 직접 입력")).toHaveValue(
+    "wee.kr",
+  );
+
+  const customDomainMetrics = await page.evaluate(() => {
+    const emailControl = document.querySelector(
+      '[data-testid="signup-email-control"]',
+    );
+    const localInput = emailControl?.querySelector("#signup-email");
+    const customInput = document.querySelector(
+      '[aria-label="이메일 도메인 직접 입력"]',
+    );
+    const domainTrigger = emailControl?.querySelector(
+      '[data-slot="select-trigger"]',
+    );
+    const domainChevron = domainTrigger?.querySelector("svg");
+    const domainTriggerRect = domainTrigger?.getBoundingClientRect();
+    const domainChevronRect = domainChevron?.getBoundingClientRect();
+
+    return {
+      chevronCenterDeltaX:
+        domainTriggerRect && domainChevronRect
+          ? Math.abs(
+              domainChevronRect.left +
+                domainChevronRect.width / 2 -
+                (domainTriggerRect.left + domainTriggerRect.width / 2),
+            )
+          : 0,
+      chevronCenterDeltaY:
+        domainTriggerRect && domainChevronRect
+          ? Math.abs(
+              domainChevronRect.top +
+                domainChevronRect.height / 2 -
+                (domainTriggerRect.top + domainTriggerRect.height / 2),
+            )
+          : 0,
+      customInputTop: customInput?.getBoundingClientRect().top ?? 0,
+      domainTriggerWidth: domainTrigger?.getBoundingClientRect().width ?? 0,
+      localInputTop: localInput?.getBoundingClientRect().top ?? 0,
+    };
+  });
+
+  expect(
+    Math.abs(
+      customDomainMetrics.customInputTop - customDomainMetrics.localInputTop,
+    ),
+  ).toBeLessThanOrEqual(1);
+  expect(customDomainMetrics.domainTriggerWidth).toBeLessThanOrEqual(56);
+  expect(customDomainMetrics.chevronCenterDeltaX).toBeLessThanOrEqual(1);
+  expect(customDomainMetrics.chevronCenterDeltaY).toBeLessThanOrEqual(1);
   await page.getByLabel("비밀번호", { exact: true }).fill("password1");
   await page.getByLabel("비밀번호 확인", { exact: true }).fill("password1");
   await page
@@ -441,7 +492,7 @@ test("AUTH-02 submits native signup through Firebase Auth", async ({
     .click();
 
   await expect(page).toHaveURL(/\/onboarding\/workspace$/);
-  expect(signupEmails).toContain("manager@gmail.com");
+  expect(signupEmails).toContain("manager@wee.kr");
   expect(authRequests.some((url) => url.includes("accounts:signUp"))).toBe(
     true,
   );

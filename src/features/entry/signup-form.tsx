@@ -4,6 +4,8 @@ import {
   type ChangeEvent,
   type ComponentProps,
   type FormEvent,
+  useEffect,
+  useRef,
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
@@ -17,7 +19,14 @@ import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { OptionSelect, type SelectOption } from "@/components/ui/select";
+import {
+  OptionSelect,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  type SelectOption,
+} from "@/components/ui/select";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { cn } from "@/lib/utils";
 
@@ -39,12 +48,16 @@ const initialSignupForm: SignupFormState = {
   passwordConfirm: "",
 };
 
+const customEmailDomainValue = "__custom__";
+const domainModeTransitionMs = 160;
+
 const emailDomainOptions: SelectOption[] = [
   { label: "gmail.com", value: "gmail.com" },
   { label: "naver.com", value: "naver.com" },
   { label: "kakao.com", value: "kakao.com" },
   { label: "daum.net", value: "daum.net" },
   { label: "hanmail.net", value: "hanmail.net" },
+  { label: "직접입력", value: customEmailDomainValue },
 ];
 
 const passwordRequirements = [
@@ -80,6 +93,7 @@ export function SignupForm() {
   const [isPasswordConfirmVisible, setIsPasswordConfirmVisible] =
     useState(false);
   const [emailDomain, setEmailDomain] = useState("");
+  const [customEmailDomain, setCustomEmailDomain] = useState("");
 
   const validationErrors = getSignupFormErrors(form, termsAccepted);
   const hasValidationErrors = hasSignupFormErrors(validationErrors);
@@ -101,21 +115,58 @@ export function SignupForm() {
 
   const handleEmailLocalPartChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { domain, localPart } = parseEmailInput(event.target.value);
-    const nextDomain = isEmailDomainOption(domain) ? domain : emailDomain;
+    const hasCustomDomain = Boolean(domain) && !isPresetEmailDomain(domain);
+    const nextDomain = isPresetEmailDomain(domain)
+      ? domain
+      : hasCustomDomain
+        ? customEmailDomainValue
+        : emailDomain;
+    const nextCustomEmailDomain = hasCustomDomain ? domain : customEmailDomain;
 
-    if (isEmailDomainOption(domain)) {
+    if (isPresetEmailDomain(domain)) {
       setEmailDomain(domain);
+    } else if (hasCustomDomain) {
+      setEmailDomain(customEmailDomainValue);
+      setCustomEmailDomain(domain);
     }
 
     setForm((current) => ({
       ...current,
-      email: buildEmailAddress(localPart, nextDomain),
+      email: buildEmailAddress(
+        localPart,
+        getEmailDomainValue(nextDomain, nextCustomEmailDomain),
+      ),
     }));
     setFirebaseErrorMessage(null);
   };
 
   const handleEmailDomainChange = (domain: string) => {
     setEmailDomain(domain);
+
+    if (domain !== customEmailDomainValue) {
+      setCustomEmailDomain("");
+    }
+
+    setForm((current) => ({
+      ...current,
+      email: buildEmailAddress(
+        getEmailLocalPart(current.email),
+        getEmailDomainValue(
+          domain,
+          domain === customEmailDomainValue ? customEmailDomain : "",
+        ),
+      ),
+    }));
+    setFirebaseErrorMessage(null);
+  };
+
+  const handleCustomEmailDomainChange = (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const domain = normalizeEmailDomainInput(event.target.value);
+
+    setCustomEmailDomain(domain);
+    setEmailDomain(customEmailDomainValue);
     setForm((current) => ({
       ...current,
       email: buildEmailAddress(getEmailLocalPart(current.email), domain),
@@ -187,8 +238,11 @@ export function SignupForm() {
           spellCheck={false}
           localPart={getEmailLocalPart(form.email)}
           domain={emailDomain}
+          customDomain={customEmailDomain}
           onChange={handleEmailLocalPartChange}
           onBlur={handleFieldBlur("email")}
+          onCustomDomainChange={handleCustomEmailDomainChange}
+          onCustomDomainBlur={handleFieldBlur("email")}
           onDomainChange={handleEmailDomainChange}
           placeholder="이메일 아이디"
           error={getVisibleFieldError("email")}
@@ -324,6 +378,9 @@ function SignupEmailField({
   error,
   className,
   onDomainChange,
+  onCustomDomainChange,
+  onCustomDomainBlur,
+  customDomain,
   domain,
   localPart,
   disabled,
@@ -331,12 +388,46 @@ function SignupEmailField({
 }: ComponentProps<typeof Input> & {
   id: string;
   label: string;
+  customDomain: string;
   domain: string;
   error?: string;
   localPart: string;
+  onCustomDomainBlur: () => void;
+  onCustomDomainChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onDomainChange: (domain: string) => void;
 }) {
   const errorId = `${id}-error`;
+  const isCustomDomain = domain === customEmailDomainValue;
+  const domainModeTransitionTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (domainModeTransitionTimeoutRef.current) {
+        clearTimeout(domainModeTransitionTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleDomainOptionChange = (nextDomain: string) => {
+    const isNextCustomDomain = nextDomain === customEmailDomainValue;
+
+    if (domainModeTransitionTimeoutRef.current) {
+      clearTimeout(domainModeTransitionTimeoutRef.current);
+      domainModeTransitionTimeoutRef.current = null;
+    }
+
+    if (isNextCustomDomain === isCustomDomain) {
+      onDomainChange(nextDomain);
+      return;
+    }
+
+    domainModeTransitionTimeoutRef.current = setTimeout(() => {
+      onDomainChange(nextDomain);
+      domainModeTransitionTimeoutRef.current = null;
+    }, domainModeTransitionMs);
+  };
 
   return (
     <div className={cn("block", className)}>
@@ -347,14 +438,14 @@ function SignupEmailField({
         {label}
       </label>
       <div
-        className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2"
+        className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-2"
         data-testid="signup-email-control"
       >
         <Input
           id={id}
           aria-describedby={error ? errorId : undefined}
           aria-invalid={error ? true : undefined}
-          className="h-12 rounded-[8px] border-gray-200 text-body-16-regular tracking-normal"
+          className="h-12 rounded-[8px] border-gray-200 text-body-16-regular tracking-normal focus-visible:border-gray-300 focus-visible:ring-gray-100"
           type="text"
           value={localPart}
           disabled={disabled}
@@ -363,18 +454,61 @@ function SignupEmailField({
         <span className="select-none text-body-16-medium tracking-normal text-gray-500">
           @
         </span>
-        <OptionSelect
-          disabled={disabled}
-          itemClassName="py-2 text-body-14-medium"
-          onValueChange={onDomainChange}
-          options={emailDomainOptions}
-          placeholder="선택"
-          triggerAriaDescribedBy={error ? errorId : undefined}
-          triggerAriaInvalid={error ? true : undefined}
-          triggerAriaLabel="이메일 도메인 선택"
-          triggerClassName="h-12 min-h-12 w-full rounded-[8px] border-gray-200 px-3 text-body-14-medium tracking-normal focus-visible:border-green-400 focus-visible:ring-green-100 data-placeholder:text-gray-400 [&_svg]:text-gray-400"
-          value={domain}
-        />
+        {isCustomDomain ? (
+          <div className="col-start-3 grid min-w-0 grid-cols-[minmax(0,1fr)_48px]">
+            <Input
+              aria-describedby={error ? errorId : undefined}
+              aria-invalid={error ? true : undefined}
+              aria-label="이메일 도메인 직접 입력"
+              autoCapitalize="none"
+              autoComplete="off"
+              className="h-12 rounded-r-none border-gray-200 text-body-16-regular tracking-normal focus-visible:border-gray-300 focus-visible:ring-gray-100"
+              disabled={disabled}
+              inputMode="email"
+              onBlur={onCustomDomainBlur}
+              onChange={onCustomDomainChange}
+              placeholder="example.com"
+              spellCheck={false}
+              type="text"
+              value={customDomain}
+            />
+            <Select
+              disabled={disabled}
+              onValueChange={handleDomainOptionChange}
+              value={domain}
+            >
+              <SelectTrigger
+                aria-label="이메일 도메인 선택"
+                className="flex h-12 min-h-12 w-12 items-center justify-center gap-0 rounded-l-none rounded-r-[8px] border-l-0 border-gray-200 p-0 focus-visible:border-gray-300 focus-visible:ring-gray-100 [&_svg]:mx-0 [&_svg]:text-gray-400"
+              />
+              <SelectContent>
+                {emailDomainOptions.map((option) => (
+                  <SelectItem
+                    key={option.value}
+                    className="py-2 text-body-14-medium"
+                    disabled={option.disabled}
+                    value={option.value}
+                  >
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : (
+          <OptionSelect
+            disabled={disabled}
+            itemClassName="py-2 text-body-14-medium"
+            onValueChange={handleDomainOptionChange}
+            options={emailDomainOptions}
+            placeholder="선택"
+            triggerAriaDescribedBy={error ? errorId : undefined}
+            triggerAriaInvalid={error ? true : undefined}
+            triggerAriaLabel="이메일 도메인 선택"
+            triggerClassName="h-12 min-h-12 w-full rounded-[8px] border-gray-200 px-3 text-body-14-medium tracking-normal focus-visible:border-gray-300 focus-visible:ring-gray-100 data-placeholder:text-gray-400 [&_svg]:text-gray-400"
+            value={domain}
+          />
+        )}
       </div>
       {error ? (
         <p
@@ -555,8 +689,19 @@ function buildEmailAddress(localPart: string, domain: string) {
   return domain ? `${trimmedLocalPart}@${domain}` : trimmedLocalPart;
 }
 
-function isEmailDomainOption(domain: string) {
-  return emailDomainOptions.some((option) => option.value === domain);
+function getEmailDomainValue(domain: string, customDomain: string) {
+  return domain === customEmailDomainValue ? customDomain : domain;
+}
+
+function isPresetEmailDomain(domain: string) {
+  return emailDomainOptions.some(
+    (option) =>
+      option.value !== customEmailDomainValue && option.value === domain,
+  );
+}
+
+function normalizeEmailDomainInput(value: string) {
+  return value.trim().replace(/^@+/, "").toLowerCase();
 }
 
 function SignupCheckbox({
@@ -632,7 +777,7 @@ function getSignupFormErrors(
   if (!email) {
     errors.email = "이메일을 입력해 주세요.";
   } else if (!email.includes("@")) {
-    errors.email = "이메일 도메인을 선택해 주세요.";
+    errors.email = "이메일 도메인을 입력하거나 선택해 주세요.";
   } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     errors.email = "이메일 형식이 올바르지 않습니다.";
   }
