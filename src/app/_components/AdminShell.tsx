@@ -44,7 +44,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
         {workerDetail ? null : (
           <SectionTabs pathname={pathname} tabs={currentSection.tabs} />
         )}
-        <main className="px-5 pb-5 pt-7">{children}</main>
+        <main className="px-4 pb-4 pt-5 2xl:px-5 2xl:pb-5 2xl:pt-7">
+          {children}
+        </main>
       </div>
     </div>
   );
@@ -64,33 +66,35 @@ function AdminSidebar({
   currentSection: AdminSection;
 }) {
   return (
-    <aside className="sticky top-0 flex h-screen w-[300px] shrink-0 flex-col justify-between border-r border-gray-100 bg-white px-4 py-5">
+    <aside className="sticky top-0 flex h-screen w-[260px] shrink-0 flex-col justify-between border-r border-gray-100 bg-white px-4 py-4 2xl:w-[300px] 2xl:px-4 2xl:py-5">
       <div>
         <Link
           href="/dashboard"
-          className="flex h-[68px] items-center gap-4 rounded-[8px] transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+          className="flex h-[58px] items-center gap-3 rounded-[8px] transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 2xl:h-[68px] 2xl:gap-4"
         >
-          <div className="relative size-12 shrink-0 overflow-hidden">
+          <div className="relative size-11 shrink-0 overflow-hidden 2xl:size-12">
             <Image
               src="/admin-shell/logo.png"
               alt=""
               width={48}
               height={34}
               priority
-              className="absolute left-1/2 top-1/2 h-[34px] w-12 -translate-x-1/2 -translate-y-1/2 object-contain"
+              className="absolute left-1/2 top-1/2 h-8 w-11 -translate-x-1/2 -translate-y-1/2 object-contain 2xl:h-[34px] 2xl:w-12"
             />
           </div>
           <div className="min-w-0">
-            <div className="text-h-20 text-gray-800">Wee</div>
-            <div className="truncate text-h-18-regular text-gray-600">
+            <div className="text-h-18-semibold text-gray-800 2xl:text-h-20">
+              Wee
+            </div>
+            <div className="truncate text-h-16-medium text-gray-600 2xl:text-h-18-regular">
               {demoWorkspace.name}
             </div>
           </div>
         </Link>
 
-        <div className="my-5 h-px bg-gray-100" />
+        <div className="my-3.5 h-px bg-gray-100 2xl:my-5" />
 
-        <nav className="space-y-2" aria-label="관리자 메뉴">
+        <nav className="space-y-1.5 2xl:space-y-2" aria-label="관리자 메뉴">
           {adminSections.map((section) => (
             <SidebarItem
               key={section.key}
@@ -101,16 +105,16 @@ function AdminSidebar({
         </nav>
       </div>
 
-      <div className="flex items-center gap-3 rounded-[8px] px-1 py-2">
+      <div className="flex items-center gap-3 rounded-[8px] px-1 py-2 2xl:gap-3 2xl:py-2">
         <Image
           src="/admin-shell/avatar.png"
           alt=""
           width={48}
           height={48}
-          className="size-12 shrink-0 rounded-full"
+          className="size-10 shrink-0 rounded-full 2xl:size-12"
         />
         <div className="min-w-0">
-          <div className="truncate text-h-18-semibold text-gray-800">
+          <div className="truncate text-h-16-semibold text-gray-800 2xl:text-h-18-semibold">
             {demoWorkspace.managerName}
           </div>
           <div className="text-body-14-regular text-gray-500">
@@ -138,7 +142,7 @@ function SidebarItem({
     <Link
       href={section.href}
       aria-current={active ? "page" : undefined}
-      className={`flex h-[50px] w-[268px] items-center gap-4 rounded-[8px] px-4 py-3 transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 ${
+      className={`flex h-11 w-full items-center gap-3.5 rounded-[8px] px-3.5 py-2.5 transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 2xl:h-[50px] 2xl:gap-4 2xl:px-4 2xl:py-3 ${
         active
           ? "bg-gray-50 text-green-400 active:bg-gray-100"
           : "text-gray-600 hover:bg-gray-50 hover:text-gray-800 active:bg-gray-100"
@@ -147,7 +151,9 @@ function SidebarItem({
       <SidebarIcon name={section.icon} />
       <span
         className={`min-w-0 flex-1 truncate ${
-          active ? "text-h-18-semibold" : "text-h-18-regular"
+          active
+            ? "text-h-16-semibold 2xl:text-h-18-semibold"
+            : "text-h-16-medium 2xl:text-h-18-regular"
         }`}
       >
         {section.label}
@@ -190,7 +196,7 @@ function AdminHeader({
   showInviteCodeAction: boolean;
 }) {
   return (
-    <header className="flex h-[92px] items-center justify-between border-b border-gray-200 bg-white px-5">
+    <header className="flex h-[72px] items-center justify-between border-b border-gray-200 bg-white px-5 2xl:h-[92px] 2xl:px-5">
       <div className="flex items-center gap-4">
         {backHref ? (
           <Link
@@ -207,7 +213,7 @@ function AdminHeader({
         {showInviteCodeAction ? (
           <button
             type="button"
-            className="flex h-[42px] items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-18-regular text-gray-700 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+            className="flex h-10 items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-16-medium text-gray-700 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 2xl:h-[42px] 2xl:px-4 2xl:text-h-18-regular"
           >
             참여 코드 복사
           </button>
@@ -241,10 +247,10 @@ function SectionTabs({
     });
 
   return (
-    <div className="px-5 pt-7">
+    <div className="px-5 pt-5 2xl:px-5 2xl:pt-7">
       <nav
         ref={listRef}
-        className="group/section-tabs relative isolate flex h-[34px] items-end gap-8 overflow-hidden border-b border-gray-200"
+        className="group/section-tabs relative isolate flex h-[34px] items-end gap-8 overflow-hidden border-b border-gray-200 2xl:h-[34px] 2xl:gap-8"
       >
         <span
           aria-hidden="true"
@@ -261,9 +267,9 @@ function SectionTabs({
             tab.href === "/workers/applications" && pathname !== "/workers";
           const showScheduleApprovalBadge =
             tab.href === "/schedule" && pathname.startsWith("/schedule");
-          const badge = tab.badge ?? (
-            showWorkersApplicationBadge || showScheduleApprovalBadge ? "6" : undefined
-          );
+          const fallbackBadge =
+            showWorkersApplicationBadge || showScheduleApprovalBadge ? "6" : undefined;
+          const badge = tab.badge ?? fallbackBadge;
 
           return (
             <Link
@@ -271,7 +277,7 @@ function SectionTabs({
               href={tab.href}
               aria-current={active ? "page" : undefined}
               {...{ [slidingTabValueAttribute]: tab.href }}
-              className={`relative z-10 flex h-[34px] items-start border-b-2 text-h-20 transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 ${
+              className={`relative z-10 flex h-[34px] items-start border-b-2 text-h-18-semibold transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 2xl:h-[34px] 2xl:text-h-20 ${
                 active
                   ? "border-transparent text-gray-500 hover:text-gray-800 active:text-gray-900"
                   : "border-transparent text-gray-500 hover:border-gray-200 hover:text-gray-800 active:text-gray-900"
