@@ -192,6 +192,17 @@ const cases = [
     },
   },
   {
+    name: "e2e submit helper wording is ignored",
+    expectSuccess: true,
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "e2e/visual/submit.spec.ts",
+        'test("submit visual state", async ({ page }) => { await page.locator("form").evaluate((form) => form.requestSubmit()); });',
+      );
+    },
+  },
+  {
     name: "admin route page deferred placeholder passes",
     expectSuccess: true,
     setup(root) {
@@ -444,6 +455,112 @@ export function LoginPlaceholder() {
     expectedOutput: "fetch call",
     setup(root) {
       writeFixtureFile(root, "src/features/dashboard/load.ts", 'export function load() { return fetch("/api"); }');
+    },
+  },
+  {
+    name: "submit-driven form primitive is blocked",
+    expectSuccess: false,
+    expectedOutput: "Submit-driven UI primitive",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/settings/location-form.tsx",
+        `export function LocationForm() {
+  return (
+    <form onSubmit={(event) => event.preventDefault()}>
+      <button type="submit">저장</button>
+    </form>
+  );
+}
+`,
+      );
+    },
+  },
+  {
+    name: "form data construction is blocked",
+    expectSuccess: false,
+    expectedOutput: "Submit-driven UI primitive",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/payroll/payroll-submit.ts",
+        "export function collect(form: HTMLFormElement) { return new FormData(form); }",
+      );
+    },
+  },
+  {
+    name: "submit type expression is blocked",
+    expectSuccess: false,
+    expectedOutput: "Submit-driven UI primitive",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/settings/submit-button.tsx",
+        'export function SubmitButton() { return <button type={"submit"}>저장</button>; }',
+      );
+    },
+  },
+  {
+    name: "submit type variable is blocked",
+    expectSuccess: false,
+    expectedOutput: "Submit-driven UI primitive",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/settings/submit-button-variable.tsx",
+        'export function SubmitButton() { const buttonType = "submit"; return <button type={buttonType}>저장</button>; }',
+      );
+    },
+  },
+  {
+    name: "submit type object property is blocked",
+    expectSuccess: false,
+    expectedOutput: "Submit-driven UI primitive",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/settings/submit-button-props.tsx",
+        'export const submitButtonProps = { type: "submit" };',
+      );
+    },
+  },
+  {
+    name: "programmatic submit primitive is blocked",
+    expectSuccess: false,
+    expectedOutput: "Submit-driven UI primitive",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/settings/programmatic-submit.tsx",
+        `export function ProgrammaticSubmit({ form }: { form: HTMLFormElement }) {
+  return <button formAction="/api/settings" onClick={() => form.requestSubmit()}>저장</button>;
+}
+`,
+      );
+    },
+  },
+  {
+    name: "react form action hook is blocked",
+    expectSuccess: false,
+    expectedOutput: "Submit-driven UI primitive",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/workers/use-submit.tsx",
+        'export function useSubmitPreview() { return useActionState(async () => null, null); }',
+      );
+    },
+  },
+  {
+    name: "react form status hook is blocked",
+    expectSuccess: false,
+    expectedOutput: "Submit-driven UI primitive",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/workers/use-submit-status.tsx",
+        "export function SubmitStatusPreview() { const status = useFormStatus(); return status.pending; }",
+      );
     },
   },
   {

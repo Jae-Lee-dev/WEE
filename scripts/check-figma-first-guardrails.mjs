@@ -122,6 +122,48 @@ const contentRules = [
 ];
 const runtimeArtifactReferencePattern =
   /\bARTIFACT_ROOT\b|(?:^|["'`(])(?:\.{1,2}\/)*artifacts\//;
+const submitDrivenUiRules = [
+  {
+    name: "form element",
+    pattern: /<form\b/,
+  },
+  {
+    name: "onSubmit handler",
+    pattern: /\bonSubmit\s*=/,
+  },
+  {
+    name: "formAction handler",
+    pattern: /\bformAction\s*=/,
+  },
+  {
+    name: "submit type literal",
+    pattern: /\btype\s*(?:=|:)\s*(?:["']submit["']|\{\s*["']submit["']\s*\})/,
+  },
+  {
+    name: "submit type variable",
+    pattern: /\b(?:const|let|var)\s+[A-Za-z_$][\w$]*(?:type|Type)[\w$]*\s*(?::[^=]+)?=\s*["']submit["']/,
+  },
+  {
+    name: "submit event cancellation",
+    pattern: /\bpreventDefault\s*\(/,
+  },
+  {
+    name: "programmatic submit",
+    pattern: /\brequestSubmit\s*\(/,
+  },
+  {
+    name: "form data construction",
+    pattern: /\bnew\s+FormData\s*\(/,
+  },
+  {
+    name: "React form action hook",
+    pattern: /\buseActionState\s*\(/,
+  },
+  {
+    name: "React form status hook",
+    pattern: /\buseFormStatus\s*\(/,
+  },
+];
 
 const findings = [];
 
@@ -179,6 +221,24 @@ function auditRuntimeArtifactReference(file, content) {
 
   if (runtimeArtifactReferencePattern.test(content)) {
     addFinding("Runtime artifact reference", file, `screenshot artifacts must stay under ${artifactRoot}`);
+  }
+}
+
+function auditSubmitDrivenUi(file, content) {
+  const rel = relative(root, file);
+
+  if (!rel.startsWith("src/")) {
+    return;
+  }
+
+  for (const rule of submitDrivenUiRules) {
+    if (rule.pattern.test(content)) {
+      addFinding(
+        "Submit-driven UI primitive",
+        file,
+        `${rule.name} is deferred until the backend/business transition phase`,
+      );
+    }
   }
 }
 
@@ -386,6 +446,7 @@ for (const codeRoot of codeRoots) {
     }
 
     auditRuntimeArtifactReference(file, content);
+    auditSubmitDrivenUi(file, content);
     auditAdminRoutePageUsage(file, content);
     auditEntryRoutePageUsage(file, content);
   }
