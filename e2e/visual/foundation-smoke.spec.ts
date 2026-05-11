@@ -17,6 +17,10 @@ for (const viewport of viewports) {
     await expect(
       page.getByRole("heading", { name: "확인 필요" }),
     ).toBeVisible();
+    await expect(page.getByTestId("sidebar-workspace-name")).toHaveText(
+      "김쌤 수학학원",
+    );
+    await expect(page.getByTestId("sidebar-account-name")).toHaveText("김준희");
 
     const logoHeaderMetrics = await page.evaluate(() => {
       const logoHeader = document.querySelector(

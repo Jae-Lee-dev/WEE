@@ -3,9 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { LogOut } from "lucide-react";
-import { signOut } from "firebase/auth";
+import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import {
   adminSections,
   findSectionByPath,
@@ -26,8 +26,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SlidingTabTextMask } from "@/components/ui/sliding-tab-text-mask";
 import { useSlidingTabIndicator } from "@/components/ui/use-sliding-tab-indicator";
-import { demoWorkspace } from "@/app/_data/admin-demo";
 import { clearActiveWorkspaceUser } from "@/features/entry/workspace-onboarding-state";
+import { createSettingsWorkspaceDataSource } from "@/features/settings/settings-workspace-data-source";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 
 const shellIconPathMap: Record<AdminIconName, string> = {
@@ -38,6 +38,20 @@ const shellIconPathMap: Record<AdminIconName, string> = {
   payroll: "/admin-shell/icon-money.svg",
   handover: "/admin-shell/icon-book.svg",
   settings: "/admin-shell/icon-setting.svg",
+};
+
+const managerRoleLabel = "관리자";
+const loadingWorkspaceName = "소속 확인 중";
+const loadingManagerName = "계정 확인 중";
+const fallbackWorkspaceName = "소속 확인 필요";
+const fallbackManagerName = "관리자";
+
+type AdminShellAccount = {
+  isLoading: boolean;
+  managerEmail: string | null;
+  managerName: string;
+  managerRole: string;
+  workspaceName: string;
 };
 
 export function AdminShell({ children }: { children: ReactNode }) {
@@ -81,9 +95,14 @@ function AdminSidebar({
   currentSection: AdminSection;
 }) {
   const router = useRouter();
+  const account = useAdminShellAccount();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   async function handleLogout() {
+    if (isLoggingOut) {
+      return;
+    }
+
     setIsLoggingOut(true);
 
     try {
@@ -121,8 +140,11 @@ function AdminSidebar({
               <div className="text-h-18-semibold text-gray-800 2xl:text-h-20">
                 Wee
               </div>
-              <div className="truncate text-h-16-medium text-gray-600 2xl:text-h-18-regular">
-                {demoWorkspace.name}
+              <div
+                className="truncate text-h-16-medium text-gray-600 2xl:text-h-18-regular"
+                data-testid="sidebar-workspace-name"
+              >
+                {account.workspaceName}
               </div>
             </div>
           </Link>
@@ -158,16 +180,20 @@ function AdminSidebar({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            aria-label={`${demoWorkspace.managerName} 계정 메뉴`}
+            aria-busy={account.isLoading ? true : undefined}
+            aria-label={`${account.managerName} 계정 메뉴`}
             className="mx-4 flex min-h-[56px] items-center justify-between gap-3 rounded-[8px] px-3 py-2 text-left transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 2xl:mx-4 2xl:px-3 2xl:py-2"
             data-testid="sidebar-account-trigger"
           >
             <span className="min-w-0">
-              <span className="block truncate text-h-16-semibold text-gray-800 2xl:text-h-18-semibold">
-                {demoWorkspace.managerName}
+              <span
+                className="block truncate text-h-16-semibold text-gray-800 2xl:text-h-18-semibold"
+                data-testid="sidebar-account-name"
+              >
+                {account.managerName}
               </span>
               <span className="block text-body-14-regular text-gray-500">
-                {demoWorkspace.managerRole}
+                {account.managerRole}
               </span>
             </span>
           </button>
@@ -180,10 +206,10 @@ function AdminSidebar({
         >
           <DropdownMenuLabel className="px-3 py-2">
             <span className="block truncate text-label-14-medium tracking-normal text-gray-900">
-              {demoWorkspace.managerName}
+              {account.managerName}
             </span>
             <span className="mt-0.5 block text-label-12-regular tracking-normal text-gray-500">
-              {demoWorkspace.managerRole}
+              {account.managerEmail ?? account.managerRole}
             </span>
           </DropdownMenuLabel>
           <DropdownMenuSeparator className="my-1 bg-gray-100" />
@@ -202,6 +228,106 @@ function AdminSidebar({
       </DropdownMenu>
     </aside>
   );
+}
+
+function useAdminShellAccount() {
+  const [account, setAccount] = useState<AdminShellAccount>({
+    isLoading: true,
+    managerEmail: null,
+    managerName: loadingManagerName,
+    managerRole: managerRoleLabel,
+    workspaceName: loadingWorkspaceName,
+  });
+
+  useEffect(() => {
+    let requestId = 0;
+
+    const loadAccount = (user: User | null) => {
+      const currentRequestId = requestId + 1;
+      requestId = currentRequestId;
+      const authProfile = getAuthProfile(user);
+
+      setAccount({
+        isLoading: true,
+        managerEmail: authProfile.managerEmail,
+        managerName: authProfile.managerName,
+        managerRole: managerRoleLabel,
+        workspaceName: loadingWorkspaceName,
+      });
+
+      void createSettingsWorkspaceDataSource()
+        .getWorkspace()
+        .then((workspace) => {
+          if (requestId !== currentRequestId) {
+            return;
+          }
+
+          setAccount({
+            isLoading: false,
+            managerEmail: authProfile.managerEmail,
+            managerName:
+              normalizeDisplayText(workspace.managerName) ??
+              authProfile.managerName,
+            managerRole: managerRoleLabel,
+            workspaceName:
+              normalizeDisplayText(workspace.name) ?? fallbackWorkspaceName,
+          });
+        })
+        .catch(() => {
+          if (requestId !== currentRequestId) {
+            return;
+          }
+
+          setAccount({
+            isLoading: false,
+            managerEmail: authProfile.managerEmail,
+            managerName: authProfile.managerName,
+            managerRole: managerRoleLabel,
+            workspaceName: fallbackWorkspaceName,
+          });
+        });
+    };
+
+    let unsubscribe = () => {};
+
+    try {
+      unsubscribe = onAuthStateChanged(getFirebaseAuth(), loadAccount);
+    } catch {
+      loadAccount(null);
+    }
+
+    return () => {
+      requestId += 1;
+      unsubscribe();
+    };
+  }, []);
+
+  return account;
+}
+
+function getAuthProfile(user: User | null) {
+  const email = normalizeDisplayText(user?.email) ?? null;
+  const displayName =
+    normalizeDisplayText(user?.displayName) ??
+    getEmailLocalPart(email) ??
+    fallbackManagerName;
+
+  return {
+    managerEmail: email,
+    managerName: displayName,
+  };
+}
+
+function getEmailLocalPart(email: string | null) {
+  const localPart = email?.split("@")[0];
+
+  return normalizeDisplayText(localPart);
+}
+
+function normalizeDisplayText(value: string | null | undefined) {
+  const trimmed = value?.trim();
+
+  return trimmed ? trimmed : null;
 }
 
 function SidebarSeparator({ className = "" }: { className?: string }) {
