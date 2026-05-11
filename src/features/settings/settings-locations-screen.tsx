@@ -387,12 +387,12 @@ function LocationDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
       <form
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-location-dialog-title"
-        className="flex h-[900px] w-[680px] flex-col rounded-[8px] bg-white px-10 py-10 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
+        className="flex max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] max-w-[680px] flex-col overflow-hidden rounded-[8px] bg-white px-10 py-10 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
         data-testid="settings-location-dialog"
         noValidate
         onSubmit={handleSave}
@@ -409,58 +409,60 @@ function LocationDialog({
           </p>
         </div>
 
-        <LocationDialogField
-          error={submitted ? errors.name : undefined}
-          label={dialog.nameLabel}
-          name="name"
-          onChange={handleFieldChange("name")}
-          placeholder={dialog.namePlaceholder}
-          value={form.name}
-          disabled={saving}
-        />
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <LocationDialogField
+            error={submitted ? errors.name : undefined}
+            label={dialog.nameLabel}
+            name="name"
+            onChange={handleFieldChange("name")}
+            placeholder={dialog.namePlaceholder}
+            value={form.name}
+            disabled={saving}
+          />
 
-        <LocationDialogField
-          error={submitted ? errors.roadAddress : undefined}
-          label={dialog.roadAddressLabel}
-          name="roadAddress"
-          onChange={handleFieldChange("roadAddress")}
-          placeholder={dialog.roadAddressPlaceholder}
-          value={form.roadAddress}
-          disabled={saving}
-        />
+          <LocationDialogField
+            error={submitted ? errors.roadAddress : undefined}
+            label={dialog.roadAddressLabel}
+            name="roadAddress"
+            onChange={handleFieldChange("roadAddress")}
+            placeholder={dialog.roadAddressPlaceholder}
+            value={form.roadAddress}
+            disabled={saving}
+          />
 
-        <LocationDialogField
-          label={dialog.detailAddressLabel}
-          name="detailAddress"
-          onChange={handleFieldChange("detailAddress")}
-          placeholder={dialog.detailAddressPlaceholder}
-          value={form.detailAddress}
-          disabled={saving}
-        />
+          <LocationDialogField
+            label={dialog.detailAddressLabel}
+            name="detailAddress"
+            onChange={handleFieldChange("detailAddress")}
+            placeholder={dialog.detailAddressPlaceholder}
+            value={form.detailAddress}
+            disabled={saving}
+          />
 
-        <LocationRadiusField
-          error={submitted ? errors.radiusMeters : undefined}
-          onChange={handleFieldChange("radiusMeters")}
-          saving={saving}
-          value={form.radiusMeters}
-        />
+          <LocationRadiusField
+            error={submitted ? errors.radiusMeters : undefined}
+            onChange={handleFieldChange("radiusMeters")}
+            saving={saving}
+            value={form.radiusMeters}
+          />
 
-        <StaticRadiusMap />
+          <StaticRadiusMap />
+        </div>
 
-        <div className="mt-auto flex justify-end gap-3">
+        <div className="mt-6 flex shrink-0 justify-end gap-2.5 border-t border-gray-100 pt-5">
           <Button
             type="button"
             variant="secondary"
             onClick={onClose}
             disabled={saving}
-            className="h-[50px] rounded-[8px] px-6 text-h-18-semibold tracking-normal"
+            className="h-10 rounded-[8px] px-4 text-h-16-semibold tracking-normal"
           >
             {dialog.cancelLabel}
           </Button>
           <Button
             type="submit"
             disabled={saving}
-            className="h-[50px] rounded-[8px] px-6 text-h-18-semibold tracking-normal text-white"
+            className="h-10 rounded-[8px] px-4 text-h-16-semibold tracking-normal text-white"
           >
             {saving
               ? "저장 중"

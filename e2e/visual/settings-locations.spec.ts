@@ -1,4 +1,4 @@
-import { expect, test } from "playwright/test";
+import { expect, test, type Page } from "playwright/test";
 import {
   captureActualScreenshot,
   prepareVisualPage,
@@ -6,6 +6,7 @@ import {
 } from "./helpers";
 
 const desktop: VisualViewportName = "desktop-1920";
+const laptop: VisualViewportName = "laptop-1366";
 const runFirestoreVisuals = process.env.WEE_RUN_FIRESTORE_VISUALS === "1";
 
 test.skip(
@@ -65,6 +66,18 @@ test(`SET-02 location-dialog ${desktop}`, async ({ page }) => {
     state: "location-dialog",
     viewport: desktop,
   });
+});
+
+test(`SET-02 location-dialog fits viewport ${laptop}`, async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/settings/locations",
+    viewport: laptop,
+  });
+  await page.evaluate(() => document.fonts.ready);
+  await page.getByTestId("settings-locations-add-trigger").click();
+
+  await expectDialogWithinViewport(page, "settings-location-dialog");
 });
 
 test("SET-02 creates, edits, and deletes location through Firestore", async ({
@@ -131,3 +144,24 @@ test("SET-02 creates, edits, and deletes location through Firestore", async ({
     page.getByTestId("settings-locations-table").getByText(editedLocationName),
   ).toHaveCount(0);
 });
+
+async function expectDialogWithinViewport(page: Page, testId: string) {
+  const dialog = page.getByTestId(testId);
+  await expect(dialog).toBeVisible();
+
+  const box = await dialog.boundingBox();
+  const viewport = page.viewportSize();
+
+  expect(box).not.toBeNull();
+  expect(viewport).not.toBeNull();
+
+  if (!box || !viewport) {
+    return;
+  }
+
+  const verticalInset = 24;
+  expect(box.y).toBeGreaterThanOrEqual(verticalInset - 1);
+  expect(box.y + box.height).toBeLessThanOrEqual(
+    viewport.height - verticalInset + 1,
+  );
+}
