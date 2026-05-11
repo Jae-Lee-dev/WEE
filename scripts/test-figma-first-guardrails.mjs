@@ -99,13 +99,21 @@ function createFixture(name, setup) {
 
   mkdirSync(join(root, "src/app"), { recursive: true });
   mkdirSync(join(root, "e2e"), { recursive: true });
-  writeFixtureFile(root, "package.json", JSON.stringify({ dependencies: {}, devDependencies: {} }));
+  writeFixtureFile(
+    root,
+    "package.json",
+    JSON.stringify({ dependencies: {}, devDependencies: {} }),
+  );
 
   for (const file of rootFiles) {
     writeFixtureFile(root, file, file === "components.json" ? "{}" : "\n");
   }
 
-  writeFixtureFile(root, "src/app/_config/admin-navigation.ts", defaultAdminNavigationContent());
+  writeFixtureFile(
+    root,
+    "src/app/_config/admin-navigation.ts",
+    defaultAdminNavigationContent(),
+  );
 
   setup?.(root);
 
@@ -169,7 +177,7 @@ const cases = [
       writeFixtureFile(
         root,
         "src/features/dashboard/env-preview.ts",
-        'export const nodeEnv = process.env.NODE_ENV;',
+        "export const nodeEnv = process.env.NODE_ENV;",
       );
     },
   },
@@ -219,7 +227,9 @@ const cases = [
     expectSuccess: false,
     expectedOutput: "Disallowed repository artifact directory",
     setup(root) {
-      mkdirSync(join(root, "public/artifacts/actual/DSH-01"), { recursive: true });
+      mkdirSync(join(root, "public/artifacts/actual/DSH-01"), {
+        recursive: true,
+      });
     },
   },
   {
@@ -350,7 +360,7 @@ const cases = [
       writeFixtureFile(
         root,
         "src/lib/env-config.ts",
-        'const env = process.env; export const value = env.FIREBASE_PROJECT_ID;',
+        "const env = process.env; export const value = env.FIREBASE_PROJECT_ID;",
       );
     },
   },
@@ -362,7 +372,7 @@ const cases = [
       writeFixtureFile(
         root,
         "src/lib/env-config.ts",
-        'const env: NodeJS.ProcessEnv = process.env; export const value = env.FIREBASE_PROJECT_ID;',
+        "const env: NodeJS.ProcessEnv = process.env; export const value = env.FIREBASE_PROJECT_ID;",
       );
     },
   },
@@ -374,7 +384,7 @@ const cases = [
       writeFixtureFile(
         root,
         "src/lib/env-config.ts",
-        'const { FIREBASE_PROJECT_ID } = process.env; export const projectId = FIREBASE_PROJECT_ID;',
+        "const { FIREBASE_PROJECT_ID } = process.env; export const projectId = FIREBASE_PROJECT_ID;",
       );
     },
   },
@@ -386,7 +396,7 @@ const cases = [
       writeFixtureFile(
         root,
         "src/lib/env-config.ts",
-        'const { FIREBASE_PROJECT_ID }: NodeJS.ProcessEnv = process.env; export const projectId = FIREBASE_PROJECT_ID;',
+        "const { FIREBASE_PROJECT_ID }: NodeJS.ProcessEnv = process.env; export const projectId = FIREBASE_PROJECT_ID;",
       );
     },
   },
@@ -398,7 +408,7 @@ const cases = [
       writeFixtureFile(
         root,
         "src/lib/env-config.ts",
-        'const env = (process.env); export const value = env.FIREBASE_PROJECT_ID;',
+        "const env = (process.env); export const value = env.FIREBASE_PROJECT_ID;",
       );
     },
   },
@@ -410,7 +420,7 @@ const cases = [
       writeFixtureFile(
         root,
         "src/lib/env-config.ts",
-        'let env; env = process.env; export const value = env.FIREBASE_PROJECT_ID;',
+        "let env; env = process.env; export const value = env.FIREBASE_PROJECT_ID;",
       );
     },
   },
@@ -422,7 +432,7 @@ const cases = [
       writeFixtureFile(
         root,
         "src/lib/env-config.ts",
-        'let env; if (ready) env = process.env; export const value = env.FIREBASE_PROJECT_ID;',
+        "let env; if (ready) env = process.env; export const value = env.FIREBASE_PROJECT_ID;",
       );
     },
   },
@@ -434,7 +444,7 @@ const cases = [
       writeFixtureFile(
         root,
         "src/lib/env-config.ts",
-        'let env; env ||= process.env; export const value = env.FIREBASE_PROJECT_ID;',
+        "let env; env ||= process.env; export const value = env.FIREBASE_PROJECT_ID;",
       );
     },
   },
@@ -446,7 +456,7 @@ const cases = [
       writeFixtureFile(
         root,
         "src/lib/env-config.ts",
-        'const { env } = process; export const value = env.FIREBASE_PROJECT_ID;',
+        "const { env } = process; export const value = env.FIREBASE_PROJECT_ID;",
       );
     },
   },
@@ -458,7 +468,7 @@ const cases = [
       writeFixtureFile(
         root,
         "src/lib/env-config.ts",
-        'export const value = process?.env?.FIREBASE_PROJECT_ID;',
+        "export const value = process?.env?.FIREBASE_PROJECT_ID;",
       );
     },
   },
@@ -470,7 +480,7 @@ const cases = [
       writeFixtureFile(
         root,
         "src/lib/env-config.ts",
-        'export const value = (process.env).FIREBASE_PROJECT_ID;',
+        "export const value = (process.env).FIREBASE_PROJECT_ID;",
       );
     },
   },
@@ -539,7 +549,11 @@ const cases = [
     expectSuccess: false,
     expectedOutput: "Runtime integration environment reference",
     setup(root) {
-      writeFixtureFile(root, "src/lib/env-config.ts", 'export { env } from "node:process";');
+      writeFixtureFile(
+        root,
+        "src/lib/env-config.ts",
+        'export { env } from "node:process";',
+      );
     },
   },
   {
@@ -550,7 +564,7 @@ const cases = [
       writeFixtureFile(
         root,
         "next.config.ts",
-        'export default { env: { projectId: process.env.GOOGLE_CLOUD_PROJECT } };',
+        "export default { env: { projectId: process.env.GOOGLE_CLOUD_PROJECT } };",
       );
     },
   },
@@ -647,7 +661,8 @@ export default function LocationsDashboardPage() {
   {
     name: "figma backed admin route placeholder is blocked",
     expectSuccess: false,
-    expectedOutput: "AdminRoutePage may only render deferred placeholder routes",
+    expectedOutput:
+      "AdminRoutePage may only render deferred placeholder routes",
     setup(root) {
       writeFixtureFile(
         root,
@@ -665,7 +680,8 @@ export default function DashboardPage() {
   {
     name: "figma backed route with deferred lookup is blocked",
     expectSuccess: false,
-    expectedOutput: "AdminRoutePage may only render deferred placeholder routes",
+    expectedOutput:
+      "AdminRoutePage may only render deferred placeholder routes",
     setup(root) {
       writeFixtureFile(
         root,
@@ -701,7 +717,8 @@ export default function LocationsDashboardPage() {
   {
     name: "nonliteral admin route page lookup is blocked",
     expectSuccess: false,
-    expectedOutput: "AdminRoutePage usage must use literal deferred route lookup",
+    expectedOutput:
+      "AdminRoutePage usage must use literal deferred route lookup",
     setup(root) {
       writeFixtureFile(
         root,
@@ -763,7 +780,8 @@ export default function LoginPage() {
   {
     name: "figma backed route entry placeholder is blocked",
     expectSuccess: false,
-    expectedOutput: "EntryRoutePage may only render deferred entry placeholders",
+    expectedOutput:
+      "EntryRoutePage may only render deferred entry placeholders",
     setup(root) {
       writeFixtureFile(
         root,
@@ -788,7 +806,8 @@ export default function DashboardPage() {
   {
     name: "entry route page outside page file is blocked",
     expectSuccess: false,
-    expectedOutput: "EntryRoutePage usage must live in a literal App Router page file",
+    expectedOutput:
+      "EntryRoutePage usage must live in a literal App Router page file",
     setup(root) {
       writeFixtureFile(
         root,
@@ -813,7 +832,8 @@ export function LoginPlaceholder() {
   {
     name: "entry route page wrapper outside app is blocked",
     expectSuccess: false,
-    expectedOutput: "EntryRoutePage usage must live in a literal App Router page file",
+    expectedOutput:
+      "EntryRoutePage usage must live in a literal App Router page file",
     setup(root) {
       writeFixtureFile(
         root,
@@ -871,7 +891,11 @@ export function LoginPlaceholder() {
     expectSuccess: false,
     expectedOutput: "Firebase import or require",
     setup(root) {
-      writeFixtureFile(root, "src/lib/firebase.ts", 'import { initializeApp } from "firebase/app";');
+      writeFixtureFile(
+        root,
+        "src/lib/firebase.ts",
+        'import { initializeApp } from "firebase/app";',
+      );
     },
   },
   {
@@ -881,7 +905,10 @@ export function LoginPlaceholder() {
       writeFixtureFile(
         root,
         "package.json",
-        JSON.stringify({ dependencies: { firebase: "^12.13.0" }, devDependencies: {} }),
+        JSON.stringify({
+          dependencies: { firebase: "^12.13.0" },
+          devDependencies: {},
+        }),
       );
       writeFixtureFile(
         root,
@@ -958,7 +985,7 @@ export function SignupForm() {
 
   return (
     <form onSubmit={submit}>
-      <button type="submit">근무지 저장</button>
+      <button type="submit">저장</button>
     </form>
   );
 }
@@ -997,7 +1024,11 @@ export function createLocation(db, workspaceId, input) {
     expectSuccess: false,
     expectedOutput: "fetch call",
     setup(root) {
-      writeFixtureFile(root, "src/features/dashboard/load.ts", 'export function load() { return fetch("/api"); }');
+      writeFixtureFile(
+        root,
+        "src/features/dashboard/load.ts",
+        'export function load() { return fetch("/api"); }',
+      );
     },
   },
   {
@@ -1090,7 +1121,7 @@ export function createLocation(db, workspaceId, input) {
       writeFixtureFile(
         root,
         "src/features/workers/use-submit.tsx",
-        'export function useSubmitPreview() { return useActionState(async () => null, null); }',
+        "export function useSubmitPreview() { return useActionState(async () => null, null); }",
       );
     },
   },
@@ -1260,7 +1291,11 @@ export function createLocation(db, workspaceId, input) {
     expectSuccess: false,
     expectedOutput: "server action directive",
     setup(root) {
-      writeFixtureFile(root, "src/features/workers/actions.ts", '"use server";\nexport async function save() {}');
+      writeFixtureFile(
+        root,
+        "src/features/workers/actions.ts",
+        '"use server";\nexport async function save() {}',
+      );
     },
   },
   {
@@ -1268,7 +1303,11 @@ export function createLocation(db, workspaceId, input) {
     expectSuccess: false,
     expectedOutput: "NextResponse route handler API",
     setup(root) {
-      writeFixtureFile(root, "src/features/workers/response.ts", 'import { NextResponse } from "next/server";');
+      writeFixtureFile(
+        root,
+        "src/features/workers/response.ts",
+        'import { NextResponse } from "next/server";',
+      );
     },
   },
   {
@@ -1276,7 +1315,11 @@ export function createLocation(db, workspaceId, input) {
     expectSuccess: false,
     expectedOutput: "Firestore mutation/helper",
     setup(root) {
-      writeFixtureFile(root, "src/features/workers/store.ts", 'export function save() { return addDoc(collection(db, "workers"), {}); }');
+      writeFixtureFile(
+        root,
+        "src/features/workers/store.ts",
+        'export function save() { return addDoc(collection(db, "workers"), {}); }',
+      );
     },
   },
   {
@@ -1284,7 +1327,11 @@ export function createLocation(db, workspaceId, input) {
     expectSuccess: false,
     expectedOutput: "optimistic UI",
     setup(root) {
-      writeFixtureFile(root, "src/features/workers/use-worker.ts", "export function useWorker() { return useOptimistic([]); }");
+      writeFixtureFile(
+        root,
+        "src/features/workers/use-worker.ts",
+        "export function useWorker() { return useOptimistic([]); }",
+      );
     },
   },
   {
@@ -1295,7 +1342,10 @@ export function createLocation(db, workspaceId, input) {
       writeFixtureFile(
         root,
         "package.json",
-        JSON.stringify({ dependencies: { zod: "^4.0.0" }, devDependencies: {} }),
+        JSON.stringify({
+          dependencies: { zod: "^4.0.0" },
+          devDependencies: {},
+        }),
       );
     },
   },
@@ -1305,7 +1355,10 @@ let passed = 0;
 
 try {
   for (const testCase of cases) {
-    const root = createFixture(testCase.name.replaceAll(/\W+/g, "-").toLowerCase(), testCase.setup);
+    const root = createFixture(
+      testCase.name.replaceAll(/\W+/g, "-").toLowerCase(),
+      testCase.setup,
+    );
     const result = runAudit(root);
     const succeeded = result.status === 0;
 
@@ -1317,8 +1370,13 @@ try {
       );
     }
 
-    if (testCase.expectedOutput && !result.output.includes(testCase.expectedOutput)) {
-      throw new Error(`${testCase.name}: expected output to include "${testCase.expectedOutput}"\n${result.output}`);
+    if (
+      testCase.expectedOutput &&
+      !result.output.includes(testCase.expectedOutput)
+    ) {
+      throw new Error(
+        `${testCase.name}: expected output to include "${testCase.expectedOutput}"\n${result.output}`,
+      );
     }
 
     passed += 1;
