@@ -163,6 +163,17 @@ const cases = [
     },
   },
   {
+    name: "generic node env bracket reference passes",
+    expectSuccess: true,
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/dashboard/env-preview.ts",
+        'export const isDevelopment = process.env["NODE_ENV"] === "development";',
+      );
+    },
+  },
+  {
     name: "playwright base url env reference passes",
     expectSuccess: true,
     setup(root) {
@@ -170,6 +181,17 @@ const cases = [
         root,
         "playwright.config.ts",
         "export default { use: { baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3000' } };",
+      );
+    },
+  },
+  {
+    name: "playwright base url bracket env reference passes",
+    expectSuccess: true,
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "playwright.config.ts",
+        'export default { use: { baseURL: process.env["PLAYWRIGHT_BASE_URL"] ?? "http://127.0.0.1:3000" } };',
       );
     },
   },
@@ -246,6 +268,42 @@ const cases = [
         root,
         "src/lib/database-config.ts",
         'export const databaseUrl = process.env["DATABASE_URL"];',
+      );
+    },
+  },
+  {
+    name: "runtime dynamic env key is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/env-config.ts",
+        'const key = "FIREBASE_PROJECT_ID"; export const value = process.env[key];',
+      );
+    },
+  },
+  {
+    name: "runtime optional dynamic env key is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/env-config.ts",
+        'const key = "FIREBASE_PROJECT_ID"; export const value = process.env?.[key];',
+      );
+    },
+  },
+  {
+    name: "runtime template env key is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/env-config.ts",
+        'const suffix = "FIREBASE_API_KEY"; export const value = process.env[`NEXT_PUBLIC_${suffix}`];',
       );
     },
   },
