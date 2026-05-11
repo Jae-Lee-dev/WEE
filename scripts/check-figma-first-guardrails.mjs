@@ -164,6 +164,27 @@ const submitDrivenUiRules = [
     pattern: /\buseFormStatus\s*\(/,
   },
 ];
+const localArrayMutationRules = [
+  {
+    name: "array-like mutating method",
+    pattern: /\.(?:push|splice|unshift|pop|shift)\s*\(/,
+  },
+  {
+    name: "state setter array literal replacement",
+    pattern:
+      /\bset[A-Z][\w$]*\s*\(\s*(?:(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>\s*)?\[[^\]]*\]/,
+  },
+  {
+    name: "state setter array transform",
+    pattern:
+      /\bset[A-Z][\w$]*\s*\(\s*(?:(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>\s*(?:\{[\s\S]{0,160}\breturn\s+)?)?[A-Za-z_$][\w$]*\s*\.\s*(?:filter|map|concat|slice|toSpliced|with)\s*\(/,
+  },
+  {
+    name: "state setter array spread",
+    pattern:
+      /\bset[A-Z][\w$]*\s*\(\s*(?:(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>\s*)?\[\s*\.\.\.[A-Za-z_$][\w$]*/,
+  },
+];
 
 const findings = [];
 
@@ -235,6 +256,24 @@ function auditSubmitDrivenUi(file, content) {
     if (rule.pattern.test(content)) {
       addFinding(
         "Submit-driven UI primitive",
+        file,
+        `${rule.name} is deferred until the backend/business transition phase`,
+      );
+    }
+  }
+}
+
+function auditLocalArrayMutation(file, content) {
+  const rel = relative(root, file);
+
+  if (!rel.startsWith("src/")) {
+    return;
+  }
+
+  for (const rule of localArrayMutationRules) {
+    if (rule.pattern.test(content)) {
+      addFinding(
+        "Local array add/edit/delete mutation",
         file,
         `${rule.name} is deferred until the backend/business transition phase`,
       );
@@ -447,6 +486,7 @@ for (const codeRoot of codeRoots) {
 
     auditRuntimeArtifactReference(file, content);
     auditSubmitDrivenUi(file, content);
+    auditLocalArrayMutation(file, content);
     auditAdminRoutePageUsage(file, content);
     auditEntryRoutePageUsage(file, content);
   }

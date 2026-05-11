@@ -203,6 +203,32 @@ const cases = [
     },
   },
   {
+    name: "e2e local array mutation helper is ignored",
+    expectSuccess: true,
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "e2e/visual/collect.ts",
+        "export function collect(items: string[]) { items.push('state'); return items; }",
+      );
+    },
+  },
+  {
+    name: "render-only array spread is allowed",
+    expectSuccess: true,
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/workers/filter-tabs.tsx",
+        `export function FilterPreview({ options }: { options: string[] }) {
+  setMenuOpen((open) => !open);
+  return <Tabs options={[...options]} />;
+}
+`,
+      );
+    },
+  },
+  {
     name: "admin route page deferred placeholder passes",
     expectSuccess: true,
     setup(root) {
@@ -560,6 +586,155 @@ export function LoginPlaceholder() {
         root,
         "src/features/workers/use-submit-status.tsx",
         "export function SubmitStatusPreview() { const status = useFormStatus(); return status.pending; }",
+      );
+    },
+  },
+  {
+    name: "local array push mutation is blocked",
+    expectSuccess: false,
+    expectedOutput: "Local array add/edit/delete mutation",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/workers/worker-tags.ts",
+        "export function addTag(tags: string[]) { tags.push('신규'); return tags; }",
+      );
+    },
+  },
+  {
+    name: "local array splice mutation is blocked",
+    expectSuccess: false,
+    expectedOutput: "Local array add/edit/delete mutation",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/workers/worker-tags.ts",
+        "export function removeTag(tags: string[]) { tags.splice(0, 1); return tags; }",
+      );
+    },
+  },
+  {
+    name: "state setter filter deletion is blocked",
+    expectSuccess: false,
+    expectedOutput: "Local array add/edit/delete mutation",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/workers/worker-list.tsx",
+        "export function removeWorker(id: string) { setWorkers((workers) => workers.filter((worker) => worker.id !== id)); }",
+      );
+    },
+  },
+  {
+    name: "state setter map edit is blocked",
+    expectSuccess: false,
+    expectedOutput: "Local array add/edit/delete mutation",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/workers/worker-list.tsx",
+        "export function updateWorker(id: string) { setWorkers((workers) => workers.map((worker) => worker.id === id ? worker : worker)); }",
+      );
+    },
+  },
+  {
+    name: "state setter spread add is blocked",
+    expectSuccess: false,
+    expectedOutput: "Local array add/edit/delete mutation",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/workers/worker-list.tsx",
+        "export function addWorker(worker: Worker) { setWorkers((workers) => [...workers, worker]); }",
+      );
+    },
+  },
+  {
+    name: "state setter empty array replacement is blocked",
+    expectSuccess: false,
+    expectedOutput: "Local array add/edit/delete mutation",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/workers/worker-list.tsx",
+        "export function clearWorkers() { setWorkers([]); }",
+      );
+    },
+  },
+  {
+    name: "state setter array literal replacement is blocked",
+    expectSuccess: false,
+    expectedOutput: "Local array add/edit/delete mutation",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/workers/worker-list.tsx",
+        "export function replaceWorkers(worker: Worker) { setWorkers([worker]); }",
+      );
+    },
+  },
+  {
+    name: "state setter concat add is blocked",
+    expectSuccess: false,
+    expectedOutput: "Local array add/edit/delete mutation",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/workers/worker-list.tsx",
+        "export function addWorker(worker: Worker) { setWorkers((workers) => workers.concat(worker)); }",
+      );
+    },
+  },
+  {
+    name: "state setter slice deletion is blocked",
+    expectSuccess: false,
+    expectedOutput: "Local array add/edit/delete mutation",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/workers/worker-list.tsx",
+        "export function removeFirstWorker() { setWorkers((workers) => workers.slice(1)); }",
+      );
+    },
+  },
+  {
+    name: "state setter toSpliced edit is blocked",
+    expectSuccess: false,
+    expectedOutput: "Local array add/edit/delete mutation",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/workers/worker-list.tsx",
+        "export function replaceWorker(worker: Worker) { setWorkers((workers) => workers.toSpliced(0, 1, worker)); }",
+      );
+    },
+  },
+  {
+    name: "state setter with edit is blocked",
+    expectSuccess: false,
+    expectedOutput: "Local array add/edit/delete mutation",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/workers/worker-list.tsx",
+        "export function replaceWorker(worker: Worker) { setWorkers((workers) => workers.with(0, worker)); }",
+      );
+    },
+  },
+  {
+    name: "state setter block body filter deletion is blocked",
+    expectSuccess: false,
+    expectedOutput: "Local array add/edit/delete mutation",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/workers/worker-list.tsx",
+        `export function removeWorker(id: string) {
+  setWorkers((workers) => {
+    return workers.filter((worker) => worker.id !== id);
+  });
+}
+`,
       );
     },
   },
