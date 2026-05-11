@@ -15,7 +15,6 @@ import {
   ShieldCheck,
   UserRound,
 } from "lucide-react";
-import { entryRoutes } from "@/app/_config/admin-navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -23,21 +22,12 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { SignupForm } from "./signup-form";
 
-type EntryScreenId = "AUTH-01" | "AUTH-02" | "AUTH-03" | "ONB-01" | "ONB-02";
-
-type SupportItem = {
-  label: string;
-  value: string;
-  detail: string;
-  tone?: "green" | "orange" | "blue" | "grey";
-};
+type EntryScreenId = "AUTH-01" | "AUTH-02" | "AUTH-03";
 
 type EntryShellProps = {
-  screenId: EntryScreenId;
   title: string;
   description: string;
-  supportTitle: string;
-  supportItems: readonly SupportItem[];
+  activeStepIndex: number;
   children: ReactNode;
 };
 
@@ -64,29 +54,24 @@ type SectionHeadingProps = {
   description?: string;
 };
 
-const workspaceSupportItems = [
-  {
-    label: "소속 정보",
-    value: "1단계",
-    detail: "기본 정보와 대표 연락처",
-    tone: "green",
-  },
-  {
-    label: "조교 소속 코드",
-    value: "발급",
-    detail: "가입 신청에 사용할 코드",
-    tone: "orange",
-  },
-  {
-    label: "초기 설정",
-    value: "필수",
-    detail: "근무지와 첫 근무 등록",
-    tone: "blue",
-  },
-] as const satisfies readonly SupportItem[];
+type AdminSetupActionCardProps = {
+  icon: ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+  href: string;
+  actionLabel: string;
+};
 
-const workspaceSteps = ["소속 정보", "요금제 선택", "결제 정보", "코드 발급"];
-const setupSteps = ["근무지 등록", "근무 개설", "운영 시작"];
+const onboardingProgressSteps = [
+  {
+    title: "소속 만들기",
+    description: "기본 정보와 조교 신청 코드",
+  },
+  {
+    title: "관리자 설정",
+    description: "근무지와 첫 근무는 운영 화면에서 설정",
+  },
+] as const;
 
 export function LoginScreen() {
   return (
@@ -256,16 +241,12 @@ export function ForgotPasswordScreen() {
 export function WorkspaceOnboardingScreen() {
   return (
     <EntryShell
-      screenId="ONB-01"
       title="소속 생성"
       description="조교가 소속 신청에 사용할 운영 소속과 코드를 준비합니다."
-      supportTitle="온보딩"
-      supportItems={workspaceSupportItems}
+      activeStepIndex={0}
     >
       <div className="w-full" data-testid="workspace-onboarding-screen">
-        <EntryStepper steps={workspaceSteps} activeIndex={0} />
-
-        <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
           <section className="rounded-[8px] border border-gray-200 bg-white p-5">
             <SectionHeading
               icon={Building2}
@@ -343,7 +324,7 @@ export function WorkspaceOnboardingScreen() {
             className="h-[50px] rounded-[8px] px-7 text-h-18-semibold tracking-normal"
           >
             <Link href="/onboarding/setup">
-              초기 설정으로 이동
+              관리자 설정으로 이동
               <ArrowRight className="size-5" strokeWidth={2.2} />
             </Link>
           </Button>
@@ -356,99 +337,50 @@ export function WorkspaceOnboardingScreen() {
 export function SetupGuideScreen() {
   return (
     <EntryShell
-      screenId="ONB-02"
-      title="초기 설정 가이드"
-      description="운영 시작 전에 근무지와 첫 근무를 등록합니다."
-      supportTitle="시작 조건"
-      supportItems={workspaceSupportItems}
+      title="관리자 설정으로 이어가기"
+      description="근무지와 첫 근무는 실제 운영 데이터가 쌓이는 관리자 화면에서 설정합니다."
+      activeStepIndex={1}
     >
       <div className="w-full" data-testid="setup-guide-screen">
-        <EntryStepper steps={setupSteps} activeIndex={0} />
+        <section className="rounded-[8px] border border-gray-200 bg-white p-5">
+          <SectionHeading
+            icon={ShieldCheck}
+            title="초기 운영 설정"
+            description="소속 생성 후에는 관리자 인터페이스에서 근무지와 근무를 바로 관리합니다."
+          />
 
-        <div className="mt-6 grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
-          <aside className="rounded-[8px] border border-gray-200 bg-gray-50 p-5">
-            <div className="text-h-16-semibold tracking-normal text-gray-900">
-              필수 항목
-            </div>
-            <div className="mt-5 space-y-3">
-              <SetupChecklistItem
-                active
-                icon={MapPin}
-                title="근무지 1개 이상"
-                detail="본관 · 100m 반경"
-              />
-              <SetupChecklistItem
-                icon={Clock3}
-                title="근무 1개 이상"
-                detail="요일 · 시간 · 시급"
-              />
-              <SetupChecklistItem
-                icon={ShieldCheck}
-                title="운영 시작"
-                detail="대시보드 진입"
-              />
-            </div>
-          </aside>
-
-          <div className="grid gap-5">
-            <section className="rounded-[8px] border border-gray-200 bg-white p-5">
-              <SectionHeading
-                icon={MapPin}
-                title="근무지 등록"
-                description="출퇴근 반경 확인에 사용할 기준 위치입니다."
-              />
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                <EntryField
-                  label="근무지명"
-                  placeholder="본관"
-                  defaultValue="본관"
-                />
-                <EntryField
-                  label="출퇴근 반경"
-                  inputMode="numeric"
-                  placeholder="100m"
-                  defaultValue="100m"
-                />
-                <EntryField
-                  label="주소"
-                  placeholder="서울 강남구 테헤란로 00"
-                  className="sm:col-span-2"
-                />
-              </div>
-            </section>
-
-            <section className="rounded-[8px] border border-gray-200 bg-white p-5">
-              <SectionHeading
-                icon={Clock3}
-                title="첫 근무 개설"
-                description="조교가 시간표를 구성할 때 선택하는 근무 단위입니다."
-              />
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                <EntryField
-                  label="근무명"
-                  placeholder="중등 영어 보조"
-                  defaultValue="중등 영어 보조"
-                />
-                <EntryField
-                  label="기본 시급"
-                  inputMode="numeric"
-                  placeholder="12,000원"
-                  defaultValue="12,000원"
-                />
-                <EntryField label="요일" placeholder="월 · 수" />
-                <EntryField label="시간" placeholder="18:00 - 21:00" />
-              </div>
-            </section>
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            <AdminSetupActionCard
+              icon={MapPin}
+              title="근무지 관리"
+              description="주소와 출퇴근 허용 반경을 등록합니다. 반경은 숫자로 입력하고 m 단위가 붙습니다."
+              href="/settings/locations"
+              actionLabel="근무지 관리 열기"
+            />
+            <AdminSetupActionCard
+              icon={Clock3}
+              title="근무 목록"
+              description="요일, 시간, 시급 기준으로 조교가 배정될 첫 근무를 개설합니다."
+              href="/schedule/duties"
+              actionLabel="근무 개설 열기"
+            />
           </div>
-        </div>
+        </section>
 
-        <div className="mt-6 flex justify-end">
+        <div className="mt-6 flex flex-wrap justify-end gap-3">
+          <Button
+            asChild
+            variant="secondary"
+            className="h-[50px] rounded-[8px] px-7 text-h-18-semibold tracking-normal"
+          >
+            <Link href="/dashboard">대시보드로 이동</Link>
+          </Button>
           <Button
             asChild
             className="h-[50px] rounded-[8px] px-7 text-h-18-semibold tracking-normal"
           >
-            <Link href="/dashboard">
-              대시보드로 이동
+            <Link href="/settings/locations">
+              근무지부터 설정
               <ArrowRight className="size-5" strokeWidth={2.2} />
             </Link>
           </Button>
@@ -491,41 +423,26 @@ function AuthShell({
 }
 
 function EntryShell({
-  screenId,
   title,
   description,
-  supportTitle,
-  supportItems,
+  activeStepIndex,
   children,
 }: EntryShellProps) {
   return (
     <main className="min-h-screen bg-gray-50 px-5 py-6 tracking-normal text-gray-900 md:px-8 lg:py-8">
-      <div className="mx-auto grid min-h-[calc(100vh-64px)] w-full max-w-[1240px] gap-5 lg:grid-cols-[390px_minmax(0,1fr)]">
-        <aside className="flex min-h-[360px] flex-col rounded-[10px] border border-gray-200 bg-white px-6 py-6 lg:px-7 lg:py-7">
+      <div className="mx-auto min-h-[calc(100vh-64px)] w-full max-w-[1040px]">
+        <header className="flex items-center justify-between gap-4">
           <BrandBlock />
+        </header>
 
-          <div className="mt-9">
-            <Badge variant="green" size="M">
-              {screenId}
-            </Badge>
-            <h2 className="mt-4 text-h-24 tracking-normal text-gray-900">
-              Wee 관리자
-            </h2>
-            <p className="mt-2 text-body-14-regular tracking-normal text-gray-500">
-              학원 운영자용 근태·급여 관리 워크스페이스
-            </p>
-          </div>
+        <OnboardingProgress activeIndex={activeStepIndex} />
 
-          <SupportList title={supportTitle} items={supportItems} />
-          <EntryNav currentHref={routeHrefByScreenId[screenId]} />
-        </aside>
-
-        <section className="flex min-h-[620px] flex-col rounded-[10px] border border-gray-200 bg-white px-6 py-7 sm:px-8 lg:px-10 lg:py-9">
+        <section className="mt-7">
           <header className="max-w-[720px]">
-            <Badge variant="grey" size="M">
-              {screenId}
-            </Badge>
-            <h1 className="mt-4 text-h-32 tracking-normal text-gray-900">
+            <p className="text-label-14-medium tracking-normal text-green-500">
+              Wee 시작하기
+            </p>
+            <h1 className="mt-3 text-h-32 tracking-normal text-gray-900">
               {title}
             </h1>
             <p className="mt-2 text-body-16-regular tracking-normal text-gray-500">
@@ -533,10 +450,63 @@ function EntryShell({
             </p>
           </header>
 
-          <div className="mt-8 flex flex-1 items-start">{children}</div>
+          <div className="mt-6">{children}</div>
         </section>
       </div>
     </main>
+  );
+}
+
+function OnboardingProgress({ activeIndex }: { activeIndex: number }) {
+  return (
+    <nav
+      aria-label="온보딩 진행 단계"
+      className="mt-7"
+      data-testid="onboarding-progress"
+    >
+      <ol className="grid gap-3 sm:grid-cols-2">
+        {onboardingProgressSteps.map((step, index) => {
+          const active = index === activeIndex;
+          const reached = index <= activeIndex;
+
+          return (
+            <li
+              key={step.title}
+              aria-current={active ? "step" : undefined}
+              className={cn(
+                "min-h-[94px] rounded-[10px] border bg-white p-4 shadow-[0_12px_32px_rgba(17,24,39,0.04)]",
+                reached ? "border-green-200" : "border-gray-200",
+              )}
+            >
+              <span
+                className={cn(
+                  "block h-1.5 rounded-full",
+                  reached ? "bg-green-400" : "bg-gray-200",
+                )}
+              />
+              <span className="mt-3 flex items-start gap-3">
+                <span
+                  className={cn(
+                    "flex size-7 shrink-0 items-center justify-center rounded-full text-label-12-medium tracking-normal",
+                    reached ? "bg-green-400 text-white" : "bg-gray-100 text-gray-500",
+                  )}
+                >
+                  {index + 1}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-label-14-medium tracking-normal text-gray-900">
+                    {step.title}
+                  </span>
+                  <span className="mt-1 block text-label-12-regular tracking-normal text-gray-500">
+                    {step.description}
+                  </span>
+                </span>
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
   );
 }
 
@@ -586,85 +556,40 @@ function AuthLogo() {
   );
 }
 
-function SupportList({
+function AdminSetupActionCard({
+  icon: Icon,
   title,
-  items,
-}: {
-  title: string;
-  items: readonly SupportItem[];
-}) {
+  description,
+  href,
+  actionLabel,
+}: AdminSetupActionCardProps) {
   return (
-    <div className="mt-9">
-      <div className="mb-3 text-label-14-medium tracking-normal text-gray-500">
-        {title}
+    <article className="rounded-[8px] border border-gray-200 bg-gray-50 p-5">
+      <div className="flex items-start gap-3">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-[8px] bg-white text-green-400">
+          <Icon className="size-5" />
+        </span>
+        <div className="min-w-0">
+          <h2 className="text-h-18-semibold tracking-normal text-gray-900">
+            {title}
+          </h2>
+          <p className="mt-1 text-body-14-regular tracking-normal text-gray-500">
+            {description}
+          </p>
+        </div>
       </div>
-      <div className="space-y-2">
-        {items.map((item) => (
-          <div
-            key={item.label}
-            className="flex min-h-[64px] items-center justify-between gap-4 rounded-[8px] border border-gray-100 bg-gray-50 px-4"
-          >
-            <div className="min-w-0">
-              <div className="truncate text-label-14-medium tracking-normal text-gray-700">
-                {item.label}
-              </div>
-              <div className="mt-1 truncate text-label-12-regular tracking-normal text-gray-500">
-                {item.detail}
-              </div>
-            </div>
-            <Badge variant={item.tone ?? "grey"} size="M" className="shrink-0">
-              {item.value}
-            </Badge>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
-const routeHrefByScreenId: Record<EntryScreenId, string> = {
-  "AUTH-01": "/login",
-  "AUTH-02": "/signup",
-  "AUTH-03": "/forgot-password",
-  "ONB-01": "/onboarding/workspace",
-  "ONB-02": "/onboarding/setup",
-};
-
-function EntryNav({
-  currentHref,
-  compact = false,
-}: {
-  currentHref: string;
-  compact?: boolean;
-}) {
-  return (
-    <nav
-      className={cn(
-        "flex flex-wrap gap-x-4 gap-y-2",
-        compact ? "justify-end" : "mt-auto pt-8",
-      )}
-      aria-label="진입 메뉴"
-    >
-      {entryRoutes.map((route) => {
-        const active = route.href === currentHref;
-
-        return (
-          <Link
-            key={route.href}
-            href={route.href}
-            aria-current={active ? "page" : undefined}
-            className={cn(
-              "text-label-12-medium tracking-normal transition-colors duration-150 ease-out",
-              active
-                ? "text-green-400"
-                : "text-gray-500 hover:text-green-400 active:text-green-500",
-            )}
-          >
-            {route.label}
-          </Link>
-        );
-      })}
-    </nav>
+      <Button
+        asChild
+        variant="secondary"
+        className="mt-5 h-[46px] w-full justify-between rounded-[8px] px-4 text-h-16-semibold tracking-normal"
+      >
+        <Link href={href}>
+          {actionLabel}
+          <ArrowRight className="size-4" strokeWidth={2.2} />
+        </Link>
+      </Button>
+    </article>
   );
 }
 
@@ -704,61 +629,6 @@ function CheckboxLine({ id, label }: { id: string; label: string }) {
         {label}
       </label>
     </div>
-  );
-}
-
-function EntryStepper({
-  steps,
-  activeIndex,
-}: {
-  steps: readonly string[];
-  activeIndex: number;
-}) {
-  return (
-    <ol
-      className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4"
-      aria-label="온보딩 단계"
-    >
-      {steps.map((step, index) => {
-        const active = index === activeIndex;
-        const complete = index < activeIndex;
-
-        return (
-          <li
-            key={step}
-            className={cn(
-              "flex min-h-[58px] items-center gap-3 rounded-[8px] border px-4",
-              active || complete
-                ? "border-green-200 bg-green-50"
-                : "border-gray-200 bg-white",
-            )}
-          >
-            <span
-              className={cn(
-                "flex size-7 shrink-0 items-center justify-center rounded-full text-label-12-medium tracking-normal",
-                active || complete
-                  ? "bg-green-400 text-white"
-                  : "bg-gray-100 text-gray-500",
-              )}
-            >
-              {complete ? (
-                <Check className="size-4" strokeWidth={2.4} />
-              ) : (
-                index + 1
-              )}
-            </span>
-            <span
-              className={cn(
-                "min-w-0 truncate text-label-14-medium tracking-normal",
-                active ? "text-gray-900" : "text-gray-600",
-              )}
-            >
-              {step}
-            </span>
-          </li>
-        );
-      })}
-    </ol>
   );
 }
 
@@ -836,44 +706,6 @@ function PlanOption({
           </li>
         ))}
       </ul>
-    </div>
-  );
-}
-
-function SetupChecklistItem({
-  icon: Icon,
-  title,
-  detail,
-  active = false,
-}: {
-  icon: ComponentType<{ className?: string }>;
-  title: string;
-  detail: string;
-  active?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex min-h-[68px] items-center gap-3 rounded-[8px] border px-3",
-        active ? "border-green-200 bg-white" : "border-gray-100 bg-white/60",
-      )}
-    >
-      <span
-        className={cn(
-          "flex size-9 shrink-0 items-center justify-center rounded-[8px]",
-          active ? "bg-green-100 text-green-400" : "bg-gray-100 text-gray-500",
-        )}
-      >
-        <Icon className="size-5" />
-      </span>
-      <span className="min-w-0">
-        <span className="block truncate text-label-14-medium tracking-normal text-gray-900">
-          {title}
-        </span>
-        <span className="mt-1 block truncate text-label-12-regular tracking-normal text-gray-500">
-          {detail}
-        </span>
-      </span>
     </div>
   );
 }

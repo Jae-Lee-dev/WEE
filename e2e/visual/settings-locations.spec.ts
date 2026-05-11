@@ -47,6 +47,13 @@ test(`SET-02 location-dialog ${desktop}`, async ({ page }) => {
   await expect(dialog).toContainText("출퇴근 허용 반경");
   await expect(page.getByTestId("settings-location-map")).toBeVisible();
 
+  const radiusInput = dialog.getByRole("spinbutton", {
+    name: "출퇴근 허용 반경",
+  });
+  await expect(radiusInput).toHaveAttribute("type", "number");
+  await expect(radiusInput).toHaveValue("100");
+  await expect(dialog.locator("#settings-location-radius-unit")).toHaveText("m");
+
   await captureActualScreenshot({
     page,
     screenId: "SET-02",

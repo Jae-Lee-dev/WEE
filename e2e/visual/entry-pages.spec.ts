@@ -30,7 +30,7 @@ const entryPages = [
     screenId: "ONB-02",
     path: "/onboarding/setup",
     testId: "setup-guide-screen",
-    heading: "초기 설정 가이드",
+    heading: "관리자 설정으로 이어가기",
   },
 ] as const;
 
@@ -351,4 +351,58 @@ test("AUTH-02 submits native signup through Firebase Auth", async ({
   expect(authRequests.some((url) => url.includes("accounts:sendOobCode"))).toBe(
     true,
   );
+});
+
+test("ONB screens use user-facing progress", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/onboarding/workspace",
+    viewport: "laptop-1366",
+  });
+  await page.evaluate(() => document.fonts.ready);
+
+  const progress = page.getByRole("navigation", {
+    name: "온보딩 진행 단계",
+  });
+  await expect(progress).toBeVisible();
+  await expect(progress.getByText("소속 만들기")).toBeVisible();
+  await expect(progress.getByText("관리자 설정")).toBeVisible();
+  await expect(page.getByText("ONB-01")).toHaveCount(0);
+  await expect(page.getByText("ONB-02")).toHaveCount(0);
+
+  const metrics = await page.evaluate(() => {
+    const progressElement = document.querySelector(
+      '[data-testid="onboarding-progress"]',
+    );
+    const heading = document.querySelector("h1");
+
+    return {
+      headingTop: heading?.getBoundingClientRect().top ?? 0,
+      progressTop: progressElement?.getBoundingClientRect().top ?? 0,
+    };
+  });
+
+  expect(metrics.progressTop).toBeLessThan(metrics.headingTop);
+});
+
+test("ONB-02 sends setup tasks to admin interfaces", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/onboarding/setup",
+    viewport: "laptop-1366",
+  });
+  await page.evaluate(() => document.fonts.ready);
+
+  await expect(page.getByText("ONB-01")).toHaveCount(0);
+  await expect(page.getByText("ONB-02")).toHaveCount(0);
+  await expect(page.getByText("근무지명")).toHaveCount(0);
+  await expect(page.getByText("출퇴근 반경")).toHaveCount(0);
+  await expect(page.getByText("근무명")).toHaveCount(0);
+
+  await expect(
+    page.getByRole("link", { name: "근무지 관리 열기" }),
+  ).toHaveAttribute("href", "/settings/locations");
+  await expect(
+    page.getByRole("link", { name: "근무 개설 열기" }),
+  ).toHaveAttribute("href", "/schedule/duties");
 });

@@ -156,10 +156,18 @@ function LocationDialog({ onClose }: { onClose: () => void }) {
           <span className="mt-3 flex items-center gap-2.5">
             <input
               readOnly
+              type="number"
+              inputMode="numeric"
+              min="0"
+              step="10"
               value={dialog.radiusValue}
+              aria-describedby="settings-location-radius-unit"
               className="h-[49px] w-60 rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-right text-h-18-regular text-gray-800 outline-none"
             />
-            <span className="text-h-18-semibold text-gray-900">
+            <span
+              id="settings-location-radius-unit"
+              className="text-h-18-semibold text-gray-900"
+            >
               {dialog.radiusUnit}
             </span>
           </span>
