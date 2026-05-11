@@ -703,14 +703,14 @@ function EntryNav({
 
 function SocialProviderButtons() {
   return (
-    <div className="grid gap-3 sm:grid-cols-3" aria-label="소셜 로그인">
+    <div className="grid gap-3" aria-label="소셜 로그인">
       {socialProviders.map((provider) => (
         <button
           key={provider.label}
           type="button"
-          className="flex h-12 items-center justify-center gap-2 rounded-[8px] border border-gray-200 bg-white px-3 text-label-14-medium tracking-normal text-gray-800 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+          className="relative flex h-12 w-full items-center justify-center rounded-[8px] border border-gray-200 bg-white px-12 text-label-14-medium tracking-normal text-gray-800 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
         >
-          <span className="flex size-6 items-center justify-center rounded-full bg-gray-100 text-label-12-medium tracking-normal text-gray-700">
+          <span className="absolute left-4 flex size-7 items-center justify-center rounded-full bg-gray-100 text-label-12-medium tracking-normal text-gray-700">
             {provider.mark}
           </span>
           <span className="min-w-0 truncate">{provider.label}</span>
