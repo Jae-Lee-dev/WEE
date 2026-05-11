@@ -123,12 +123,19 @@ const contentRules = [
 const runtimeArtifactReferencePattern =
   /\bARTIFACT_ROOT\b|(?:^|["'`(])(?:\.{1,2}\/)*artifacts\//;
 const runtimeIntegrationEnvPattern =
-  /\bNEXT_PUBLIC_[A-Z0-9_]+\b|\bprocess\s*\.\s*env\s*(?:\.\s*(?:NEXT_PUBLIC_[A-Z0-9_]+|FIREBASE[A-Z0-9_]*|FIRESTORE[A-Z0-9_]*|AUTH[A-Z0-9_]*|GOOGLE[A-Z0-9_]*|GCLOUD[A-Z0-9_]*|VERCEL[A-Z0-9_]*|DATABASE[A-Z0-9_]*)|\[\s*["'](?:NEXT_PUBLIC_[A-Z0-9_]+|FIREBASE[A-Z0-9_]*|FIRESTORE[A-Z0-9_]*|AUTH[A-Z0-9_]*|GOOGLE[A-Z0-9_]*|GCLOUD[A-Z0-9_]*|VERCEL[A-Z0-9_]*|DATABASE[A-Z0-9_]*)["']\s*\])/;
+  /\bNEXT_PUBLIC_[A-Z0-9_]+\b|\bprocess\s*\.\s*env\s*(?:(?:\?\.\s*|\.\s*)(?:NEXT_PUBLIC_[A-Z0-9_]+|FIREBASE[A-Z0-9_]*|FIRESTORE[A-Z0-9_]*|AUTH[A-Z0-9_]*|GOOGLE[A-Z0-9_]*|GCLOUD[A-Z0-9_]*|VERCEL[A-Z0-9_]*|DATABASE[A-Z0-9_]*)|\[\s*["'](?:NEXT_PUBLIC_[A-Z0-9_]+|FIREBASE[A-Z0-9_]*|FIRESTORE[A-Z0-9_]*|AUTH[A-Z0-9_]*|GOOGLE[A-Z0-9_]*|GCLOUD[A-Z0-9_]*|VERCEL[A-Z0-9_]*|DATABASE[A-Z0-9_]*)["']\s*\])/;
 const runtimeDynamicEnvAccessPattern =
   /\bprocess\s*\.\s*env\s*(?:\?\.\s*)?\[\s*(?!["'](?:NODE_ENV|PLAYWRIGHT_BASE_URL)["']\s*\])/;
+const runtimeOptionalProcessEnvPattern = /\bprocess\s*\?\.\s*env\b/;
 const runtimeAlternateEnvAccessPattern = /\bprocess\s*\[\s*["']env["']\s*\]/;
 const runtimeEnvAliasPattern =
-  /\b(?:const|let|var)\s+(?:\{[^}]*\}|[A-Za-z_$][\w$]*)\s*(?::[^=]+)?=\s*process\s*\.\s*env\b(?!\s*(?:\.|\[|\?\.))/;
+  /\b(?:const|let|var)\s+(?:\{[^}]*\}|[A-Za-z_$][\w$]*)\s*(?::[^=]+)?=\s*\(?\s*process\s*(?:\.|\?\.)\s*env\b\s*\)?(?!\s*(?:\.|\[|\?\.))/;
+const runtimeEnvObjectAssignmentPattern =
+  /(?:^|[^.\w$])[A-Za-z_$][\w$]*\s*(?:=|\|\|=|&&=|\?\?=)\s*\(?\s*process\s*(?:\.|\?\.)\s*env\b\s*\)?(?!\s*(?:\.|\[|\?\.))/;
+const runtimeProcessEnvDestructurePattern =
+  /\b(?:const|let|var)\s+\{[^}]*\benv\b[^}]*\}\s*(?::[^=]+)?=\s*process\b/;
+const runtimeProcessModuleImportPattern =
+  /\b(?:(?:import|export)\b[\s\S]{0,160}\bfrom\s*["'](?:node:)?process["']|import\s*\(\s*["'](?:node:)?process["']\s*\)|require\s*\(["'](?:node:)?process["']\))/;
 const submitDrivenUiRules = [
   {
     name: "form element",
@@ -262,8 +269,12 @@ function auditRuntimeIntegrationEnvReference(file, content) {
   if (
     runtimeIntegrationEnvPattern.test(content) ||
     runtimeDynamicEnvAccessPattern.test(content) ||
+    runtimeOptionalProcessEnvPattern.test(content) ||
     runtimeAlternateEnvAccessPattern.test(content) ||
-    runtimeEnvAliasPattern.test(content)
+    runtimeEnvAliasPattern.test(content) ||
+    runtimeEnvObjectAssignmentPattern.test(content) ||
+    runtimeProcessEnvDestructurePattern.test(content) ||
+    runtimeProcessModuleImportPattern.test(content)
   ) {
     addFinding(
       "Runtime integration environment reference",

@@ -307,6 +307,18 @@ const cases = [
     },
   },
   {
+    name: "runtime optional env property reference is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/env-config.ts",
+        "export const projectId = process.env?.FIREBASE_PROJECT_ID;",
+      );
+    },
+  },
+  {
     name: "runtime template env key is blocked",
     expectSuccess: false,
     expectedOutput: "Runtime integration environment reference",
@@ -376,6 +388,158 @@ const cases = [
         "src/lib/env-config.ts",
         'const { FIREBASE_PROJECT_ID }: NodeJS.ProcessEnv = process.env; export const projectId = FIREBASE_PROJECT_ID;',
       );
+    },
+  },
+  {
+    name: "runtime parenthesized env alias is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/env-config.ts",
+        'const env = (process.env); export const value = env.FIREBASE_PROJECT_ID;',
+      );
+    },
+  },
+  {
+    name: "runtime delayed env assignment is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/env-config.ts",
+        'let env; env = process.env; export const value = env.FIREBASE_PROJECT_ID;',
+      );
+    },
+  },
+  {
+    name: "runtime conditional delayed env assignment is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/env-config.ts",
+        'let env; if (ready) env = process.env; export const value = env.FIREBASE_PROJECT_ID;',
+      );
+    },
+  },
+  {
+    name: "runtime logical delayed env assignment is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/env-config.ts",
+        'let env; env ||= process.env; export const value = env.FIREBASE_PROJECT_ID;',
+      );
+    },
+  },
+  {
+    name: "runtime process env destructuring is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/env-config.ts",
+        'const { env } = process; export const value = env.FIREBASE_PROJECT_ID;',
+      );
+    },
+  },
+  {
+    name: "runtime optional process env access is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/env-config.ts",
+        'export const value = process?.env?.FIREBASE_PROJECT_ID;',
+      );
+    },
+  },
+  {
+    name: "runtime parenthesized env property access is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/env-config.ts",
+        'export const value = (process.env).FIREBASE_PROJECT_ID;',
+      );
+    },
+  },
+  {
+    name: "runtime process module import is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/env-config.ts",
+        'import nodeProcess from "node:process"; export const value = nodeProcess.env.FIREBASE_PROJECT_ID;',
+      );
+    },
+  },
+  {
+    name: "runtime dynamic process module import is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/env-config.ts",
+        'export async function readEnv() { const nodeProcess = await import("node:process"); return nodeProcess.env.FIREBASE_PROJECT_ID; }',
+      );
+    },
+  },
+  {
+    name: "runtime compact process module import is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/env-config.ts",
+        'import{env}from"node:process"; export const value = env.FIREBASE_PROJECT_ID;',
+      );
+    },
+  },
+  {
+    name: "runtime spaced require process module import is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/env-config.ts",
+        'const nodeProcess = require ("node:process"); export const value = nodeProcess.env.FIREBASE_PROJECT_ID;',
+      );
+    },
+  },
+  {
+    name: "runtime mixed process module import is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/env-config.ts",
+        'import process, { env } from "node:process"; export const value = env.FIREBASE_PROJECT_ID;',
+      );
+    },
+  },
+  {
+    name: "runtime process module re-export is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(root, "src/lib/env-config.ts", 'export { env } from "node:process";');
     },
   },
   {
