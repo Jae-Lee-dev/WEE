@@ -25,8 +25,7 @@ If no Figma evidence is required, explain why:
 
 ## Verification
 
-- [ ] `pnpm verify`
-- [ ] `pnpm build-storybook` if Storybook changed
+- [ ] `pnpm verify:ci`
 - [ ] Visual Playwright spec if Figma-backed screen/state changed
 - [ ] `git diff --check` or `git diff --cached --check` for docs/instructions-only changes
 

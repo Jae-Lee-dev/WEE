@@ -90,5 +90,5 @@ body:
           required: true
         - label: No Firebase/Auth/Firestore variables are being added in this request.
           required: true
-        - label: CI should run `pnpm install --frozen-lockfile` and `pnpm verify`.
+        - label: CI should run `pnpm install --frozen-lockfile` and `pnpm verify:ci`.
           required: true

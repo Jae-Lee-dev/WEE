@@ -59,7 +59,7 @@ const expectedForms = [
       "id: vercel-team",
       "id: vercel-project",
       "No Firebase/Auth/Firestore variables are being added in this request.",
-      "CI should run `pnpm install --frozen-lockfile` and `pnpm verify`.",
+      "CI should run `pnpm install --frozen-lockfile` and `pnpm verify:ci`.",
     ],
   },
   {
@@ -188,9 +188,18 @@ const requiredPullRequestSections = [
   "## Verification",
   "## Phase-Scope Safety",
 ];
+const requiredPullRequestVerificationSnippets = [
+  "`pnpm verify:ci`",
+  "Visual Playwright spec if Figma-backed screen/state changed",
+  "`git diff --check` or `git diff --cached --check` for docs/instructions-only changes",
+];
 
 for (const section of requiredPullRequestSections) {
   requireSnippet(".github/pull_request_template.md", pullRequestTemplate, section);
+}
+
+for (const snippet of requiredPullRequestVerificationSnippets) {
+  requireSnippet(".github/pull_request_template.md", pullRequestTemplate, snippet);
 }
 
 for (const safetyLabel of prSafetyLabels) {

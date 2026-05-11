@@ -132,12 +132,35 @@ const cases = [
     },
   },
   {
+    name: "pull request ci verification fails",
+    expectSuccess: false,
+    expectedOutput: 'missing required snippet "`pnpm verify:ci`"',
+    setup(fixtureRoot) {
+      mutateFixtureFile(fixtureRoot, ".github/pull_request_template.md", (content) =>
+        content.replace("- [ ] `pnpm verify:ci`", "- [ ] `pnpm verify`"),
+      );
+    },
+  },
+  {
     name: "deployment readiness guardrail fails",
     expectSuccess: false,
     expectedOutput: 'missing required snippet "No Firebase/Auth/Firestore variables are being added in this request."',
     setup(fixtureRoot) {
       mutateFixtureFile(fixtureRoot, ".github/ISSUE_TEMPLATE/deployment-setup.yml", (content) =>
         content.replace("        - label: No Firebase/Auth/Firestore variables are being added in this request.\n          required: true", ""),
+      );
+    },
+  },
+  {
+    name: "deployment ci verification guardrail fails",
+    expectSuccess: false,
+    expectedOutput: 'missing required snippet "CI should run `pnpm install --frozen-lockfile` and `pnpm verify:ci`."',
+    setup(fixtureRoot) {
+      mutateFixtureFile(fixtureRoot, ".github/ISSUE_TEMPLATE/deployment-setup.yml", (content) =>
+        content.replace(
+          "        - label: CI should run `pnpm install --frozen-lockfile` and `pnpm verify:ci`.\n          required: true",
+          "        - label: CI should run `pnpm install --frozen-lockfile` and `pnpm verify`.\n          required: true",
+        ),
       );
     },
   },
