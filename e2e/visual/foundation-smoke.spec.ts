@@ -17,6 +17,40 @@ for (const viewport of viewports) {
     await expect(
       page.getByRole("heading", { name: "확인 필요" }),
     ).toBeVisible();
+
+    const logoHeaderMetrics = await page.evaluate(() => {
+      const logoHeader = document.querySelector(
+        '[data-testid="sidebar-logo-header"]',
+      );
+      const sidebar = logoHeader?.closest("aside");
+
+      if (
+        !(logoHeader instanceof HTMLElement) ||
+        !(sidebar instanceof HTMLElement)
+      ) {
+        throw new Error("Sidebar logo header measurement target not found");
+      }
+
+      const logoHeaderRect = logoHeader.getBoundingClientRect();
+      const sidebarRect = sidebar.getBoundingClientRect();
+
+      return {
+        logoHeaderLeft: logoHeaderRect.left,
+        logoHeaderRight: logoHeaderRect.right,
+        sidebarLeft: sidebarRect.left,
+        sidebarRight: sidebarRect.right,
+      };
+    });
+
+    expect(
+      Math.abs(logoHeaderMetrics.logoHeaderLeft - logoHeaderMetrics.sidebarLeft),
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(
+        logoHeaderMetrics.logoHeaderRight - logoHeaderMetrics.sidebarRight,
+      ),
+    ).toBeLessThanOrEqual(1);
+
     await captureActualScreenshot({
       page,
       screenId: "SHELL-01",

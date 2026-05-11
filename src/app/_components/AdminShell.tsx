@@ -69,35 +69,41 @@ function AdminSidebar({
   currentSection: AdminSection;
 }) {
   return (
-    <aside className="sticky top-0 flex h-screen w-[260px] shrink-0 flex-col justify-between border-r border-gray-100 bg-white px-4 py-4 2xl:w-[300px] 2xl:px-4 2xl:py-5">
+    <aside className="sticky top-0 flex h-screen w-[260px] shrink-0 flex-col justify-between border-r border-gray-100 bg-white py-4 2xl:w-[300px] 2xl:py-5">
       <div>
-        <Link
-          href="/dashboard"
-          className="flex h-[58px] items-center gap-3 rounded-[8px] transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 2xl:h-[68px] 2xl:gap-4"
+        <div
+          className="border-b border-gray-200 px-4 pb-3.5 2xl:px-4 2xl:pb-5"
+          data-testid="sidebar-logo-header"
         >
-          <div className="relative size-11 shrink-0 overflow-hidden 2xl:size-12">
-            <Image
-              src="/admin-shell/logo.png"
-              alt=""
-              width={48}
-              height={34}
-              priority
-              className="absolute left-1/2 top-1/2 h-8 w-11 -translate-x-1/2 -translate-y-1/2 object-contain 2xl:h-[34px] 2xl:w-12"
-            />
-          </div>
-          <div className="min-w-0">
-            <div className="text-h-18-semibold text-gray-800 2xl:text-h-20">
-              Wee
+          <Link
+            href="/dashboard"
+            className="flex h-[58px] items-center gap-3 rounded-[8px] transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 2xl:h-[68px] 2xl:gap-4"
+          >
+            <div className="relative size-11 shrink-0 overflow-hidden 2xl:size-12">
+              <Image
+                src="/admin-shell/logo.png"
+                alt=""
+                width={48}
+                height={34}
+                priority
+                className="absolute left-1/2 top-1/2 h-8 w-11 -translate-x-1/2 -translate-y-1/2 object-contain 2xl:h-[34px] 2xl:w-12"
+              />
             </div>
-            <div className="truncate text-h-16-medium text-gray-600 2xl:text-h-18-regular">
-              {demoWorkspace.name}
+            <div className="min-w-0">
+              <div className="text-h-18-semibold text-gray-800 2xl:text-h-20">
+                Wee
+              </div>
+              <div className="truncate text-h-16-medium text-gray-600 2xl:text-h-18-regular">
+                {demoWorkspace.name}
+              </div>
             </div>
-          </div>
-        </Link>
+          </Link>
+        </div>
 
-        <SidebarSeparator className="my-3.5 2xl:my-5" />
-
-        <nav className="flex flex-col gap-1.5 2xl:gap-2" aria-label="관리자 메뉴">
+        <nav
+          className="mt-3.5 flex flex-col gap-1.5 px-4 2xl:mt-5 2xl:gap-2 2xl:px-4"
+          aria-label="관리자 메뉴"
+        >
           <div className="space-y-1.5 2xl:space-y-2">
             {adminSections.slice(0, 5).map((section) => (
               <SidebarItem
@@ -120,7 +126,7 @@ function AdminSidebar({
         </nav>
       </div>
 
-      <div className="rounded-[8px] px-3 py-2 2xl:px-3 2xl:py-2">
+      <div className="mx-4 rounded-[8px] px-3 py-2 2xl:mx-4 2xl:px-3 2xl:py-2">
         <div className="min-w-0">
           <div className="truncate text-h-16-semibold text-gray-800 2xl:text-h-18-semibold">
             {demoWorkspace.managerName}
