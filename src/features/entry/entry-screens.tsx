@@ -510,7 +510,6 @@ export function SetupGuideScreen() {
 }
 
 function AuthShell({
-  screenId,
   title,
   description,
   children,
@@ -518,32 +517,26 @@ function AuthShell({
 }: AuthShellProps) {
   return (
     <main className="min-h-screen bg-gray-50 px-5 py-6 tracking-normal text-gray-900 md:px-8 lg:py-8">
-      <div className="mx-auto flex min-h-[calc(100vh-64px)] w-full max-w-[1040px] flex-col">
-        <header className="flex items-center justify-between gap-4">
-          <BrandBlock />
-          <EntryNav compact currentHref={routeHrefByScreenId[screenId]} />
-        </header>
+      <section className="mx-auto flex min-h-[calc(100vh-48px)] w-full max-w-[1040px] items-center justify-center py-8">
+        <div
+          className={cn(
+            "w-full max-w-[560px] rounded-[10px] border border-gray-200 bg-white px-6 py-7 shadow-[0_18px_48px_rgba(17,24,39,0.08)] sm:px-8 lg:px-10 lg:py-9",
+            cardClassName,
+          )}
+        >
+          <header>
+            <BrandBlock />
+            <h1 className="mt-8 text-h-32 tracking-normal text-gray-900">
+              {title}
+            </h1>
+            <p className="mt-2 text-body-16-regular tracking-normal text-gray-500">
+              {description}
+            </p>
+          </header>
 
-        <section className="flex flex-1 items-center justify-center py-10">
-          <div
-            className={cn(
-              "w-full max-w-[560px] rounded-[10px] border border-gray-200 bg-white px-6 py-7 shadow-[0_18px_48px_rgba(17,24,39,0.08)] sm:px-8 lg:px-10 lg:py-9",
-              cardClassName,
-            )}
-          >
-            <header>
-              <h1 className="text-h-32 tracking-normal text-gray-900">
-                {title}
-              </h1>
-              <p className="mt-2 text-body-16-regular tracking-normal text-gray-500">
-                {description}
-              </p>
-            </header>
-
-            <div className="mt-8">{children}</div>
-          </div>
-        </section>
-      </div>
+          <div className="mt-8">{children}</div>
+        </div>
+      </section>
     </main>
   );
 }
