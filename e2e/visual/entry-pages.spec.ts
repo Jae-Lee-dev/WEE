@@ -96,6 +96,106 @@ test("AUTH-01 keeps login layout compact without page scroll", async ({ page }) 
   expect(metrics.socialLoginCount).toBe(0);
 });
 
+test("AUTH-01 validates native login before Firebase submit", async ({
+  page,
+}) => {
+  await prepareVisualPage({ page, path: "/login", viewport: "laptop-1366" });
+  await page.evaluate(() => document.fonts.ready);
+
+  const loginAlert = page.getByTestId("login-alert");
+
+  await page.getByRole("button", { name: "로그인", exact: true }).click();
+  await expect(loginAlert).toHaveText("이메일과 비밀번호를 입력해 주세요.");
+  await expect(
+    page.getByText("이메일을 입력해 주세요.", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("비밀번호를 입력해 주세요.", { exact: true }),
+  ).toBeVisible();
+
+  await page.getByLabel("이메일").fill("manager");
+  await page.getByLabel("비밀번호").fill("password1");
+  await page.getByRole("button", { name: "로그인", exact: true }).click();
+  await expect(loginAlert).toHaveText("이메일과 비밀번호를 입력해 주세요.");
+  await expect(page.getByText("이메일 형식을 확인해 주세요.")).toBeVisible();
+});
+
+test("AUTH-01 submits native login through Firebase Auth", async ({ page }) => {
+  const authRequests: string[] = [];
+  const loginPayloads: { email?: string; password?: string }[] = [];
+
+  await page.route(
+    /https:\/\/identitytoolkit\.googleapis\.com\/v1\/accounts:(signInWithPassword|lookup).*/,
+    async (route) => {
+      const requestUrl = route.request().url();
+      authRequests.push(requestUrl);
+
+      if (requestUrl.includes("accounts:signInWithPassword")) {
+        const requestBody = route.request().postDataJSON() as {
+          email?: string;
+          password?: string;
+        };
+        loginPayloads.push(requestBody);
+
+        await route.fulfill({
+          contentType: "application/json",
+          json: {
+            displayName: "김민채",
+            email: "manager@gmail.com",
+            expiresIn: "3600",
+            idToken: "mock-id-token",
+            kind: "identitytoolkit#VerifyPasswordResponse",
+            localId: "test-manager-uid",
+            refreshToken: "mock-refresh-token",
+            registered: true,
+          },
+        });
+        return;
+      }
+
+      await route.fulfill({
+        contentType: "application/json",
+        json: {
+          kind: "identitytoolkit#GetAccountInfoResponse",
+          users: [
+            {
+              displayName: "김민채",
+              email: "manager@gmail.com",
+              emailVerified: true,
+              localId: "test-manager-uid",
+              providerUserInfo: [
+                {
+                  email: "manager@gmail.com",
+                  providerId: "password",
+                  rawId: "manager@gmail.com",
+                },
+              ],
+              validSince: "0",
+            },
+          ],
+        },
+      });
+    },
+  );
+
+  await prepareVisualPage({ page, path: "/login", viewport: "laptop-1366" });
+  await page.evaluate(() => document.fonts.ready);
+
+  await page.getByLabel("이메일").fill("manager@gmail.com");
+  await page.getByLabel("비밀번호").fill("password1");
+  await page.getByRole("checkbox", { name: "로그인 유지" }).click();
+  await page.getByRole("button", { name: "로그인", exact: true }).click();
+
+  await expect(page).toHaveURL(/\/dashboard$/);
+  expect(loginPayloads[0]).toMatchObject({
+    email: "manager@gmail.com",
+    password: "password1",
+  });
+  expect(
+    authRequests.some((url) => url.includes("accounts:signInWithPassword")),
+  ).toBe(true);
+});
+
 test("AUTH-02 keeps signup fields in a single column", async ({ page }) => {
   await prepareVisualPage({ page, path: "/signup", viewport: "laptop-1366" });
   await page.evaluate(() => document.fonts.ready);

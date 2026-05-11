@@ -17,9 +17,9 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { LoginForm } from "./login-form";
 import { SignupForm } from "./signup-form";
 
 type EntryScreenId = "AUTH-01" | "AUTH-02" | "AUTH-03";
@@ -82,35 +82,7 @@ export function LoginScreen() {
       cardClassName="max-w-[440px]"
     >
       <div className="w-full" data-testid="login-screen">
-        <div className="space-y-3.5">
-          <EntryField
-            label="이메일"
-            type="email"
-            placeholder="admin@wee.kr"
-          />
-          <EntryField
-            label="비밀번호"
-            type="password"
-            placeholder="비밀번호"
-          />
-        </div>
-
-        <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3">
-          <CheckboxLine id="login-remember" label="로그인 유지" />
-          <Link
-            href="/forgot-password"
-            className="text-label-14-medium tracking-normal text-green-400 transition-colors hover:text-green-500"
-          >
-            아이디/비밀번호 찾기
-          </Link>
-        </div>
-
-        <Button
-          asChild
-          className="mt-6 h-[50px] w-full rounded-[8px] text-h-18-semibold tracking-normal"
-        >
-          <Link href="/dashboard">로그인</Link>
-        </Button>
+        <LoginForm />
 
         <p className="mt-4 text-center text-body-14-regular tracking-normal text-gray-500">
           계정이 없나요?{" "}
@@ -614,21 +586,6 @@ function EntryField({
         className="h-12 rounded-[8px] border-gray-200 text-body-16-regular tracking-normal"
       />
     </label>
-  );
-}
-
-function CheckboxLine({ id, label }: { id: string; label: string }) {
-  return (
-    <div className="flex min-h-6 items-start gap-2 text-body-14-regular tracking-normal text-gray-600">
-      <Checkbox
-        id={id}
-        aria-label={label}
-        className="mt-0.5 size-4 rounded-[4px]"
-      />
-      <label htmlFor={id} className="cursor-pointer select-none">
-        {label}
-      </label>
-    </div>
   );
 }
 

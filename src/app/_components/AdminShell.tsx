@@ -2,8 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useMemo, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useMemo, useState, type ReactNode } from "react";
+import { ChevronUp, LogOut } from "lucide-react";
+import { signOut } from "firebase/auth";
 import {
   adminSections,
   findSectionByPath,
@@ -14,9 +16,18 @@ import {
 import { HeaderNotificationSlot } from "@/app/_components/HeaderNotificationSlot";
 import { IconChevronLeft } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { SlidingTabTextMask } from "@/components/ui/sliding-tab-text-mask";
 import { useSlidingTabIndicator } from "@/components/ui/use-sliding-tab-indicator";
 import { demoWorkspace } from "@/app/_data/admin-demo";
+import { getFirebaseAuth } from "@/lib/firebase/client";
 
 const shellIconPathMap: Record<AdminIconName, string> = {
   dashboard: "/admin-shell/icon-home.svg",
@@ -68,6 +79,21 @@ function AdminSidebar({
 }: {
   currentSection: AdminSection;
 }) {
+  const router = useRouter();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  async function handleLogout() {
+    setIsLoggingOut(true);
+
+    try {
+      await signOut(getFirebaseAuth());
+    } catch {
+      setIsLoggingOut(false);
+    } finally {
+      router.replace("/login");
+    }
+  }
+
   return (
     <aside className="sticky top-0 flex h-screen w-[260px] shrink-0 flex-col justify-between border-r border-gray-100 bg-white pb-4 2xl:w-[300px] 2xl:pb-5">
       <div>
@@ -126,16 +152,56 @@ function AdminSidebar({
         </nav>
       </div>
 
-      <div className="mx-4 rounded-[8px] px-3 py-2 2xl:mx-4 2xl:px-3 2xl:py-2">
-        <div className="min-w-0">
-          <div className="truncate text-h-16-semibold text-gray-800 2xl:text-h-18-semibold">
-            {demoWorkspace.managerName}
-          </div>
-          <div className="text-body-14-regular text-gray-500">
-            {demoWorkspace.managerRole}
-          </div>
-        </div>
-      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={`${demoWorkspace.managerName} 계정 메뉴`}
+            className="mx-4 flex min-h-[56px] items-center justify-between gap-3 rounded-[8px] px-3 py-2 text-left transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 2xl:mx-4 2xl:px-3 2xl:py-2"
+            data-testid="sidebar-account-trigger"
+          >
+            <span className="min-w-0">
+              <span className="block truncate text-h-16-semibold text-gray-800 2xl:text-h-18-semibold">
+                {demoWorkspace.managerName}
+              </span>
+              <span className="block text-body-14-regular text-gray-500">
+                {demoWorkspace.managerRole}
+              </span>
+            </span>
+            <ChevronUp
+              className="size-4 shrink-0 text-gray-400"
+              strokeWidth={2.2}
+            />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          side="top"
+          sideOffset={8}
+          className="w-[232px] rounded-[8px] border border-gray-200 bg-white p-1.5 shadow-[0_12px_32px_rgba(17,24,39,0.14)]"
+        >
+          <DropdownMenuLabel className="px-3 py-2">
+            <span className="block truncate text-label-14-medium tracking-normal text-gray-900">
+              {demoWorkspace.managerName}
+            </span>
+            <span className="mt-0.5 block text-label-12-regular tracking-normal text-gray-500">
+              {demoWorkspace.managerRole}
+            </span>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator className="my-1 bg-gray-100" />
+          <DropdownMenuItem
+            className="min-h-10 cursor-pointer gap-2.5 rounded-[8px] px-3 py-2 text-body-14-medium tracking-normal text-red-500 focus:bg-red-50 focus:text-red-500"
+            disabled={isLoggingOut}
+            onSelect={() => {
+              void handleLogout();
+            }}
+            variant="destructive"
+          >
+            <LogOut className="size-4" strokeWidth={2.2} />
+            <span>{isLoggingOut ? "로그아웃 중" : "로그아웃"}</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </aside>
   );
 }

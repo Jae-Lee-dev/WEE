@@ -85,3 +85,14 @@ for (const viewport of viewports) {
     });
   });
 }
+
+test("admin shell account menu can log out", async ({ page }) => {
+  await prepareVisualPage({ page, path: "/dashboard", viewport: "laptop-1366" });
+  await page.evaluate(() => document.fonts.ready);
+
+  await page.getByTestId("sidebar-account-trigger").click();
+  await expect(page.getByRole("menuitem", { name: "로그아웃" })).toBeVisible();
+  await page.getByRole("menuitem", { name: "로그아웃" }).click();
+
+  await expect(page).toHaveURL(/\/login$/);
+});

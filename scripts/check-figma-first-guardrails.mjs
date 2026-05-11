@@ -30,10 +30,13 @@ const allowedEntryRoutePageDeferredHrefs = [
   "/onboarding/setup",
 ];
 const allowedFirebaseAuthTransitionFiles = new Set([
+  "src/app/_components/AdminShell.tsx",
+  "src/features/entry/login-form.tsx",
   "src/features/entry/signup-form.tsx",
   "src/lib/firebase/client.ts",
 ]);
 const allowedSubmitDrivenTransitionFiles = new Set([
+  "src/features/entry/login-form.tsx",
   "src/features/entry/signup-form.tsx",
 ]);
 const allowedLocalArrayMutationTransitionFiles = new Set([
