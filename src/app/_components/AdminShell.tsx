@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, type ReactNode } from "react";
+import { useMemo, type ComponentProps, type ReactNode } from "react";
 import {
   adminSections,
   findSectionByPath,
@@ -95,7 +95,10 @@ function AdminSidebar({
           </div>
         </Link>
 
-        <SidebarSeparator className="my-3.5 2xl:my-5" />
+        <SidebarSeparator
+          className="-mx-4 my-3.5 2xl:-mx-4 2xl:my-5"
+          data-testid="sidebar-logo-divider"
+        />
 
         <nav className="flex flex-col gap-1.5 2xl:gap-2" aria-label="관리자 메뉴">
           <div className="space-y-1.5 2xl:space-y-2">
@@ -134,8 +137,11 @@ function AdminSidebar({
   );
 }
 
-function SidebarSeparator({ className = "" }: { className?: string }) {
-  return <div className={`h-px bg-gray-100 ${className}`} />;
+function SidebarSeparator({
+  className = "",
+  ...props
+}: ComponentProps<"div">) {
+  return <div className={`h-px bg-gray-100 ${className}`} {...props} />;
 }
 
 function SidebarItem({
