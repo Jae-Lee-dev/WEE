@@ -70,13 +70,9 @@ export const FigmaButtonM: Story = {
 export const Sizes: Story = {
   render: () => (
     <div className="flex flex-wrap items-center gap-3">
-      <Button size="sm" className="text-white">
-        작게
-      </Button>
-      <Button className="text-white">기본</Button>
-      <Button size="lg" className="text-white">
-        크게
-      </Button>
+      <Button size="sm">작게</Button>
+      <Button>기본</Button>
+      <Button size="lg">크게</Button>
       <Button size="icon" aria-label="확인">
         <IconCheck className="size-5" />
       </Button>
@@ -94,7 +90,7 @@ export const WithIcon: Story = {
     return (
       <div className="flex flex-wrap items-center gap-3">
         <Button
-          className="min-w-[104px] text-white"
+          className="min-w-[104px]"
           onClick={() => setIsSaved((current) => !current)}
         >
           {isSaved ? "저장됨" : "저장"}

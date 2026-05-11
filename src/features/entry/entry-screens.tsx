@@ -99,9 +99,6 @@ export function LoginScreen() {
       description="관리자 계정으로 Wee 운영 화면에 접속합니다."
     >
       <div className="w-full max-w-[520px]" data-testid="login-screen">
-        <SocialProviderButtons />
-        <FormDivider label="또는 이메일로 로그인" />
-
         <div className="space-y-4">
           <EntryField
             label="이메일"
@@ -131,6 +128,9 @@ export function LoginScreen() {
         >
           <Link href="/dashboard">로그인</Link>
         </Button>
+
+        <FormDivider label="또는 소셜 계정으로 계속" />
+        <SocialProviderButtons />
 
         <p className="mt-5 text-center text-body-14-regular tracking-normal text-gray-500">
           계정이 없나요?{" "}
