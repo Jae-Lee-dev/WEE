@@ -51,7 +51,8 @@ export const settingsLocationsFixture = {
   editButtonLabel: "수정",
   deleteButtonLabel: "삭제",
   emptyTitle: "등록된 근무지가 없습니다.",
-  emptyDescription: "첫 근무지를 추가하면 근무 개설에서 바로 선택할 수 있습니다.",
+  emptyDescription:
+    "첫 근무지를 추가하면 근무 개설에서 바로 선택할 수 있습니다.",
   loadingLabel: "근무지 목록을 불러오는 중",
   dialog: {
     createTitle: "근무지 추가",
@@ -64,8 +65,8 @@ export const settingsLocationsFixture = {
     radiusLabel: "출퇴근 허용 반경",
     radiusUnit: "m",
     cancelLabel: "취소",
-    addLabel: "근무지 저장",
-    saveLabel: "변경 저장",
+    addLabel: "저장",
+    saveLabel: "수정",
   },
   deleteDialog: {
     title: "근무지를 삭제할까요?",

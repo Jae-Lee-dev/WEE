@@ -58,7 +58,9 @@ test(`SET-02 location-dialog ${desktop}`, async ({ page }) => {
   });
   await expect(radiusInput).toHaveAttribute("type", "number");
   await expect(radiusInput).toHaveValue("100");
-  await expect(dialog.locator("#settings-location-radius-unit")).toHaveText("m");
+  await expect(dialog.locator("#settings-location-radius-unit")).toHaveText(
+    "m",
+  );
 
   await captureActualScreenshot({
     page,
@@ -98,10 +100,8 @@ test("SET-02 creates, edits, and deletes location through Firestore", async ({
   const dialog = page.getByTestId("settings-location-dialog");
   await dialog.getByLabel("근무지 이름").fill(locationName);
   await dialog.getByLabel("도로명 주소").fill("서울 마포구 양화로 45");
-  await dialog
-    .getByRole("spinbutton", { name: "출퇴근 허용 반경" })
-    .fill("90");
-  await dialog.getByRole("button", { name: "근무지 저장" }).click();
+  await dialog.getByRole("spinbutton", { name: "출퇴근 허용 반경" }).fill("90");
+  await dialog.getByRole("button", { name: "저장" }).click();
 
   await expect(dialog).toBeHidden();
 
@@ -122,7 +122,7 @@ test("SET-02 creates, edits, and deletes location through Firestore", async ({
   await dialog
     .getByRole("spinbutton", { name: "출퇴근 허용 반경" })
     .fill("110");
-  await dialog.getByRole("button", { name: "변경 저장" }).click();
+  await dialog.getByRole("button", { name: "수정" }).click();
 
   await expect(dialog).toBeHidden();
   await expect(screen).toContainText(editedLocationName);
