@@ -8,8 +8,12 @@ import {
   ChevronDown,
   CircleDollarSign,
   ClipboardCheck,
+  FileText,
   HelpCircle,
+  PencilLine,
   ShieldCheck,
+  Users,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +45,7 @@ const featureRows = [
     description:
       "조교의 출퇴근, 지각, 추가근무, 이의신청을 운영 인박스에서 바로 검토합니다.",
     icon: ClipboardCheck,
+    preview: "attendance",
   },
   {
     label: "급여 정산",
@@ -48,6 +53,7 @@ const featureRows = [
     description:
       "승인된 기록을 기준으로 급여 신청과 재확정 항목을 분리해 정산 부담을 줄입니다.",
     icon: CircleDollarSign,
+    preview: "payroll",
   },
   {
     label: "AI 인수인계",
@@ -55,6 +61,7 @@ const featureRows = [
     description:
       "반복 안내, 주의사항, 담당자 변경 이슈를 AI 편집 흐름으로 정리합니다.",
     icon: Bot,
+    preview: "handover",
   },
   {
     label: "운영 기준",
@@ -62,49 +69,101 @@ const featureRows = [
     description:
       "사업장 코드를 발급하고 조교 소속 신청, 시간표 승인, 근무 개설을 같은 기준으로 관리합니다.",
     icon: ShieldCheck,
+    preview: "workspace",
   },
 ] as const;
 
-const flowSteps = [
-  ["코드 발급", "사업장 정보 입력 후 조교 연결 코드를 발급합니다."],
-  ["조교 연결", "조교가 코드를 입력하면 소속 신청이 관리자에게 모입니다."],
-  ["시간표 승인", "제출된 시간표를 승인하면 운영 준비가 완료됩니다."],
-  ["자동 기록", "출퇴근과 예외 기록이 운영 인박스로 정리됩니다."],
+const benefitCards = [
+  {
+    title: "자유롭게 입력한 내용을\n항목별로 자동 정리",
+    image: "/landing/problem-variables.png",
+  },
+  {
+    title: "근무지, 업무 유형,\n수업 기준으로 검색 가능",
+    image: "/landing/payroll-screen.png",
+  },
+  {
+    title: "반복 설명 없이\n신규 인력 온보딩 지원",
+    image: "/landing/problem-handover.png",
+  },
+] as const;
+
+const setupSteps = [
+  ["01", "코드 발급", "관리자가 사업장을 개설하고 조교 초대 코드를 발급합니다."],
+  ["02", "조교 연결", "조교가 코드를 입력하면 소속 신청이 관리자에게 모입니다."],
+  ["03", "시간표·근무 승인", "제출된 시간표와 근무 기준을 검토하고 승인합니다."],
+  ["04", "자동 기록·정산", "출퇴근 기록과 정산 항목이 운영 인박스로 정리됩니다."],
+] as const;
+
+const helpCards = [
+  {
+    title: "기준이 생깁니다",
+    description: "대타, 추가 근무, 수정 요청을 사전 승인 흐름으로 관리할 수 있습니다.",
+    icon: PencilLine,
+  },
+  {
+    title: "검토가 줄어듭니다",
+    description: "전체 기록을 하나씩 보는 대신 예외 항목만 빠르게 확인하면 됩니다.",
+    icon: ClipboardCheck,
+  },
+  {
+    title: "운영이 남습니다",
+    description: "AI 인수인계 문서화로 담당자가 바뀌어도 정보가 이어집니다.",
+    icon: FileText,
+  },
 ] as const;
 
 const pricingPlans = [
   {
     name: "Starter",
     price: "무료",
-    description: "소규모 조교 운영을 시작하는 팀",
+    description: "대부분의 핵심 기능을 바로 사용할 수 있는 실무 중심 기본 플랜",
     featured: false,
     cta: "시작하기",
-    items: ["3명 포함", "근태 및 급여 관리", "이상 건수 자동 표시", "대시보드"],
+    items: [
+      "포함 인원  3명",
+      "추가 인원  인당 2,990원 /월",
+      "근태 및 급여 관리",
+      "이상 건수 자동 표시",
+      "대시보드 및 엑셀 내보내기",
+      "AI 인수인계",
+      "AI 이상 패턴 분석",
+      "전담 CSM 및 도입 지원",
+    ],
   },
   {
     name: "Standard",
-    price: "월 9,900원",
-    description: "정산과 인수인계를 함께 관리하는 팀",
+    price: "19,000원",
+    suffix: "/월",
+    description: "고급 기능과 AI 기능까지 확장한 운영 고도화 플랜",
     featured: true,
     cta: "시작하기",
     items: [
-      "10명 포함",
+      "포함 인원  3명",
+      "추가 인원  인당 2,990원 /월",
       "근태 및 급여 관리",
+      "이상 건수 자동 표시",
+      "대시보드 및 엑셀 내보내기",
       "AI 인수인계",
       "AI 이상 패턴 분석",
+      "전담 CSM 및 도입 지원",
     ],
   },
   {
     name: "Enterprise",
     price: "문의",
-    description: "대규모 운영과 맞춤형 구축이 필요한 팀",
+    description: "대규모 운영과 맞춤형 구축이 필요한 팀을 위한 맞춤 제안 플랜",
     featured: false,
     cta: "별도 문의하기",
     items: [
-      "전담 CSM",
-      "도입 지원",
+      "포함 인원  3명",
+      "추가 인원  인당 2,990원 /월",
+      "근태 및 급여 관리",
+      "이상 건수 자동 표시",
+      "대시보드 및 엑셀 내보내기",
       "AI 인수인계",
       "AI 이상 패턴 분석",
+      "전담 CSM 및 도입 지원",
     ],
   },
 ] as const;
@@ -130,7 +189,9 @@ export function LandingPage() {
       <HeroSection />
       <ProblemSection />
       <FeatureSection />
-      <FlowSection />
+      <BenefitSection />
+      <SetupSection />
+      <HelpSection />
       <PricingSection />
       <FaqSection />
       <LandingFooter />
@@ -243,39 +304,45 @@ function HeroSection() {
 
 function ProblemSection() {
   return (
-    <section className="bg-gradient-to-b from-[#f0fff0] via-green-50 to-green-100 px-5 py-24 md:px-8">
-      <div className="mx-auto max-w-[1400px]">
+    <section className="relative overflow-hidden bg-[#effff0] px-5 py-24 md:px-8 lg:min-h-[1232px] lg:py-[100px]">
+      <GreenGlow className="-left-[220px] top-[150px] h-[560px] w-[560px]" />
+      <GreenGlow className="right-[-180px] top-[430px] h-[620px] w-[620px]" />
+      <div className="relative mx-auto max-w-[1400px]">
         <SectionIntro
           eyebrow="운영 문제"
           title={
             <>
-              <span className="landing-gradient-text">조교 관리</span>, 이런 문제들로 계속 번거로우셨나요?
+              <span className="landing-gradient-text">조교 관리</span>,
+              <br />
+              이런 문제들로 계속 번거로우셨나요?
             </>
           }
           description="운영이 힘든 이유는 업무가 많아서가 아니라 부정확한 기준, 반복되는 예외상황, 사람 손에 달린 검토 때문입니다."
         />
 
-        <div className="mt-16 grid gap-5 lg:grid-cols-3">
+        <div className="mt-8 grid gap-6 lg:grid-cols-3 lg:gap-5">
           {problemCards.map((card) => (
-            <article key={card.title} className="overflow-hidden rounded-[10px] border-2 border-green-200 bg-white/75 shadow-[0_16px_40px_rgba(48,193,121,0.12)] backdrop-blur">
+            <article key={card.title} className="overflow-hidden rounded-[10px] border-2 border-[#bdf3d3] bg-white/80 shadow-[0_20px_54px_rgba(24,205,115,0.16)] backdrop-blur">
               <Image
                 src={card.image}
                 alt=""
-                width={1024}
-                height={720}
-                className="h-[250px] w-full object-cover"
+                width={448}
+                height={295}
+                className="h-[240px] w-full object-cover sm:h-[295px]"
               />
-              <div className="p-7">
-                <h3 className="text-h-20 tracking-normal text-green-400">{card.title}</h3>
-                <p className="mt-4 text-body-16-regular leading-[1.65] tracking-normal text-gray-700">{card.description}</p>
+              <div className="flex min-h-[217px] flex-col justify-center px-9 py-8">
+                <h3 className="text-[28px] font-semibold leading-[1.35] tracking-normal text-green-500">{card.title}</h3>
+                <p className="mt-5 text-[18px] font-normal leading-[1.65] tracking-normal text-gray-700">{card.description}</p>
               </div>
             </article>
           ))}
         </div>
 
-        <div className="mt-12 rounded-[10px] border-2 border-green-200 bg-white/80 px-6 py-8 text-center shadow-[0_0_40px_rgba(48,193,121,0.16)]">
-          <p className="landing-gradient-text text-h-24 tracking-normal">
-            Wee는 기록, 승인, 정산, 인수인계를 한 번에 정리합니다.
+        <div className="mx-auto mt-10 max-w-[1040px] rounded-[10px] border-2 border-[#bdf3d3] bg-white/82 px-8 py-10 text-center shadow-[0_0_48px_rgba(24,205,115,0.18)]">
+          <p className="landing-gradient-text text-[30px] font-semibold leading-[1.4] tracking-normal">
+            Wee는 조교 운영의 핵심 문제를
+            <br />
+            기록, 승인, 정산, 인수인계까지 한 번에 정리합니다
           </p>
         </div>
       </div>
@@ -285,39 +352,41 @@ function ProblemSection() {
 
 function FeatureSection() {
   return (
-    <section id="features" className="bg-white px-5 py-24 md:px-8">
-      <div className="mx-auto max-w-[1400px]">
+    <section id="features" className="relative overflow-hidden bg-white px-5 py-24 md:px-8 lg:min-h-[3214px] lg:py-[168px]">
+      <GreenGlow className="left-[-260px] top-[620px] h-[620px] w-[620px]" />
+      <GreenGlow className="right-[-260px] top-[1760px] h-[640px] w-[640px]" />
+      <div className="relative mx-auto max-w-[1400px]">
         <SectionIntro
           eyebrow="핵심 기능"
           title={
             <>
-              <span className="landing-gradient-text">4가지 핵심 기능</span>으로 조교 운영을 단순하게
+              <span className="landing-gradient-text">4가지 핵심 기능으로</span>
+              <br />
+              복잡한 조교 운영을 자동화하세요
             </>
           }
-          description="관리자는 예외와 승인만 빠르게 확인하고, 반복되는 기록과 정산 흐름은 Wee가 정리합니다."
+          description="기록은 더 정확하게, 검토는 더 빠르게, 운영 정보는 AI로 계속 축적되도록 설계했습니다."
         />
 
-        <div className="mt-16 grid gap-6">
+        <div className="mt-24 space-y-16 lg:space-y-[92px]">
           {featureRows.map((feature, index) => {
             const Icon = feature.icon;
+            const reversed = index % 2 === 1;
 
             return (
               <article
                 key={feature.title}
-                className={cn(
-                  "grid gap-8 rounded-[10px] border border-gray-200 bg-white p-7 shadow-[0_12px_36px_rgba(17,24,39,0.06)] lg:grid-cols-[minmax(0,1fr)_460px]",
-                  index % 2 === 1 && "lg:grid-cols-[460px_minmax(0,1fr)]",
-                )}
+                className="grid min-h-[562px] gap-8 rounded-[10px] border border-[#d8f6e4] bg-white p-6 shadow-[0_24px_64px_rgba(17,24,39,0.08)] lg:grid-cols-2 lg:gap-14 lg:p-10"
               >
-                <div className={cn("flex flex-col justify-center", index % 2 === 1 && "lg:order-2")}>
-                  <span className="mb-5 flex size-12 items-center justify-center rounded-[10px] bg-green-100 text-green-400">
-                    <Icon className="size-6" strokeWidth={2.2} />
+                <div className={cn("flex flex-col justify-center px-2 py-6 lg:px-10", reversed && "lg:order-2")}>
+                  <span className="mb-8 flex size-[74px] items-center justify-center rounded-[18px] bg-green-100 text-green-500">
+                    <Icon className="size-9" strokeWidth={2.1} />
                   </span>
-                  <div className="text-label-14-medium tracking-normal text-green-400">{feature.label}</div>
-                  <h3 className="mt-2 text-h-32 tracking-normal text-gray-800">{feature.title}</h3>
-                  <p className="mt-5 max-w-[640px] text-body-16-regular leading-[1.75] tracking-normal text-gray-600">{feature.description}</p>
+                  <div className="text-[18px] font-semibold leading-[1.4] tracking-normal text-green-500">{feature.label}</div>
+                  <h3 className="mt-4 text-[38px] font-semibold leading-[1.35] tracking-normal text-gray-900">{feature.title}</h3>
+                  <p className="mt-7 max-w-[560px] text-[20px] font-normal leading-[1.75] tracking-normal text-gray-600">{feature.description}</p>
                 </div>
-                <FeaturePreview index={index} />
+                <FeaturePreview type={feature.preview} reversed={reversed} />
               </article>
             );
           })}
@@ -327,55 +396,221 @@ function FeatureSection() {
   );
 }
 
-function FeaturePreview({ index }: { index: number }) {
-  const rows = [
-    ["소속 신청", "승인 대기", "4건"],
-    ["시간표 승인", "검토 필요", "4건"],
-    ["급여 재확정", "신청 확인", "4건"],
-  ];
+function FeaturePreview({
+  type,
+  reversed,
+}: {
+  type: (typeof featureRows)[number]["preview"];
+  reversed: boolean;
+}) {
+  if (type === "payroll") {
+    return (
+      <PreviewShell className={cn(reversed && "lg:order-1")}>
+        <Image
+          src="/landing/payroll-screen.png"
+          alt=""
+          width={620}
+          height={392}
+          className="w-full rounded-[12px] border border-gray-200 shadow-[0_18px_44px_rgba(17,24,39,0.12)]"
+        />
+      </PreviewShell>
+    );
+  }
+
+  if (type === "handover") {
+    return (
+      <PreviewShell className={cn(reversed && "lg:order-1")}>
+        <Image
+          src="/landing/handover-screen.png"
+          alt=""
+          width={620}
+          height={392}
+          className="w-full rounded-[12px] border border-gray-200 shadow-[0_18px_44px_rgba(17,24,39,0.12)]"
+        />
+      </PreviewShell>
+    );
+  }
+
+  const rows =
+    type === "attendance"
+      ? [
+          ["소속 신청", "승인 대기", "4건"],
+          ["시간표 승인", "검토 필요", "4건"],
+          ["급여 재확정", "신청 확인", "4건"],
+        ]
+      : [
+          ["잠실 본원", "사업장 코드", "WEE-014"],
+          ["조교 소속", "승인 대기", "7명"],
+          ["근무지", "활성", "5곳"],
+        ];
 
   return (
-    <div className="rounded-[10px] border border-green-100 bg-gradient-to-br from-green-50 to-white p-5">
-      <div className="mb-5 flex items-center justify-between">
-        <div className="text-h-18-semibold tracking-normal text-gray-900">운영 인박스</div>
-        <span className="rounded-full bg-green-400 px-3 py-1 text-label-12-medium tracking-normal text-white">실시간</span>
-      </div>
-      <div className="space-y-3">
-        {rows.map((row, rowIndex) => (
-          <div key={row[0]} className="grid grid-cols-[1fr_112px_48px] items-center gap-3 rounded-[8px] bg-white px-4 py-3 text-body-14-medium tracking-normal shadow-[0_6px_18px_rgba(17,24,39,0.05)]">
-            <span className={cn(rowIndex === index % rows.length ? "text-green-400" : "text-gray-700")}>{row[0]}</span>
-            <span className="text-gray-500">{row[1]}</span>
-            <span className="text-right text-gray-900">{row[2]}</span>
+    <PreviewShell className={cn(reversed && "lg:order-1")}>
+      <div className="rounded-[14px] border border-green-100 bg-white p-6 shadow-[0_18px_44px_rgba(17,24,39,0.11)]">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <div className="text-[22px] font-semibold leading-[1.4] tracking-normal text-gray-900">운영 인박스</div>
+            <div className="mt-1 text-[14px] font-normal leading-[1.4] tracking-normal text-gray-500">오늘 검토할 항목</div>
           </div>
-        ))}
+          <span className="rounded-full bg-green-500 px-4 py-2 text-[14px] font-semibold leading-none tracking-normal text-white">실시간</span>
+        </div>
+        <div className="space-y-4">
+          {rows.map((row, rowIndex) => (
+            <div key={row[0]} className="grid min-h-[72px] grid-cols-[1fr_128px_82px] items-center gap-4 rounded-[10px] bg-[#f7fbf8] px-5 text-[16px] font-medium leading-[1.4] tracking-normal shadow-[inset_0_0_0_1px_rgba(24,205,115,0.08)]">
+              <span className={cn(rowIndex === 0 ? "text-green-500" : "text-gray-800")}>{row[0]}</span>
+              <span className="text-gray-500">{row[1]}</span>
+              <span className="text-right text-gray-900">{row[2]}</span>
+            </div>
+          ))}
+        </div>
       </div>
+    </PreviewShell>
+  );
+}
+
+function PreviewShell({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn("flex min-h-[430px] items-center justify-center rounded-[10px] bg-gradient-to-br from-[#e9fff0] via-white to-[#f5fbf7] p-7", className)}>
+      {children}
     </div>
   );
 }
 
-function FlowSection() {
+function BenefitSection() {
   return (
-    <section className="bg-gradient-to-b from-green-50 to-white px-5 py-24 md:px-8">
-      <div className="mx-auto max-w-[1400px]">
+    <section className="relative overflow-hidden bg-[#f2fff4] px-5 py-24 md:px-8 lg:min-h-[1150px] lg:py-0 lg:pt-[100px]">
+      <GreenGlow className="left-[calc(50%-730px)] top-[230px] h-[520px] w-[520px]" />
+      <GreenGlow className="right-[calc(50%-760px)] top-[520px] h-[520px] w-[520px]" />
+      <div className="relative mx-auto max-w-[1400px]">
         <SectionIntro
-          eyebrow="작동 방식"
+          eyebrow=""
           title={
             <>
-              기록은 남기고 <span className="landing-gradient-text">검토는 줄이는</span> 운영 흐름
+              기록을 넘어서
+              <br />
+              <span className="landing-gradient-text">운영 노하우까지 쌓이는 AI 시스템</span>
             </>
           }
-          description="복잡한 설정 없이 사업장 코드부터 출퇴근 기록까지 이어집니다."
+          description="Wee의 AI 에이전트는 현장에서 오는 인수인계와 업무 정보를 구조화해 다음 담당자가 바로 활용할 수 있는 운영 자산으로 전환합니다."
         />
-        <div className="mt-16 grid gap-5 lg:grid-cols-4">
-          {flowSteps.map(([title, description], index) => (
-            <div key={title} className="rounded-[999px] bg-gradient-to-br from-green-400 to-[#66ae00] p-1 shadow-[0_18px_42px_rgba(48,193,121,0.24)]">
-              <div className="flex aspect-square flex-col items-center justify-center rounded-full bg-green-400 px-8 text-center text-white">
-                <div className="text-label-14-medium tracking-normal opacity-90">0{index + 1}</div>
-                <h3 className="mt-2 text-h-20 tracking-normal text-white">{title}</h3>
-                <p className="mt-3 text-body-14-regular leading-[1.5] tracking-normal text-white/90">{description}</p>
-              </div>
-            </div>
-          ))}
+        <div className="relative mx-auto mt-[58px] max-w-[1150px] pb-[160px]">
+          <div className="grid justify-items-center gap-10 lg:grid-cols-3 lg:gap-[46px]">
+            {benefitCards.map((card) => (
+              <article
+                key={card.title}
+                className="relative flex size-[360px] items-center justify-center overflow-hidden rounded-full bg-green-500 text-center shadow-[0_28px_64px_rgba(24,205,115,0.28)]"
+              >
+                <Image
+                  src={card.image}
+                  alt=""
+                  width={360}
+                  height={360}
+                  className="absolute inset-0 size-full object-cover opacity-40 mix-blend-luminosity"
+                />
+                <div className="absolute inset-0 bg-[#18cd73]/76" />
+                <h3 className="relative whitespace-pre-line px-12 text-[27px] font-semibold leading-[1.45] tracking-normal text-white">
+                  {card.title}
+                </h3>
+              </article>
+            ))}
+          </div>
+          <svg
+            aria-hidden="true"
+            className="absolute left-1/2 top-[370px] hidden h-[120px] w-[830px] -translate-x-1/2 lg:block"
+            viewBox="0 0 830 120"
+            fill="none"
+          >
+            <path
+              d="M12 18C179 70 315 14 415 105C516 14 651 70 818 18"
+              stroke="#18CD73"
+              strokeDasharray="8 10"
+              strokeLinecap="round"
+              strokeOpacity="0.42"
+              strokeWidth="2"
+            />
+            <circle cx="415" cy="105" r="8" fill="#18CD73" />
+          </svg>
+          <div className="absolute inset-x-0 bottom-0 mx-auto flex h-[94px] max-w-[1040px] items-center justify-center rounded-[8px] border border-[#bdf3d3] bg-white/90 px-8 text-center shadow-[0_16px_42px_rgba(24,205,115,0.14)]">
+            <p className="text-[26px] font-semibold leading-[1.4] tracking-normal text-green-500">
+              메신저에 흩어진 운영 노하우를 조직의 자산으로 바꿉니다
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SetupSection() {
+  return (
+    <section className="bg-white px-5 py-24 md:px-8 lg:min-h-[924px] lg:py-0 lg:pt-[100px]">
+      <div className="mx-auto max-w-[1400px]">
+        <SectionIntro
+          eyebrow=""
+          title={
+            <>
+              복잡한 설정 없이
+              <br />
+              <span className="landing-gradient-text">바로 시작하는 운영 플로우</span>
+            </>
+          }
+          description=""
+        />
+      </div>
+      <div className="mx-auto mt-[46px] grid max-w-[1400px] gap-12 lg:grid-cols-[549px_820px] lg:items-center lg:justify-between">
+        <div>
+          <div className="divide-y divide-gray-200 bg-white">
+            {setupSteps.map(([number, title, description], index) => (
+              <details key={title} className="group py-[23px]" open={index === 0}>
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-5">
+                  <span className="flex min-w-0 items-center gap-5">
+                    <span className="w-9 shrink-0 text-[28px] font-normal leading-[1.4] tracking-normal text-green-500">
+                      {number}
+                    </span>
+                    <span className="text-[28px] font-semibold leading-[1.4] tracking-normal text-gray-900">{title}</span>
+                  </span>
+                  <ChevronDown className="size-6 shrink-0 text-gray-500 transition-transform group-open:rotate-180" />
+                </summary>
+                <p className="ml-14 mt-3 text-[18px] font-normal leading-[1.65] tracking-normal text-gray-700">{description}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+
+        <div className="h-[520px] w-full rounded-[8px] bg-[#f2f3f6]" />
+      </div>
+    </section>
+  );
+}
+
+function HelpSection() {
+  return (
+    <section className="relative overflow-hidden bg-[#effff0] px-5 py-24 md:px-8 lg:min-h-[715px] lg:py-[108px]">
+      <GreenGlow className="left-[-180px] top-[60px] h-[420px] w-[420px]" />
+      <div className="relative mx-auto max-w-[1400px]">
+        <SectionIntro
+          eyebrow=""
+          title={
+            <>
+              Wee를 도입하면
+              <br />
+              <span className="landing-gradient-text">조교 운영이</span> 이렇게 달라집니다
+            </>
+          }
+          description=""
+        />
+        <div className="mt-[74px] grid gap-6 lg:grid-cols-3">
+          {helpCards.map((card) => {
+            const Icon = card.icon;
+
+            return (
+              <article key={card.title} className="min-h-[306px] rounded-[8px] bg-gradient-to-br from-[#18cd73] to-[#66ae00] p-8 text-white shadow-[0_24px_60px_rgba(24,205,115,0.22)]">
+                <Icon className="size-12" strokeWidth={2.1} />
+                <h3 className="mt-9 text-[26px] font-semibold leading-[1.4] tracking-normal text-white">{card.title}</h3>
+                <p className="mt-12 text-[18px] font-normal leading-[1.65] tracking-normal text-white/90">{card.description}</p>
+              </article>
+            );
+          })}
         </div>
       </div>
     </section>
@@ -384,38 +619,53 @@ function FlowSection() {
 
 function PricingSection() {
   return (
-    <section id="pricing" className="bg-white px-5 py-24 md:px-8">
+    <section id="pricing" className="bg-white px-5 py-24 md:px-8 lg:min-h-[1178px] lg:py-0 lg:pt-[112px]">
       <div className="mx-auto max-w-[1400px]">
         <SectionIntro
-          eyebrow="요금제"
-          title="운영 규모에 맞는 플랜"
-          description="무료로 시작하고, AI 인수인계와 이상 패턴 분석이 필요할 때 Standard로 확장합니다."
+          eyebrow=""
+          title={
+            <>
+              운영 규모에 맞게 선택하는
+              <br />
+              <span className="landing-gradient-text">유연한 요금제</span>
+            </>
+          }
+          description="소규모 강사 운영부터 다수 조교와 여러 근무지를 함께 관리하는 팀까지 필요한 범위에 맞춰 시작할 수 있습니다."
         />
-        <div className="mt-16 grid gap-5 lg:grid-cols-3">
+        <div className="mt-[56px] grid gap-6 lg:grid-cols-3">
           {pricingPlans.map((plan) => (
             <article
               key={plan.name}
               className={cn(
-                "relative rounded-[10px] border bg-white p-7 shadow-[0_12px_36px_rgba(17,24,39,0.06)]",
-                plan.featured ? "border-green-400" : "border-gray-200",
+                "relative flex min-h-[708px] flex-col rounded-[8px] border bg-white px-8 py-7 shadow-[0_20px_56px_rgba(17,24,39,0.08)]",
+                plan.featured ? "border-green-500 shadow-[0_24px_68px_rgba(24,205,115,0.18)]" : "border-gray-200",
               )}
             >
               {plan.featured ? (
-                <span className="absolute right-7 top-7 rounded-full bg-green-400 px-4 py-2 text-label-14-medium tracking-normal text-white">추천</span>
+                <span className="absolute right-9 top-9 rounded-full bg-green-500 px-4 py-2 text-[14px] font-semibold leading-none tracking-normal text-white">추천</span>
               ) : null}
-              <div className="text-label-14-medium tracking-normal text-green-400">{plan.name}</div>
-              <div className="mt-3 text-h-32 tracking-normal text-gray-900">{plan.price}</div>
-              <p className="mt-3 min-h-[56px] text-body-16-regular leading-[1.6] tracking-normal text-gray-600">{plan.description}</p>
-              <div className="my-6 h-px bg-gray-100" />
-              <ul className="space-y-3">
-                {plan.items.map((item) => (
-                  <li key={item} className="flex items-center gap-2 text-body-16-regular tracking-normal text-gray-800">
-                    <Check className="size-5 text-green-400" strokeWidth={2.3} />
-                    {item}
+              <div className="inline-flex h-8 w-fit items-center rounded-full bg-green-100 px-4 text-[14px] font-medium leading-none tracking-normal text-green-500">{plan.name}</div>
+              <div className="mt-4 flex items-end gap-2 text-gray-900">
+                <span className="text-[44px] font-semibold leading-[1.1] tracking-normal">{plan.price}</span>
+                {"suffix" in plan ? <span className="pb-1 text-[22px] font-semibold leading-[1.2] tracking-normal">{plan.suffix}</span> : null}
+              </div>
+              <p className="mt-4 min-h-[60px] text-[18px] font-normal leading-[1.45] tracking-normal text-gray-600">{plan.description}</p>
+              <div className="mb-5 mt-4 h-px bg-gray-100" />
+              <ul className="space-y-[11px]">
+                {plan.items.map((item, index) => (
+                  <li key={item} className="flex items-center gap-3 text-[20px] font-normal leading-[1.45] tracking-normal text-gray-800">
+                    {index < 2 ? (
+                      <Users className="size-5 shrink-0 text-green-500" strokeWidth={2.1} />
+                    ) : !plan.featured && plan.name === "Starter" && index >= 5 ? (
+                      <X className="size-5 shrink-0 text-red-500" strokeWidth={2.4} />
+                    ) : (
+                      <Check className="size-5 shrink-0 text-green-500" strokeWidth={2.4} />
+                    )}
+                    <span className={cn(!plan.featured && plan.name === "Starter" && index >= 5 && "text-gray-400 line-through")}>{item}</span>
                   </li>
                 ))}
               </ul>
-              <LandingCta href="/signup" variant={plan.featured ? "primary" : "secondary"} className="mt-8 w-full">
+              <LandingCta href="/signup" variant={plan.featured ? "primary" : "secondary"} className="mt-auto w-full">
                 {plan.cta}
               </LandingCta>
             </article>
@@ -428,20 +678,20 @@ function PricingSection() {
 
 function FaqSection() {
   return (
-    <section id="faq" className="bg-gray-50 px-5 py-24 md:px-8">
-      <div className="mx-auto max-w-[1400px]">
-        <h2 className="text-center text-h-32 tracking-normal text-gray-900">자주 묻는 질문</h2>
-        <div className="mt-14 divide-y divide-gray-200">
+    <section id="faq" className="bg-white px-5 py-24 md:px-8 lg:min-h-[1056px] lg:py-[142px]">
+      <div className="mx-auto max-w-[1401px]">
+        <h2 className="text-center text-[44px] font-semibold leading-[1.35] tracking-normal text-gray-900">자주 묻는 질문</h2>
+        <div className="mt-20 divide-y divide-gray-200">
           {faqs.map(([question, answer], index) => (
-            <details key={question} className="group py-7" open={index === 0}>
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-5 text-h-20 tracking-normal text-gray-900">
-                <span className="flex min-w-0 items-center gap-3">
-                  <HelpCircle className="size-6 shrink-0 text-green-400" strokeWidth={2.2} />
+            <details key={question} className="group py-8" open={index === 0}>
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-5 text-[28px] font-semibold leading-[1.45] tracking-normal text-gray-900">
+                <span className="flex min-w-0 items-center gap-4">
+                  <HelpCircle className="size-7 shrink-0 text-green-500" strokeWidth={2.1} />
                   {question}
                 </span>
                 <ChevronDown className="size-6 shrink-0 text-gray-500 transition-transform group-open:rotate-180" />
               </summary>
-              <p className="mt-4 text-body-16-regular leading-[1.7] tracking-normal text-gray-600">{answer}</p>
+              <p className="mt-3 pl-11 text-[18px] font-normal leading-[1.75] tracking-normal text-gray-600">{answer}</p>
             </details>
           ))}
         </div>
@@ -452,8 +702,8 @@ function FaqSection() {
 
 function LandingFooter() {
   return (
-    <footer className="bg-gray-100 px-5 py-10 md:px-8">
-      <div className="mx-auto flex max-w-[1400px] flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+    <footer className="flex min-h-[132px] items-center bg-gray-100 px-5 py-8 md:px-8 lg:mt-4">
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
           <Image
             src="/admin-shell/logo.png"
@@ -477,17 +727,32 @@ function SectionIntro({
   eyebrow,
   title,
   description,
+  align = "center",
 }: {
   eyebrow: string;
   title: ReactNode;
   description: string;
+  align?: "center" | "left";
 }) {
   return (
-    <div className="mx-auto max-w-[980px] text-center">
-      <div className="mb-4 text-label-14-medium tracking-normal text-green-400">{eyebrow}</div>
+    <div className={cn("max-w-[980px]", align === "center" ? "mx-auto text-center" : "text-left")}>
+      {eyebrow ? (
+        <div className="mb-5 text-[18px] font-semibold leading-[1.4] tracking-normal text-green-500">{eyebrow}</div>
+      ) : null}
       <h2 className="text-[34px] font-semibold leading-[1.35] tracking-normal text-gray-800 sm:text-[44px]">{title}</h2>
-      <p className="mt-6 text-body-16-regular leading-[1.7] tracking-normal text-gray-600 sm:text-[20px]">{description}</p>
+      {description ? (
+        <p className="mt-7 text-[18px] font-normal leading-[1.7] tracking-normal text-gray-600 sm:text-[24px]">{description}</p>
+      ) : null}
     </div>
+  );
+}
+
+function GreenGlow({ className }: { className: string }) {
+  return (
+    <div
+      aria-hidden="true"
+      className={cn("pointer-events-none absolute rounded-full bg-[radial-gradient(circle,rgba(24,205,115,0.22)_0%,rgba(24,205,115,0.12)_38%,rgba(24,205,115,0)_70%)] blur-[2px]", className)}
+    />
   );
 }
 
@@ -509,7 +774,7 @@ export function LandingCta({
         "flex h-[58px] items-center justify-center gap-2 rounded-[10px] px-6 text-h-18-semibold tracking-normal transition-colors",
         variant === "primary"
           ? "bg-gradient-to-r from-[#18cd73] to-[#1ccc36] text-white hover:brightness-95"
-          : "bg-green-100 text-green-400 hover:bg-green-200",
+          : "bg-green-100 text-green-500 hover:bg-green-200",
         className,
       )}
     >
