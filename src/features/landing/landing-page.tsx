@@ -182,6 +182,14 @@ const faqs = [
   ["조교마다 급여가 달라도 되나요?", "시급, 월급, 보너스와 차감 항목을 조교별로 다르게 관리할 수 있습니다."],
 ] as const;
 
+const companyDetails = [
+  ["상호명", "(주)에듀유러닝"],
+  ["주소", "서울시 성북구 안암로 145, 파이빌99"],
+  ["대표자명", "이재준"],
+  ["이메일", "jc@eduulearning.com"],
+  ["고객센터", "02-546-5561"],
+] as const;
+
 export function LandingPage() {
   return (
     <main className="min-h-screen bg-white tracking-normal text-gray-900" data-testid="landing-page">
@@ -702,21 +710,44 @@ function FaqSection() {
 
 function LandingFooter() {
   return (
-    <footer className="flex min-h-[132px] items-center bg-gray-100 px-5 py-8 md:px-8 lg:mt-4">
-      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
+    <footer
+      className="border-t border-gray-200 bg-gray-50 px-5 py-10 md:px-8 lg:mt-4 lg:py-12"
+      data-testid="landing-footer"
+    >
+      <div className="mx-auto grid w-full max-w-[1400px] gap-10 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1fr)] lg:items-start">
+        <div className="flex flex-col gap-6">
           <Image
-            src="/admin-shell/logo.png"
-            alt=""
-            width={80}
-            height={52}
-            className="h-8 w-auto"
+            src="/landing/edu-u-learning-logo.svg"
+            alt="EduU Learning"
+            width={260}
+            height={144}
+            className="h-auto w-[210px] sm:w-[240px]"
           />
-          <span className="text-h-16-semibold tracking-normal text-gray-600">(주) EduU Learning</span>
+          <p className="max-w-[460px] text-body-14-regular leading-[1.75] tracking-normal text-gray-500">
+            조교 운영과 근태·정산 흐름을 더 정확하게 관리할 수 있도록 돕는 에듀유러닝의 운영 SaaS입니다.
+          </p>
         </div>
-        <div className="flex gap-6 text-body-14-regular tracking-normal text-gray-600">
-          <a href="#">이용약관</a>
-          <a href="#">개인정보처리방침</a>
+
+        <div className="flex flex-col gap-7">
+          <dl className="grid gap-x-8 gap-y-3 text-body-14-regular tracking-normal text-gray-600 sm:grid-cols-2">
+            {companyDetails.map(([label, value]) => (
+              <div key={label} className="grid grid-cols-[72px_minmax(0,1fr)] gap-3">
+                <dt className="text-gray-500">{label}</dt>
+                <dd className="min-w-0 text-gray-800">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          <div className="flex flex-col gap-3 border-t border-gray-200 pt-5 text-body-14-regular tracking-normal text-gray-500 sm:flex-row sm:items-center sm:justify-between">
+            <p>© EduU Learning. All rights reserved.</p>
+            <div className="flex gap-6 text-gray-600">
+              <a href="#" className="transition-colors hover:text-green-500">
+                이용약관
+              </a>
+              <a href="#" className="transition-colors hover:text-green-500">
+                개인정보처리방침
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </footer>

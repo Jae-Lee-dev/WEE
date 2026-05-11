@@ -22,5 +22,24 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
       screenId: "LANDING-01",
       viewport,
     });
+
+    await page.getByTestId("landing-footer").scrollIntoViewIfNeeded();
+    await expect(
+      page.getByRole("img", { name: "EduU Learning" }),
+    ).toBeVisible();
+    await expect(page.getByText("(주)에듀유러닝")).toBeVisible();
+    await expect(
+      page.getByText("서울시 성북구 안암로 145, 파이빌99"),
+    ).toBeVisible();
+    await expect(page.getByText("이재준")).toBeVisible();
+    await expect(page.getByText("jc@eduulearning.com")).toBeVisible();
+    await expect(page.getByText("02-546-5561")).toBeVisible();
+
+    await captureActualScreenshot({
+      page,
+      screenId: "LANDING-01",
+      state: "footer",
+      viewport,
+    });
   });
 }
