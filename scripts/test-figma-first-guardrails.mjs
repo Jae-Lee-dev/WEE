@@ -54,6 +54,36 @@ export const adminRouteRegistry = [
     figmaBacked: false,
     status: "deferred",
   },
+  {
+    screenId: "AUTH-01",
+    href: "/login",
+    figmaBacked: false,
+    status: "deferred",
+  },
+  {
+    screenId: "AUTH-02",
+    href: "/signup",
+    figmaBacked: false,
+    status: "deferred",
+  },
+  {
+    screenId: "AUTH-03",
+    href: "/forgot-password",
+    figmaBacked: false,
+    status: "deferred",
+  },
+  {
+    screenId: "ONB-01",
+    href: "/onboarding/workspace",
+    figmaBacked: false,
+    status: "deferred",
+  },
+  {
+    screenId: "ONB-02",
+    href: "/onboarding/setup",
+    figmaBacked: false,
+    status: "deferred",
+  },
 ];
 `;
 }
@@ -213,6 +243,124 @@ export default function LocationsDashboardPage() {
     figmaBacked: false,
     status: "deferred",`,
           `href: "/dashboard/locations",
+    figmaBacked: true,
+    status: "figma-backed",`,
+        ),
+      );
+    },
+  },
+  {
+    name: "entry route page deferred placeholder passes",
+    expectSuccess: true,
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/app/(entry)/login/page.tsx",
+        `import { EntryRoutePage } from "@/app/_components/EntryRoutePage";
+
+export default function LoginPage() {
+  return (
+    <EntryRoutePage
+      title="로그인"
+      description="Wee 관리자 워크스페이스에 접속합니다."
+      fields={[]}
+      actionLabel="로그인"
+      actionHref="/dashboard"
+    />
+  );
+}
+`,
+      );
+    },
+  },
+  {
+    name: "figma backed route entry placeholder is blocked",
+    expectSuccess: false,
+    expectedOutput: "EntryRoutePage may only render deferred entry placeholders",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/app/(admin)/dashboard/page.tsx",
+        `import { EntryRoutePage } from "@/app/_components/EntryRoutePage";
+
+export default function DashboardPage() {
+  return (
+    <EntryRoutePage
+      title="로그인"
+      description="잘못된 placeholder 사용"
+      fields={[]}
+      actionLabel="로그인"
+      actionHref="/dashboard"
+    />
+  );
+}
+`,
+      );
+    },
+  },
+  {
+    name: "entry route page outside page file is blocked",
+    expectSuccess: false,
+    expectedOutput: "EntryRoutePage usage must live in a literal App Router page file",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/app/(entry)/login/LoginPlaceholder.tsx",
+        `import { EntryRoutePage } from "@/app/_components/EntryRoutePage";
+
+export function LoginPlaceholder() {
+  return (
+    <EntryRoutePage
+      title="로그인"
+      description="잘못된 placeholder 사용"
+      fields={[]}
+      actionLabel="로그인"
+      actionHref="/dashboard"
+    />
+  );
+}
+`,
+      );
+    },
+  },
+  {
+    name: "entry route page wrapper outside app is blocked",
+    expectSuccess: false,
+    expectedOutput: "EntryRoutePage usage must live in a literal App Router page file",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/auth/LoginPlaceholder.tsx",
+        `import { EntryRoutePage } from "@/app/_components/EntryRoutePage";
+
+export function LoginPlaceholder() {
+  return (
+    <EntryRoutePage
+      title="로그인"
+      description="잘못된 wrapper 사용"
+      fields={[]}
+      actionLabel="로그인"
+      actionHref="/dashboard"
+    />
+  );
+}
+`,
+      );
+    },
+  },
+  {
+    name: "entry route config mismatch is blocked",
+    expectSuccess: false,
+    expectedOutput: "Deferred entry route config mismatch",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/app/_config/admin-navigation.ts",
+        defaultAdminNavigationContent().replace(
+          `href: "/login",
+    figmaBacked: false,
+    status: "deferred",`,
+          `href: "/login",
     figmaBacked: true,
     status: "figma-backed",`,
         ),

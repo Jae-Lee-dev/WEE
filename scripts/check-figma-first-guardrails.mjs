@@ -13,11 +13,19 @@ const rootFiles = [
   "components.json",
 ];
 const adminRoutePageFile = "src/app/_components/AdminRoutePage.tsx";
+const entryRoutePageFile = "src/app/_components/EntryRoutePage.tsx";
 const adminNavigationRegistryFile = "src/app/_config/admin-navigation.ts";
 const allowedAdminRoutePageDeferredHrefs = [
   "/dashboard/locations",
   "/dashboard/workers",
   "/dashboard/ai-monitoring",
+];
+const allowedEntryRoutePageDeferredHrefs = [
+  "/login",
+  "/signup",
+  "/forgot-password",
+  "/onboarding/workspace",
+  "/onboarding/setup",
 ];
 const codeExtensions = new Set([
   ".cjs",
@@ -180,6 +188,28 @@ function auditAllowedAdminRoutePageConfigs() {
   }
 }
 
+function auditAllowedEntryRoutePageConfigs() {
+  const configPath = join(root, adminNavigationRegistryFile);
+  const content = readFileSync(configPath, "utf8");
+
+  for (const href of allowedEntryRoutePageDeferredHrefs) {
+    const block = getNavigationRouteBlock(content, href);
+
+    if (!block) {
+      addFinding("Deferred entry route config missing", configPath, href);
+      continue;
+    }
+
+    if (!block.includes("figmaBacked: false") || !block.includes('status: "deferred"')) {
+      addFinding(
+        "Deferred entry route config mismatch",
+        configPath,
+        `${href} must remain figmaBacked: false with status: "deferred" while EntryRoutePage is allowed`,
+      );
+    }
+  }
+}
+
 function getAppRouteHrefFromPageFile(rel) {
   const parts = rel.split("/");
   const filename = parts.at(-1) ?? "";
@@ -262,6 +292,39 @@ function auditAdminRoutePageUsage(file, content) {
   }
 }
 
+function auditEntryRoutePageUsage(file, content) {
+  const rel = relative(root, file);
+
+  if (!rel.startsWith("src/") || rel === entryRoutePageFile) {
+    return;
+  }
+
+  const entryRoutePageUses = content.match(/<EntryRoutePage\b/g)?.length ?? 0;
+
+  if (entryRoutePageUses === 0) {
+    return;
+  }
+
+  const routeHref = getAppRouteHrefFromPageFile(rel);
+
+  if (!routeHref) {
+    addFinding(
+      "EntryRoutePage usage must live in a literal App Router page file",
+      file,
+      "expected src/app/.../page.tsx",
+    );
+    return;
+  }
+
+  if (!allowedEntryRoutePageDeferredHrefs.includes(routeHref)) {
+    addFinding(
+      "EntryRoutePage may only render deferred entry placeholders",
+      file,
+      `${routeHref} is not in the deferred entry route allowlist`,
+    );
+  }
+}
+
 for (const codeRoot of codeRoots) {
   const fullRoot = join(root, codeRoot);
   const files = listFiles(fullRoot);
@@ -287,10 +350,12 @@ for (const codeRoot of codeRoots) {
     }
 
     auditAdminRoutePageUsage(file, content);
+    auditEntryRoutePageUsage(file, content);
   }
 }
 
 auditAllowedAdminRoutePageConfigs();
+auditAllowedEntryRoutePageConfigs();
 
 for (const file of rootFiles) {
   const fullPath = join(root, file);
