@@ -12,7 +12,6 @@ export type SettingsLocation = {
   name: string;
   nameKey: string;
   roadAddress: string;
-  detailAddress: string;
   addressText: string;
   radiusMeters: number;
   coordinate: SettingsLocationCoordinate | null;
@@ -24,7 +23,6 @@ export type SettingsLocation = {
 export type SettingsLocationFormState = {
   name: string;
   roadAddress: string;
-  detailAddress: string;
   radiusMeters: string;
 };
 
@@ -38,7 +36,6 @@ export type CreateSettingsLocationInput = {
   name: string;
   nameKey: string;
   roadAddress: string;
-  detailAddress: string;
   addressText: string;
   radiusMeters: number;
   coordinate: SettingsLocationCoordinate;
@@ -52,7 +49,6 @@ export const defaultLocationRadiusMeters = 100;
 export const initialSettingsLocationForm: SettingsLocationFormState = {
   name: "",
   roadAddress: "",
-  detailAddress: "",
   radiusMeters: String(defaultLocationRadiusMeters),
 };
 
@@ -100,20 +96,16 @@ export function toCreateSettingsLocationInput(
 ): CreateSettingsLocationInput {
   const name = normalizeLocationText(form.name);
   const roadAddress = normalizeLocationText(form.roadAddress);
-  const detailAddress = normalizeLocationText(form.detailAddress);
   const radiusMeters =
     parseRadiusMeters(form.radiusMeters) ?? defaultLocationRadiusMeters;
-
-  const addressText = formatAddressText(roadAddress, detailAddress);
 
   return {
     name,
     nameKey: createLocationNameKey(name),
     roadAddress,
-    detailAddress,
-    addressText,
+    addressText: roadAddress,
     radiusMeters,
-    coordinate: createDemoLocationCoordinate(`${name} ${addressText}`),
+    coordinate: createDemoLocationCoordinate(`${name} ${roadAddress}`),
     geocodingStatus: "resolved",
   };
 }
@@ -124,7 +116,6 @@ export function toSettingsLocationFormState(
   return {
     name: location.name,
     roadAddress: location.roadAddress,
-    detailAddress: location.detailAddress,
     radiusMeters: String(location.radiusMeters),
   };
 }
@@ -181,10 +172,6 @@ function normalizeLocationText(value: string) {
 
 function createLocationNameKey(name: string) {
   return normalizeLocationText(name).toLocaleLowerCase("ko-KR");
-}
-
-function formatAddressText(roadAddress: string, detailAddress: string) {
-  return detailAddress ? `${roadAddress} ${detailAddress}` : roadAddress;
 }
 
 export function createDemoLocationCoordinate(

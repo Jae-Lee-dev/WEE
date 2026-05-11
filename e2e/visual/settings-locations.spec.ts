@@ -98,7 +98,6 @@ test("SET-02 creates, edits, and deletes location through Firestore", async ({
   const dialog = page.getByTestId("settings-location-dialog");
   await dialog.getByLabel("근무지 이름").fill(locationName);
   await dialog.getByLabel("도로명 주소").fill("서울 마포구 양화로 45");
-  await dialog.getByLabel("상세 주소").fill("4층");
   await dialog
     .getByRole("spinbutton", { name: "출퇴근 허용 반경" })
     .fill("90");
@@ -108,7 +107,7 @@ test("SET-02 creates, edits, and deletes location through Firestore", async ({
 
   const screen = page.getByTestId("settings-locations-screen");
   await expect(screen).toContainText(locationName);
-  await expect(screen).toContainText("서울 마포구 양화로 45 4층");
+  await expect(screen).toContainText("서울 마포구 양화로 45");
   await expect(screen).toContainText("90m");
   await expect(screen).toContainText("좌표 확인");
   await expect(screen).toContainText(`${locationName} 근무지를 등록했습니다.`);

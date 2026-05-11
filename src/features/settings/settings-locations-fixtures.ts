@@ -18,14 +18,12 @@ export const settingsLocationsFixture = {
       id: "location-daechi-a",
       name: "대치 A 학원",
       roadAddress: "서울 강남구 테헤란로 412",
-      detailAddress: "3층",
       dutyCount: 5,
     }),
     createLocationSeed({
       id: "location-gangnam-b",
       name: "강남 B 학원",
       roadAddress: "서울 강남구 강남대로 328",
-      detailAddress: "2층",
       dutyCount: 3,
       radiusMeters: 120,
     }),
@@ -33,14 +31,12 @@ export const settingsLocationsFixture = {
       id: "location-jamsil-c",
       name: "잠실 C 학원",
       roadAddress: "서울 송파구 올림픽로 240",
-      detailAddress: "",
       dutyCount: 4,
     }),
     createLocationSeed({
       id: "location-songpa-e",
       name: "송파 E 학원",
       roadAddress: "서울 송파구 송파대로 345",
-      detailAddress: "5층",
       dutyCount: 2,
       radiusMeters: 80,
     }),
@@ -48,7 +44,6 @@ export const settingsLocationsFixture = {
       id: "location-seocho-b",
       name: "서초 B 학원",
       roadAddress: "서울 서초구 서초대로 396",
-      detailAddress: "",
       dutyCount: 1,
     }),
   ],
@@ -66,8 +61,6 @@ export const settingsLocationsFixture = {
     namePlaceholder: "예: 대치 A 학원",
     roadAddressLabel: "도로명 주소",
     roadAddressPlaceholder: "서울 강남구 테헤란로 412",
-    detailAddressLabel: "상세 주소",
-    detailAddressPlaceholder: "층, 호수 등",
     radiusLabel: "출퇴근 허용 반경",
     radiusUnit: "m",
     cancelLabel: "취소",
@@ -102,8 +95,6 @@ export const settingsLocationsFixture = {
     namePlaceholder: string;
     roadAddressLabel: string;
     roadAddressPlaceholder: string;
-    detailAddressLabel: string;
-    detailAddressPlaceholder: string;
     radiusLabel: string;
     radiusUnit: string;
     cancelLabel: string;
@@ -125,30 +116,23 @@ function createLocationSeed({
   id,
   name,
   roadAddress,
-  detailAddress,
   dutyCount,
   radiusMeters = defaultLocationRadiusMeters,
 }: {
   id: string;
   name: string;
   roadAddress: string;
-  detailAddress: string;
   dutyCount: number;
   radiusMeters?: number;
 }): SettingsLocation {
-  const addressText = detailAddress
-    ? `${roadAddress} ${detailAddress}`
-    : roadAddress;
-
   return {
     id,
     name,
     nameKey: name.toLocaleLowerCase("ko-KR"),
     roadAddress,
-    detailAddress,
-    addressText,
+    addressText: roadAddress,
     radiusMeters,
-    coordinate: createDemoLocationCoordinate(`${name} ${addressText}`),
+    coordinate: createDemoLocationCoordinate(`${name} ${roadAddress}`),
     geocodingStatus: "resolved",
     status: "active",
     dutyCount,

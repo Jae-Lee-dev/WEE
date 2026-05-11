@@ -210,18 +210,13 @@ function mapLocationDocument(
   const data = snapshot.data();
   const name = readString(data.name, "이름 없는 근무지");
   const roadAddress = readString(data.roadAddress, "");
-  const detailAddress = readString(data.detailAddress, "");
-  const addressText = readString(
-    data.addressText,
-    detailAddress ? `${roadAddress} ${detailAddress}` : roadAddress,
-  );
+  const addressText = readString(data.addressText, roadAddress);
 
   return {
     id: snapshot.id,
     name,
     nameKey: readString(data.nameKey, name.toLocaleLowerCase("ko-KR")),
     roadAddress,
-    detailAddress,
     addressText,
     radiusMeters: readNumber(data.radiusMeters, 100),
     coordinate: readCoordinate(data.coordinate),

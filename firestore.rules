@@ -49,7 +49,6 @@ service cloud.firestore {
         && data.nameKey.size() > 0
         && data.roadAddress is string
         && data.roadAddress.size() > 0
-        && data.detailAddress is string
         && data.addressText is string
         && data.addressText.size() > 0
         && data.radiusMeters is int
@@ -67,7 +66,6 @@ service cloud.firestore {
           'coordinate',
           'createdAt',
           'createdBy',
-          'detailAddress',
           'dutyCount',
           'geocodingStatus',
           'name',
@@ -94,7 +92,6 @@ service cloud.firestore {
         && changedKeys.hasOnly([
           'addressText',
           'coordinate',
-          'detailAddress',
           'geocodingStatus',
           'name',
           'nameKey',

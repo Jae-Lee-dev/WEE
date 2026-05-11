@@ -430,15 +430,6 @@ function LocationDialog({
             disabled={saving}
           />
 
-          <LocationDialogField
-            label={dialog.detailAddressLabel}
-            name="detailAddress"
-            onChange={handleFieldChange("detailAddress")}
-            placeholder={dialog.detailAddressPlaceholder}
-            value={form.detailAddress}
-            disabled={saving}
-          />
-
           <LocationRadiusField
             error={submitted ? errors.radiusMeters : undefined}
             onChange={handleFieldChange("radiusMeters")}
