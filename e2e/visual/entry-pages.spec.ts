@@ -24,7 +24,7 @@ const entryPages = [
     screenId: "ONB-01",
     path: "/onboarding/workspace",
     testId: "workspace-onboarding-screen",
-    heading: "사업장 생성",
+    heading: "소속 생성",
   },
   {
     screenId: "ONB-02",
@@ -100,21 +100,53 @@ test("AUTH-02 validates native signup before Firebase submit", async ({
 }) => {
   await prepareVisualPage({ page, path: "/signup", viewport: "laptop-1366" });
   await page.evaluate(() => document.fonts.ready);
-  const signupAlert = page.locator('[data-testid="signup-screen"] [role="alert"]');
+  const signupAlert = page.getByTestId("signup-alert");
 
-  await page.getByRole("button", { name: "인증 메일 보내기" }).click();
-  await expect(signupAlert).toHaveText(
-    "이름, 이메일, 비밀번호를 모두 입력해 주세요.",
+  await page
+    .getByRole("button", { name: "회원가입하고 인증 메일 받기" })
+    .click();
+  await expect(signupAlert).toHaveText("입력 내용을 다시 확인해 주세요.");
+  await expect(page.getByText("이름을 입력해 주세요.")).toBeVisible();
+  await expect(
+    page.getByText("서비스 이용약관과 개인정보 처리방침에 동의해 주세요."),
+  ).toBeVisible();
+
+  await expect(page.getByTestId("password-requirement-length")).toHaveAttribute(
+    "data-state",
+    "unmet",
+  );
+  await expect(page.getByTestId("password-requirement-number")).toHaveAttribute(
+    "data-state",
+    "unmet",
   );
 
   await page.getByLabel("이름").fill("김민채");
   await page.getByLabel("이메일").fill("admin@wee.kr");
   await page.getByLabel("비밀번호", { exact: true }).fill("password");
-  await page.getByLabel("비밀번호 확인").fill("password");
-  await page.getByRole("button", { name: "인증 메일 보내기" }).click();
-  await expect(signupAlert).toHaveText(
-    "비밀번호는 영문과 숫자를 모두 포함해야 합니다.",
+  await page.getByLabel("비밀번호 확인", { exact: true }).fill("password");
+
+  await expect(page.getByTestId("password-requirement-length")).toHaveAttribute(
+    "data-state",
+    "met",
   );
+  await expect(page.getByTestId("password-requirement-letter")).toHaveAttribute(
+    "data-state",
+    "met",
+  );
+  await expect(page.getByTestId("password-requirement-number")).toHaveAttribute(
+    "data-state",
+    "unmet",
+  );
+  await page
+    .getByRole("button", { name: "회원가입하고 인증 메일 받기" })
+    .click();
+  await expect(signupAlert).toHaveText("입력 내용을 다시 확인해 주세요.");
+  await expect(page.getByText("비밀번호는 숫자를 포함해야 합니다.")).toBeVisible();
+
+  const passwordInput = page.getByLabel("비밀번호", { exact: true });
+  await expect(passwordInput).toHaveAttribute("type", "password");
+  await page.getByRole("button", { name: "비밀번호 보기", exact: true }).click();
+  await expect(passwordInput).toHaveAttribute("type", "text");
 });
 
 test("AUTH-02 submits native signup through Firebase Auth", async ({
@@ -201,13 +233,15 @@ test("AUTH-02 submits native signup through Firebase Auth", async ({
   await page.getByLabel("이름").fill("김민채");
   await page.getByLabel("이메일").fill("manager@wee.kr");
   await page.getByLabel("비밀번호", { exact: true }).fill("password1");
-  await page.getByLabel("비밀번호 확인").fill("password1");
+  await page.getByLabel("비밀번호 확인", { exact: true }).fill("password1");
   await page
     .getByRole("checkbox", {
       name: "서비스 이용약관과 개인정보 처리방침에 동의합니다.",
     })
     .click();
-  await page.getByRole("button", { name: "인증 메일 보내기" }).click();
+  await page
+    .getByRole("button", { name: "회원가입하고 인증 메일 받기" })
+    .click();
 
   await expect(page).toHaveURL(/\/onboarding\/workspace$/);
   expect(authRequests.some((url) => url.includes("accounts:signUp"))).toBe(

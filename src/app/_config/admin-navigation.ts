@@ -147,7 +147,7 @@ export const adminSections: AdminSection[] = [
     href: "/settings",
     icon: "settings",
     tabs: [
-      { label: "사업장", href: "/settings", screenId: "SET-01" },
+      { label: "소속", href: "/settings", screenId: "SET-01" },
       { label: "근무지", href: "/settings/locations", screenId: "SET-02" },
       {
         label: "운영 설정",
@@ -164,7 +164,7 @@ export const entryRoutes = [
   { label: "로그인", href: "/login" },
   { label: "회원가입", href: "/signup" },
   { label: "아이디/비밀번호 찾기", href: "/forgot-password" },
-  { label: "사업장 생성", href: "/onboarding/workspace" },
+  { label: "소속 생성", href: "/onboarding/workspace" },
   { label: "초기 설정", href: "/onboarding/setup" },
 ] as const;
 
@@ -369,7 +369,7 @@ export const adminRouteRegistry: AdminRouteMeta[] = [
   {
     screenId: "SET-01",
     href: "/settings",
-    title: "사업장",
+    title: "소속",
     figmaBacked: true,
     status: "figma-backed",
     authoritativeFrameId: "15:5475",
@@ -433,7 +433,7 @@ export const adminRouteRegistry: AdminRouteMeta[] = [
   {
     screenId: "ONB-01",
     href: "/onboarding/workspace",
-    title: "사업장 생성",
+    title: "소속 생성",
     figmaBacked: false,
     status: "deferred",
     deferredReason: "No entry/onboarding Figma frame found in register.",
@@ -776,17 +776,17 @@ export const adminScreens: Record<string, AdminScreen> = {
   "/settings": {
     href: "/settings",
     screenId: "SET-01",
-    title: "사업장 일반",
-    description: "사업장 기본 정보와 관리자 프로필을 설정합니다.",
+    title: "소속 일반",
+    description: "소속 기본 정보와 관리자 프로필을 설정합니다.",
     metrics: [
-      { label: "운영 사업장", value: "1", unit: "개", tag: "활성" },
+      { label: "운영 소속", value: "1", unit: "개", tag: "활성" },
       { label: "관리자", value: "3", unit: "명", tag: "권한" },
       { label: "미완료 설정", value: "2", unit: "개", tag: "확인", tone: "orange" },
     ],
     tableTitle: "기본 설정",
     tableColumns: ["항목", "값", "담당", "상태"],
     tableRows: [
-      ["사업장명", "Wee 학원", "김민채", "완료"],
+      ["소속명", "Wee 학원", "김민채", "완료"],
       ["대표 연락처", "02-0000-0000", "김민채", "완료"],
       ["운영 시간", "14:00-22:00", "오지후", "확인"],
     ],

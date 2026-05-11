@@ -65,7 +65,7 @@ type SectionHeadingProps = {
 
 const workspaceSupportItems = [
   {
-    label: "사업장 정보",
+    label: "소속 정보",
     value: "1단계",
     detail: "기본 정보와 대표 연락처",
     tone: "green",
@@ -84,7 +84,7 @@ const workspaceSupportItems = [
   },
 ] as const satisfies readonly SupportItem[];
 
-const workspaceSteps = ["사업장 정보", "요금제 선택", "결제 정보", "코드 발급"];
+const workspaceSteps = ["소속 정보", "요금제 선택", "결제 정보", "코드 발급"];
 const setupSteps = ["근무지 등록", "근무 개설", "운영 시작"];
 
 export function LoginScreen() {
@@ -145,8 +145,8 @@ export function SignupScreen() {
     <AuthShell
       screenId="AUTH-02"
       title="회원가입"
-      description="이메일 인증 후 사업장 생성으로 이동합니다."
-      cardClassName="max-w-[680px]"
+      description="이메일과 비밀번호로 관리자 계정을 만듭니다."
+      cardClassName="max-w-[620px]"
     >
       <div className="w-full" data-testid="signup-screen">
         <SignupForm />
@@ -233,7 +233,7 @@ export function ForgotPasswordScreen() {
           <div className="flex items-start gap-3">
             <Phone className="mt-0.5 size-5 shrink-0 text-gray-500" />
             <p className="text-body-14-regular tracking-normal text-gray-600">
-              휴대폰 번호가 변경된 경우 사업장 소유자 인증 후 계정을 확인할 수
+              휴대폰 번호가 변경된 경우 소속 관리자 인증 후 계정을 확인할 수
               있습니다.
             </p>
           </div>
@@ -256,8 +256,8 @@ export function WorkspaceOnboardingScreen() {
   return (
     <EntryShell
       screenId="ONB-01"
-      title="사업장 생성"
-      description="조교가 소속 신청에 사용할 사업장과 운영 코드를 준비합니다."
+      title="소속 생성"
+      description="조교가 소속 신청에 사용할 운영 소속과 코드를 준비합니다."
       supportTitle="온보딩"
       supportItems={workspaceSupportItems}
     >
@@ -268,12 +268,12 @@ export function WorkspaceOnboardingScreen() {
           <section className="rounded-[8px] border border-gray-200 bg-white p-5">
             <SectionHeading
               icon={Building2}
-              title="사업장 정보"
+              title="소속 정보"
               description="관리자와 조교에게 공통으로 표시되는 기본 정보입니다."
             />
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <EntryField
-                label="사업장 이름"
+                label="소속 이름"
                 placeholder="Wee 강남캠퍼스"
                 defaultValue="Wee 강남캠퍼스"
               />
@@ -293,7 +293,7 @@ export function WorkspaceOnboardingScreen() {
           <aside className="rounded-[8px] border border-green-200 bg-green-50 p-5">
             <div className="flex items-center justify-between gap-3">
               <div className="text-h-16-semibold tracking-normal text-gray-900">
-                사업장 코드
+                소속 코드
               </div>
               <Badge variant="green" size="M">
                 예정

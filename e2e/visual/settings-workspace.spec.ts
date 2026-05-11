@@ -18,7 +18,7 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
 
     const screen = page.getByTestId("settings-workspace-screen");
     await expect(screen).toBeVisible();
-    await expect(screen).toContainText("사업장 이름");
+    await expect(screen).toContainText("소속 이름");
     await expect(screen).toContainText("김쌤 수학학원");
     await expect(screen).toContainText("WEE-ABC123");
     await expect(screen).toContainText("02-1234-5678");
@@ -42,7 +42,7 @@ test(`SET-01 edit-workspace-dialog ${desktop}`, async ({ page }) => {
 
   const dialog = page.getByTestId("settings-workspace-dialog");
   await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText("사업장 정보 수정");
+  await expect(dialog).toContainText("소속 정보 수정");
   await expect(dialog).toContainText("사업자등록번호");
   await expect(dialog).toContainText("저장");
 

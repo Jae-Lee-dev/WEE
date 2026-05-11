@@ -12,7 +12,7 @@ export type SettingsWorkspaceField = {
 
 export const settingsWorkspaceFixture = {
   rows: [
-    { id: "workspace-name", label: "사업장 이름", value: "김쌤 수학학원" },
+    { id: "workspace-name", label: "소속 이름", value: "김쌤 수학학원" },
     { id: "invite-code", label: "참여 코드", value: "WEE-ABC123" },
     { id: "manager", label: "관리자", value: "김준희" },
     { id: "business-number", label: "사업자등록번호", value: "123-45-67890" },
@@ -20,9 +20,9 @@ export const settingsWorkspaceFixture = {
     { id: "phone", label: "연락처", value: "02-1234-5678" },
   ],
   dialog: {
-    title: "사업장 정보 수정",
+    title: "소속 정보 수정",
     fields: [
-      { id: "workspace-name", label: "사업장 이름", value: "김쌤 수학학원" },
+      { id: "workspace-name", label: "소속 이름", value: "김쌤 수학학원" },
       { id: "business-number", label: "사업자등록번호", value: "123-45-67890" },
       { id: "phone", label: "연락처", value: "02-1234-5678" },
     ],

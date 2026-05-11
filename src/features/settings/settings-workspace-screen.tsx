@@ -13,7 +13,7 @@ export function SettingsWorkspaceScreen() {
 
   return (
     <section
-      aria-label="사업장 설정"
+      aria-label="소속 설정"
       className="mx-auto h-[calc(100vh-202px)] min-h-[620px] w-full max-w-[1580px] overflow-hidden rounded-[10px] border border-gray-200 bg-white p-5 tracking-normal"
       data-testid="settings-workspace-screen"
     >
