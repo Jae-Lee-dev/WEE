@@ -26,6 +26,98 @@ service cloud.firestore {
         && getAfter(workspacePath(workspaceId)).data.managerUid == request.auth.uid;
     }
 
+    function isLocationCoordinate(value) {
+      return value is map
+        && value.keys().hasOnly(['lat', 'lng'])
+        && value.lat is number
+        && value.lng is number
+        && value.lat >= -90
+        && value.lat <= 90
+        && value.lng >= -180
+        && value.lng <= 180;
+    }
+
+    function isLocationBase(workspaceId, data) {
+      return data.workspaceId == workspaceId
+        && data.name is string
+        && data.name.size() > 0
+        && data.nameKey is string
+        && data.nameKey.size() > 0
+        && data.roadAddress is string
+        && data.roadAddress.size() > 0
+        && data.detailAddress is string
+        && data.addressText is string
+        && data.addressText.size() > 0
+        && data.radiusMeters is int
+        && data.radiusMeters > 0
+        && data.radiusMeters <= 9999
+        && isLocationCoordinate(data.coordinate)
+        && data.geocodingStatus == 'resolved';
+    }
+
+    function isLocationCreate(workspaceId) {
+      let data = request.resource.data;
+
+      return data.keys().hasOnly([
+          'addressText',
+          'coordinate',
+          'createdAt',
+          'createdBy',
+          'detailAddress',
+          'dutyCount',
+          'geocodingStatus',
+          'name',
+          'nameKey',
+          'radiusMeters',
+          'roadAddress',
+          'status',
+          'updatedAt',
+          'workspaceId'
+        ])
+        && isLocationBase(workspaceId, data)
+        && data.status == 'active'
+        && data.dutyCount == 0
+        && data.createdBy == request.auth.uid
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function isLocationEdit(workspaceId) {
+      let data = request.resource.data;
+      let changedKeys = data.diff(resource.data).affectedKeys();
+
+      return resource.data.status != 'deleted'
+        && changedKeys.hasOnly([
+          'addressText',
+          'coordinate',
+          'detailAddress',
+          'geocodingStatus',
+          'name',
+          'nameKey',
+          'radiusMeters',
+          'roadAddress',
+          'updatedAt'
+        ])
+        && isLocationBase(workspaceId, data)
+        && data.status == resource.data.status
+        && data.dutyCount == resource.data.dutyCount
+        && data.createdAt == resource.data.createdAt
+        && data.createdBy == resource.data.createdBy
+        && data.updatedAt == request.time;
+    }
+
+    function isLocationSoftDelete() {
+      let data = request.resource.data;
+      let changedKeys = data.diff(resource.data).affectedKeys();
+
+      return resource.data.status != 'deleted'
+        && resource.data.dutyCount == 0
+        && changedKeys.hasOnly(['deletedAt', 'status', 'updatedAt'])
+        && data.status == 'deleted'
+        && data.deletedAt == request.time
+        && data.updatedAt == request.time;
+    }
+
     match /users/{userId} {
       allow get, create, update: if isSelf(userId);
       allow list, delete: if false;
@@ -41,7 +133,13 @@ service cloud.firestore {
 
       match /locations/{locationId} {
         allow get, list: if isWorkspaceManager(workspaceId);
-        allow create, update: if isWorkspaceManagerAfter(workspaceId);
+        allow create: if isWorkspaceManagerAfter(workspaceId)
+          && isLocationCreate(workspaceId);
+        allow update: if isWorkspaceManagerAfter(workspaceId)
+          && (
+            isLocationEdit(workspaceId) ||
+            isLocationSoftDelete()
+          );
         allow delete: if false;
       }
     }
