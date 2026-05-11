@@ -163,9 +163,9 @@ export const adminSections: AdminSection[] = [
 export const entryRoutes = [
   { label: "로그인", href: "/login" },
   { label: "회원가입", href: "/signup" },
-  { label: "비밀번호 재설정", href: "/forgot-password" },
-  { label: "워크스페이스 생성", href: "/onboarding/workspace" },
-  { label: "운영 기준 설정", href: "/onboarding/setup" },
+  { label: "아이디/비밀번호 찾기", href: "/forgot-password" },
+  { label: "사업장 생성", href: "/onboarding/workspace" },
+  { label: "초기 설정", href: "/onboarding/setup" },
 ] as const;
 
 export type AdminRouteImplementationStatus =
@@ -425,7 +425,7 @@ export const adminRouteRegistry: AdminRouteMeta[] = [
   {
     screenId: "AUTH-03",
     href: "/forgot-password",
-    title: "비밀번호 찾기",
+    title: "아이디/비밀번호 찾기",
     figmaBacked: false,
     status: "deferred",
     deferredReason: "No entry/auth Figma frame found in register.",

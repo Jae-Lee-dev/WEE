@@ -214,6 +214,13 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+.landing-gradient-text {
+  background: linear-gradient(90deg, #18cd73 34.615%, #66ae00 100%);
+  background-clip: text;
+  color: transparent;
+  -webkit-background-clip: text;
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
