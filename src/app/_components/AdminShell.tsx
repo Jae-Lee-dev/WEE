@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState, type ReactNode } from "react";
-import { ChevronUp, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { signOut } from "firebase/auth";
 import {
   adminSections,
@@ -168,10 +168,6 @@ function AdminSidebar({
                 {demoWorkspace.managerRole}
               </span>
             </span>
-            <ChevronUp
-              className="size-4 shrink-0 text-gray-400"
-              strokeWidth={2.2}
-            />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
