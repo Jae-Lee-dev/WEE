@@ -47,7 +47,7 @@ service cloud.firestore {
     }
 
     match /workspaceCodes/{code} {
-      allow get: if signedIn() && resource.data.active == true;
+      allow get: if signedIn();
       allow list: if false;
       allow create: if signedIn()
         && request.resource.data.active == true
