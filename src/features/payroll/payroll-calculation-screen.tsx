@@ -56,14 +56,6 @@ const openItemsPanelHeight: Record<PayrollDetailStateId, string> = {
   "no-open-items": "max-h-[855px]",
 };
 
-const avatarCheckerStyle = {
-  backgroundColor: "var(--color-white)",
-  backgroundImage:
-    "linear-gradient(45deg, var(--color-gray-100) 25%, transparent 25%), linear-gradient(-45deg, var(--color-gray-100) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, var(--color-gray-100) 75%), linear-gradient(-45deg, transparent 75%, var(--color-gray-100) 75%)",
-  backgroundPosition: "0 0, 0 6px, 6px -6px, -6px 0",
-  backgroundSize: "12px 12px",
-} satisfies CSSProperties;
-
 export function PayrollCalculationScreen() {
   const [view, setView] = useState<PayrollViewState>("list");
 
@@ -284,12 +276,7 @@ function WorkerSummaryCard({ detail }: { detail: PayrollCalculationDetail }) {
   const worker = detail.worker;
 
   return (
-    <section className="flex h-[116px] shrink-0 items-center gap-5 rounded-[8px] border border-gray-300 bg-white px-5">
-      <div
-        aria-hidden="true"
-        className="size-[76px] shrink-0 overflow-hidden rounded-full border border-gray-100"
-        style={avatarCheckerStyle}
-      />
+    <section className="flex min-h-[96px] shrink-0 items-center rounded-[8px] border border-gray-300 bg-white px-5 py-4">
       <div className="min-w-0">
         <div className="flex items-center gap-3">
           <h2 className="text-h-20 tracking-normal text-gray-900">

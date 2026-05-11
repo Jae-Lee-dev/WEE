@@ -20,13 +20,6 @@ const visibleTimelineDays = scheduleTimelineDays.slice(0, 5);
 const timelineStartHour = Number(scheduleTimelineTimeSlots[0]);
 const timelineColumnCount = scheduleTimelineTimeSlots.length;
 const activeBadgeStyle = { color: "var(--color-green-400)" };
-const avatarCheckerStyle = {
-  backgroundColor: "var(--color-white)",
-  backgroundImage:
-    "linear-gradient(45deg, var(--color-gray-100) 25%, transparent 25%), linear-gradient(-45deg, var(--color-gray-100) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, var(--color-gray-100) 75%), linear-gradient(-45deg, transparent 75%, var(--color-gray-100) 75%)",
-  backgroundPosition: "0 0, 0 6px, 6px -6px, -6px 0",
-  backgroundSize: "12px 12px",
-} satisfies CSSProperties;
 
 export function ScheduleApprovalScreen() {
   const [selectedRequestId, setSelectedRequestId] = useState<string>();
@@ -235,29 +228,22 @@ function SelectedProfileHeader({
   const detail = request.selectedDetail;
 
   return (
-    <section className="flex h-[116px] shrink-0 items-center justify-between gap-6 rounded-[8px] border border-gray-300 bg-white px-5">
-      <div className="flex min-w-0 items-center gap-5">
-        <div
-          aria-hidden="true"
-          className="size-[76px] shrink-0 overflow-hidden rounded-full border border-gray-100"
-          style={avatarCheckerStyle}
-        />
-        <div className="min-w-0">
-          <div className="flex items-center gap-3">
-            <h2 className="text-h-20 tracking-normal text-gray-900">
-              {detail.workerName}
-            </h2>
-            <Badge variant="grey" size="M">
-              {detail.workerTag}
-            </Badge>
-            <Badge variant="green" size="M" style={activeBadgeStyle}>
-              {detail.workerStatusText}
-            </Badge>
-          </div>
-          <p className="mt-3 text-h-18-regular tracking-normal text-gray-800">
-            {request.requestDate} {detail.submittedKindText}
-          </p>
+    <section className="flex min-h-[96px] shrink-0 items-center justify-between gap-6 rounded-[8px] border border-gray-300 bg-white px-5 py-4">
+      <div className="min-w-0">
+        <div className="flex items-center gap-3">
+          <h2 className="text-h-20 tracking-normal text-gray-900">
+            {detail.workerName}
+          </h2>
+          <Badge variant="grey" size="M">
+            {detail.workerTag}
+          </Badge>
+          <Badge variant="green" size="M" style={activeBadgeStyle}>
+            {detail.workerStatusText}
+          </Badge>
         </div>
+        <p className="mt-3 text-h-18-regular tracking-normal text-gray-800">
+          {request.requestDate} {detail.submittedKindText}
+        </p>
       </div>
 
       <div className="flex shrink-0 items-center gap-3">

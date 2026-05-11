@@ -4,7 +4,10 @@ import { useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { WorkerDetailShell } from "./worker-detail-shell";
+import {
+  WorkerDetailShell,
+  WorkerDetailSubsection,
+} from "./worker-detail-shell";
 import {
   workerDetailBasicFixture,
   type BasicInfoRow,
@@ -59,7 +62,7 @@ function PersonalAccountCard({ onEdit }: { onEdit: () => void }) {
   const fixture = workerDetailBasicFixture;
 
   return (
-    <section className="flex min-h-[501px] flex-col gap-5 overflow-hidden rounded-[8px] border border-gray-100 bg-white p-5">
+    <WorkerDetailSubsection className="flex min-h-[501px] flex-col gap-5 overflow-hidden">
       <div className="flex min-h-[41px] items-center justify-between gap-4">
         <h2 className="text-h-20 text-gray-900">{fixture.personalTitle}</h2>
         <div className="flex items-center gap-3">
@@ -79,7 +82,7 @@ function PersonalAccountCard({ onEdit }: { onEdit: () => void }) {
           />
         ))}
       </div>
-    </section>
+    </WorkerDetailSubsection>
   );
 }
 
@@ -87,7 +90,7 @@ function PayrollSettingsCard() {
   const fixture = workerDetailBasicFixture;
 
   return (
-    <section className="flex min-h-[501px] flex-col gap-5 overflow-hidden rounded-[8px] border border-gray-100 bg-white p-5">
+    <WorkerDetailSubsection className="flex min-h-[501px] flex-col gap-5 overflow-hidden">
       <div className="flex h-[41px] items-center">
         <h2 className="text-h-20 text-gray-900">{fixture.payrollTitle}</h2>
       </div>
@@ -101,7 +104,7 @@ function PayrollSettingsCard() {
           />
         ))}
       </div>
-    </section>
+    </WorkerDetailSubsection>
   );
 }
 
