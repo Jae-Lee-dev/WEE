@@ -12,6 +12,13 @@ const rootFiles = [
   "postcss.config.mjs",
   "components.json",
 ];
+const adminRoutePageFile = "src/app/_components/AdminRoutePage.tsx";
+const adminNavigationRegistryFile = "src/app/_config/admin-navigation.ts";
+const allowedAdminRoutePageDeferredHrefs = [
+  "/dashboard/locations",
+  "/dashboard/workers",
+  "/dashboard/ai-monitoring",
+];
 const codeExtensions = new Set([
   ".cjs",
   ".cts",
@@ -131,6 +138,130 @@ function addFinding(kind, file, detail) {
   });
 }
 
+function getNavigationRouteBlock(content, href) {
+  const hrefNeedle = `href: "${href}"`;
+  const registryStart = content.indexOf("export const adminRouteRegistry");
+  const searchStart = registryStart === -1 ? 0 : registryStart;
+  const hrefIndex = content.indexOf(hrefNeedle, searchStart);
+
+  if (hrefIndex === -1) {
+    return null;
+  }
+
+  const start = content.lastIndexOf("\n  {", hrefIndex);
+  const end = content.indexOf("\n  },", hrefIndex);
+
+  if (start === -1 || end === -1) {
+    return content.slice(Math.max(0, hrefIndex - 200), Math.min(content.length, hrefIndex + 200));
+  }
+
+  return content.slice(start, end + 5);
+}
+
+function auditAllowedAdminRoutePageConfigs() {
+  const configPath = join(root, adminNavigationRegistryFile);
+  const content = readFileSync(configPath, "utf8");
+
+  for (const href of allowedAdminRoutePageDeferredHrefs) {
+    const block = getNavigationRouteBlock(content, href);
+
+    if (!block) {
+      addFinding("Deferred placeholder route config missing", configPath, href);
+      continue;
+    }
+
+    if (!block.includes("figmaBacked: false") || !block.includes('status: "deferred"')) {
+      addFinding(
+        "Deferred placeholder route config mismatch",
+        configPath,
+        `${href} must remain figmaBacked: false with status: "deferred" while AdminRoutePage is allowed`,
+      );
+    }
+  }
+}
+
+function getAppRouteHrefFromPageFile(rel) {
+  const parts = rel.split("/");
+  const filename = parts.at(-1) ?? "";
+
+  if (parts[0] !== "src" || parts[1] !== "app" || !/^page\.(?:cjs|cts|js|jsx|mjs|mts|ts|tsx)$/.test(filename)) {
+    return null;
+  }
+
+  const routeSegments = parts.slice(2, -1).filter((segment) => {
+    return !(segment.startsWith("(") && segment.endsWith(")")) && !segment.startsWith("@");
+  });
+
+  return routeSegments.length === 0 ? "/" : `/${routeSegments.join("/")}`;
+}
+
+function auditAdminRoutePageUsage(file, content) {
+  const rel = relative(root, file);
+
+  if (!rel.startsWith("src/app/") || rel === adminRoutePageFile) {
+    return;
+  }
+
+  const adminRoutePageUses = content.match(/<AdminRoutePage\b/g)?.length ?? 0;
+
+  if (adminRoutePageUses === 0) {
+    return;
+  }
+
+  const routeHref = getAppRouteHrefFromPageFile(rel);
+
+  if (!routeHref) {
+    addFinding(
+      "AdminRoutePage usage must live in a literal App Router page file",
+      file,
+      "expected src/app/.../page.tsx",
+    );
+    return;
+  }
+
+  if (!allowedAdminRoutePageDeferredHrefs.includes(routeHref)) {
+    addFinding(
+      "AdminRoutePage may only render deferred placeholder routes",
+      file,
+      `${routeHref} is not in the deferred placeholder route allowlist`,
+    );
+  }
+
+  const hrefs = Array.from(
+    content.matchAll(
+      /<AdminRoutePage\b(?:(?!<AdminRoutePage\b)[\s\S])*?screen=\{\s*findScreenByHref\(\s*["']([^"']+)["']\s*\)\s*\}/g,
+    ),
+    (match) => match[1],
+  );
+
+  if (hrefs.length !== adminRoutePageUses) {
+    addFinding(
+      "AdminRoutePage usage must use literal deferred route lookup",
+      file,
+      "expected findScreenByHref(\"/dashboard/...deferred\")",
+    );
+    return;
+  }
+
+  for (const href of hrefs) {
+    if (!allowedAdminRoutePageDeferredHrefs.includes(href)) {
+      addFinding(
+        "AdminRoutePage may only render deferred placeholder routes",
+        file,
+        `${href} is not in the deferred placeholder allowlist`,
+      );
+    }
+
+    if (href !== routeHref) {
+      addFinding(
+        "AdminRoutePage route lookup must match page route",
+        file,
+        `page route ${routeHref} must not render ${href}`,
+      );
+    }
+  }
+}
+
 for (const codeRoot of codeRoots) {
   const fullRoot = join(root, codeRoot);
   const files = listFiles(fullRoot);
@@ -154,8 +285,12 @@ for (const codeRoot of codeRoots) {
         addFinding(rule.name, file, `matched ${rule.pattern}`);
       }
     }
+
+    auditAdminRoutePageUsage(file, content);
   }
 }
+
+auditAllowedAdminRoutePageConfigs();
 
 for (const file of rootFiles) {
   const fullPath = join(root, file);
