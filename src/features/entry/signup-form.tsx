@@ -367,6 +367,7 @@ function SignupEmailField({
         </span>
         <OptionSelect
           disabled={disabled}
+          itemClassName="py-2 text-label-12-medium"
           onValueChange={onDomainChange}
           options={emailDomainOptions}
           placeholder="선택"
