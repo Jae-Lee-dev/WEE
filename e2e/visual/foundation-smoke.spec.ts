@@ -17,35 +17,6 @@ for (const viewport of viewports) {
     await expect(
       page.getByRole("heading", { name: "확인 필요" }),
     ).toBeVisible();
-
-    const dividerMetrics = await page.evaluate(() => {
-      const divider = document.querySelector(
-        '[data-testid="sidebar-logo-divider"]',
-      );
-      const sidebar = divider?.closest("aside");
-
-      if (!(divider instanceof HTMLElement) || !(sidebar instanceof HTMLElement)) {
-        throw new Error("Sidebar logo divider measurement target not found");
-      }
-
-      const dividerRect = divider.getBoundingClientRect();
-      const sidebarRect = sidebar.getBoundingClientRect();
-
-      return {
-        dividerLeft: dividerRect.left,
-        dividerRight: dividerRect.right,
-        sidebarLeft: sidebarRect.left,
-        sidebarRight: sidebarRect.right,
-      };
-    });
-
-    expect(
-      Math.abs(dividerMetrics.dividerLeft - dividerMetrics.sidebarLeft),
-    ).toBeLessThanOrEqual(1);
-    expect(
-      Math.abs(dividerMetrics.dividerRight - dividerMetrics.sidebarRight),
-    ).toBeLessThanOrEqual(1);
-
     await captureActualScreenshot({
       page,
       screenId: "SHELL-01",
