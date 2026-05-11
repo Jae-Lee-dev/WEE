@@ -33,14 +33,23 @@ const allowedFirebaseAuthTransitionFiles = new Set([
   "src/app/_components/AdminShell.tsx",
   "src/features/entry/login-form.tsx",
   "src/features/entry/signup-form.tsx",
+  "src/features/entry/workspace-data-source.ts",
+  "src/features/settings/settings-locations-data-source.ts",
   "src/lib/firebase/client.ts",
 ]);
+const allowedFirestoreTransitionFiles = new Set([
+  "src/features/entry/workspace-data-source.ts",
+  "src/features/settings/settings-locations-data-source.ts",
+]);
 const allowedSubmitDrivenTransitionFiles = new Set([
+  "src/features/entry/entry-screens.tsx",
   "src/features/entry/login-form.tsx",
   "src/features/entry/signup-form.tsx",
+  "src/features/settings/settings-locations-screen.tsx",
 ]);
 const allowedLocalArrayMutationTransitionFiles = new Set([
   "src/features/entry/signup-form.tsx",
+  "src/features/settings/settings-locations-screen.tsx",
 ]);
 const allowedRuntimeEnvTransitionFiles = new Set([
   "src/lib/firebase/client.ts",
@@ -550,6 +559,13 @@ for (const codeRoot of codeRoots) {
       if (
         rule.name === "Firebase import or require" &&
         allowedFirebaseAuthTransitionFiles.has(rel)
+      ) {
+        continue;
+      }
+
+      if (
+        rule.name === "Firestore mutation/helper" &&
+        allowedFirestoreTransitionFiles.has(rel)
       ) {
         continue;
       }

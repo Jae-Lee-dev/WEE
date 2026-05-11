@@ -27,6 +27,7 @@ import {
 import { SlidingTabTextMask } from "@/components/ui/sliding-tab-text-mask";
 import { useSlidingTabIndicator } from "@/components/ui/use-sliding-tab-indicator";
 import { demoWorkspace } from "@/app/_data/admin-demo";
+import { clearActiveWorkspaceUser } from "@/features/entry/workspace-onboarding-state";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 
 const shellIconPathMap: Record<AdminIconName, string> = {
@@ -90,6 +91,7 @@ function AdminSidebar({
     } catch {
       setIsLoggingOut(false);
     } finally {
+      clearActiveWorkspaceUser();
       router.replace("/login");
     }
   }

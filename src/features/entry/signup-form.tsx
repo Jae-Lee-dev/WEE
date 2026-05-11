@@ -30,6 +30,10 @@ import {
 } from "@/components/ui/select";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { cn } from "@/lib/utils";
+import { createManagerUserDocument } from "./workspace-data-source";
+import {
+  persistWorkspaceOnboardingState,
+} from "./workspace-onboarding-state";
 
 type SignupFormState = {
   name: string;
@@ -208,6 +212,12 @@ export function SignupForm() {
 
       await updateProfile(credential.user, { displayName: name });
       await sendEmailVerification(credential.user);
+      await createManagerUserDocument(credential.user);
+      persistWorkspaceOnboardingState({
+        status: "missing",
+        userId: credential.user.uid,
+        workspaceId: null,
+      });
 
       router.push("/onboarding/workspace");
     } catch (error) {

@@ -926,6 +926,73 @@ export function SignupForm() {
     },
   },
   {
+    name: "onboarding and location creation transition passes",
+    expectSuccess: true,
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/entry/entry-screens.tsx",
+        `export function WorkspaceOnboardingScreen() {
+  function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+  }
+
+  return (
+    <form onSubmit={submit}>
+      <button type="submit">소속 생성</button>
+    </form>
+  );
+}
+`,
+      );
+      writeFixtureFile(
+        root,
+        "src/features/settings/settings-locations-screen.tsx",
+        `export function SettingsLocationsScreen() {
+  const [locations, setLocations] = useState([]);
+
+  function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLocations((current) => [{ id: "location-1" }, ...current]);
+  }
+
+  return (
+    <form onSubmit={submit}>
+      <button type="submit">근무지 저장</button>
+    </form>
+  );
+}
+`,
+      );
+      writeFixtureFile(
+        root,
+        "src/features/entry/workspace-data-source.ts",
+        `import { doc, runTransaction, setDoc } from "firebase/firestore";
+
+export async function createWorkspace(db, uid) {
+  const workspaceRef = doc(db, "workspaces", "workspace_1");
+  await runTransaction(db, async (transaction) => {
+    transaction.set(workspaceRef, { managerUid: uid });
+  });
+  return setDoc(doc(db, "users", uid), { activeWorkspaceId: workspaceRef.id }, { merge: true });
+}
+`,
+      );
+      writeFixtureFile(
+        root,
+        "src/features/settings/settings-locations-data-source.ts",
+        `import { collection, doc, writeBatch } from "firebase/firestore";
+
+export function createLocation(db, workspaceId, input) {
+  const batch = writeBatch(db);
+  batch.set(doc(collection(db, "workspaces", workspaceId, "locations")), input);
+  return batch.commit();
+}
+`,
+      );
+    },
+  },
+  {
     name: "fetch call is blocked",
     expectSuccess: false,
     expectedOutput: "fetch call",

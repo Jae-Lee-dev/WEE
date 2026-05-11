@@ -49,6 +49,7 @@ export async function prepareVisualPage({
   baseURL?: string;
 }) {
   await page.setViewportSize(visualViewports[viewport]);
+  await seedWorkspaceOnboardingState({ page, routePath });
   const url = new URL(
     routePath,
     baseURL ?? process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3100",
@@ -60,6 +61,63 @@ export async function prepareVisualPage({
       `Visual route ${url.pathname} returned ${response?.status() ?? "no response"}`,
     );
   }
+}
+
+async function seedWorkspaceOnboardingState({
+  page,
+  routePath,
+}: {
+  page: Page;
+  routePath: string;
+}) {
+  const status = getPreviewWorkspaceStatus(routePath);
+
+  if (!status) {
+    return;
+  }
+
+  await page.addInitScript((workspaceStatus) => {
+    const activeUserKey = "wee.admin.activeUserId.v1";
+    const activeWorkspaceKey = "wee.admin.activeWorkspaceId.v1";
+    const statusKeyPrefix = "wee.admin.workspaceStatus.v1";
+    const visualUserId = "visual-admin";
+    const visualWorkspaceId = "workspace_visual";
+
+    window.localStorage.setItem(activeUserKey, visualUserId);
+    window.localStorage.setItem(activeWorkspaceKey, visualWorkspaceId);
+    window.localStorage.setItem(
+      `${statusKeyPrefix}.${visualUserId}`,
+      workspaceStatus,
+    );
+  }, status);
+}
+
+function getPreviewWorkspaceStatus(routePath: string) {
+  if (routePath === "/onboarding/workspace") {
+    return "missing";
+  }
+
+  if (routePath === "/onboarding/setup") {
+    return "workspace-created";
+  }
+
+  if (isAdminRoute(routePath)) {
+    return "setup-complete";
+  }
+
+  return null;
+}
+
+function isAdminRoute(routePath: string) {
+  return (
+    routePath.startsWith("/dashboard") ||
+    routePath.startsWith("/workers") ||
+    routePath.startsWith("/schedule") ||
+    routePath.startsWith("/records") ||
+    routePath.startsWith("/payroll") ||
+    routePath.startsWith("/handover") ||
+    routePath.startsWith("/settings")
+  );
 }
 
 export async function captureActualScreenshot({

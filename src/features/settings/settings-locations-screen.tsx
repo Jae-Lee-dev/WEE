@@ -1,14 +1,97 @@
 "use client";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import {
-  settingsLocationsFixture,
-  type SettingsLocationRow,
-} from "./settings-locations-fixtures";
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+  type ComponentProps,
+  type FormEvent,
+} from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  createSettingsLocationsDataSource,
+  type SettingsLocationsDataSource,
+} from "./settings-locations-data-source";
+import { settingsLocationsFixture } from "./settings-locations-fixtures";
+import {
+  type CreateSettingsLocationInput,
+  formatRadiusMeters,
+  getLocationGeocodingStatusLabel,
+  getSettingsLocationFormErrors,
+  hasSettingsLocationFormErrors,
+  initialSettingsLocationForm,
+  normalizeRadiusInput,
+  toCreateSettingsLocationInput,
+  type SettingsLocation,
+  type SettingsLocationFormField,
+  type SettingsLocationFormState,
+} from "./settings-locations-model";
 
-export function SettingsLocationsScreen() {
+type SettingsLocationsScreenProps = {
+  dataSource?: SettingsLocationsDataSource;
+};
+
+export function SettingsLocationsScreen({
+  dataSource: dataSourceProp,
+}: SettingsLocationsScreenProps = {}) {
+  const fallbackDataSource = useMemo(
+    () => createSettingsLocationsDataSource(),
+    [],
+  );
+  const dataSource = dataSourceProp ?? fallbackDataSource;
+  const [locations, setLocations] = useState<readonly SettingsLocation[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    void dataSource
+      .listLocations()
+      .then((nextLocations) => {
+        if (!active) {
+          return;
+        }
+
+        setLocations(nextLocations);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setErrorMessage("근무지 목록을 불러오지 못했습니다.");
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [dataSource]);
+
+  const handleCreateLocation = async (input: CreateSettingsLocationInput) => {
+    setSaving(true);
+    setErrorMessage("");
+    setStatusMessage("");
+
+    try {
+      const location = await dataSource.createLocation(input);
+
+      setLocations((current) => [location, ...current]);
+      setStatusMessage(`${location.name} 근무지를 등록했습니다.`);
+      setDialogOpen(false);
+    } catch {
+      setErrorMessage("근무지를 저장하지 못했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <section
@@ -16,26 +99,61 @@ export function SettingsLocationsScreen() {
       className="mx-auto flex h-[calc(100vh-202px)] min-h-[620px] w-full max-w-[1580px] flex-col items-end gap-5 tracking-normal"
       data-testid="settings-locations-screen"
     >
-      <Button
-        type="button"
-        variant="secondary"
-        data-testid="settings-locations-add-trigger"
-        onClick={() => setDialogOpen(true)}
-        className="h-[42px] rounded-full px-4 text-h-18-regular font-normal tracking-normal"
-      >
-        {settingsLocationsFixture.addButtonLabel}
-      </Button>
+      <div className="flex w-full items-center justify-end gap-4">
+        {statusMessage ? (
+          <div
+            className="min-h-[42px] rounded-[8px] border border-green-100 bg-green-50 px-4 py-2.5 text-body-14-medium tracking-normal text-green-500"
+            role="status"
+          >
+            {statusMessage}
+          </div>
+        ) : errorMessage ? (
+          <div
+            className="min-h-[42px] rounded-[8px] border border-red-100 bg-red-50 px-4 py-2.5 text-body-14-medium tracking-normal text-red-500"
+            role="alert"
+          >
+            {errorMessage}
+          </div>
+        ) : null}
+        <Button
+          type="button"
+          variant="secondary"
+          data-testid="settings-locations-add-trigger"
+          onClick={() => {
+            setStatusMessage("");
+            setDialogOpen(true);
+          }}
+          className="h-[42px] rounded-full px-4 text-h-18-regular font-normal tracking-normal"
+        >
+          {settingsLocationsFixture.addButtonLabel}
+        </Button>
+      </div>
 
-      <LocationsTable />
+      <LocationsTable loading={loading} locations={locations} />
 
       {dialogOpen ? (
-        <LocationDialog onClose={() => setDialogOpen(false)} />
+        <LocationDialog
+          locations={locations}
+          onClose={() => {
+            if (!saving) {
+              setDialogOpen(false);
+            }
+          }}
+          onCreateLocation={handleCreateLocation}
+          saving={saving}
+        />
       ) : null}
     </section>
   );
 }
 
-function LocationsTable() {
+function LocationsTable({
+  loading,
+  locations,
+}: {
+  loading: boolean;
+  locations: readonly SettingsLocation[];
+}) {
   return (
     <section
       aria-label="근무지 목록"
@@ -43,7 +161,7 @@ function LocationsTable() {
       data-testid="settings-locations-table"
     >
       <div
-        className="grid h-[32px] grid-cols-[1fr_1fr_1fr_1fr_240px] items-start border-b border-gray-300 px-5 text-h-18-regular text-gray-500"
+        className="grid h-[32px] grid-cols-[1fr_1.45fr_110px_120px_120px_180px] items-start border-b border-gray-300 px-5 text-h-18-regular text-gray-500"
         role="row"
       >
         {settingsLocationsFixture.columns.map((column) => (
@@ -57,11 +175,26 @@ function LocationsTable() {
         ))}
       </div>
 
-      <div role="rowgroup">
-        {settingsLocationsFixture.rows.map((row, index) => (
-          <LocationTableRow key={row.id} first={index === 0} row={row} />
-        ))}
-      </div>
+      {loading ? (
+        <div className="flex h-full min-h-[360px] items-center justify-center px-5 text-h-18-regular text-gray-500">
+          {settingsLocationsFixture.loadingLabel}
+        </div>
+      ) : locations.length > 0 ? (
+        <div role="rowgroup">
+          {locations.map((row, index) => (
+            <LocationTableRow key={row.id} first={index === 0} row={row} />
+          ))}
+        </div>
+      ) : (
+        <div className="flex h-full min-h-[360px] flex-col items-center justify-center px-5 text-center">
+          <h2 className="text-h-20 tracking-normal text-gray-900">
+            {settingsLocationsFixture.emptyTitle}
+          </h2>
+          <p className="mt-2 text-body-14-regular tracking-normal text-gray-500">
+            {settingsLocationsFixture.emptyDescription}
+          </p>
+        </div>
+      )}
     </section>
   );
 }
@@ -70,12 +203,12 @@ function LocationTableRow({
   row,
   first,
 }: {
-  row: SettingsLocationRow;
+  row: SettingsLocation;
   first: boolean;
 }) {
   return (
     <div
-      className="grid h-[61px] grid-cols-[1fr_1fr_1fr_1fr_240px] items-center border-b border-gray-100 px-5 text-h-18-regular text-gray-800 last:border-b-0"
+      className="grid h-[61px] grid-cols-[1fr_1.45fr_110px_120px_120px_180px] items-center border-b border-gray-100 px-5 text-h-18-regular text-gray-800 last:border-b-0"
       role="row"
       data-testid={first ? "settings-locations-first-row" : undefined}
     >
@@ -83,13 +216,16 @@ function LocationTableRow({
         {row.name}
       </div>
       <div className="min-w-0 truncate" role="cell">
-        {row.address}
+        {row.addressText}
       </div>
       <div className="min-w-0 truncate" role="cell">
-        {row.radius}
+        {formatRadiusMeters(row.radiusMeters)}
       </div>
       <div className="min-w-0 truncate" role="cell">
-        {row.dutyCount}
+        {getLocationGeocodingStatusLabel(row.geocodingStatus)}
+      </div>
+      <div className="min-w-0 truncate" role="cell">
+        {row.dutyCount}건
       </div>
       <div className="flex justify-end gap-2.5" role="cell">
         <Button
@@ -111,67 +247,105 @@ function LocationTableRow({
   );
 }
 
-function LocationDialog({ onClose }: { onClose: () => void }) {
+function LocationDialog({
+  locations,
+  onClose,
+  onCreateLocation,
+  saving,
+}: {
+  locations: readonly SettingsLocation[];
+  onClose: () => void;
+  onCreateLocation: (input: CreateSettingsLocationInput) => Promise<void>;
+  saving: boolean;
+}) {
   const { dialog } = settingsLocationsFixture;
+  const [form, setForm] = useState<SettingsLocationFormState>(
+    initialSettingsLocationForm,
+  );
+  const [submitted, setSubmitted] = useState(false);
+  const errors = getSettingsLocationFormErrors(form, locations);
+
+  const handleFieldChange =
+    (field: SettingsLocationFormField) =>
+    (event: ChangeEvent<HTMLInputElement>) => {
+      setForm((current) => ({
+        ...current,
+        [field]:
+          field === "radiusMeters"
+            ? normalizeRadiusInput(event.target.value)
+            : event.target.value,
+      }));
+    };
+
+  const handleSave = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSubmitted(true);
+
+    if (hasSettingsLocationFormErrors(errors)) {
+      return;
+    }
+
+    void onCreateLocation(toCreateSettingsLocationInput(form));
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <section
+      <form
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-location-dialog-title"
         className="flex h-[900px] w-[680px] flex-col rounded-[8px] bg-white px-10 py-10 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
         data-testid="settings-location-dialog"
+        noValidate
+        onSubmit={handleSave}
       >
-        <h2 id="settings-location-dialog-title" className="text-h-20 text-gray-900">
-          {dialog.title}
-        </h2>
+        <div>
+          <h2
+            id="settings-location-dialog-title"
+            className="text-h-20 text-gray-900"
+          >
+            {dialog.title}
+          </h2>
+          <p className="mt-2 text-body-14-regular tracking-normal text-gray-500">
+            {dialog.description}
+          </p>
+        </div>
 
-        <label className="mt-10 block">
-          <span className="text-h-18-semibold text-gray-900">
-            {dialog.nameLabel}
-          </span>
-          <input
-            readOnly
-            placeholder={dialog.namePlaceholder}
-            className="mt-3 h-[49px] w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular text-gray-800 outline-none placeholder:text-gray-400"
-          />
-        </label>
+        <LocationDialogField
+          error={submitted ? errors.name : undefined}
+          label={dialog.nameLabel}
+          name="name"
+          onChange={handleFieldChange("name")}
+          placeholder={dialog.namePlaceholder}
+          value={form.name}
+          disabled={saving}
+        />
 
-        <label className="mt-8 block">
-          <span className="text-h-18-semibold text-gray-900">
-            {dialog.addressLabel}
-          </span>
-          <input
-            readOnly
-            placeholder={dialog.addressPlaceholder}
-            className="mt-3 h-[49px] w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular text-gray-800 outline-none placeholder:text-gray-400"
-          />
-        </label>
+        <LocationDialogField
+          error={submitted ? errors.roadAddress : undefined}
+          label={dialog.roadAddressLabel}
+          name="roadAddress"
+          onChange={handleFieldChange("roadAddress")}
+          placeholder={dialog.roadAddressPlaceholder}
+          value={form.roadAddress}
+          disabled={saving}
+        />
 
-        <label className="mt-8 block">
-          <span className="text-h-18-semibold text-gray-900">
-            {dialog.radiusLabel}
-          </span>
-          <span className="mt-3 flex items-center gap-2.5">
-            <input
-              readOnly
-              type="number"
-              inputMode="numeric"
-              min="0"
-              step="10"
-              value={dialog.radiusValue}
-              aria-describedby="settings-location-radius-unit"
-              className="h-[49px] w-60 rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-right text-h-18-regular text-gray-800 outline-none"
-            />
-            <span
-              id="settings-location-radius-unit"
-              className="text-h-18-semibold text-gray-900"
-            >
-              {dialog.radiusUnit}
-            </span>
-          </span>
-        </label>
+        <LocationDialogField
+          label={dialog.detailAddressLabel}
+          name="detailAddress"
+          onChange={handleFieldChange("detailAddress")}
+          placeholder={dialog.detailAddressPlaceholder}
+          value={form.detailAddress}
+          disabled={saving}
+        />
+
+        <LocationRadiusField
+          error={submitted ? errors.radiusMeters : undefined}
+          onChange={handleFieldChange("radiusMeters")}
+          saving={saving}
+          value={form.radiusMeters}
+        />
 
         <StaticRadiusMap />
 
@@ -180,20 +354,99 @@ function LocationDialog({ onClose }: { onClose: () => void }) {
             type="button"
             variant="secondary"
             onClick={onClose}
+            disabled={saving}
             className="h-[50px] rounded-[8px] px-6 text-h-18-semibold tracking-normal"
           >
             {dialog.cancelLabel}
           </Button>
           <Button
-            type="button"
-            onClick={onClose}
+            type="submit"
+            disabled={saving}
             className="h-[50px] rounded-[8px] px-6 text-h-18-semibold tracking-normal text-white"
           >
-            {dialog.addLabel}
+            {saving ? "저장 중" : dialog.addLabel}
           </Button>
         </div>
-      </section>
+      </form>
     </div>
+  );
+}
+
+function LocationDialogField({
+  error,
+  label,
+  name,
+  ...props
+}: {
+  error?: string;
+  label: string;
+  name: SettingsLocationFormField;
+} & Omit<ComponentProps<"input">, "name">) {
+  const inputId = `settings-location-${name}`;
+  const errorId = `${inputId}-error`;
+
+  return (
+    <label className="mt-6 block">
+      <span className="text-h-18-semibold text-gray-900">{label}</span>
+      <Input
+        id={inputId}
+        name={name}
+        aria-describedby={error ? errorId : undefined}
+        aria-invalid={Boolean(error)}
+        className="mt-3 h-[49px] rounded-[8px] border-gray-200 bg-gray-50 text-h-18-regular text-gray-800"
+        {...props}
+      />
+      {error ? (
+        <p id={errorId} className="mt-2 text-label-12-medium text-red-500">
+          {error}
+        </p>
+      ) : null}
+    </label>
+  );
+}
+
+function LocationRadiusField({
+  error,
+  onChange,
+  saving,
+  value,
+}: {
+  error?: string;
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  saving: boolean;
+  value: string;
+}) {
+  const { dialog } = settingsLocationsFixture;
+
+  return (
+    <label className="mt-6 block">
+      <span className="text-h-18-semibold text-gray-900">
+        {dialog.radiusLabel}
+      </span>
+      <span className="mt-3 flex items-center gap-2.5">
+        <Input
+          type="number"
+          inputMode="numeric"
+          min="0"
+          step="10"
+          value={value}
+          onChange={onChange}
+          disabled={saving}
+          aria-describedby="settings-location-radius-unit"
+          aria-invalid={Boolean(error)}
+          className="h-[49px] w-60 rounded-[8px] border-gray-200 bg-gray-50 px-4 text-right text-h-18-regular text-gray-800"
+        />
+        <span
+          id="settings-location-radius-unit"
+          className="text-h-18-semibold text-gray-900"
+        >
+          {dialog.radiusUnit}
+        </span>
+      </span>
+      {error ? (
+        <p className="mt-2 text-label-12-medium text-red-500">{error}</p>
+      ) : null}
+    </label>
   );
 }
 
@@ -202,60 +455,39 @@ function StaticRadiusMap() {
     <svg
       role="img"
       aria-label="출퇴근 허용 반경 지도"
-      className="mt-8 h-80 w-full overflow-hidden bg-[#eef6ff]"
+      className="mt-8 h-64 w-full overflow-hidden rounded-[8px] bg-blue-50"
       data-testid="settings-location-map"
-      viewBox="0 0 600 320"
+      viewBox="0 0 600 260"
     >
-      <rect width="600" height="320" fill="#edf6ff" />
-      <path d="M0 250L150 220L280 250L600 226V320H0Z" fill="#eaf7df" />
-      <path d="M0 22L95 42L165 112L128 320H0Z" fill="#f5f1e8" />
-      <path d="M430 0H600V320H490L520 216L492 104Z" fill="#f6f2ec" />
-      <path d="M60 155L126 92L214 105L278 164L248 246L138 260Z" fill="#eef4eb" />
-      <path d="M330 28L430 48L468 116L444 205L358 226L284 172L285 84Z" fill="#eef4eb" />
-      <g fill="none" stroke="#d7dce2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M-20 38C60 54 107 60 160 72C237 90 278 106 330 116C421 134 513 122 628 95" strokeWidth="28" />
-        <path d="M-16 42C62 58 109 64 161 76C238 94 280 110 331 120C421 138 514 126 628 99" stroke="#fff" strokeWidth="24" />
-        <path d="M-12 218C92 204 181 202 278 188C370 174 485 158 628 148" strokeWidth="32" />
-        <path d="M-12 222C92 208 181 206 278 192C370 178 485 162 628 152" stroke="#fff" strokeWidth="28" />
-        <path d="M70 -12C92 58 116 116 152 168C190 224 224 274 252 340" strokeWidth="24" />
-        <path d="M72 -12C94 58 118 116 154 168C192 224 226 274 254 340" stroke="#fff" strokeWidth="20" />
-        <path d="M248 -20C216 43 181 94 142 148C102 205 72 257 38 340" strokeWidth="25" />
-        <path d="M250 -20C218 43 183 94 144 148C104 205 74 257 40 340" stroke="#fff" strokeWidth="21" />
-        <path d="M572 -20C548 60 518 124 494 194C472 258 454 294 438 340" strokeWidth="22" />
-        <path d="M574 -20C550 60 520 124 496 194C474 258 456 294 440 340" stroke="#fff" strokeWidth="18" />
-        <path d="M395 -20C368 32 338 80 308 132C278 185 248 244 224 340" strokeWidth="22" />
-        <path d="M397 -20C370 32 340 80 310 132C280 185 250 244 226 340" stroke="#fff" strokeWidth="18" />
-        <path d="M142 6L205 62L258 93L320 154L388 213L468 268" strokeWidth="14" />
-        <path d="M144 8L207 64L260 95L322 156L390 215L470 270" stroke="#fff" strokeWidth="10" />
-        <path d="M16 300C84 284 144 272 214 258C298 241 372 233 590 230" strokeWidth="13" />
-        <path d="M18 302C86 286 146 274 216 260C300 243 374 235 590 232" stroke="#fff" strokeWidth="9" />
-      </g>
-      <g fill="none" stroke="#ffffff" strokeLinecap="round" strokeLinejoin="round" strokeWidth="8">
-        <path d="M22 98L84 112L130 138L202 142L262 132" />
-        <path d="M18 176L92 164L158 174L225 166L302 148" />
-        <path d="M336 72L400 92L456 88L532 70" />
-        <path d="M344 252L410 242L462 250L530 244" />
-        <path d="M458 24L498 78L526 128L590 172" />
-      </g>
-      <g fill="none" stroke="#c084fc" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M590 0L562 70L558 152L586 242L574 320" strokeWidth="5" />
-        <path d="M578 4L552 72L548 152L574 242L564 320" strokeWidth="3" strokeDasharray="10 8" />
-      </g>
-      <circle cx="370" cy="176" r="110" fill="#a7f3d0" fillOpacity="0.43" stroke="#30c179" strokeWidth="1" />
-      <circle cx="370" cy="176" r="18" fill="#93c5fd" fillOpacity="0.95" />
-      <circle cx="370" cy="176" r="12" fill="#3b82f6" />
-      <g fontFamily="Pretendard Variable, Pretendard, sans-serif" fontSize="17" fontWeight="600">
-        <text x="74" y="146" fill="#6b7280">도원</text>
-        <text x="54" y="170" fill="#6b7280">센트레빌아파트</text>
-        <text x="238" y="236" fill="#3b82f6">경기대학교</text>
-        <text x="236" y="258" fill="#3b82f6">서울캠퍼스</text>
-        <text x="398" y="196" fill="#3b82f6">인창고등학교</text>
-        <text x="448" y="60" fill="#6b7280">서대문성당</text>
-        <text x="518" y="46" fill="#3b82f6">중앙대</text>
-        <text x="506" y="68" fill="#3b82f6">평동캠퍼스</text>
-        <text x="18" y="300" fill="#8b7a6a">서왕공원</text>
-        <text x="30" y="318" fill="#8b7a6a">숲허브</text>
-      </g>
+      <rect width="600" height="260" fill="#eff6ff" />
+      <path d="M0 210L140 186L280 210L600 190V260H0Z" fill="#e9fdf1" />
+      <path d="M70 -20C96 54 128 110 166 162C200 208 222 236 246 290" stroke="#d1d5db" strokeWidth="28" />
+      <path d="M72 -20C98 54 130 110 168 162C202 208 224 236 248 290" stroke="#fefefe" strokeWidth="22" />
+      <path d="M-20 80C88 96 184 112 282 124C396 138 482 128 620 102" stroke="#d1d5db" strokeWidth="30" />
+      <path d="M-20 84C88 100 184 116 282 128C396 142 482 132 620 106" stroke="#fefefe" strokeWidth="24" />
+      <path d="M-20 190C92 178 182 176 282 164C390 151 500 138 620 132" stroke="#d1d5db" strokeWidth="32" />
+      <path d="M-20 194C92 182 182 180 282 168C390 155 500 142 620 136" stroke="#fefefe" strokeWidth="26" />
+      <circle
+        cx="360"
+        cy="146"
+        r="82"
+        fill="#83daa6"
+        fillOpacity="0.32"
+        stroke="#30c179"
+        strokeWidth="2"
+      />
+      <circle cx="360" cy="146" r="17" fill="#3b82f6" />
+      <circle cx="360" cy="146" r="8" fill="#fefefe" />
+      <text
+        x="390"
+        y="154"
+        fill="#3b82f6"
+        fontFamily="Pretendard Variable, Pretendard, sans-serif"
+        fontSize="18"
+        fontWeight="600"
+      >
+        근무지
+      </text>
     </svg>
   );
 }

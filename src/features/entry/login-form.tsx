@@ -20,6 +20,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { cn } from "@/lib/utils";
+import { resolveManagerWorkspaceState } from "./workspace-data-source";
+import {
+  getPostLoginRedirectPath,
+  persistWorkspaceOnboardingState,
+} from "./workspace-onboarding-state";
 
 type LoginFormState = {
   email: string;
@@ -89,13 +94,21 @@ export function LoginForm() {
         auth,
         rememberLogin ? browserLocalPersistence : browserSessionPersistence,
       );
-      await signInWithEmailAndPassword(
+      const credential = await signInWithEmailAndPassword(
         auth,
         form.email.trim().toLowerCase(),
         form.password,
       );
+      const workspaceState = await resolveManagerWorkspaceState(
+        credential.user,
+      );
+      persistWorkspaceOnboardingState({
+        status: workspaceState.status,
+        userId: workspaceState.managerUid,
+        workspaceId: workspaceState.workspaceId,
+      });
 
-      router.replace("/dashboard");
+      router.replace(getPostLoginRedirectPath(workspaceState.status));
     } catch (error) {
       setFirebaseErrorMessage(getLoginErrorMessage(error));
       setIsSubmitting(false);

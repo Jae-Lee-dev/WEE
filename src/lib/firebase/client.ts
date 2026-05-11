@@ -5,6 +5,7 @@ import {
   type FirebaseOptions,
 } from "firebase/app";
 import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
 const firebaseEnv = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -40,4 +41,12 @@ export function getFirebaseApp() {
 
 export function getFirebaseAuth() {
   return getAuth(getFirebaseApp());
+}
+
+export function getFirebaseDb() {
+  return getFirestore(getFirebaseApp());
+}
+
+export function isMockFirebaseProject() {
+  return firebaseEnv.projectId?.startsWith("mock-") ?? false;
 }
