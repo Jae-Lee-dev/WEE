@@ -15,6 +15,11 @@ import {
   type ScheduleTimelineBlock,
   type ScheduleTimelineTone,
 } from "./schedule-fixtures";
+import {
+  orderTimelineDaysSundayFirst,
+  TimelineBlockText,
+  TimelineGridFrame,
+} from "./timeline-grid-frame";
 
 type PositionedBlock = {
   block: ScheduleTimelineBlock;
@@ -26,10 +31,9 @@ type PositionedBlock = {
 
 const timelineColumnCount = scheduleTimelineTimeSlots.length;
 const timelineStartHour = Number(scheduleTimelineTimeSlots[0]);
-const timelineRowHeight = 110;
-const timelineHeaderHeight = 45;
 const timelineLaneHeight = 54;
 const timelineLaneStride = 55;
+const timelineDays = orderTimelineDaysSundayFirst(scheduleTimelineDays);
 
 const blockToneClassNames: Record<ScheduleTimelineTone, string> = {
   green: "border-green-400 bg-green-100 text-gray-800",
@@ -202,7 +206,7 @@ function TimelineGrid({
   onWorkerSelect: () => void;
 }) {
   const selectedBlockIdSet = new Set(selectedBlockIds);
-  const dayLayouts = scheduleTimelineDays.map((day) => ({
+  const dayLayouts = timelineDays.map((day) => ({
     day,
     positionedBlocks: layoutBlocks(
       blocks.filter((block) => block.dayId === day.id),
@@ -210,91 +214,26 @@ function TimelineGrid({
   }));
 
   return (
-    <div className="min-w-0 overflow-x-auto">
-      <div
-        aria-label="주간 근무 시간표"
-        className="min-w-[964px] overflow-hidden rounded-[8px] border border-gray-200 bg-white"
-        role="grid"
-      >
-        <div className="grid grid-cols-[46px_minmax(0,1fr)]">
-          <div
-            aria-hidden="true"
-            className="border-r border-b border-gray-200 bg-white"
-            style={{ height: timelineHeaderHeight }}
+    <TimelineGridFrame
+      ariaLabel="주간 근무 시간표"
+      className="h-[815px]"
+      days={timelineDays}
+      renderBlocks={(day) => {
+        const positionedBlocks =
+          dayLayouts.find((layout) => layout.day.id === day.id)
+            ?.positionedBlocks ?? [];
+
+        return positionedBlocks.map((positionedBlock) => (
+          <TimelineBlock
+            key={positionedBlock.block.id}
+            onWorkerSelect={onWorkerSelect}
+            positionedBlock={positionedBlock}
+            selected={selectedBlockIdSet.has(positionedBlock.block.id)}
           />
-          <div
-            className="grid grid-cols-[repeat(17,minmax(0,1fr))] border-b border-gray-200"
-            style={{ height: timelineHeaderHeight }}
-          >
-            {scheduleTimelineTimeSlots.map((slot, index) => (
-              <div
-                className={cn(
-                  "flex min-w-0 items-center justify-center border-r border-gray-100 px-1 text-detail-16-regular tracking-normal text-gray-500",
-                  index === scheduleTimelineTimeSlots.length - 1 &&
-                    "border-r-0",
-                )}
-                key={slot}
-                role="columnheader"
-              >
-                <span className="truncate">{slot}</span>
-              </div>
-            ))}
-          </div>
-
-          {dayLayouts.map(({ day, positionedBlocks }, dayIndex) => {
-            const isLastDay = dayIndex === dayLayouts.length - 1;
-
-            return (
-              <div className="contents" key={day.id}>
-                <div
-                  className={cn(
-                    "flex items-center justify-center border-r border-gray-200 bg-white px-1 text-h-18-semibold tracking-normal text-gray-800",
-                    !isLastDay && "border-b border-gray-100",
-                  )}
-                  role="rowheader"
-                  style={{ height: timelineRowHeight }}
-                >
-                  {day.label}
-                </div>
-                <div
-                  className={cn(
-                    "relative min-w-0 bg-white",
-                    !isLastDay && "border-b border-gray-100",
-                  )}
-                  role="row"
-                  style={{ height: timelineRowHeight }}
-                >
-                  <div
-                    aria-hidden="true"
-                    className="absolute inset-0 grid grid-cols-[repeat(17,minmax(0,1fr))]"
-                  >
-                    {scheduleTimelineTimeSlots.map((slot, index) => (
-                      <div
-                        className={cn(
-                          "border-r border-gray-100",
-                          index === scheduleTimelineTimeSlots.length - 1 &&
-                            "border-r-0",
-                        )}
-                        key={`${day.id}-${slot}`}
-                      />
-                    ))}
-                  </div>
-
-                  {positionedBlocks.map((positionedBlock) => (
-                    <TimelineBlock
-                      key={positionedBlock.block.id}
-                      onWorkerSelect={onWorkerSelect}
-                      positionedBlock={positionedBlock}
-                      selected={selectedBlockIdSet.has(positionedBlock.block.id)}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
+        ));
+      }}
+      timeSlots={scheduleTimelineTimeSlots}
+    />
   );
 }
 
@@ -321,19 +260,11 @@ function TimelineBlock({
       "cursor-pointer hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 focus-visible:ring-offset-1",
   );
   const content = (
-    <>
-      <span className="truncate text-h-14-semibold tracking-normal">
-        {block.worker}
-      </span>
-      <span
-        className={cn(
-          "truncate text-h-14-regular tracking-normal",
-          selected ? "text-white" : "text-gray-800",
-        )}
-      >
-        {block.label}
-      </span>
-    </>
+    <TimelineBlockText
+      selected={selected}
+      subtitle={block.label}
+      title={block.worker}
+    />
   );
 
   if (selectable) {

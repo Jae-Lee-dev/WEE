@@ -14,6 +14,7 @@ import {
   type ScheduleApprovalRequestRow,
   type ScheduleTimelineBlock,
 } from "./schedule-fixtures";
+import { TimelineBlockText, TimelineGridFrame } from "./timeline-grid-frame";
 
 const visibleTimelineDays = scheduleTimelineDays.slice(0, 5);
 const timelineStartHour = Number(scheduleTimelineTimeSlots[0]);
@@ -320,74 +321,26 @@ function ApprovalTimelineGrid({
   selectedBlockId?: string;
 }) {
   return (
-    <div className="mt-5 overflow-x-auto">
-      <div
-        aria-label="승인 요청 주간 시간표"
-        role="grid"
-        className="min-w-[920px] overflow-hidden rounded-[8px] border border-gray-200 bg-white"
-      >
-        <div className="grid h-[47px] grid-cols-[48px_repeat(17,minmax(0,1fr))] border-b border-gray-200">
-          <div aria-hidden="true" className="border-r border-gray-200" />
-          {scheduleTimelineTimeSlots.map((slot, index) => (
-            <div
-              key={slot}
-              role="columnheader"
-              className={cn(
-                "flex items-center justify-center border-r border-gray-100 text-h-18-regular tracking-normal text-gray-500",
-                index === scheduleTimelineTimeSlots.length - 1 &&
-                  "border-r-0",
-              )}
-            >
-              {slot}
-            </div>
-          ))}
-        </div>
-
-        {visibleTimelineDays.map((day, index) => {
-          const dayBlocks = blocks.filter((block) => block.dayId === day.id);
-          const last = index === visibleTimelineDays.length - 1;
-
-          return (
-            <div
-              key={day.id}
-              className={cn(
-                "grid h-[110px] grid-cols-[48px_minmax(0,1fr)]",
-                !last && "border-b border-gray-100",
-              )}
-            >
-              <div className="flex items-center justify-center border-r border-gray-200 bg-white text-h-18-regular tracking-normal text-gray-800">
-                {day.label}
-              </div>
-              <div className="relative min-w-0" role="row">
-                <div
-                  aria-hidden="true"
-                  className="absolute inset-0 grid grid-cols-[repeat(17,minmax(0,1fr))]"
-                >
-                  {scheduleTimelineTimeSlots.map((slot, slotIndex) => (
-                    <div
-                      key={`${day.id}-${slot}`}
-                      className={cn(
-                        "border-r border-gray-100",
-                        slotIndex === scheduleTimelineTimeSlots.length - 1 &&
-                          "border-r-0",
-                      )}
-                    />
-                  ))}
-                </div>
-
-                {dayBlocks.map((block) => (
-                  <TimelineBlock
-                    key={block.id}
-                    block={block}
-                    selected={block.id === selectedBlockId}
-                  />
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+    <TimelineGridFrame
+      ariaLabel="승인 요청 주간 시간표"
+      className="mt-5 max-h-[597px]"
+      dayColumnWidth={48}
+      days={visibleTimelineDays}
+      headerHeight={47}
+      minWidthClassName="min-w-[920px]"
+      renderBlocks={(day) =>
+        blocks
+          .filter((block) => block.dayId === day.id)
+          .map((block) => (
+            <TimelineBlock
+              key={block.id}
+              block={block}
+              selected={block.id === selectedBlockId}
+            />
+          ))
+      }
+      timeSlots={scheduleTimelineTimeSlots}
+    />
   );
 }
 
@@ -412,17 +365,11 @@ function TimelineBlock({
       role="gridcell"
       style={style}
     >
-      <span className="truncate text-h-14-semibold tracking-normal">
-        {block.worker}
-      </span>
-      <span
-        className={cn(
-          "truncate text-detail-12 tracking-normal",
-          selected ? "text-white" : "text-gray-900",
-        )}
-      >
-        {block.label}
-      </span>
+      <TimelineBlockText
+        selected={selected}
+        subtitle={block.label}
+        title={block.worker}
+      />
     </div>
   );
 }

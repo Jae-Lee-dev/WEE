@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import {
   Check,
   ChevronDown,
@@ -30,6 +30,7 @@ import {
   type DutyEditBasicDialogFixture,
   type DutyEditTimeDialogFixture,
   type DutyListRow,
+  type DutyStatus,
   type DutyTag,
   type DutyTone,
   type DutyWeekday,
@@ -39,28 +40,28 @@ import {
   scheduleTimelineTimeSlots,
   type ScheduleTimelineDayId,
 } from "./schedule-fixtures";
+import {
+  orderTimelineDaysSundayFirst,
+  TimelineBlockText,
+  TimelineGridFrame,
+} from "./timeline-grid-frame";
 
 type DialogState = "create" | "edit-basic" | "edit-time" | null;
+type DutyViewMode = "timeline" | "list";
 
 type BadgeToneConfig = {
   variant: "green" | "orange" | "red" | "blue" | "grey";
   style?: CSSProperties;
 };
 
-type DutyGridBlock = {
-  id: string;
+type DutyTimelineBlock = {
   duty: DutyListRow;
   dayId: ScheduleTimelineDayId;
-  label: string;
-  location: string;
-  weekdayLabel: string;
-  time: string;
   startHour: number;
   endHour: number;
-  tone: DutyTone;
 };
 
-type PositionedDutyBlock = DutyGridBlock & {
+type PositionedDutyTimelineBlock = DutyTimelineBlock & {
   lane: number;
   startColumn: number;
   spanColumns: number;
@@ -89,13 +90,11 @@ const toneConfig: Record<DutyTone, BadgeToneConfig> = {
   },
 };
 
-const blockToneClassNames: Record<DutyTone, string> = {
-  green: "border-green-400 bg-green-100 text-gray-900",
-  orange: "border-orange-400 bg-orange-100 text-gray-900",
-  red: "border-red-500 bg-red-50 text-gray-900",
-  blue: "border-blue-500 bg-blue-50 text-gray-900",
-  grey: "border-gray-300 bg-gray-50 text-gray-900",
-};
+const selectedFixtureDutyId = selectedDutyDetail.duty.id;
+const timelineStartHour = Number(scheduleTimelineTimeSlots[0]);
+const timelineColumnCount = scheduleTimelineTimeSlots.length;
+const timelineLaneHeight = 54;
+const timelineLaneStride = 56;
 
 const weekdayDayIdMap: Record<DutyWeekday, ScheduleTimelineDayId> = {
   월: "mon",
@@ -107,44 +106,75 @@ const weekdayDayIdMap: Record<DutyWeekday, ScheduleTimelineDayId> = {
   일: "sun",
 };
 
-const timelineStartHour = Number(scheduleTimelineTimeSlots[0]);
-const timelineColumnCount = scheduleTimelineTimeSlots.length;
-const selectedFixtureBlockId = selectedDutyDetail.duty.timeRows[0].id;
-const selectedFixtureDutyId = selectedDutyDetail.duty.id;
+const dutyTimelineDays = orderTimelineDaysSundayFirst(scheduleTimelineDays);
+
+const statusToneConfig: Record<DutyStatus, BadgeToneConfig> = {
+  상시: {
+    variant: "grey",
+  },
+  운영중: {
+    variant: "green",
+    style: { color: "var(--color-green-400)" },
+  },
+  예정: {
+    variant: "blue",
+    style: { color: "var(--color-blue-500)" },
+  },
+  만료: {
+    variant: "red",
+    style: { color: "var(--color-red-500)" },
+  },
+  비활성: {
+    variant: "grey",
+  },
+};
 
 export function DutyListScreen({
   initialSelectedDutyId,
 }: {
   initialSelectedDutyId?: string;
 } = {}) {
-  const initialSelectedBlockId =
+  const initialSelectedDuty =
     initialSelectedDutyId === selectedDutyDetailRouteId
-      ? selectedFixtureBlockId
+      ? selectedFixtureDutyId
       : undefined;
-  const [selectedBlockId, setSelectedBlockId] = useState<string | undefined>(
-    initialSelectedBlockId,
+  const [selectedDutyId, setSelectedDutyId] = useState<string | undefined>(
+    initialSelectedDuty,
   );
+  const [viewMode, setViewMode] = useState<DutyViewMode>("timeline");
   const [dialog, setDialog] = useState<DialogState>(null);
-  const dutyBlocks = useMemo(() => buildDutyGridBlocks(), []);
-  const selectedBlock = dutyBlocks.find((block) => block.id === selectedBlockId);
+  const selectedDuty = dutyListRows.find((duty) => duty.id === selectedDutyId);
+  const dutyTimelineRows = getTimelineEligibleDuties(dutyListRows);
 
   return (
     <section
       aria-label="근무 목록"
-      className="flex h-[calc(100vh-202px)] min-h-[878px] w-full flex-col gap-5"
-      data-duty-list-state={selectedBlock ? "selected" : "default"}
+      className="flex h-[calc(100vh-202px)] min-h-[760px] w-full flex-col gap-5"
+      data-duty-list-state={selectedDuty ? "selected" : "default"}
       data-testid="duty-list-screen"
     >
-      <DutyToolbar onCreate={() => setDialog("create")} />
+      <DutyToolbar
+        onCreate={() => setDialog("create")}
+        onViewModeChange={setViewMode}
+        viewMode={viewMode}
+      />
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(680px,1fr)_320px] gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
-        <DutyWeeklyGrid
-          blocks={dutyBlocks}
-          selectedBlockId={selectedBlockId}
-          onSelectBlock={(block) => setSelectedBlockId(block.id)}
-        />
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_340px] gap-5 2xl:grid-cols-[minmax(0,1fr)_400px]">
+        {viewMode === "timeline" ? (
+          <DutyTimelineGrid
+            onSelectDuty={(duty) => setSelectedDutyId(duty.id)}
+            rows={dutyTimelineRows}
+            selectedDutyId={selectedDutyId}
+          />
+        ) : (
+          <DutyListTable
+            onSelectDuty={(duty) => setSelectedDutyId(duty.id)}
+            rows={dutyListRows}
+            selectedDutyId={selectedDutyId}
+          />
+        )}
         <DutyDetailPanel
-          selectedBlock={selectedBlock}
+          selectedDuty={selectedDuty}
           onEditBasic={() => setDialog("edit-basic")}
           onEditTime={() => setDialog("edit-time")}
         />
@@ -163,7 +193,15 @@ export function DutyListScreen({
   );
 }
 
-function DutyToolbar({ onCreate }: { onCreate: () => void }) {
+function DutyToolbar({
+  onCreate,
+  onViewModeChange,
+  viewMode,
+}: {
+  onCreate: () => void;
+  onViewModeChange: (mode: DutyViewMode) => void;
+  viewMode: DutyViewMode;
+}) {
   return (
     <div className="flex h-[42px] items-center justify-between gap-5">
       <div className="flex min-w-0 items-center gap-3">
@@ -173,18 +211,27 @@ function DutyToolbar({ onCreate }: { onCreate: () => void }) {
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
-        <IconModeButton active label="주간 그리드 보기">
+        <IconModeButton
+          active={viewMode === "timeline"}
+          label="타임라인 보기"
+          onClick={() => onViewModeChange("timeline")}
+        >
           <LayoutGrid className="size-6" strokeWidth={2.2} />
         </IconModeButton>
-        <IconModeButton label="목록 보기">
+        <IconModeButton
+          active={viewMode === "list"}
+          label="목록 보기"
+          onClick={() => onViewModeChange("list")}
+        >
           <List className="size-6" strokeWidth={2.2} />
         </IconModeButton>
         <Button
           type="button"
           variant="secondary"
           onClick={onCreate}
-          className="ml-2 h-[42px] rounded-full px-4 font-normal tracking-normal"
+          className="ml-2 h-[42px] gap-2 rounded-full px-4 font-normal tracking-normal"
         >
+          <Plus className="size-5" strokeWidth={2.2} />
           근무 개설
         </Button>
       </div>
@@ -208,16 +255,19 @@ function IconModeButton({
   active = false,
   children,
   label,
+  onClick,
 }: {
   active?: boolean;
   children: ReactNode;
   label: string;
+  onClick?: () => void;
 }) {
   return (
     <button
       type="button"
       aria-label={label}
       aria-pressed={active}
+      onClick={onClick}
       className={cn(
         "flex size-10 items-center justify-center rounded-[6px] border transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
         active
@@ -230,155 +280,204 @@ function IconModeButton({
   );
 }
 
-function DutyWeeklyGrid({
-  blocks,
-  selectedBlockId,
-  onSelectBlock,
+function DutyTimelineGrid({
+  onSelectDuty,
+  rows,
+  selectedDutyId,
 }: {
-  blocks: readonly DutyGridBlock[];
-  selectedBlockId?: string;
-  onSelectBlock: (block: DutyGridBlock) => void;
+  onSelectDuty: (duty: DutyListRow) => void;
+  rows: readonly DutyListRow[];
+  selectedDutyId?: string;
 }) {
-  const dayLayouts = scheduleTimelineDays.map((day) => ({
+  const blocks = buildDutyTimelineBlocks(rows);
+  const dayLayouts = dutyTimelineDays.map((day) => ({
     day,
-    blocks: layoutBlocks(blocks.filter((block) => block.dayId === day.id)),
+    blocks: layoutDutyTimelineBlocks(
+      blocks.filter((block) => block.dayId === day.id),
+    ),
   }));
 
   return (
-    <div
-      aria-label="근무 주간 그리드"
-      className="h-full min-w-0 overflow-hidden rounded-[8px] border border-gray-200 bg-white"
-      role="grid"
-    >
-      <div className="grid h-full grid-cols-[46px_minmax(0,1fr)] grid-rows-[45px_repeat(7,minmax(0,1fr))]">
-        <div
-          aria-hidden="true"
-          className="border-r border-b border-gray-200 bg-white"
-        />
-        <div className="grid grid-cols-[repeat(17,minmax(0,1fr))] border-b border-gray-200">
-          {scheduleTimelineTimeSlots.map((slot, index) => (
-            <div
-              className={cn(
-                "flex min-w-0 items-center justify-center border-r border-gray-100 px-1 text-h-16-medium tracking-normal text-gray-500",
-                index === scheduleTimelineTimeSlots.length - 1 &&
-                  "border-r-0",
-              )}
-              key={slot}
-              role="columnheader"
-            >
-              <span className="truncate">{slot}</span>
-            </div>
-          ))}
-        </div>
+    <TimelineGridFrame
+      ariaLabel="Duty timeline"
+      className="h-full"
+      days={dutyTimelineDays}
+      renderBlocks={(day) => {
+        const dayBlocks =
+          dayLayouts.find((layout) => layout.day.id === day.id)?.blocks ?? [];
 
-        {dayLayouts.map(({ day, blocks: dayBlocks }, dayIndex) => {
-          const isLastDay = dayIndex === dayLayouts.length - 1;
-
-          return (
-            <div className="contents" key={day.id}>
-              <div
-                className={cn(
-                  "flex items-center justify-center border-r border-gray-200 bg-white px-1 text-h-18-semibold tracking-normal text-gray-800",
-                  !isLastDay && "border-b border-gray-100",
-                )}
-                role="rowheader"
-              >
-                {day.label}
-              </div>
-              <div
-                className={cn(
-                  "relative min-w-0 bg-white",
-                  !isLastDay && "border-b border-gray-100",
-                )}
-                role="row"
-              >
-                <div
-                  aria-hidden="true"
-                  className="absolute inset-0 grid grid-cols-[repeat(17,minmax(0,1fr))]"
-                >
-                  {scheduleTimelineTimeSlots.map((slot, index) => (
-                    <div
-                      className={cn(
-                        "border-r border-gray-100",
-                        index === scheduleTimelineTimeSlots.length - 1 &&
-                          "border-r-0",
-                      )}
-                      key={`${day.id}-${slot}`}
-                    />
-                  ))}
-                </div>
-
-                {dayBlocks.map((block) => (
-                  <DutyGridBlockButton
-                    block={block}
-                    key={block.id}
-                    onSelect={() => onSelectBlock(block)}
-                    selected={selectedBlockId === block.id}
-                  />
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+        return dayBlocks.map((block) => (
+          <DutyTimelineBlockButton
+            block={block}
+            key={block.duty.id}
+            onSelect={() => onSelectDuty(block.duty)}
+            selected={selectedDutyId === block.duty.id}
+          />
+        ));
+      }}
+      testId="duty-timeline-view"
+      timeSlots={scheduleTimelineTimeSlots}
+    />
   );
 }
 
-function DutyGridBlockButton({
+function DutyTimelineBlockButton({
   block,
   onSelect,
   selected,
 }: {
-  block: PositionedDutyBlock;
+  block: PositionedDutyTimelineBlock;
   onSelect: () => void;
   selected: boolean;
 }) {
   return (
     <button
       type="button"
-      aria-label={`${block.label} ${block.location} ${block.weekdayLabel} ${block.time}`}
+      aria-label={`${block.duty.name} ${block.duty.location} ${block.duty.weekday} ${block.duty.time}`}
       aria-pressed={selected}
-      data-testid={
-        block.id === selectedFixtureBlockId ? "duty-list-select-first" : undefined
-      }
-      onClick={onSelect}
       className={cn(
         "absolute z-10 flex min-w-0 flex-col justify-center overflow-hidden rounded-[6px] border px-2 text-left tracking-normal transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 focus-visible:ring-offset-1",
         selected
           ? "border-green-400 bg-green-400 text-white"
-          : blockToneClassNames[block.tone],
+          : getDutyTimelineToneClassName(block.duty.tone),
       )}
-      style={getBlockStyle(block)}
+      data-testid={
+        block.duty.id === selectedFixtureDutyId
+          ? "duty-list-select-first"
+          : undefined
+      }
+      onClick={onSelect}
+      style={getDutyTimelineBlockStyle(block)}
     >
-      <span className="truncate text-h-14-semibold tracking-normal">
-        {block.label}
-      </span>
-      <span
-        className={cn(
-          "truncate text-h-14-regular tracking-normal",
-          selected ? "text-white/90" : "text-gray-800",
-        )}
+      <TimelineBlockText
+        selected={selected}
+        subtitle={block.duty.location}
+        title={block.duty.name}
+      />
+    </button>
+  );
+}
+
+function DutyListTable({
+  onSelectDuty,
+  rows,
+  selectedDutyId,
+}: {
+  onSelectDuty: (duty: DutyListRow) => void;
+  rows: readonly DutyListRow[];
+  selectedDutyId?: string;
+}) {
+  return (
+    <section
+      aria-label="Duty list"
+      className="min-h-0 overflow-hidden rounded-[8px] border border-gray-200 bg-white"
+      data-testid="duty-list-table"
+      role="table"
+    >
+      <div className="flex h-[70px] items-center gap-3 px-5">
+        <h2 className="text-h-20 tracking-normal text-gray-900">근무 목록</h2>
+        <span className="rounded-[4px] bg-gray-100 px-1.5 py-0.5 text-detail-16-regular tracking-normal text-gray-600">
+          {rows.length}건
+        </span>
+      </div>
+
+      <div
+        className="grid h-[41px] grid-cols-[1.45fr_1fr_1.1fr_1.25fr_0.8fr_0.75fr] items-center border-b border-gray-300 px-5 text-h-18-regular tracking-normal text-gray-500"
+        role="row"
       >
-        {block.location}
+        <div role="columnheader">근무</div>
+        <div role="columnheader">근무지</div>
+        <div role="columnheader">요일·시간</div>
+        <div role="columnheader">운영 기간</div>
+        <div role="columnheader">배정</div>
+        <div role="columnheader">상태</div>
+      </div>
+
+      <div role="rowgroup">
+        {rows.map((row) => (
+          <DutyListTableRow
+            key={row.id}
+            onSelect={() => onSelectDuty(row)}
+            row={row}
+            selected={selectedDutyId === row.id}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DutyListTableRow({
+  onSelect,
+  row,
+  selected,
+}: {
+  onSelect: () => void;
+  row: DutyListRow;
+  selected: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      aria-selected={selected}
+      className={cn(
+        "grid min-h-[78px] w-full grid-cols-[1.45fr_1fr_1.1fr_1.25fr_0.8fr_0.75fr] items-center border-b border-gray-100 px-5 text-left text-h-18-regular tracking-normal text-gray-900 transition-colors duration-150 ease-out last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200",
+        selected && "bg-green-50 hover:bg-green-50",
+      )}
+      data-testid={
+        row.id === selectedFixtureDutyId ? "duty-list-select-first" : undefined
+      }
+      onClick={onSelect}
+      role="row"
+    >
+      <span className="flex min-w-0 flex-col gap-2" role="cell">
+        <span className="min-w-0 truncate text-h-18-semibold tracking-normal text-gray-900">
+          {row.name}
+        </span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          {row.tags.map((tag) => (
+            <DutyTagBadge key={tag.id} tag={tag} />
+          ))}
+        </span>
+      </span>
+      <span className="min-w-0 truncate" role="cell">
+        {row.location}
+      </span>
+      <span className="flex min-w-0 flex-col gap-1" role="cell">
+        <span className="min-w-0 truncate">{row.weekday}</span>
+        <span className="min-w-0 truncate text-h-16-medium tracking-normal text-gray-500">
+          {row.time}
+        </span>
+      </span>
+      <span className="flex min-w-0 flex-col gap-1" role="cell">
+        <span className="min-w-0 truncate">{row.operationPeriod}</span>
+        <span className="min-w-0 truncate text-h-16-medium tracking-normal text-gray-500">
+          {row.operationCountText}
+        </span>
+      </span>
+      <span className="min-w-0 truncate" role="cell">
+        {row.appliedWorkerCountText}
+      </span>
+      <span role="cell">
+        <DutyStatusBadge status={row.status} />
       </span>
     </button>
   );
 }
 
 function DutyDetailPanel({
-  selectedBlock,
+  selectedDuty,
   onEditBasic,
   onEditTime,
 }: {
-  selectedBlock?: DutyGridBlock;
+  selectedDuty?: DutyListRow;
   onEditBasic: () => void;
   onEditTime: () => void;
 }) {
-  if (!selectedBlock) {
+  if (!selectedDuty) {
     return (
       <aside className="flex h-full items-center justify-center rounded-[8px] border border-gray-200 bg-white">
-        <p className="w-[210px] text-center text-h-18-semibold tracking-normal text-gray-400">
+        <p className="w-[210px] text-center text-label-18 tracking-normal text-gray-400">
           근무를 선택하면 근무 상세가 표시됩니다.
         </p>
       </aside>
@@ -386,16 +485,16 @@ function DutyDetailPanel({
   }
 
   const detail =
-    selectedBlock.duty.id === selectedFixtureDutyId
+    selectedDuty.id === selectedFixtureDutyId
       ? selectedDutyDetail
       : {
-          duty: selectedBlock.duty,
+          duty: selectedDuty,
           basicInfo: {
-            name: selectedBlock.label,
-            location: selectedBlock.location,
-            tags: selectedBlock.duty.tags,
-            weekday: selectedBlock.weekdayLabel,
-            time: selectedBlock.time,
+            name: selectedDuty.name,
+            location: selectedDuty.location,
+            tags: selectedDuty.tags,
+            weekday: selectedDuty.weekday,
+            time: selectedDuty.time,
           },
           assignedWorkersTitle: "할당된 조교 (0명)",
           assignedWorkers: [],
@@ -412,30 +511,30 @@ function DutyDetailPanel({
         {detail.basicInfo.name}
       </h2>
 
-      <dl className="mt-5 grid grid-cols-[92px_minmax(0,1fr)] gap-y-5 text-h-18-semibold tracking-normal">
-        <dt className="text-gray-500">근무지</dt>
-        <dd className="min-w-0 truncate text-right text-gray-900">
+      <dl className="mt-5 grid grid-cols-[92px_minmax(0,1fr)] gap-y-4 tracking-normal">
+        <dt className="text-h-18-semibold text-gray-500">근무지</dt>
+        <dd className="min-w-0 truncate text-right text-label-18 text-gray-900">
           {detail.basicInfo.location}
         </dd>
-        <dt className="text-gray-500">태그</dt>
+        <dt className="text-h-18-semibold text-gray-500">태그</dt>
         <dd className="flex min-w-0 justify-end">
           {detail.basicInfo.tags[0] ? (
             <DutyTagBadge tag={detail.basicInfo.tags[0]} />
           ) : (
-            <span className="text-gray-400">없음</span>
+            <span className="text-label-18 text-gray-400">없음</span>
           )}
         </dd>
-        <dt className="text-gray-500">요일</dt>
-        <dd className="min-w-0 truncate text-right text-gray-900">
+        <dt className="text-h-18-semibold text-gray-500">요일</dt>
+        <dd className="min-w-0 truncate text-right text-label-18 text-gray-900">
           {detail.basicInfo.weekday}
         </dd>
-        <dt className="text-gray-500">시간</dt>
-        <dd className="min-w-0 truncate text-right text-gray-900">
+        <dt className="text-h-18-semibold text-gray-500">시간</dt>
+        <dd className="min-w-0 truncate text-right text-label-18 text-gray-900">
           {detail.basicInfo.time}
         </dd>
       </dl>
 
-      <div className="mt-6 rounded-[8px] border border-gray-100 px-4 py-4">
+      <div className="mt-5 rounded-[10px] border border-gray-100 px-4 py-4">
         <h3 className="text-h-18-semibold tracking-normal text-gray-900">
           {detail.assignedWorkersTitle}
         </h3>
@@ -457,7 +556,7 @@ function DutyDetailPanel({
           type="button"
           variant="secondary"
           onClick={onEditBasic}
-          className="h-[42px] rounded-full px-4 font-normal tracking-normal"
+          className="h-[41px] rounded-full px-4 text-label-18 font-medium tracking-normal"
         >
           {detail.editBasicButtonLabel}
         </Button>
@@ -465,7 +564,7 @@ function DutyDetailPanel({
           type="button"
           variant="secondary"
           onClick={onEditTime}
-          className="h-[42px] rounded-full px-4 font-normal tracking-normal"
+          className="h-[41px] rounded-full px-4 text-label-18 font-medium tracking-normal"
         >
           {detail.editTimeButtonLabel}
         </Button>
@@ -491,6 +590,16 @@ function DutyTagBadge({ tag }: { tag: DutyTag }) {
   return (
     <Badge variant={tone.variant} size="M" style={tone.style}>
       {tag.label}
+    </Badge>
+  );
+}
+
+function DutyStatusBadge({ status }: { status: DutyStatus }) {
+  const tone = statusToneConfig[status];
+
+  return (
+    <Badge variant={tone.variant} size="M" style={tone.style}>
+      {status}
     </Badge>
   );
 }
@@ -828,30 +937,42 @@ function DialogActions({
   );
 }
 
-function buildDutyGridBlocks(): DutyGridBlock[] {
-  return dutyListRows.flatMap((duty) =>
-    duty.timeRows.map((timeRow) => ({
-      id: timeRow.id,
-      duty,
-      dayId: weekdayDayIdMap[timeRow.weekday],
-      label: duty.name,
-      location: duty.location,
-      weekdayLabel: timeRow.weekdayLabel,
-      time: timeRow.time,
-      startHour: parseHour(timeRow.startTime),
-      endHour: parseHour(timeRow.endTime),
-      tone: duty.tone,
-    })),
+function getTimelineEligibleDuties(rows: readonly DutyListRow[]) {
+  return rows.filter(
+    (row) => row.status !== "만료" && row.status !== "비활성",
   );
 }
 
-function layoutBlocks(blocks: readonly DutyGridBlock[]): PositionedDutyBlock[] {
+function buildDutyTimelineBlocks(
+  rows: readonly DutyListRow[],
+): DutyTimelineBlock[] {
+  return rows
+    .map((duty) => {
+      const timeRow = duty.timeRows[0];
+
+      if (!timeRow) {
+        return null;
+      }
+
+      return {
+        duty,
+        dayId: weekdayDayIdMap[timeRow.weekday],
+        startHour: parseHour(timeRow.startTime),
+        endHour: parseHour(timeRow.endTime),
+      };
+    })
+    .filter((block): block is DutyTimelineBlock => block != null);
+}
+
+function layoutDutyTimelineBlocks(
+  blocks: readonly DutyTimelineBlock[],
+): PositionedDutyTimelineBlock[] {
   const laneEnds: number[] = [];
 
   return [...blocks]
     .sort((firstBlock, secondBlock) => {
-      const firstRange = getBlockColumnRange(firstBlock);
-      const secondRange = getBlockColumnRange(secondBlock);
+      const firstRange = getDutyTimelineColumnRange(firstBlock);
+      const secondRange = getDutyTimelineColumnRange(secondBlock);
 
       return (
         firstRange.startColumn - secondRange.startColumn ||
@@ -859,7 +980,7 @@ function layoutBlocks(blocks: readonly DutyGridBlock[]): PositionedDutyBlock[] {
       );
     })
     .map((block) => {
-      const range = getBlockColumnRange(block);
+      const range = getDutyTimelineColumnRange(block);
       let lane = laneEnds.findIndex(
         (endColumn) => range.startColumn >= endColumn,
       );
@@ -878,7 +999,7 @@ function layoutBlocks(blocks: readonly DutyGridBlock[]): PositionedDutyBlock[] {
     });
 }
 
-function getBlockColumnRange(block: DutyGridBlock) {
+function getDutyTimelineColumnRange(block: DutyTimelineBlock) {
   const startHour = normalizeHour(block.startHour);
   const endHour = normalizeHour(block.endHour);
   const startColumn = clamp(
@@ -899,13 +1020,32 @@ function getBlockColumnRange(block: DutyGridBlock) {
   };
 }
 
-function getBlockStyle(block: PositionedDutyBlock): CSSProperties {
+function getDutyTimelineBlockStyle({
+  lane,
+  spanColumns,
+  startColumn,
+}: PositionedDutyTimelineBlock): CSSProperties {
   return {
-    height: 54,
-    left: `calc(${(block.startColumn / timelineColumnCount) * 100}% + 1px)`,
-    top: 1 + block.lane * 56,
-    width: `calc(${(block.spanColumns / timelineColumnCount) * 100}% - 2px)`,
+    height: timelineLaneHeight,
+    left: `calc(${(startColumn / timelineColumnCount) * 100}% + 1px)`,
+    top: 1 + lane * timelineLaneStride,
+    width: `calc(${(spanColumns / timelineColumnCount) * 100}% - 2px)`,
   };
+}
+
+function getDutyTimelineToneClassName(tone: DutyTone) {
+  switch (tone) {
+    case "green":
+      return "border-green-400 bg-green-100 text-gray-900";
+    case "orange":
+      return "border-orange-400 bg-orange-100 text-gray-900";
+    case "red":
+      return "border-red-500 bg-red-50 text-gray-900";
+    case "blue":
+      return "border-blue-500 bg-blue-50 text-gray-900";
+    case "grey":
+      return "border-gray-300 bg-gray-50 text-gray-900";
+  }
 }
 
 function parseHour(time: string) {

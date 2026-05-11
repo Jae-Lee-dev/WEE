@@ -2,6 +2,8 @@ export type DutyTone = "green" | "orange" | "red" | "blue" | "grey";
 
 export type DutyWeekday = "월" | "화" | "수" | "목" | "금" | "토" | "일";
 
+export type DutyStatus = "상시" | "운영중" | "예정" | "만료" | "비활성";
+
 export type DutyTag = {
   id: string;
   label: string;
@@ -23,6 +25,10 @@ export type DutyListRow = {
   location: string;
   weekday: string;
   time: string;
+  status: DutyStatus;
+  statusTone: DutyTone;
+  operationPeriod: string;
+  operationCountText: string;
   appliedWorkerCount: number;
   appliedWorkerCountText: string;
   tags: readonly DutyTag[];
@@ -164,8 +170,10 @@ export const dutyTagFilterOptions = [
 
 export const dutyStatusFilterOptions = [
   { id: "all", label: "상태 (전체)", selected: true },
+  { id: "permanent", label: "상시" },
   { id: "active", label: "운영중" },
   { id: "scheduled", label: "예정" },
+  { id: "expired", label: "만료" },
   { id: "inactive", label: "비활성" },
 ] as const satisfies readonly DutyFilterOption[];
 
@@ -181,11 +189,15 @@ export const dutyWeekdayOptions = [
 
 export const dutyListRows = [
   {
-    id: "duty-chemistry-g",
+    id: "duty-chemistry-g-mon",
     name: "화학 G반",
     location: "서초 B학원",
     weekday: "월요일",
     time: "10:00~12:00",
+    status: "예정",
+    statusTone: "blue",
+    operationPeriod: "2026.06.01~2026.08.31",
+    operationCountText: "총 14회",
     appliedWorkerCount: 2,
     appliedWorkerCountText: "할당 조교 2명",
     tags: [dutyTags[5]],
@@ -202,11 +214,15 @@ export const dutyListRows = [
     ],
   },
   {
-    id: "duty-physics-f",
+    id: "duty-physics-f-mon",
     name: "물리 F반",
     location: "대치 A학원",
     weekday: "월요일",
     time: "13:00~15:00",
+    status: "운영중",
+    statusTone: "green",
+    operationPeriod: "2026.05.04~2026.07.27",
+    operationCountText: "총 13회",
     appliedWorkerCount: 4,
     appliedWorkerCountText: "할당 조교 4명",
     tags: [dutyTags[2]],
@@ -223,13 +239,17 @@ export const dutyListRows = [
     ],
   },
   {
-    id: "duty-korean-e",
+    id: "duty-korean-e-mon",
     name: "국어 E반",
     location: "송파 E학원",
-    weekday: "월요일, 수요일, 금요일",
+    weekday: "월요일",
     time: "14:00~16:00",
-    appliedWorkerCount: 4,
-    appliedWorkerCountText: "할당 조교 4명",
+    status: "운영중",
+    statusTone: "green",
+    operationPeriod: "상시",
+    operationCountText: "반복 운영",
+    appliedWorkerCount: 2,
+    appliedWorkerCountText: "할당 조교 2명",
     tags: [dutyTags[3]],
     tone: "blue",
     timeRows: [
@@ -241,6 +261,23 @@ export const dutyListRows = [
         endTime: "16:00",
         time: "14:00~16:00",
       },
+    ],
+  },
+  {
+    id: "duty-korean-e-wed",
+    name: "국어 E반",
+    location: "송파 E학원",
+    weekday: "수요일",
+    time: "14:00~16:00",
+    status: "운영중",
+    statusTone: "green",
+    operationPeriod: "상시",
+    operationCountText: "반복 운영",
+    appliedWorkerCount: 1,
+    appliedWorkerCountText: "할당 조교 1명",
+    tags: [dutyTags[3]],
+    tone: "blue",
+    timeRows: [
       {
         id: "duty-korean-e-wed",
         weekday: "수",
@@ -249,6 +286,23 @@ export const dutyListRows = [
         endTime: "16:00",
         time: "14:00~16:00",
       },
+    ],
+  },
+  {
+    id: "duty-korean-e-fri",
+    name: "국어 E반",
+    location: "송파 E학원",
+    weekday: "금요일",
+    time: "14:00~16:00",
+    status: "운영중",
+    statusTone: "green",
+    operationPeriod: "상시",
+    operationCountText: "반복 운영",
+    appliedWorkerCount: 1,
+    appliedWorkerCountText: "할당 조교 1명",
+    tags: [dutyTags[3]],
+    tone: "blue",
+    timeRows: [
       {
         id: "duty-korean-e-fri",
         weekday: "금",
@@ -260,11 +314,15 @@ export const dutyListRows = [
     ],
   },
   {
-    id: "duty-english-c",
+    id: "duty-english-c-mon",
     name: "영어 C반",
     location: "잠실 C학원",
-    weekday: "월요일, 수요일",
+    weekday: "월요일",
     time: "19:00~21:00",
+    status: "운영중",
+    statusTone: "green",
+    operationPeriod: "2026.05.11~2026.06.22",
+    operationCountText: "총 7회",
     appliedWorkerCount: 3,
     appliedWorkerCountText: "할당 조교 3명",
     tags: [dutyTags[0]],
@@ -278,6 +336,23 @@ export const dutyListRows = [
         endTime: "21:00",
         time: "19:00~21:00",
       },
+    ],
+  },
+  {
+    id: "duty-english-c-wed",
+    name: "영어 C반",
+    location: "잠실 C학원",
+    weekday: "수요일",
+    time: "19:00~21:00",
+    status: "운영중",
+    statusTone: "green",
+    operationPeriod: "2026.05.13~2026.06.24",
+    operationCountText: "총 7회",
+    appliedWorkerCount: 2,
+    appliedWorkerCountText: "할당 조교 2명",
+    tags: [dutyTags[0]],
+    tone: "green",
+    timeRows: [
       {
         id: "duty-english-c-wed",
         weekday: "수",
@@ -289,11 +364,15 @@ export const dutyListRows = [
     ],
   },
   {
-    id: "duty-research-admin",
+    id: "duty-research-admin-sun",
     name: "연구실 행정",
     location: "잠실 C학원",
     weekday: "일요일",
     time: "09:00~12:00",
+    status: "상시",
+    statusTone: "grey",
+    operationPeriod: "상시",
+    operationCountText: "반복 운영",
     appliedWorkerCount: 2,
     appliedWorkerCountText: "할당 조교 2명",
     tags: [dutyTags[1]],
@@ -317,7 +396,7 @@ const selectedDutyDetailTag = {
 } as const satisfies DutyTag;
 
 export const selectedDutyDetail = {
-  duty: dutyListRows[3],
+  duty: dutyListRows[5],
   basicInfo: {
     name: "영어 C반",
     location: "잠실 C학원",
