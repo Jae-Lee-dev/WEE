@@ -39,6 +39,7 @@ This version has breaking changes. APIs, conventions, and file structure may dif
 - Prefer small, verifiable changes. Avoid speculative abstractions and unrelated cleanup.
 - Check `git status --short --branch` before and after edits.
 - Run `pnpm verify` before handing off app/runtime changes; in the current Figma-first phase it covers GitHub intake self-test/verification, the phase-scope guardrail self-test, phase-scope audit, lint, typecheck, and production build.
+- Run `pnpm verify:ci` when you need to mirror the full GitHub Actions gate, including the Storybook build.
 - For docs-only or instruction-only changes, run at least `git diff --check`.
 - Run `pnpm build-storybook` when Storybook stories or preview config change.
 

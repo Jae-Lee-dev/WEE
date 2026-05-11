@@ -16,7 +16,6 @@ permissions:
 
 env:
   NEXT_TELEMETRY_DISABLED: "1"
-  STORYBOOK_DISABLE_TELEMETRY: "1"
 
 jobs:
   verify:
@@ -43,8 +42,5 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Verify
-        run: pnpm verify
-
-      - name: Build Storybook
-        run: pnpm build-storybook
+      - name: Verify CI
+        run: pnpm verify:ci

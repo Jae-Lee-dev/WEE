@@ -32,6 +32,7 @@ pnpm verify:intake
 pnpm verify:phase-scope:self-test
 pnpm verify:phase-scope
 pnpm verify           # intake self-test + intake + phase-scope self-test + audit + lint + typecheck + build
+pnpm verify:ci        # pnpm verify + Storybook build, matching CI
 pnpm build-storybook
 ```
 
@@ -47,11 +48,10 @@ GitHub Actions workflow는 `.github/workflows/ci.yml`에 있으며 `develop`/`ma
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm verify
-pnpm build-storybook
+pnpm verify:ci
 ```
 
-During the current Figma-first static UI phase, `pnpm verify` starts with GitHub intake self-test/verification, the phase-scope guardrail self-test, and `pnpm verify:phase-scope` to fail on unstructured process changes or accidental Firebase/backend/server/data-access additions before lint, typecheck, and build. CI also builds Storybook so component/story regressions are caught with the integration gate.
+During the current Figma-first static UI phase, `pnpm verify` starts with GitHub intake self-test/verification, the phase-scope guardrail self-test, and `pnpm verify:phase-scope` to fail on unstructured process changes or accidental Firebase/backend/server/data-access additions before lint, typecheck, and build. `pnpm verify:ci` also builds Storybook so component/story regressions are caught with the integration gate.
 
 ## Project Notes
 

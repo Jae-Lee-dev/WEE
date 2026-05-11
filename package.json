@@ -15,8 +15,9 @@
     "verify:phase-scope:self-test": "node scripts/test-figma-first-guardrails.mjs",
     "verify:intake": "node scripts/check-github-intake.mjs",
     "verify": "pnpm verify:intake:self-test && pnpm verify:intake && pnpm verify:phase-scope:self-test && pnpm verify:phase-scope && pnpm lint && pnpm typecheck && pnpm build",
+    "verify:ci": "pnpm verify && pnpm build-storybook",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build --disable-telemetry"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
