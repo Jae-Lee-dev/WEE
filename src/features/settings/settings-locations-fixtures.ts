@@ -59,7 +59,8 @@ export const settingsLocationsFixture = {
   emptyDescription: "첫 근무지를 추가하면 근무 개설에서 바로 선택할 수 있습니다.",
   loadingLabel: "근무지 목록을 불러오는 중",
   dialog: {
-    title: "근무지 추가",
+    createTitle: "근무지 추가",
+    editTitle: "근무지 수정",
     description: "조교가 실제 출퇴근하는 장소와 허용 반경을 등록합니다.",
     nameLabel: "근무지 이름",
     namePlaceholder: "예: 대치 A 학원",
@@ -71,6 +72,18 @@ export const settingsLocationsFixture = {
     radiusUnit: "m",
     cancelLabel: "취소",
     addLabel: "근무지 저장",
+    saveLabel: "변경 저장",
+  },
+  deleteDialog: {
+    title: "근무지를 삭제할까요?",
+    blockedTitle: "사용 중인 근무지는 삭제할 수 없습니다.",
+    description:
+      "삭제한 근무지는 목록과 근무 개설 선택지에서 숨겨지고 기존 근무기록의 참조는 보존됩니다.",
+    blockedDescription:
+      "이 근무지를 사용하는 근무가 있습니다. 근무를 먼저 정리한 뒤 다시 삭제해 주세요.",
+    cancelLabel: "취소",
+    confirmLabel: "삭제",
+    closeLabel: "확인",
   },
 } as const satisfies {
   columns: readonly { id: string; label: string }[];
@@ -82,7 +95,8 @@ export const settingsLocationsFixture = {
   emptyDescription: string;
   loadingLabel: string;
   dialog: {
-    title: string;
+    createTitle: string;
+    editTitle: string;
     description: string;
     nameLabel: string;
     namePlaceholder: string;
@@ -94,6 +108,16 @@ export const settingsLocationsFixture = {
     radiusUnit: string;
     cancelLabel: string;
     addLabel: string;
+    saveLabel: string;
+  };
+  deleteDialog: {
+    title: string;
+    blockedTitle: string;
+    description: string;
+    blockedDescription: string;
+    cancelLabel: string;
+    confirmLabel: string;
+    closeLabel: string;
   };
 };
 

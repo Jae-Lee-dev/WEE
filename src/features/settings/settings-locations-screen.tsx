@@ -24,6 +24,7 @@ import {
   initialSettingsLocationForm,
   normalizeRadiusInput,
   toCreateSettingsLocationInput,
+  toSettingsLocationFormState,
   type SettingsLocation,
   type SettingsLocationFormField,
   type SettingsLocationFormState,
@@ -43,8 +44,13 @@ export function SettingsLocationsScreen({
   const dataSource = dataSourceProp ?? fallbackDataSource;
   const [locations, setLocations] = useState<readonly SettingsLocation[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingLocation, setEditingLocation] =
+    useState<SettingsLocation | null>(null);
+  const [deleteCandidate, setDeleteCandidate] =
+    useState<SettingsLocation | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
 
@@ -75,21 +81,59 @@ export function SettingsLocationsScreen({
     };
   }, [dataSource]);
 
-  const handleCreateLocation = async (input: CreateSettingsLocationInput) => {
+  const handleSaveLocation = async (
+    input: CreateSettingsLocationInput,
+    currentLocation?: SettingsLocation,
+  ) => {
     setSaving(true);
     setErrorMessage("");
     setStatusMessage("");
 
     try {
-      const location = await dataSource.createLocation(input);
+      if (currentLocation) {
+        const location = await dataSource.updateLocation(currentLocation, input);
 
-      setLocations((current) => [location, ...current]);
-      setStatusMessage(`${location.name} 근무지를 등록했습니다.`);
+        setLocations((current) =>
+          current.map((row) => (row.id === location.id ? location : row)),
+        );
+        setStatusMessage(`${location.name} 근무지를 수정했습니다.`);
+        setEditingLocation(null);
+      } else {
+        const location = await dataSource.createLocation(input);
+
+        setLocations((current) => [location, ...current]);
+        setStatusMessage(`${location.name} 근무지를 등록했습니다.`);
+      }
+
       setDialogOpen(false);
     } catch {
       setErrorMessage("근무지를 저장하지 못했습니다.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeleteLocation = async (location: SettingsLocation) => {
+    setDeleting(true);
+    setErrorMessage("");
+    setStatusMessage("");
+
+    try {
+      await dataSource.deleteLocation(location);
+
+      setLocations((current) =>
+        current.filter((row) => row.id !== location.id),
+      );
+      setStatusMessage(`${location.name} 근무지를 삭제했습니다.`);
+      setDeleteCandidate(null);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "근무지를 삭제하지 못했습니다.",
+      );
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -121,6 +165,7 @@ export function SettingsLocationsScreen({
           data-testid="settings-locations-add-trigger"
           onClick={() => {
             setStatusMessage("");
+            setEditingLocation(null);
             setDialogOpen(true);
           }}
           className="h-[42px] rounded-full px-4 text-h-18-regular font-normal tracking-normal"
@@ -129,18 +174,45 @@ export function SettingsLocationsScreen({
         </Button>
       </div>
 
-      <LocationsTable loading={loading} locations={locations} />
+      <LocationsTable
+        loading={loading}
+        locations={locations}
+        onDeleteLocation={(location) => {
+          setStatusMessage("");
+          setDeleteCandidate(location);
+        }}
+        onEditLocation={(location) => {
+          setStatusMessage("");
+          setEditingLocation(location);
+          setDialogOpen(true);
+        }}
+      />
 
       {dialogOpen ? (
         <LocationDialog
+          location={editingLocation}
           locations={locations}
           onClose={() => {
             if (!saving) {
               setDialogOpen(false);
+              setEditingLocation(null);
             }
           }}
-          onCreateLocation={handleCreateLocation}
+          onSaveLocation={handleSaveLocation}
           saving={saving}
+        />
+      ) : null}
+
+      {deleteCandidate ? (
+        <DeleteLocationDialog
+          deleting={deleting}
+          location={deleteCandidate}
+          onClose={() => {
+            if (!deleting) {
+              setDeleteCandidate(null);
+            }
+          }}
+          onConfirm={handleDeleteLocation}
         />
       ) : null}
     </section>
@@ -150,9 +222,13 @@ export function SettingsLocationsScreen({
 function LocationsTable({
   loading,
   locations,
+  onDeleteLocation,
+  onEditLocation,
 }: {
   loading: boolean;
   locations: readonly SettingsLocation[];
+  onDeleteLocation: (location: SettingsLocation) => void;
+  onEditLocation: (location: SettingsLocation) => void;
 }) {
   return (
     <section
@@ -182,7 +258,13 @@ function LocationsTable({
       ) : locations.length > 0 ? (
         <div role="rowgroup">
           {locations.map((row, index) => (
-            <LocationTableRow key={row.id} first={index === 0} row={row} />
+            <LocationTableRow
+              key={row.id}
+              first={index === 0}
+              onDelete={onDeleteLocation}
+              onEdit={onEditLocation}
+              row={row}
+            />
           ))}
         </div>
       ) : (
@@ -202,9 +284,13 @@ function LocationsTable({
 function LocationTableRow({
   row,
   first,
+  onDelete,
+  onEdit,
 }: {
   row: SettingsLocation;
   first: boolean;
+  onDelete: (location: SettingsLocation) => void;
+  onEdit: (location: SettingsLocation) => void;
 }) {
   return (
     <div
@@ -231,6 +317,7 @@ function LocationTableRow({
         <Button
           type="button"
           variant="secondary"
+          onClick={() => onEdit(row)}
           className="h-[42px] rounded-full px-4 text-h-18-regular font-medium tracking-normal"
         >
           {settingsLocationsFixture.editButtonLabel}
@@ -238,6 +325,7 @@ function LocationTableRow({
         <Button
           type="button"
           variant="danger"
+          onClick={() => onDelete(row)}
           className="h-[42px] rounded-full px-4 text-h-18-regular font-medium tracking-normal text-red-500"
         >
           {settingsLocationsFixture.deleteButtonLabel}
@@ -248,22 +336,29 @@ function LocationTableRow({
 }
 
 function LocationDialog({
+  location,
   locations,
   onClose,
-  onCreateLocation,
+  onSaveLocation,
   saving,
 }: {
+  location: SettingsLocation | null;
   locations: readonly SettingsLocation[];
   onClose: () => void;
-  onCreateLocation: (input: CreateSettingsLocationInput) => Promise<void>;
+  onSaveLocation: (
+    input: CreateSettingsLocationInput,
+    currentLocation?: SettingsLocation,
+  ) => Promise<void>;
   saving: boolean;
 }) {
   const { dialog } = settingsLocationsFixture;
   const [form, setForm] = useState<SettingsLocationFormState>(
-    initialSettingsLocationForm,
+    location
+      ? toSettingsLocationFormState(location)
+      : initialSettingsLocationForm,
   );
   const [submitted, setSubmitted] = useState(false);
-  const errors = getSettingsLocationFormErrors(form, locations);
+  const errors = getSettingsLocationFormErrors(form, locations, location?.id);
 
   const handleFieldChange =
     (field: SettingsLocationFormField) =>
@@ -285,7 +380,10 @@ function LocationDialog({
       return;
     }
 
-    void onCreateLocation(toCreateSettingsLocationInput(form));
+    void onSaveLocation(
+      toCreateSettingsLocationInput(form),
+      location ?? undefined,
+    );
   };
 
   return (
@@ -304,7 +402,7 @@ function LocationDialog({
             id="settings-location-dialog-title"
             className="text-h-20 text-gray-900"
           >
-            {dialog.title}
+            {location ? dialog.editTitle : dialog.createTitle}
           </h2>
           <p className="mt-2 text-body-14-regular tracking-normal text-gray-500">
             {dialog.description}
@@ -364,10 +462,87 @@ function LocationDialog({
             disabled={saving}
             className="h-[50px] rounded-[8px] px-6 text-h-18-semibold tracking-normal text-white"
           >
-            {saving ? "저장 중" : dialog.addLabel}
+            {saving
+              ? "저장 중"
+              : location
+                ? dialog.saveLabel
+                : dialog.addLabel}
           </Button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function DeleteLocationDialog({
+  deleting,
+  location,
+  onClose,
+  onConfirm,
+}: {
+  deleting: boolean;
+  location: SettingsLocation;
+  onClose: () => void;
+  onConfirm: (location: SettingsLocation) => Promise<void>;
+}) {
+  const { deleteDialog } = settingsLocationsFixture;
+  const blocked = location.dutyCount > 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-location-delete-dialog-title"
+        className="w-[520px] rounded-[8px] bg-white px-8 py-8 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
+      >
+        <h2
+          id="settings-location-delete-dialog-title"
+          className="text-h-20 text-gray-900"
+        >
+          {blocked ? deleteDialog.blockedTitle : deleteDialog.title}
+        </h2>
+        <p className="mt-3 text-body-14-regular tracking-normal text-gray-500">
+          {blocked
+            ? `${deleteDialog.blockedDescription} 현재 사용 근무 ${location.dutyCount}건`
+            : deleteDialog.description}
+        </p>
+        <div className="mt-8 flex justify-end gap-3">
+          {blocked ? (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onClose}
+              className="h-[50px] rounded-[8px] px-6 text-h-18-semibold tracking-normal"
+            >
+              {deleteDialog.closeLabel}
+            </Button>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={onClose}
+                disabled={deleting}
+                className="h-[50px] rounded-[8px] px-6 text-h-18-semibold tracking-normal"
+              >
+                {deleteDialog.cancelLabel}
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                disabled={deleting}
+                onClick={() => {
+                  void onConfirm(location);
+                }}
+                className="h-[50px] rounded-[8px] px-6 text-h-18-semibold tracking-normal text-red-500"
+              >
+                {deleting ? "삭제 중" : deleteDialog.confirmLabel}
+              </Button>
+            </>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

@@ -18,6 +18,7 @@ import {
   type SettingsLocationCoordinate,
   type SettingsLocationGeocodingStatus,
   type SettingsLocationStatus,
+  type UpdateSettingsLocationInput,
 } from "./settings-locations-model";
 
 export type SettingsLocationsDataSource = {
@@ -25,6 +26,11 @@ export type SettingsLocationsDataSource = {
   createLocation: (
     input: CreateSettingsLocationInput,
   ) => Promise<SettingsLocation>;
+  updateLocation: (
+    location: SettingsLocation,
+    input: UpdateSettingsLocationInput,
+  ) => Promise<SettingsLocation>;
+  deleteLocation: (location: SettingsLocation) => Promise<void>;
 };
 
 export function createSettingsLocationsDataSource(): SettingsLocationsDataSource {
@@ -39,7 +45,9 @@ function createFirestoreSettingsLocationsDataSource(): SettingsLocationsDataSour
         query(getLocationsCollection(workspaceId), orderBy("createdAt", "desc")),
       );
 
-      return snapshot.docs.map((location) => mapLocationDocument(location));
+      return snapshot.docs
+        .map((location) => mapLocationDocument(location))
+        .filter((location) => location.status !== "deleted");
     },
 
     async createLocation(input) {
@@ -72,11 +80,54 @@ function createFirestoreSettingsLocationsDataSource(): SettingsLocationsDataSour
         dutyCount: 0,
       };
     },
+
+    async updateLocation(location, input) {
+      const workspaceId = requireActiveWorkspaceId();
+      const db = getFirebaseDb();
+      const locationRef = getLocationDocument(workspaceId, location.id);
+      const batch = writeBatch(db);
+
+      batch.update(locationRef, {
+        ...input,
+        updatedAt: serverTimestamp(),
+      });
+      await batch.commit();
+
+      return {
+        ...location,
+        ...input,
+      };
+    },
+
+    async deleteLocation(location) {
+      if (location.dutyCount > 0) {
+        throw new Error("근무에 사용 중인 근무지는 삭제할 수 없습니다.");
+      }
+
+      const workspaceId = requireActiveWorkspaceId();
+      const db = getFirebaseDb();
+      const batch = writeBatch(db);
+
+      batch.update(getLocationDocument(workspaceId, location.id), {
+        deletedAt: serverTimestamp(),
+        status: "deleted" satisfies SettingsLocationStatus,
+        updatedAt: serverTimestamp(),
+      });
+      batch.update(getWorkspaceDocument(workspaceId), {
+        "setup.locationCount": increment(-1),
+        updatedAt: serverTimestamp(),
+      });
+      await batch.commit();
+    },
   };
 }
 
 function getLocationsCollection(workspaceId: string) {
   return collection(getFirebaseDb(), "workspaces", workspaceId, "locations");
+}
+
+function getLocationDocument(workspaceId: string, locationId: string) {
+  return doc(getFirebaseDb(), "workspaces", workspaceId, "locations", locationId);
 }
 
 function getWorkspaceDocument(workspaceId: string) {
@@ -151,5 +202,9 @@ function readGeocodingStatus(value: unknown): SettingsLocationGeocodingStatus {
 }
 
 function readLocationStatus(value: unknown): SettingsLocationStatus {
-  return value === "paused" ? "paused" : "active";
+  if (value === "paused" || value === "deleted") {
+    return value;
+  }
+
+  return "active";
 }

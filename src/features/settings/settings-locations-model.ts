@@ -1,4 +1,4 @@
-export type SettingsLocationStatus = "active" | "paused";
+export type SettingsLocationStatus = "active" | "paused" | "deleted";
 
 export type SettingsLocationGeocodingStatus = "resolved" | "failed";
 
@@ -45,6 +45,8 @@ export type CreateSettingsLocationInput = {
   geocodingStatus: Extract<SettingsLocationGeocodingStatus, "resolved">;
 };
 
+export type UpdateSettingsLocationInput = CreateSettingsLocationInput;
+
 export const defaultLocationRadiusMeters = 100;
 
 export const initialSettingsLocationForm: SettingsLocationFormState = {
@@ -57,6 +59,7 @@ export const initialSettingsLocationForm: SettingsLocationFormState = {
 export function getSettingsLocationFormErrors(
   form: SettingsLocationFormState,
   locations: readonly SettingsLocation[],
+  currentLocationId?: string,
 ): SettingsLocationFormErrors {
   const errors: SettingsLocationFormErrors = {};
   const name = normalizeLocationText(form.name);
@@ -66,7 +69,11 @@ export function getSettingsLocationFormErrors(
   if (!name) {
     errors.name = "근무지 이름을 입력해 주세요.";
   } else if (
-    locations.some((location) => location.nameKey === createLocationNameKey(name))
+    locations.some(
+      (location) =>
+        location.id !== currentLocationId &&
+        location.nameKey === createLocationNameKey(name),
+    )
   ) {
     errors.name = "동일한 이름의 근무지가 이미 있습니다.";
   }
@@ -111,6 +118,17 @@ export function toCreateSettingsLocationInput(
   };
 }
 
+export function toSettingsLocationFormState(
+  location: SettingsLocation,
+): SettingsLocationFormState {
+  return {
+    name: location.name,
+    roadAddress: location.roadAddress,
+    detailAddress: location.detailAddress,
+    radiusMeters: String(location.radiusMeters),
+  };
+}
+
 export function normalizeRadiusInput(value: string) {
   return value.replace(/\D/g, "").slice(0, 4);
 }
@@ -120,7 +138,15 @@ export function formatRadiusMeters(radiusMeters: number) {
 }
 
 export function getLocationStatusLabel(status: SettingsLocationStatus) {
-  return status === "active" ? "운영중" : "중지";
+  if (status === "active") {
+    return "운영중";
+  }
+
+  if (status === "paused") {
+    return "중지";
+  }
+
+  return "삭제됨";
 }
 
 export function getLocationGeocodingStatusLabel(

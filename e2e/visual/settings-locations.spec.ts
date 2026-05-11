@@ -67,7 +67,13 @@ test(`SET-02 location-dialog ${desktop}`, async ({ page }) => {
   });
 });
 
-test("SET-02 creates location through Firestore", async ({ page }) => {
+test("SET-02 creates, edits, and deletes location through Firestore", async ({
+  page,
+}) => {
+  const suffix = Date.now().toString().slice(-6);
+  const locationName = `마포 D 학원 ${suffix}`;
+  const editedLocationName = `마포 D 수정 ${suffix}`;
+
   await prepareVisualPage({
     page,
     path: "/settings/locations",
@@ -77,7 +83,7 @@ test("SET-02 creates location through Firestore", async ({ page }) => {
   await page.getByTestId("settings-locations-add-trigger").click();
 
   const dialog = page.getByTestId("settings-location-dialog");
-  await dialog.getByLabel("근무지 이름").fill("마포 D 학원");
+  await dialog.getByLabel("근무지 이름").fill(locationName);
   await dialog.getByLabel("도로명 주소").fill("서울 마포구 양화로 45");
   await dialog.getByLabel("상세 주소").fill("4층");
   await dialog
@@ -88,9 +94,40 @@ test("SET-02 creates location through Firestore", async ({ page }) => {
   await expect(dialog).toBeHidden();
 
   const screen = page.getByTestId("settings-locations-screen");
-  await expect(screen).toContainText("마포 D 학원");
+  await expect(screen).toContainText(locationName);
   await expect(screen).toContainText("서울 마포구 양화로 45 4층");
   await expect(screen).toContainText("90m");
   await expect(screen).toContainText("좌표 확인");
-  await expect(screen).toContainText("마포 D 학원 근무지를 등록했습니다.");
+  await expect(screen).toContainText(`${locationName} 근무지를 등록했습니다.`);
+
+  await page
+    .getByTestId("settings-locations-first-row")
+    .getByRole("button", { name: "수정" })
+    .click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText("근무지 수정");
+  await dialog.getByLabel("근무지 이름").fill(editedLocationName);
+  await dialog
+    .getByRole("spinbutton", { name: "출퇴근 허용 반경" })
+    .fill("110");
+  await dialog.getByRole("button", { name: "변경 저장" }).click();
+
+  await expect(dialog).toBeHidden();
+  await expect(screen).toContainText(editedLocationName);
+  await expect(screen).toContainText("110m");
+  await expect(screen).toContainText(
+    `${editedLocationName} 근무지를 수정했습니다.`,
+  );
+
+  await page
+    .getByTestId("settings-locations-first-row")
+    .getByRole("button", { name: "삭제" })
+    .click();
+  await page.getByRole("dialog").getByRole("button", { name: "삭제" }).click();
+  await expect(screen).toContainText(
+    `${editedLocationName} 근무지를 삭제했습니다.`,
+  );
+  await expect(
+    page.getByTestId("settings-locations-table").getByText(editedLocationName),
+  ).toHaveCount(0);
 });
