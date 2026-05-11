@@ -64,6 +64,16 @@ test(`DUT-01 create-duty-dialog ${desktop}`, async ({ page }) => {
   await page.getByRole("button", { name: "근무 개설" }).click();
   await expect(page.getByTestId("duty-list-create-dialog")).toBeVisible();
   await expect(page.getByTestId("duty-list-create-dialog").getByLabel("이름")).toBeEditable();
+  await expect(
+    page
+      .getByTestId("duty-list-create-dialog")
+      .locator("select#duty-create-locationId"),
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId("duty-list-create-dialog").getByRole("combobox", {
+      name: "근무지",
+    }),
+  ).toBeVisible();
 
   await captureActualScreenshot({
     page,
@@ -81,7 +91,8 @@ test("DUT-01 creates duty through data source", async ({ page }) => {
   const dialog = page.getByTestId("duty-list-create-dialog");
   await dialog.getByLabel("이름").fill("수학 A반 질문");
   await dialog.getByLabel("근무 태그 (복수 가능)").fill("질문");
-  await dialog.locator("select").selectOption({ label: "대치 A학원" });
+  await dialog.getByRole("combobox", { name: "근무지" }).click();
+  await page.getByRole("option", { name: "대치 A학원" }).click();
   await dialog.getByRole("button", { name: "월" }).click();
   await dialog.getByLabel("시작 시간").fill("09:00");
   await dialog.getByLabel("종료 시간").fill("11:00");
@@ -95,6 +106,31 @@ test("DUT-01 creates duty through data source", async ({ page }) => {
     "수학 A반 질문",
   );
   await expect(page.getByTestId("duty-detail-panel")).toContainText("대치 A학원");
+});
+
+test("DUT-01 create duty operation period follows SRS", async ({ page }) => {
+  await prepareVisualPage({ page, path: routePath, viewport: desktop });
+  await page.evaluate(() => document.fonts.ready);
+  await page.getByRole("button", { name: "근무 개설" }).click();
+
+  const dialog = page.getByTestId("duty-list-create-dialog");
+  await dialog.getByLabel("이름").fill("운영 기간 테스트");
+  await dialog.getByRole("combobox", { name: "근무지" }).click();
+  await page.getByRole("option", { name: "대치 A학원" }).click();
+  await dialog.getByRole("button", { name: "월" }).click();
+  await dialog.getByLabel("시작 시간").fill("09:00");
+  await dialog.getByLabel("종료 시간").fill("11:00");
+  await dialog.getByLabel("운영 시작일").fill("2026-05-04");
+  await expect(dialog.getByLabel("운영 종료일")).toBeEnabled();
+  await dialog.getByLabel("운영 종료일").fill("2026-05-18");
+  await expect(dialog).toContainText("총 3회 운영");
+
+  await dialog.getByRole("button", { name: "화" }).click();
+  await expect(dialog.getByLabel("운영 종료일")).toHaveValue("");
+
+  await dialog.getByLabel("운영 종료일").fill("2026-05-18");
+  await dialog.getByRole("button", { name: "근무 저장" }).click();
+  await expect(dialog).toContainText("운영 시작일은 선택한 요일과 같아야 합니다.");
 });
 
 test(`DUT-01 edit-basic-dialog ${desktop}`, async ({ page }) => {

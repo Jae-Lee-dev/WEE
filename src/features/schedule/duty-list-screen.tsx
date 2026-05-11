@@ -20,7 +20,15 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { OptionSelect, type SelectOption } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
   createDutyDataSource,
@@ -48,6 +56,7 @@ import {
   type DutyWeekday,
 } from "./duty-fixtures";
 import {
+  getDutyOperationCountText,
   getDutyFormErrors,
   hasDutyFormErrors,
   initialDutyForm,
@@ -150,6 +159,17 @@ const statusToneConfig: Record<DutyStatus, BadgeToneConfig> = {
     variant: "grey",
   },
 };
+
+const operationEndDateResetFields: readonly DutyFormField[] = [
+  "weekday",
+  "startTime",
+  "endTime",
+  "operationStartDate",
+];
+
+function shouldResetOperationEndDate(field: DutyFormField) {
+  return operationEndDateResetFields.includes(field);
+}
 
 export function DutyListScreen({
   dataSource: dataSourceProp,
@@ -733,20 +753,33 @@ function CreateDutyDialog({
   const [submitted, setSubmitted] = useState(false);
   const errors = getDutyFormErrors(form, locations);
 
+  const setDutyFormValue = (field: DutyFormField, value: string) => {
+    setForm((current) => {
+      const nextForm = {
+        ...current,
+        [field]: value,
+      };
+
+      if (value !== current[field] && shouldResetOperationEndDate(field)) {
+        nextForm.operationEndDate = "";
+      }
+
+      return nextForm;
+    });
+  };
+
   const handleFieldChange =
     (field: DutyFormField) =>
     (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-      setForm((current) => ({
-        ...current,
-        [field]: event.target.value,
-      }));
+      setDutyFormValue(field, event.target.value);
     };
 
+  const handleLocationChange = (locationId: string) => {
+    setDutyFormValue("locationId", locationId);
+  };
+
   const handleWeekdayChange = (weekday: DutyWeekday) => {
-    setForm((current) => ({
-      ...current,
-      weekday,
-    }));
+    setDutyFormValue("weekday", weekday);
   };
 
   const handleSave = (event: FormEvent<HTMLFormElement>) => {
@@ -761,73 +794,89 @@ function CreateDutyDialog({
   };
 
   return (
-    <DialogShell
-      labelledBy="duty-list-create-dialog-title"
-      testId="duty-list-create-dialog"
-      className="max-w-[684px] px-10 py-10"
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !saving) {
+          onClose();
+        }
+      }}
     >
-      <form className="flex min-h-0 flex-1 flex-col" noValidate onSubmit={handleSave}>
-        <h2
-          id="duty-list-create-dialog-title"
-          className="text-h-20 tracking-normal text-gray-900"
+      <DialogContent
+        aria-labelledby="duty-list-create-dialog-title"
+        data-testid="duty-list-create-dialog"
+        showCloseButton={false}
+        className="flex max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] max-w-[684px] grid-cols-none flex-col gap-0 overflow-hidden rounded-[8px] bg-white px-10 py-10 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0"
+      >
+        <form
+          className="flex min-h-0 flex-1 flex-col"
+          noValidate
+          onSubmit={handleSave}
         >
-          {fixture.title}
-        </h2>
+          <DialogHeader className="gap-0">
+            <DialogTitle
+              id="duty-list-create-dialog-title"
+              className="text-h-20 tracking-normal text-gray-900"
+            >
+              {fixture.title}
+            </DialogTitle>
+          </DialogHeader>
 
-        <div className="mt-7 min-h-0 flex-1 overflow-y-auto pr-1">
-          <div className="flex flex-col gap-5">
-            <CreateDutyTextField
-              error={submitted ? errors.name : undefined}
-              field={fixture.nameField}
-              name="name"
-              onChange={handleFieldChange("name")}
-              value={form.name}
-              disabled={saving}
-            />
-            <CreateDutyTextField
-              field={fixture.tagSearchField}
-              name="tagText"
-              onChange={handleFieldChange("tagText")}
-              value={form.tagText}
-              disabled={saving}
-            />
-            <CreateDutyLocationField
-              error={submitted ? errors.locationId : undefined}
-              locations={locations}
-              onChange={handleFieldChange("locationId")}
-              saving={saving}
-              value={form.locationId}
-            />
-            <WeekdayPicker
-              error={submitted ? errors.weekday : undefined}
-              onSelect={handleWeekdayChange}
-              selectedWeekday={form.weekday}
-              weekdays={fixture.weekdays}
-            />
-            <CreateTimeFields
-              errors={submitted ? errors : undefined}
-              form={form}
-              onChange={handleFieldChange}
-              saving={saving}
-            />
-            <CreateOperationPeriodFields
-              errors={submitted ? errors : undefined}
-              form={form}
-              onChange={handleFieldChange}
-              saving={saving}
-            />
+          <div className="mt-7 min-h-0 flex-1 overflow-y-auto pr-1">
+            <div className="flex flex-col gap-5">
+              <CreateDutyTextField
+                error={submitted ? errors.name : undefined}
+                field={fixture.nameField}
+                name="name"
+                onChange={handleFieldChange("name")}
+                value={form.name}
+                disabled={saving}
+              />
+              <CreateDutyTextField
+                field={fixture.tagSearchField}
+                name="tagText"
+                onChange={handleFieldChange("tagText")}
+                value={form.tagText}
+                disabled={saving}
+              />
+              <CreateDutyLocationField
+                error={submitted ? errors.locationId : undefined}
+                locations={locations}
+                onChange={handleLocationChange}
+                saving={saving}
+                value={form.locationId}
+              />
+              <WeekdayPicker
+                error={submitted ? errors.weekday : undefined}
+                onSelect={handleWeekdayChange}
+                selectedWeekday={form.weekday}
+                weekdays={fixture.weekdays}
+              />
+              <CreateTimeFields
+                errors={submitted ? errors : undefined}
+                form={form}
+                onChange={handleFieldChange}
+                saving={saving}
+              />
+              <CreateOperationPeriodFields
+                errors={submitted ? errors : undefined}
+                form={form}
+                onChange={handleFieldChange}
+                saving={saving}
+              />
+            </div>
           </div>
-        </div>
 
-        <DialogActions
-          cancelLabel={fixture.cancelLabel}
-          saveLabel={saving ? "저장 중" : "근무 저장"}
-          onClose={onClose}
-          saveDisabled={saving}
-          saveType="submit"
-        />
-      </form>
-    </DialogShell>
+          <CreateDutyDialogActions
+            cancelLabel={fixture.cancelLabel}
+            saveLabel={saving ? "저장 중" : "근무 저장"}
+            onClose={onClose}
+            saveDisabled={saving}
+            saveType="submit"
+          />
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1006,45 +1055,45 @@ function CreateDutyLocationField({
 }: {
   error?: string;
   locations: readonly DutyLocationOption[];
-  onChange: (event: ChangeEvent<HTMLSelectElement>) => void;
+  onChange: (locationId: string) => void;
   saving: boolean;
   value: string;
 }) {
   const inputId = "duty-create-locationId";
   const errorId = `${inputId}-error`;
+  const locationOptions: SelectOption[] = locations.map((location) => ({
+    label: location.label,
+    value: location.id,
+  }));
 
   return (
-    <label className="block">
+    <div>
       <span className="text-h-18-semibold tracking-normal text-gray-900">
         근무지 <span className="text-red-500">*</span>
       </span>
-      <span className="mt-3 flex h-[49px] items-center rounded-[8px] border border-gray-200 bg-gray-50 px-4">
-        <select
-          id={inputId}
-          value={value}
-          disabled={saving || locations.length === 0}
-          onChange={onChange}
-          aria-describedby={error ? errorId : undefined}
-          aria-invalid={Boolean(error)}
-          className="min-w-0 flex-1 bg-transparent text-h-18-regular tracking-normal text-gray-900 outline-none disabled:text-gray-400"
-        >
-          <option value="">
-            {locations.length > 0 ? "근무지를 선택해 주세요" : "등록된 근무지가 없습니다"}
-          </option>
-          {locations.map((location) => (
-            <option key={location.id} value={location.id}>
-              {location.label}
-            </option>
-          ))}
-        </select>
-        <ChevronDown className="size-5 shrink-0 text-gray-700" strokeWidth={2} />
-      </span>
+      <OptionSelect
+        value={value || undefined}
+        disabled={saving || locations.length === 0}
+        onValueChange={onChange}
+        options={locationOptions}
+        placeholder={
+          locations.length > 0
+            ? "근무지를 선택해 주세요"
+            : "등록된 근무지가 없습니다"
+        }
+        triggerAriaDescribedBy={error ? errorId : undefined}
+        triggerAriaInvalid={Boolean(error)}
+        triggerAriaLabel="근무지"
+        triggerClassName="mt-3 h-[49px] w-full rounded-[8px] border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-900"
+        contentClassName="z-[70]"
+        itemClassName="text-h-16-medium tracking-normal"
+      />
       {error ? (
         <p id={errorId} className="mt-2 text-label-12-medium text-red-500">
           {error}
         </p>
       ) : null}
-    </label>
+    </div>
   );
 }
 
@@ -1133,6 +1182,16 @@ function CreateOperationPeriodFields({
   ) => (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
   saving: boolean;
 }) {
+  const operationCountText = getDutyOperationCountText(
+    form.operationStartDate,
+    form.operationEndDate,
+  );
+  const helperText =
+    operationCountText ??
+    (form.operationStartDate
+      ? "운영 종료일은 시작일과 같은 요일만 저장할 수 있습니다."
+      : "비워두면 상시 근무로 등록됩니다.");
+
   return (
     <div>
       <div className="grid grid-cols-2 gap-5">
@@ -1148,11 +1207,12 @@ function CreateOperationPeriodFields({
           label="운영 종료일"
           onChange={onChange("operationEndDate")}
           value={form.operationEndDate}
-          disabled={saving}
+          disabled={saving || !form.operationStartDate}
+          min={form.operationStartDate || undefined}
         />
       </div>
       <p className="mt-2 text-label-12-medium tracking-normal text-gray-500">
-        비워두면 상시 근무로 등록됩니다.
+        {helperText}
       </p>
     </div>
   );
@@ -1198,12 +1258,14 @@ function DateField({
   disabled,
   error,
   label,
+  min,
   onChange,
   value,
 }: {
   disabled: boolean;
   error?: string;
   label: string;
+  min?: string;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
   value: string;
 }) {
@@ -1216,6 +1278,7 @@ function DateField({
         type="date"
         value={value}
         disabled={disabled}
+        min={min}
         onChange={onChange}
         aria-invalid={Boolean(error)}
         className="mt-3 h-[49px] rounded-[8px] border-gray-200 bg-gray-50 text-h-18-regular tracking-normal text-gray-900"
@@ -1313,6 +1376,40 @@ function EditTimeWorkerList({
         ))}
       </div>
     </div>
+  );
+}
+
+function CreateDutyDialogActions({
+  cancelLabel,
+  saveDisabled = false,
+  saveLabel,
+  saveType = "button",
+  onClose,
+}: {
+  cancelLabel: string;
+  saveDisabled?: boolean;
+  saveLabel: string;
+  saveType?: "button" | "submit";
+  onClose: () => void;
+}) {
+  return (
+    <DialogFooter className="mx-0 mb-0 mt-6 flex-row justify-end gap-2.5 rounded-none border-t border-gray-100 bg-transparent p-0 pt-5 sm:flex-row sm:justify-end">
+      <Button
+        type="button"
+        variant="secondary"
+        onClick={onClose}
+        className="h-10 rounded-[8px] px-4 text-h-16-semibold tracking-normal"
+      >
+        {cancelLabel}
+      </Button>
+      <Button
+        type={saveType}
+        disabled={saveDisabled}
+        className="h-10 rounded-[8px] px-4 text-h-16-semibold tracking-normal"
+      >
+        {saveLabel}
+      </Button>
+    </DialogFooter>
   );
 }
 

@@ -107,8 +107,12 @@ export function getDutyFormErrors(
     errors.endTime = "종료 시간은 시작 시간보다 뒤여야 합니다.";
   }
 
-  if (hasOperationStart !== hasOperationEnd) {
-    errors.operationStartDate = "운영 기간은 시작일과 종료일을 함께 입력해 주세요.";
+  if (hasOperationStart && !hasOperationEnd) {
+    errors.operationEndDate = "운영 종료일을 입력해 주세요.";
+  }
+
+  if (!hasOperationStart && hasOperationEnd) {
+    errors.operationStartDate = "운영 시작일을 입력해 주세요.";
   }
 
   if (hasOperationStart && hasOperationEnd) {
@@ -119,11 +123,13 @@ export function getDutyFormErrors(
       errors.operationStartDate = "운영 기간 날짜를 확인해 주세요.";
     } else if (endDate.time < startDate.time) {
       errors.operationEndDate = "운영 종료일은 시작일 이후여야 합니다.";
+    } else if (startDate.weekday !== endDate.weekday) {
+      errors.operationEndDate = "운영 종료일은 시작일과 같은 요일이어야 합니다.";
     } else if (
       form.weekday &&
-      (startDate.weekday !== form.weekday || endDate.weekday !== form.weekday)
+      startDate.weekday !== form.weekday
     ) {
-      errors.operationEndDate = "운영 시작일과 종료일은 선택한 요일과 같아야 합니다.";
+      errors.operationStartDate = "운영 시작일은 선택한 요일과 같아야 합니다.";
     }
   }
 
@@ -227,17 +233,45 @@ function formatOperationCount(duty: StoredDuty) {
     return "반복 운영";
   }
 
-  const startDate = parseLocalDate(duty.operationStartDate);
-  const endDate = parseLocalDate(duty.operationEndDate);
+  const count = calculateDutyOperationCount(
+    duty.operationStartDate,
+    duty.operationEndDate,
+  );
 
-  if (!startDate || !endDate) {
+  if (!count) {
     return "총 1회";
   }
 
-  const days = Math.max(0, Math.round((endDate.time - startDate.time) / 86_400_000));
-  const count = Math.floor(days / 7) + 1;
-
   return `총 ${count}회`;
+}
+
+export function getDutyOperationCountText(
+  operationStartDate: string,
+  operationEndDate: string,
+) {
+  const count = calculateDutyOperationCount(operationStartDate, operationEndDate);
+
+  return count ? `총 ${count}회 운영` : null;
+}
+
+export function calculateDutyOperationCount(
+  operationStartDate: string,
+  operationEndDate: string,
+) {
+  const startDate = parseLocalDate(operationStartDate);
+  const endDate = parseLocalDate(operationEndDate);
+
+  if (!startDate || !endDate || endDate.time < startDate.time) {
+    return null;
+  }
+
+  if (startDate.weekday !== endDate.weekday) {
+    return null;
+  }
+
+  const days = Math.round((endDate.time - startDate.time) / 86_400_000);
+
+  return Math.floor(days / 7) + 1;
 }
 
 function getStatusTone(status: DutyStatus): DutyTone {
