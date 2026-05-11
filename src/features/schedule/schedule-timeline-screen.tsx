@@ -305,7 +305,7 @@ function TimelineBlock({
 
 function WorkerDetailPanel({ selected }: { selected: boolean }) {
   return (
-    <aside className="flex h-full min-w-0 flex-col rounded-[8px] border border-gray-200 bg-white px-5 py-5">
+    <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[8px] border border-gray-200 bg-white px-5 py-5">
       {selected ? <SelectedWorkerDetail /> : <EmptyWorkerDetail />}
     </aside>
   );
@@ -337,13 +337,18 @@ function SelectedWorkerDetail() {
         </span>
       </div>
 
-      <div className="mt-7 flex flex-col gap-3">
-        {scheduleSelectedWorkerContext.assignments.map((assignment) => (
-          <AssignmentCard assignment={assignment} key={assignment.id} />
-        ))}
+      <div
+        className="mt-7 min-h-0 flex-1 overflow-y-auto pr-1"
+        data-testid="schedule-timeline-worker-detail-scroll"
+      >
+        <div className="flex flex-col gap-3 pb-4">
+          {scheduleSelectedWorkerContext.assignments.map((assignment) => (
+            <AssignmentCard assignment={assignment} key={assignment.id} />
+          ))}
+        </div>
       </div>
 
-      <div className="mt-auto flex gap-3">
+      <div className="mt-5 flex shrink-0 gap-3">
         <Button
           asChild
           variant="secondary"

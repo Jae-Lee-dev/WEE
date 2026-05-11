@@ -57,6 +57,8 @@ test(`SCH-02 worker-selected ${desktop}`, async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "김서연" }),
   ).toBeVisible();
+  await expect(page.getByTestId("schedule-timeline-worker-detail-scroll"))
+    .toHaveCSS("overflow-y", "auto");
 
   await captureActualScreenshot({
     page,
