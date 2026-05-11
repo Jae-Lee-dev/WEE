@@ -1,11 +1,13 @@
 import { expect, test } from "playwright/test";
 import {
   captureActualScreenshot,
+  expectTimelineFrameOwnsStickyScroll,
   prepareVisualPage,
   type VisualViewportName,
 } from "./helpers";
 
 const desktop: VisualViewportName = "desktop-1920";
+const laptop: VisualViewportName = "laptop-1366";
 
 for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
   test(`SCH-02 default ${viewport}`, async ({ page }) => {
@@ -61,5 +63,18 @@ test(`SCH-02 worker-selected ${desktop}`, async ({ page }) => {
     screenId: "SCH-02",
     state: "worker-selected",
     viewport: desktop,
+  });
+});
+
+test(`SCH-02 timeline owns sticky scroll ${laptop}`, async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/schedule/timeline",
+    viewport: laptop,
+  });
+  await page.evaluate(() => document.fonts.ready);
+  await expectTimelineFrameOwnsStickyScroll({
+    frameTestId: "schedule-timeline-grid",
+    page,
   });
 });

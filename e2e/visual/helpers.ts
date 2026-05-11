@@ -1,6 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import type { Page } from "playwright";
+import { expect, type Page } from "playwright/test";
 
 export type VisualViewportName =
   | "desktop-1920"
@@ -79,4 +79,66 @@ export async function captureActualScreenshot({
   await mkdir(path.dirname(screenshotPath), { recursive: true });
   await page.screenshot({ path: screenshotPath, fullPage });
   return screenshotPath;
+}
+
+export async function expectTimelineFrameOwnsStickyScroll({
+  frameTestId,
+  page,
+}: {
+  frameTestId: string;
+  page: Page;
+}) {
+  const metrics = await page.evaluate((testId) => {
+    const frame = document.querySelector(`[data-testid="${testId}"]`);
+    if (!(frame instanceof HTMLElement)) {
+      throw new Error(`Timeline frame not found: ${testId}`);
+    }
+
+    const grid = frame.querySelector('[role="grid"]');
+    const header = grid
+      ?.querySelector('[role="columnheader"]')
+      ?.parentElement;
+    const rowHeader = grid?.querySelector('[role="rowheader"]');
+    const shellScroller = Array.from(document.querySelectorAll("div")).find(
+      (element) =>
+        element.className === "h-full overflow-y-auto overscroll-contain",
+    );
+
+    if (
+      !(header instanceof HTMLElement) ||
+      !(rowHeader instanceof HTMLElement) ||
+      !shellScroller
+    ) {
+      throw new Error("Timeline sticky measurement target not found");
+    }
+
+    const beforeHeaderRect = header.getBoundingClientRect();
+    const beforeRowHeaderRect = rowHeader.getBoundingClientRect();
+    frame.scrollTop = 120;
+    frame.scrollLeft = 120;
+    const afterHeaderRect = header.getBoundingClientRect();
+    const afterRowHeaderRect = rowHeader.getBoundingClientRect();
+    const result = {
+      frameScrollLeft: frame.scrollLeft,
+      frameScrollTop: frame.scrollTop,
+      headerLeftDelta: afterHeaderRect.left - beforeHeaderRect.left,
+      headerTopDelta: afterHeaderRect.top - beforeHeaderRect.top,
+      rowHeaderLeftDelta: afterRowHeaderRect.left - beforeRowHeaderRect.left,
+      rowHeaderTopDelta: afterRowHeaderRect.top - beforeRowHeaderRect.top,
+      shellOverflowY: shellScroller.scrollHeight - shellScroller.clientHeight,
+    };
+
+    frame.scrollTop = 0;
+    frame.scrollLeft = 0;
+
+    return result;
+  }, frameTestId);
+
+  expect(metrics.shellOverflowY).toBeLessThanOrEqual(1);
+  expect(metrics.frameScrollLeft).toBeGreaterThan(0);
+  expect(metrics.frameScrollTop).toBeGreaterThan(0);
+  expect(Math.abs(metrics.headerTopDelta)).toBeLessThanOrEqual(1);
+  expect(Math.abs(metrics.rowHeaderLeftDelta)).toBeLessThanOrEqual(1);
+  expect(metrics.headerLeftDelta).toBeLessThan(0);
+  expect(metrics.rowHeaderTopDelta).toBeLessThan(0);
 }

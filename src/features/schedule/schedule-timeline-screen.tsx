@@ -73,7 +73,7 @@ export function ScheduleTimelineScreen() {
   return (
     <section
       aria-label="근무 시간표"
-      className="mx-auto w-full max-w-[1580px] tracking-normal"
+      className="mx-auto flex h-[calc(100vh-188px)] w-full max-w-[1580px] flex-col overflow-hidden tracking-normal 2xl:h-[calc(100vh-228px)]"
       data-schedule-timeline-state={
         workerSelected ? "worker-selected" : "default"
       }
@@ -83,7 +83,7 @@ export function ScheduleTimelineScreen() {
         onLocationToggle={() => setLocationMenuOpen((open) => !open)}
       />
 
-      <div className="mt-[21px] grid grid-cols-[minmax(0,1fr)_360px] gap-4 2xl:grid-cols-[minmax(0,1fr)_400px] 2xl:gap-5">
+      <div className="mt-[21px] grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_360px] gap-4 2xl:grid-cols-[minmax(0,1fr)_400px] 2xl:gap-5">
         <TimelineGrid
           blocks={timelineBlocks}
           selectedBlockIds={selectedBlockIds}
@@ -216,7 +216,7 @@ function TimelineGrid({
   return (
     <TimelineGridFrame
       ariaLabel="주간 근무 시간표"
-      className="h-[815px]"
+      className="h-full"
       days={timelineDays}
       renderBlocks={(day) => {
         const positionedBlocks =
@@ -232,6 +232,7 @@ function TimelineGrid({
           />
         ));
       }}
+      testId="schedule-timeline-grid"
       timeSlots={scheduleTimelineTimeSlots}
     />
   );
@@ -303,7 +304,7 @@ function TimelineBlock({
 
 function WorkerDetailPanel({ selected }: { selected: boolean }) {
   return (
-    <aside className="flex h-[815px] min-w-0 flex-col rounded-[8px] border border-gray-200 bg-white px-5 py-5">
+    <aside className="flex h-full min-w-0 flex-col rounded-[8px] border border-gray-200 bg-white px-5 py-5">
       {selected ? <SelectedWorkerDetail /> : <EmptyWorkerDetail />}
     </aside>
   );

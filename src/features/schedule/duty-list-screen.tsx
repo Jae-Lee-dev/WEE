@@ -149,7 +149,7 @@ export function DutyListScreen({
   return (
     <section
       aria-label="근무 목록"
-      className="flex h-[calc(100vh-202px)] min-h-[760px] w-full flex-col gap-5"
+      className="flex h-[calc(100vh-188px)] w-full flex-col gap-5 overflow-hidden 2xl:h-[calc(100vh-228px)]"
       data-duty-list-state={selectedDuty ? "selected" : "default"}
       data-testid="duty-list-screen"
     >

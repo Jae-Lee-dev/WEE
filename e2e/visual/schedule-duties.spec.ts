@@ -1,12 +1,14 @@
 import { expect, test } from "playwright/test";
 import {
   captureActualScreenshot,
+  expectTimelineFrameOwnsStickyScroll,
   prepareVisualPage,
   type VisualViewportName,
 } from "./helpers";
 
 const routePath = "/schedule/duties";
 const desktop: VisualViewportName = "desktop-1920";
+const laptop: VisualViewportName = "laptop-1366";
 
 for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
   test(`DUT-01 default ${viewport}`, async ({ page }) => {
@@ -97,5 +99,14 @@ test(`DUT-01 edit-time-dialog ${desktop}`, async ({ page }) => {
     screenId: "DUT-01",
     state: "edit-time-dialog",
     viewport: desktop,
+  });
+});
+
+test(`DUT-01 timeline owns sticky scroll ${laptop}`, async ({ page }) => {
+  await prepareVisualPage({ page, path: routePath, viewport: laptop });
+  await page.evaluate(() => document.fonts.ready);
+  await expectTimelineFrameOwnsStickyScroll({
+    frameTestId: "duty-timeline-view",
+    page,
   });
 });

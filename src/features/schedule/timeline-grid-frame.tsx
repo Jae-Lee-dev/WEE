@@ -54,7 +54,7 @@ export function TimelineGridFrame({
   return (
     <div
       className={cn(
-        "min-w-0 overflow-auto rounded-[8px] border border-gray-200 bg-white",
+        "min-h-0 min-w-0 overflow-auto overscroll-contain rounded-[8px] border border-gray-200 bg-white",
         className,
       )}
       data-testid={testId}
