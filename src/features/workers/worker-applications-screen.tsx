@@ -15,7 +15,6 @@ import {
   type WorkerApplicationTag,
 } from "./worker-applications-fixtures";
 
-const firstApplicationId = workerApplicationRows[0]?.id;
 const selectedTag = workerApplicationTags[0];
 
 export function WorkerApplicationsScreen() {
@@ -87,11 +86,10 @@ function ApplicationList({
         </Badge>
       </div>
 
-      <div className="grid h-[41px] grid-cols-[28%_28%_1fr_84px] items-center border-b border-gray-300 px-5 text-h-18-regular text-gray-500">
+      <div className="grid h-[41px] grid-cols-[28%_28%_1fr] items-center border-b border-gray-300 px-5 text-h-18-regular text-gray-500">
         <div>이름</div>
         <div>연락처</div>
         <div>신청일</div>
-        <div aria-hidden="true" />
       </div>
 
       <div>
@@ -99,38 +97,23 @@ function ApplicationList({
           const selected = row.id === selectedApplicationId;
 
           return (
-            <div
+            <button
+              type="button"
               key={row.id}
               data-testid={`worker-application-row-${index + 1}`}
+              data-selected={selected ? "true" : undefined}
+              aria-pressed={selected}
+              aria-label={`${row.name} 소속 신청 ${selected ? "선택 취소" : "선택"}`}
+              onClick={() => onSelect(row.id)}
               className={cn(
-                "grid h-[61px] grid-cols-[28%_28%_1fr_84px] items-center border-b border-gray-100 px-5 text-h-18-regular text-gray-900 last:border-b-0",
-                selected && "bg-green-50",
+                "grid h-[61px] w-full grid-cols-[28%_28%_1fr] items-center border-b border-gray-100 px-5 text-left text-h-18-regular text-gray-900 transition-colors duration-150 ease-out last:border-b-0 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-green-400",
+                selected && "bg-green-50 ring-2 ring-inset ring-green-400 hover:bg-green-50",
               )}
             >
               <div className="min-w-0 truncate">{row.name}</div>
               <div className="min-w-0 truncate">{row.phone}</div>
               <div className="min-w-0 truncate">{row.appliedAt}</div>
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  data-testid={
-                    row.id === firstApplicationId
-                      ? "worker-application-first-select"
-                      : undefined
-                  }
-                  aria-pressed={selected}
-                  onClick={() => onSelect(row.id)}
-                  className={cn(
-                    "flex h-[42px] min-w-[64px] items-center justify-center rounded-full border px-4 text-h-16-medium transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
-                    selected
-                      ? "border-green-400 bg-green-400 text-white hover:bg-green-450"
-                      : "border-gray-200 bg-white text-gray-800 hover:border-gray-300 hover:bg-gray-50",
-                  )}
-                >
-                  {selected ? "취소" : "선택"}
-                </button>
-              </div>
-            </div>
+            </button>
           );
         })}
       </div>

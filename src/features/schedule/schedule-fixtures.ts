@@ -98,6 +98,8 @@ export type ScheduleSelectedWorkerContext = {
   workerName: string;
   statusText: string;
   assignedCountText: string;
+  detailHref: string;
+  scheduleHref: string;
   selectedBlockIds: readonly string[];
   assignments: readonly ScheduleSelectedWorkerAssignment[];
   actions: {
@@ -423,7 +425,7 @@ export const scheduleTimelineFilters = {
   ],
   workerOptions: [
     { value: "all", label: "조교 (전체)" },
-    { value: "ihaeun", label: "이하은" },
+    { value: "worker_kim_seoyeon", label: "김서연" },
     { value: "kang-taewoo", label: "강태우" },
     { value: "song-hyunwoo", label: "송현우" },
     { value: "jeong-suhyeon", label: "정수현" },
@@ -499,7 +501,7 @@ export const scheduleTimelineBlocks = [
     "schedule-ihaeun-mon-english-c",
     "mon",
     "영어 C반",
-    "이하은",
+    "김서연",
     "19:00~21:00",
     19,
     21,
@@ -511,7 +513,7 @@ export const scheduleTimelineBlocks = [
     "schedule-ihaeun-wed-korean-e",
     "wed",
     "국어 E반",
-    "이하은",
+    "김서연",
     "14:00~16:00",
     14,
     16,
@@ -523,7 +525,7 @@ export const scheduleTimelineBlocks = [
     "schedule-ihaeun-wed-english-c",
     "wed",
     "영어 C반",
-    "이하은",
+    "김서연",
     "19:00~21:00",
     19,
     21,
@@ -535,7 +537,7 @@ export const scheduleTimelineBlocks = [
     "schedule-ihaeun-fri-korean-e",
     "fri",
     "국어 E반",
-    "이하은",
+    "김서연",
     "14:00~16:00",
     14,
     16,
@@ -547,7 +549,7 @@ export const scheduleTimelineBlocks = [
     "schedule-ihaeun-sun-lab-admin",
     "sun",
     "연구실 행정",
-    "이하은",
+    "김서연",
     "09:00~12:00",
     9,
     12,
@@ -558,10 +560,12 @@ export const scheduleTimelineBlocks = [
 ] as const satisfies readonly ScheduleTimelineBlock[];
 
 export const scheduleSelectedWorkerContext = {
-  workerId: "ihaeun",
-  workerName: "이하은",
+  workerId: "worker_kim_seoyeon",
+  workerName: "김서연",
   statusText: "활성",
   assignedCountText: "현재 배정 근무 (5건)",
+  detailHref: "/workers/worker_kim_seoyeon",
+  scheduleHref: "/workers/worker_kim_seoyeon/schedule",
   selectedBlockIds: [
     "schedule-ihaeun-mon-english-c",
     "schedule-ihaeun-wed-korean-e",

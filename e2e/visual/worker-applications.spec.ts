@@ -32,7 +32,7 @@ test(`WKR-01 selected-application ${desktop}`, async ({ page }) => {
     viewport: desktop,
   });
   await page.evaluate(() => document.fonts.ready);
-  await page.getByTestId("worker-application-first-select").click();
+  await page.getByTestId("worker-application-row-1").click();
   await expect(page.getByRole("heading", { name: "소속 승인" })).toBeVisible();
 
   await captureActualScreenshot({
@@ -50,7 +50,7 @@ test(`WKR-01 tag-search ${desktop}`, async ({ page }) => {
     viewport: desktop,
   });
   await page.evaluate(() => document.fonts.ready);
-  await page.getByTestId("worker-application-first-select").click();
+  await page.getByTestId("worker-application-row-1").click();
   await page.getByTestId("worker-application-tag-search-trigger").click();
   await expect(page.getByTestId("worker-application-tag-menu")).toBeVisible();
 
@@ -69,7 +69,7 @@ test(`WKR-01 tag-added ${desktop}`, async ({ page }) => {
     viewport: desktop,
   });
   await page.evaluate(() => document.fonts.ready);
-  await page.getByTestId("worker-application-first-select").click();
+  await page.getByTestId("worker-application-row-1").click();
   await page.getByTestId("worker-application-tag-search-trigger").click();
   await expect(page.getByTestId("worker-application-tag-menu")).toBeVisible();
 
@@ -88,7 +88,7 @@ test(`WKR-01 monthly-pay-selected ${desktop}`, async ({ page }) => {
     viewport: desktop,
   });
   await page.evaluate(() => document.fonts.ready);
-  await page.getByTestId("worker-application-first-select").click();
+  await page.getByTestId("worker-application-row-1").click();
   await page.getByTestId("worker-application-tag-search-trigger").click();
   await page.getByTestId("worker-application-tag-option-first").click();
   await page.getByTestId("worker-application-pay-monthly").click();
@@ -104,4 +104,21 @@ test(`WKR-01 monthly-pay-selected ${desktop}`, async ({ page }) => {
     state: "monthly-pay-selected",
     viewport: desktop,
   });
+});
+
+test("WKR-01 row click toggles application selection", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/workers/applications",
+    viewport: desktop,
+  });
+  const firstRow = page.getByTestId("worker-application-row-1");
+
+  await firstRow.click();
+  await expect(firstRow).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("heading", { name: "소속 승인" })).toBeVisible();
+
+  await firstRow.click();
+  await expect(firstRow).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByText("신청 건을 선택하면").first()).toBeVisible();
 });

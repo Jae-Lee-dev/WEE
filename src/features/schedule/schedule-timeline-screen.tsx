@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, type CSSProperties } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -344,18 +345,22 @@ function SelectedWorkerDetail() {
 
       <div className="mt-auto flex gap-3">
         <Button
-          type="button"
+          asChild
           variant="secondary"
           className="h-[50px] flex-1 rounded-[6px] border-0 bg-gray-100 px-3 tracking-normal text-gray-700 shadow-none hover:bg-gray-100"
         >
-          {scheduleSelectedWorkerContext.actions.editScheduleLabel}
+          <Link href={scheduleSelectedWorkerContext.scheduleHref}>
+            {scheduleSelectedWorkerContext.actions.editScheduleLabel}
+          </Link>
         </Button>
         <Button
-          type="button"
+          asChild
           variant="secondary"
           className="h-[50px] flex-1 rounded-[6px] border-0 bg-gray-100 px-3 tracking-normal text-gray-700 shadow-none hover:bg-gray-100"
         >
-          {scheduleSelectedWorkerContext.actions.viewWorkerLabel}
+          <Link href={scheduleSelectedWorkerContext.detailHref}>
+            {scheduleSelectedWorkerContext.actions.viewWorkerLabel}
+          </Link>
         </Button>
       </div>
     </>

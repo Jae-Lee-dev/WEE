@@ -55,7 +55,7 @@ test(`SCH-02 worker-selected ${desktop}`, async ({ page }) => {
   await page.evaluate(() => document.fonts.ready);
   await page.getByTestId("schedule-timeline-worker-select").click();
   await expect(
-    page.getByRole("heading", { name: "이하은" }),
+    page.getByRole("heading", { name: "김서연" }),
   ).toBeVisible();
 
   await captureActualScreenshot({
@@ -77,4 +77,23 @@ test(`SCH-02 timeline owns sticky scroll ${laptop}`, async ({ page }) => {
     frameTestId: "schedule-timeline-grid",
     page,
   });
+});
+
+test("SCH-02 selected worker action buttons link to worker detail", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/schedule/timeline",
+    viewport: desktop,
+  });
+  await page.getByTestId("schedule-timeline-worker-select").click();
+
+  await expect(
+    page.getByRole("link", { name: "조교 시간표 편집" }),
+  ).toHaveAttribute("href", "/workers/worker_kim_seoyeon/schedule");
+
+  await page.getByRole("link", { name: "조교 상세 보기" }).click();
+  await expect(page).toHaveURL(/\/workers\/worker_kim_seoyeon$/);
+  await expect(
+    page.getByRole("heading", { name: "인적사항 · 계좌" }),
+  ).toBeVisible();
 });
