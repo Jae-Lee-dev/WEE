@@ -240,24 +240,29 @@ function MetricCard({
       <span className="w-full truncate text-label-18 text-gray-800">
         {metric.title}
       </span>
-      <span className="flex min-w-0 items-center gap-3">
-        <span className="flex shrink-0 items-baseline gap-1">
+      <span className="flex min-w-0 items-start gap-3">
+        <span className="flex shrink-0 items-start gap-1">
           <span
             className={cn(
-              "text-[36px] font-semibold leading-[45px] tracking-tight",
+              "text-[36px] font-semibold leading-[1.4] tracking-tight",
               tone.text,
             )}
           >
             {metric.value}
           </span>
-          <span className="text-h-20" style={tone.textStyle}>
+          <span
+            className="mt-2 text-h-20"
+            data-testid={`dashboard-metric-${metric.id}-unit`}
+            style={tone.textStyle}
+          >
             {metric.unit}
           </span>
         </span>
         <Badge
           variant={tone.badge}
           size="M"
-          className={cn("min-w-0 truncate", dashboardBadgeClassName)}
+          className={cn("mt-2 min-w-0 truncate", dashboardBadgeClassName)}
+          data-testid={`dashboard-metric-${metric.id}-badge`}
           style={tone.badgeStyle}
         >
           {metric.badge}

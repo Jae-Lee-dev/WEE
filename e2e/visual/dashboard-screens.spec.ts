@@ -1,4 +1,4 @@
-import { expect, test } from "playwright/test";
+import { expect, test, type Page } from "playwright/test";
 import {
   captureActualScreenshot,
   prepareVisualPage,
@@ -16,6 +16,15 @@ const filterStates = [
   { state: "filter-payroll", testId: "dashboard-filter-payroll" },
 ] as const;
 
+const metricIds = [
+  "affiliation",
+  "schedule",
+  "overtime",
+  "correction",
+  "anomaly",
+  "payroll",
+] as const;
+
 for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
   test(`DSH-01 default ${viewport}`, async ({ page }) => {
     await prepareVisualPage({ page, path: "/dashboard", viewport });
@@ -24,6 +33,7 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
       page.getByRole("heading", { name: "확인 필요" }),
     ).toBeVisible();
     await expect(page.getByText("24건")).toBeVisible();
+    await expectMetricBadgesToAlignWithUnits(page);
 
     await captureActualScreenshot({
       page,
@@ -31,6 +41,25 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
       viewport,
     });
   });
+}
+
+async function expectMetricBadgesToAlignWithUnits(page: Page) {
+  for (const metricId of metricIds) {
+    const unitBox = await page
+      .getByTestId(`dashboard-metric-${metricId}-unit`)
+      .boundingBox();
+    const badgeBox = await page
+      .getByTestId(`dashboard-metric-${metricId}-badge`)
+      .boundingBox();
+
+    expect(unitBox).not.toBeNull();
+    expect(badgeBox).not.toBeNull();
+    if (!unitBox || !badgeBox) {
+      continue;
+    }
+
+    expect(Math.abs(unitBox.y - badgeBox.y)).toBeLessThanOrEqual(1);
+  }
 }
 
 test(`SHELL-01 default ${desktop}`, async ({ page }) => {
