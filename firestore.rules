@@ -1,0 +1,59 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function workspacePath(workspaceId) {
+      return /databases/$(database)/documents/workspaces/$(workspaceId);
+    }
+
+    function isWorkspaceManager(workspaceId) {
+      return signedIn()
+        && exists(workspacePath(workspaceId))
+        && get(workspacePath(workspaceId)).data.managerUid == request.auth.uid;
+    }
+
+    function isWorkspaceManagerAfter(workspaceId) {
+      return signedIn()
+        && existsAfter(workspacePath(workspaceId))
+        && getAfter(workspacePath(workspaceId)).data.managerUid == request.auth.uid;
+    }
+
+    match /users/{userId} {
+      allow get, create, update: if isSelf(userId);
+      allow list, delete: if false;
+    }
+
+    match /workspaces/{workspaceId} {
+      allow get, list: if isWorkspaceManager(workspaceId);
+      allow create: if signedIn()
+        && request.resource.data.managerUid == request.auth.uid;
+      allow update: if isWorkspaceManager(workspaceId)
+        && request.resource.data.managerUid == resource.data.managerUid;
+      allow delete: if false;
+
+      match /locations/{locationId} {
+        allow get, list: if isWorkspaceManager(workspaceId);
+        allow create, update: if isWorkspaceManagerAfter(workspaceId);
+        allow delete: if false;
+      }
+    }
+
+    match /workspaceCodes/{code} {
+      allow get: if signedIn() && resource.data.active == true;
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.active == true
+        && request.resource.data.workspaceId is string
+        && isWorkspaceManagerAfter(request.resource.data.workspaceId);
+      allow update, delete: if false;
+    }
+  }
+}
