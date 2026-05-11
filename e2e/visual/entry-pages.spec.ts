@@ -173,6 +173,11 @@ test("AUTH-02 validates native signup before Firebase submit", async ({
     "data-state",
     "unmet",
   );
+  await expect(page.getByTestId("password-guidance")).toBeVisible();
+  await expect(page.getByTestId("password-strength")).toHaveAttribute(
+    "data-strength",
+    "empty",
+  );
 
   await page.getByLabel("이름").fill("김민채");
   await page.getByLabel("이메일").fill("admin@wee.kr");
@@ -190,6 +195,10 @@ test("AUTH-02 validates native signup before Firebase submit", async ({
   await expect(page.getByTestId("password-requirement-number")).toHaveAttribute(
     "data-state",
     "unmet",
+  );
+  await expect(page.getByTestId("password-strength")).toHaveAttribute(
+    "data-strength",
+    "medium",
   );
   await page
     .getByRole("button", { name: "회원가입하고 인증 메일 받기" })

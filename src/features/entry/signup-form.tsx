@@ -46,12 +46,12 @@ const passwordRequirements = [
   },
   {
     id: "letter",
-    label: "영문 포함",
+    label: "영문",
     isMet: (password: string) => /[A-Za-z]/.test(password),
   },
   {
     id: "number",
-    label: "숫자 포함",
+    label: "숫자",
     isMet: (password: string) => /\d/.test(password),
   },
 ] as const;
@@ -164,6 +164,7 @@ export function SignupForm() {
         <SignupPasswordField
           id="signup-password"
           label="비밀번호"
+          descriptionId="signup-password-guidance"
           isVisible={isPasswordVisible}
           onToggleVisibility={() =>
             setIsPasswordVisible((current) => !current)
@@ -178,7 +179,7 @@ export function SignupForm() {
           required
           disabled={isSubmitting}
         />
-        <PasswordRequirementList password={form.password} />
+        <PasswordGuidance password={form.password} />
         <SignupPasswordField
           id="signup-password-confirm"
           label="비밀번호 확인"
@@ -291,6 +292,7 @@ function SignupPasswordField({
   isVisible,
   onToggleVisibility,
   error,
+  descriptionId,
   className,
   ...props
 }: ComponentProps<typeof Input> & {
@@ -298,9 +300,13 @@ function SignupPasswordField({
   label: string;
   isVisible: boolean;
   onToggleVisibility: () => void;
+  descriptionId?: string;
   error?: string;
 }) {
   const errorId = `${id}-error`;
+  const describedBy = [descriptionId, error ? errorId : undefined]
+    .filter(Boolean)
+    .join(" ");
   const visibilityLabel = isVisible ? `${label} 숨기기` : `${label} 보기`;
   const VisibilityIcon = isVisible ? EyeOff : Eye;
 
@@ -315,7 +321,7 @@ function SignupPasswordField({
       <div className="relative">
         <Input
           id={id}
-          aria-describedby={error ? errorId : undefined}
+          aria-describedby={describedBy || undefined}
           aria-invalid={error ? true : undefined}
           className="h-12 rounded-[8px] border-gray-200 pr-12 text-body-16-regular tracking-normal"
           type={isVisible ? "text" : "password"}
@@ -344,13 +350,58 @@ function SignupPasswordField({
   );
 }
 
-function PasswordRequirementList({ password }: { password: string }) {
+function PasswordGuidance({ password }: { password: string }) {
+  const metCount = passwordRequirements.filter((requirement) =>
+    requirement.isMet(password),
+  ).length;
+  const strength = getPasswordStrength(metCount, password);
+
   return (
-    <div className="mt-4" aria-label="비밀번호 조건">
-      <div className="text-label-12-medium tracking-normal text-gray-500">
-        비밀번호 조건
+    <div
+      id="signup-password-guidance"
+      className="-mt-1 space-y-2"
+      aria-live="polite"
+      data-testid="password-guidance"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-label-12-regular tracking-normal text-gray-500">
+          8자 이상, 영문과 숫자를 함께 입력해 주세요.
+        </p>
+        <span
+          className={cn(
+            "shrink-0 text-label-12-medium tracking-normal",
+            strength.tone === "green"
+              ? "text-green-500"
+              : strength.tone === "orange"
+                ? "text-orange-400"
+                : "text-gray-400",
+          )}
+          data-strength={strength.id}
+          data-testid="password-strength"
+        >
+          {strength.label}
+        </span>
       </div>
-      <ul className="mt-2 grid gap-2 sm:grid-cols-3">
+      <div
+        className="grid h-1.5 grid-cols-3 gap-1"
+        aria-hidden="true"
+        data-testid="password-strength-meter"
+      >
+        {passwordRequirements.map((requirement) => {
+          const isMet = requirement.isMet(password);
+
+          return (
+            <span
+              key={requirement.id}
+              className={cn(
+                "rounded-full transition-colors",
+                isMet ? "bg-green-400" : "bg-gray-100",
+              )}
+            />
+          );
+        })}
+      </div>
+      <ul className="flex flex-wrap gap-x-3 gap-y-1.5">
         {passwordRequirements.map((requirement) => {
           const isMet = requirement.isMet(password);
 
@@ -358,24 +409,24 @@ function PasswordRequirementList({ password }: { password: string }) {
             <li
               key={requirement.id}
               className={cn(
-                "flex min-h-7 items-center gap-2 text-label-12-medium tracking-normal",
-                isMet ? "text-green-500" : "text-gray-500",
+                "flex min-h-5 items-center gap-1.5 text-label-12-medium tracking-normal transition-colors",
+                isMet ? "text-green-500" : "text-gray-400",
               )}
               data-state={isMet ? "met" : "unmet"}
               data-testid={`password-requirement-${requirement.id}`}
             >
               <span
                 className={cn(
-                  "grid size-5 shrink-0 place-items-center rounded-full border",
+                  "grid size-4 shrink-0 place-items-center rounded-full border transition-colors",
                   isMet
                     ? "border-green-400 bg-green-400 text-white"
-                    : "border-gray-200 bg-white text-gray-300",
+                    : "border-gray-200 bg-gray-50 text-gray-300",
                 )}
               >
                 {isMet ? (
-                  <Check className="size-3.5" strokeWidth={2.8} />
+                  <Check className="size-3" strokeWidth={2.8} />
                 ) : (
-                  <span className="size-1.5 rounded-full bg-current" />
+                  <span className="size-1 rounded-full bg-current" />
                 )}
               </span>
               {requirement.label}
@@ -385,6 +436,22 @@ function PasswordRequirementList({ password }: { password: string }) {
       </ul>
     </div>
   );
+}
+
+function getPasswordStrength(metCount: number, password: string) {
+  if (!password) {
+    return { id: "empty", label: "입력 전", tone: "grey" } as const;
+  }
+
+  if (metCount === passwordRequirements.length) {
+    return { id: "safe", label: "안전", tone: "green" } as const;
+  }
+
+  if (metCount >= 2) {
+    return { id: "medium", label: "보통", tone: "orange" } as const;
+  }
+
+  return { id: "weak", label: "낮음", tone: "grey" } as const;
 }
 
 function SignupCheckbox({
