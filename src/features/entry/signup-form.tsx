@@ -13,7 +13,7 @@ import {
   sendEmailVerification,
   updateProfile,
 } from "firebase/auth";
-import { Check, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -200,9 +200,7 @@ export function SignupForm() {
           label="비밀번호"
           descriptionId="signup-password-guidance"
           isVisible={isPasswordVisible}
-          onToggleVisibility={() =>
-            setIsPasswordVisible((current) => !current)
-          }
+          onToggleVisibility={() => setIsPasswordVisible((current) => !current)}
           autoComplete="new-password"
           spellCheck={false}
           value={form.password}
@@ -367,7 +365,7 @@ function SignupEmailField({
         </span>
         <OptionSelect
           disabled={disabled}
-          itemClassName="py-2 text-label-12-medium"
+          itemClassName="py-2 text-body-14-medium"
           onValueChange={onDomainChange}
           options={emailDomainOptions}
           placeholder="선택"
@@ -467,10 +465,7 @@ function PasswordGuidance({ password }: { password: string }) {
       aria-live="polite"
       data-testid="password-guidance"
     >
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-label-12-regular tracking-normal text-gray-500">
-          8자 이상, 영문과 숫자를 함께 입력해 주세요.
-        </p>
+      <div className="flex items-center justify-end">
         <span
           className={cn(
             "shrink-0 text-label-12-medium tracking-normal",
@@ -486,26 +481,10 @@ function PasswordGuidance({ password }: { password: string }) {
           {strength.label}
         </span>
       </div>
-      <div
-        className="grid h-1.5 grid-cols-3 gap-1"
-        aria-hidden="true"
+      <ul
+        className="grid grid-cols-3 gap-1.5"
         data-testid="password-strength-meter"
       >
-        {passwordRequirements.map((requirement) => {
-          const isMet = requirement.isMet(password);
-
-          return (
-            <span
-              key={requirement.id}
-              className={cn(
-                "rounded-full transition-colors",
-                isMet ? "bg-green-400" : "bg-gray-100",
-              )}
-            />
-          );
-        })}
-      </div>
-      <ul className="flex flex-wrap gap-x-3 gap-y-1.5">
         {passwordRequirements.map((requirement) => {
           const isMet = requirement.isMet(password);
 
@@ -513,7 +492,7 @@ function PasswordGuidance({ password }: { password: string }) {
             <li
               key={requirement.id}
               className={cn(
-                "flex min-h-5 items-center gap-1.5 text-label-12-medium tracking-normal transition-colors",
+                "min-w-0 space-y-1.5 text-label-12-medium tracking-normal transition-colors",
                 isMet ? "text-green-500" : "text-gray-400",
               )}
               data-state={isMet ? "met" : "unmet"}
@@ -521,19 +500,14 @@ function PasswordGuidance({ password }: { password: string }) {
             >
               <span
                 className={cn(
-                  "grid size-4 shrink-0 place-items-center rounded-full border transition-colors",
-                  isMet
-                    ? "border-green-400 bg-green-400 text-white"
-                    : "border-gray-200 bg-gray-50 text-gray-300",
+                  "block h-1.5 rounded-full transition-colors",
+                  isMet ? "bg-green-400" : "bg-gray-100",
                 )}
-              >
-                {isMet ? (
-                  <Check className="size-3" strokeWidth={2.8} />
-                ) : (
-                  <span className="size-1 rounded-full bg-current" />
-                )}
+                aria-hidden="true"
+              />
+              <span className="block truncate text-center">
+                {requirement.label}
               </span>
-              {requirement.label}
             </li>
           );
         })}
@@ -689,10 +663,10 @@ function getSignupFormErrors(
 function hasSignupFormErrors(errors: SignupFormErrors) {
   return Boolean(
     errors.name ||
-      errors.email ||
-      errors.password ||
-      errors.passwordConfirm ||
-      errors.terms,
+    errors.email ||
+    errors.password ||
+    errors.passwordConfirm ||
+    errors.terms,
   );
 }
 
