@@ -124,7 +124,7 @@ const cases = [
   {
     name: "pull request phase safety fails",
     expectSuccess: false,
-    expectedOutput: 'missing required snippet "No optimistic UI"',
+    expectedOutput: 'checklist "No optimistic UI" in "## Phase-Scope Safety" must be present as an unchecked item',
     setup(fixtureRoot) {
       mutateFixtureFile(fixtureRoot, ".github/pull_request_template.md", (content) =>
         content.replace("- [ ] No optimistic UI", "- [ ] No optimistic updates"),
@@ -134,10 +134,22 @@ const cases = [
   {
     name: "pull request ci verification fails",
     expectSuccess: false,
-    expectedOutput: 'missing required snippet "`pnpm verify:ci`"',
+    expectedOutput: 'checklist "`pnpm verify:ci`" in "## Verification" must be present as an unchecked item',
     setup(fixtureRoot) {
       mutateFixtureFile(fixtureRoot, ".github/pull_request_template.md", (content) =>
         content.replace("- [ ] `pnpm verify:ci`", "- [ ] `pnpm verify`"),
+      );
+    },
+  },
+  {
+    name: "pull request phase safety wrong section fails",
+    expectSuccess: false,
+    expectedOutput: 'checklist "No optimistic UI" in "## Phase-Scope Safety" must be present as an unchecked item',
+    setup(fixtureRoot) {
+      mutateFixtureFile(fixtureRoot, ".github/pull_request_template.md", (content) =>
+        content
+          .replace("- [ ] No optimistic UI\n", "")
+          .replace("- [ ] `pnpm verify:ci`\n", "- [ ] `pnpm verify:ci`\n- [ ] No optimistic UI\n"),
       );
     },
   },
@@ -160,6 +172,20 @@ const cases = [
         content.replace(
           "        - label: CI should run `pnpm install --frozen-lockfile` and `pnpm verify:ci`.\n          required: true",
           "        - label: CI should run `pnpm install --frozen-lockfile` and `pnpm verify`.\n          required: true",
+        ),
+      );
+    },
+  },
+  {
+    name: "deployment readiness required checkbox fails",
+    expectSuccess: false,
+    expectedOutput:
+      'checkbox "CI should run `pnpm install --frozen-lockfile` and `pnpm verify:ci`." in "readiness" must be present with required: true',
+    setup(fixtureRoot) {
+      mutateFixtureFile(fixtureRoot, ".github/ISSUE_TEMPLATE/deployment-setup.yml", (content) =>
+        content.replace(
+          "        - label: CI should run `pnpm install --frozen-lockfile` and `pnpm verify:ci`.\n          required: true",
+          "        - label: CI should run `pnpm install --frozen-lockfile` and `pnpm verify:ci`.",
         ),
       );
     },

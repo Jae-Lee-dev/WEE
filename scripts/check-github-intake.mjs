@@ -32,6 +32,17 @@ const prSafetyLabels = [
   "No local array add/edit/delete mutation",
   "No submit-driven approval/rejection/confirmation/save/delete behavior",
 ];
+const prVerificationLabels = [
+  "`pnpm verify:ci`",
+  "Visual Playwright spec if Figma-backed screen/state changed",
+  "`git diff --check` or `git diff --cached --check` for docs/instructions-only changes",
+];
+const deploymentReadinessLabels = [
+  "GitHub remote can be added to the local repo.",
+  "Vercel project/account access is available.",
+  "No Firebase/Auth/Firestore variables are being added in this request.",
+  "CI should run `pnpm install --frozen-lockfile` and `pnpm verify:ci`.",
+];
 const backendGuardrailLabels = [
   "This request explicitly changes the Figma-first guardrails only for the accepted scope.",
   "Static UI and Figma-backed visual evidence must not regress for screens touched by backend work.",
@@ -141,6 +152,31 @@ function requireRequiredCheckboxOptions(file, content, id, labels) {
   }
 }
 
+function extractMarkdownSection(file, content, heading) {
+  const headingIndex = content.indexOf(`${heading}\n`);
+
+  if (headingIndex === -1) {
+    findings.push(`${file}: missing markdown section "${heading}"`);
+    return "";
+  }
+
+  const nextHeadingIndex = content.indexOf("\n## ", headingIndex + heading.length);
+
+  return content.slice(headingIndex, nextHeadingIndex === -1 ? undefined : nextHeadingIndex);
+}
+
+function requireMarkdownChecklistItems(file, content, heading, labels) {
+  const section = extractMarkdownSection(file, content, heading);
+
+  for (const label of labels) {
+    const uncheckedItemPattern = new RegExp(`^- \\[ \\] ${escapeRegExp(label)}$`, "m");
+
+    if (!uncheckedItemPattern.test(section)) {
+      findings.push(`${file}: checklist "${label}" in "${heading}" must be present as an unchecked item`);
+    }
+  }
+}
+
 for (const file of requiredFiles) {
   readRequiredFile(file);
 }
@@ -174,6 +210,12 @@ requireRequiredCheckboxOptions(
   phaseSafetyLabels,
 );
 requireRequiredCheckboxOptions(
+  ".github/ISSUE_TEMPLATE/deployment-setup.yml",
+  readRequiredFile(".github/ISSUE_TEMPLATE/deployment-setup.yml"),
+  "readiness",
+  deploymentReadinessLabels,
+);
+requireRequiredCheckboxOptions(
   ".github/ISSUE_TEMPLATE/backend-phase-switch.yml",
   readRequiredFile(".github/ISSUE_TEMPLATE/backend-phase-switch.yml"),
   "guardrail-acknowledgement",
@@ -188,23 +230,13 @@ const requiredPullRequestSections = [
   "## Verification",
   "## Phase-Scope Safety",
 ];
-const requiredPullRequestVerificationSnippets = [
-  "`pnpm verify:ci`",
-  "Visual Playwright spec if Figma-backed screen/state changed",
-  "`git diff --check` or `git diff --cached --check` for docs/instructions-only changes",
-];
 
 for (const section of requiredPullRequestSections) {
   requireSnippet(".github/pull_request_template.md", pullRequestTemplate, section);
 }
 
-for (const snippet of requiredPullRequestVerificationSnippets) {
-  requireSnippet(".github/pull_request_template.md", pullRequestTemplate, snippet);
-}
-
-for (const safetyLabel of prSafetyLabels) {
-  requireSnippet(".github/pull_request_template.md", pullRequestTemplate, safetyLabel);
-}
+requireMarkdownChecklistItems(".github/pull_request_template.md", pullRequestTemplate, "## Verification", prVerificationLabels);
+requireMarkdownChecklistItems(".github/pull_request_template.md", pullRequestTemplate, "## Phase-Scope Safety", prSafetyLabels);
 
 if (findings.length > 0) {
   console.error("GitHub intake guardrail verification failed.");
