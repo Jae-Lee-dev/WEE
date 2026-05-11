@@ -4,6 +4,7 @@ import {
   type ChangeEvent,
   type ComponentProps,
   type FormEvent,
+  type ReactNode,
   useEffect,
   useRef,
   useState,
@@ -102,6 +103,7 @@ export function SignupForm() {
     (hasSubmitted && hasValidationErrors
       ? "입력 내용을 다시 확인해 주세요."
       : null);
+  const visibleTermsError = hasSubmitted ? validationErrors.terms : undefined;
 
   const handleFieldChange =
     (field: SignupField) => (event: ChangeEvent<HTMLInputElement>) => {
@@ -216,7 +218,7 @@ export function SignupForm() {
 
   return (
     <form className="w-full" onSubmit={handleSubmit} noValidate>
-      <div className="space-y-4">
+      <div className="space-y-3">
         <SignupTextField
           id="signup-name"
           label="이름"
@@ -264,8 +266,9 @@ export function SignupForm() {
           error={getVisibleFieldError("password")}
           required
           disabled={isSubmitting}
-        />
-        <PasswordGuidance password={form.password} />
+        >
+          <PasswordGuidance password={form.password} />
+        </SignupPasswordField>
         <SignupPasswordField
           id="signup-password-confirm"
           label="비밀번호 확인"
@@ -285,44 +288,43 @@ export function SignupForm() {
         />
       </div>
 
-      <div className="mt-5 space-y-3">
-        <SignupCheckbox
-          id="signup-terms"
-          checked={termsAccepted}
-          disabled={isSubmitting}
-          label="서비스 이용약관과 개인정보 처리방침에 동의합니다."
-          requirementLabel="필수"
-          error={hasSubmitted ? validationErrors.terms : undefined}
-          onCheckedChange={(checked) => {
-            setTermsAccepted(checked);
-            setFirebaseErrorMessage(null);
-          }}
-        />
-        <SignupCheckbox
-          id="signup-notifications"
-          checked={notificationsAccepted}
-          disabled={isSubmitting}
-          label="운영 알림 수신에 동의합니다."
-          requirementLabel="선택"
-          onCheckedChange={(checked) => {
-            setNotificationsAccepted(checked);
-            setFirebaseErrorMessage(null);
-          }}
+      <div className="mt-5">
+        <div className="space-y-3">
+          <SignupCheckbox
+            id="signup-terms"
+            checked={termsAccepted}
+            disabled={isSubmitting}
+            label="서비스 이용약관과 개인정보 처리방침에 동의합니다."
+            requirementLabel="필수"
+            error={visibleTermsError}
+            onCheckedChange={(checked) => {
+              setTermsAccepted(checked);
+              setFirebaseErrorMessage(null);
+            }}
+          />
+          <SignupCheckbox
+            id="signup-notifications"
+            checked={notificationsAccepted}
+            disabled={isSubmitting}
+            label="운영 알림 수신에 동의합니다."
+            requirementLabel="선택"
+            onCheckedChange={(checked) => {
+              setNotificationsAccepted(checked);
+              setFirebaseErrorMessage(null);
+            }}
+          />
+        </div>
+        <SignupFieldError
+          className="mt-3 pl-6"
+          id="signup-terms-error"
+          message={visibleTermsError}
         />
       </div>
 
-      {alertMessage ? (
-        <p
-          className="mt-5 rounded-[8px] border border-red-100 bg-red-50 px-4 py-3 text-body-14-medium tracking-normal text-red-500"
-          data-testid="signup-alert"
-          role="alert"
-        >
-          {alertMessage}
-        </p>
-      ) : null}
+      <SignupAlert message={alertMessage} />
 
       <Button
-        className="mt-7 h-[50px] w-full rounded-[8px] text-h-18-semibold tracking-normal"
+        className="mt-4 h-[50px] w-full rounded-[8px] text-h-18-semibold tracking-normal"
         disabled={isSubmitting}
         type="submit"
       >
@@ -360,14 +362,7 @@ function SignupTextField({
         className="h-12 rounded-[8px] border-gray-200 text-body-16-regular tracking-normal"
         {...props}
       />
-      {error ? (
-        <p
-          className="mt-2 text-label-12-medium tracking-normal text-red-500"
-          id={errorId}
-        >
-          {error}
-        </p>
-      ) : null}
+      <SignupFieldError id={errorId} message={error} />
     </div>
   );
 }
@@ -510,19 +505,13 @@ function SignupEmailField({
           />
         )}
       </div>
-      {error ? (
-        <p
-          className="mt-2 text-label-12-medium tracking-normal text-red-500"
-          id={errorId}
-        >
-          {error}
-        </p>
-      ) : null}
+      <SignupFieldError id={errorId} message={error} />
     </div>
   );
 }
 
 function SignupPasswordField({
+  children,
   id,
   label,
   isVisible,
@@ -532,6 +521,7 @@ function SignupPasswordField({
   className,
   ...props
 }: ComponentProps<typeof Input> & {
+  children?: ReactNode;
   id: string;
   label: string;
   isVisible: boolean;
@@ -574,14 +564,8 @@ function SignupPasswordField({
           <VisibilityIcon className="size-4.5" strokeWidth={2.2} />
         </button>
       </div>
-      {error ? (
-        <p
-          className="mt-2 text-label-12-medium tracking-normal text-red-500"
-          id={errorId}
-        >
-          {error}
-        </p>
-      ) : null}
+      <SignupFieldError id={errorId} message={error} />
+      {children ? <div className="mt-2">{children}</div> : null}
     </div>
   );
 }
@@ -595,7 +579,7 @@ function PasswordGuidance({ password }: { password: string }) {
   return (
     <div
       id="signup-password-guidance"
-      className="-mt-1 space-y-2"
+      className="space-y-2"
       aria-live="polite"
       data-testid="password-guidance"
     >
@@ -751,15 +735,47 @@ function SignupCheckbox({
           </span>
         </label>
       </div>
-      {error ? (
-        <p
-          className="mt-2 pl-6 text-label-12-medium tracking-normal text-red-500"
-          id={errorId}
-        >
-          {error}
-        </p>
-      ) : null}
     </div>
+  );
+}
+
+function SignupFieldError({
+  className,
+  id,
+  message,
+}: {
+  className?: string;
+  id: string;
+  message?: string;
+}) {
+  return (
+    <p
+      aria-hidden={message ? undefined : true}
+      className={cn(
+        "mt-2 h-[17px] overflow-hidden text-label-12-medium tracking-normal text-red-500 transition-opacity duration-150",
+        message ? "opacity-100" : "opacity-0",
+        className,
+      )}
+      id={id}
+    >
+      {message}
+    </p>
+  );
+}
+
+function SignupAlert({ message }: { message: string | null }) {
+  return (
+    <p
+      aria-hidden={message ? undefined : true}
+      className={cn(
+        "mt-3 h-[17px] overflow-hidden text-label-12-medium tracking-normal transition-[color,opacity] duration-150",
+        message ? "text-red-500 opacity-100" : "text-transparent opacity-0",
+      )}
+      data-testid="signup-alert"
+      role={message ? "alert" : undefined}
+    >
+      {message}
+    </p>
   );
 }
 

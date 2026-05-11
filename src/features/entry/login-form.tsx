@@ -104,7 +104,7 @@ export function LoginForm() {
 
   return (
     <form className="w-full" onSubmit={handleSubmit} noValidate>
-      <div className="space-y-3.5">
+      <div className="space-y-3">
         <LoginTextField
           id="login-email"
           label="이메일"
@@ -162,18 +162,10 @@ export function LoginForm() {
         </Link>
       </div>
 
-      {alertMessage ? (
-        <p
-          className="mt-5 rounded-[8px] border border-red-100 bg-red-50 px-4 py-3 text-body-14-medium tracking-normal text-red-500"
-          data-testid="login-alert"
-          role="alert"
-        >
-          {alertMessage}
-        </p>
-      ) : null}
+      <LoginAlert message={alertMessage} />
 
       <Button
-        className="mt-6 h-[50px] w-full rounded-[8px] text-h-18-semibold tracking-normal"
+        className="mt-4 h-[50px] w-full rounded-[8px] text-h-18-semibold tracking-normal"
         disabled={isSubmitting}
         type="submit"
       >
@@ -211,15 +203,45 @@ function LoginTextField({
         className="h-12 rounded-[8px] border-gray-200 text-body-16-regular tracking-normal"
         {...props}
       />
-      {error ? (
-        <p
-          className="mt-2 text-label-12-medium tracking-normal text-red-500"
-          id={errorId}
-        >
-          {error}
-        </p>
-      ) : null}
+      <LoginFieldError id={errorId} message={error} />
     </div>
+  );
+}
+
+function LoginFieldError({
+  id,
+  message,
+}: {
+  id: string;
+  message?: string;
+}) {
+  return (
+    <p
+      aria-hidden={message ? undefined : true}
+      className={cn(
+        "mt-2 h-[17px] overflow-hidden text-label-12-medium tracking-normal text-red-500 transition-opacity duration-150",
+        message ? "opacity-100" : "opacity-0",
+      )}
+      id={id}
+    >
+      {message}
+    </p>
+  );
+}
+
+function LoginAlert({ message }: { message: string | null }) {
+  return (
+    <p
+      aria-hidden={message ? undefined : true}
+      className={cn(
+        "mt-3 h-[17px] overflow-hidden text-label-12-medium tracking-normal transition-[color,opacity] duration-150",
+        message ? "text-red-500 opacity-100" : "text-transparent opacity-0",
+      )}
+      data-testid="login-alert"
+      role={message ? "alert" : undefined}
+    >
+      {message}
+    </p>
   );
 }
 

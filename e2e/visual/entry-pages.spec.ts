@@ -65,7 +65,6 @@ test("AUTH-01 keeps login layout compact without page scroll", async ({ page }) 
     name: "로그인 유지",
   });
   await expect(rememberCheckbox).toBeVisible();
-  await rememberCheckbox.click();
   await expect(rememberCheckbox).toHaveAttribute("data-state", "checked");
 
   const metrics = await page.evaluate(() => {
@@ -103,8 +102,15 @@ test("AUTH-01 validates native login before Firebase submit", async ({
   await page.evaluate(() => document.fonts.ready);
 
   const loginAlert = page.getByTestId("login-alert");
+  const loginButton = page.getByRole("button", {
+    name: "로그인",
+    exact: true,
+  });
+  const buttonTopBeforeErrors = await loginButton.evaluate(
+    (element) => element.getBoundingClientRect().top + window.scrollY,
+  );
 
-  await page.getByRole("button", { name: "로그인", exact: true }).click();
+  await loginButton.click();
   await expect(loginAlert).toHaveText("이메일과 비밀번호를 입력해 주세요.");
   await expect(
     page.getByText("이메일을 입력해 주세요.", { exact: true }),
@@ -112,10 +118,16 @@ test("AUTH-01 validates native login before Firebase submit", async ({
   await expect(
     page.getByText("비밀번호를 입력해 주세요.", { exact: true }),
   ).toBeVisible();
+  const buttonTopAfterErrors = await loginButton.evaluate(
+    (element) => element.getBoundingClientRect().top + window.scrollY,
+  );
+  expect(
+    Math.abs(buttonTopAfterErrors - buttonTopBeforeErrors),
+  ).toBeLessThanOrEqual(0.1);
 
   await page.getByLabel("이메일").fill("manager");
   await page.getByLabel("비밀번호").fill("password1");
-  await page.getByRole("button", { name: "로그인", exact: true }).click();
+  await loginButton.click();
   await expect(loginAlert).toHaveText("이메일과 비밀번호를 입력해 주세요.");
   await expect(page.getByText("이메일 형식을 확인해 주세요.")).toBeVisible();
 });
@@ -269,15 +281,60 @@ test("AUTH-02 validates native signup before Firebase submit", async ({
   await prepareVisualPage({ page, path: "/signup", viewport: "laptop-1366" });
   await page.evaluate(() => document.fonts.ready);
   const signupAlert = page.getByTestId("signup-alert");
+  const signupButton = page.getByRole("button", {
+    name: "회원가입하고 인증 메일 받기",
+  });
+  const buttonTopBeforeErrors = await signupButton.evaluate(
+    (element) => element.getBoundingClientRect().top + window.scrollY,
+  );
 
-  await page
-    .getByRole("button", { name: "회원가입하고 인증 메일 받기" })
-    .click();
+  await signupButton.click();
   await expect(signupAlert).toHaveText("입력 내용을 다시 확인해 주세요.");
   await expect(page.getByText("이름을 입력해 주세요.")).toBeVisible();
   await expect(
     page.getByText("서비스 이용약관과 개인정보 처리방침에 동의해 주세요."),
   ).toBeVisible();
+  const passwordErrorOrder = await page.evaluate(() => {
+    const passwordError = document.querySelector("#signup-password-error");
+    const passwordGuidance = document.querySelector(
+      "#signup-password-guidance",
+    );
+
+    return {
+      errorBottom: passwordError?.getBoundingClientRect().bottom ?? 0,
+      guidanceTop: passwordGuidance?.getBoundingClientRect().top ?? 0,
+    };
+  });
+  expect(passwordErrorOrder.errorBottom).toBeLessThanOrEqual(
+    passwordErrorOrder.guidanceTop,
+  );
+
+  const checkboxMetrics = await page.evaluate(() => {
+    const termsCheckbox = document.querySelector("#signup-terms");
+    const termsControl = termsCheckbox?.closest("div.flex");
+    const notificationsCheckbox = document.querySelector(
+      "#signup-notifications",
+    );
+    const notificationsControl = notificationsCheckbox?.closest("div.flex");
+    const termsError = document.querySelector("#signup-terms-error");
+
+    return {
+      checkboxGap:
+        (notificationsControl?.getBoundingClientRect().top ?? 0) -
+        (termsControl?.getBoundingClientRect().bottom ?? 0),
+      errorGap:
+        (termsError?.getBoundingClientRect().top ?? 0) -
+        (notificationsControl?.getBoundingClientRect().bottom ?? 0),
+    };
+  });
+  expect(checkboxMetrics.checkboxGap).toBeLessThanOrEqual(14);
+  expect(checkboxMetrics.errorGap).toBeGreaterThanOrEqual(11);
+  const buttonTopAfterErrors = await signupButton.evaluate(
+    (element) => element.getBoundingClientRect().top + window.scrollY,
+  );
+  expect(
+    Math.abs(buttonTopAfterErrors - buttonTopBeforeErrors),
+  ).toBeLessThanOrEqual(0.1);
 
   await expect(page.getByTestId("password-requirement-length")).toHaveAttribute(
     "data-state",
@@ -320,9 +377,7 @@ test("AUTH-02 validates native signup before Firebase submit", async ({
     "data-strength",
     "medium",
   );
-  await page
-    .getByRole("button", { name: "회원가입하고 인증 메일 받기" })
-    .click();
+  await signupButton.click();
   await expect(signupAlert).toHaveText("입력 내용을 다시 확인해 주세요.");
   await expect(page.getByText("비밀번호는 숫자를 포함해야 합니다.")).toBeVisible();
 
