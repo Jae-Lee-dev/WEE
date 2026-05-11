@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const root = process.cwd();
@@ -12,6 +12,8 @@ const rootFiles = [
   "postcss.config.mjs",
   "components.json",
 ];
+const artifactRoot = "../../artifacts";
+const disallowedRepositoryArtifactDirs = ["artifacts", "public/artifacts"];
 const adminRoutePageFile = "src/app/_components/AdminRoutePage.tsx";
 const entryRoutePageFile = "src/app/_components/EntryRoutePage.tsx";
 const adminNavigationRegistryFile = "src/app/_config/admin-navigation.ts";
@@ -37,6 +39,16 @@ const codeExtensions = new Set([
   ".mts",
   ".ts",
   ".tsx",
+]);
+const publicTextExtensions = new Set([
+  ...codeExtensions,
+  ".css",
+  ".htm",
+  ".html",
+  ".svg",
+  ".txt",
+  ".webmanifest",
+  ".xml",
 ]);
 const disallowedRouteFiles = new Set([
   "route.cjs",
@@ -108,6 +120,8 @@ const contentRules = [
       /\b(?:from\s+["'](?:zod|yup|valibot|joi|arktype|@sinclair\/typebox)["']|require\(["'](?:zod|yup|valibot|joi|arktype|@sinclair\/typebox)["']\))/,
   },
 ];
+const runtimeArtifactReferencePattern =
+  /\bARTIFACT_ROOT\b|(?:^|["'`(])(?:\.{1,2}\/)*artifacts\//;
 
 const findings = [];
 
@@ -144,6 +158,28 @@ function addFinding(kind, file, detail) {
     file: relative(root, file),
     detail,
   });
+}
+
+function auditRepositoryArtifactDirs() {
+  for (const artifactDir of disallowedRepositoryArtifactDirs) {
+    const fullPath = join(root, artifactDir);
+
+    if (existsSync(fullPath)) {
+      addFinding("Disallowed repository artifact directory", fullPath, `use ${artifactRoot} outside the repo`);
+    }
+  }
+}
+
+function auditRuntimeArtifactReference(file, content) {
+  const rel = relative(root, file);
+
+  if (!rel.startsWith("src/") && !rel.startsWith("public/")) {
+    return;
+  }
+
+  if (runtimeArtifactReferencePattern.test(content)) {
+    addFinding("Runtime artifact reference", file, `screenshot artifacts must stay under ${artifactRoot}`);
+  }
 }
 
 function getNavigationRouteBlock(content, href) {
@@ -349,11 +385,24 @@ for (const codeRoot of codeRoots) {
       }
     }
 
+    auditRuntimeArtifactReference(file, content);
     auditAdminRoutePageUsage(file, content);
     auditEntryRoutePageUsage(file, content);
   }
 }
 
+if (existsSync(join(root, "public"))) {
+  for (const file of listFiles(join(root, "public"))) {
+    if (!publicTextExtensions.has(getExtension(file))) {
+      continue;
+    }
+
+    const content = readFileSync(file, "utf8");
+    auditRuntimeArtifactReference(file, content);
+  }
+}
+
+auditRepositoryArtifactDirs();
 auditAllowedAdminRoutePageConfigs();
 auditAllowedEntryRoutePageConfigs();
 

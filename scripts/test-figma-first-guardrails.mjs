@@ -141,6 +141,57 @@ const cases = [
     },
   },
   {
+    name: "e2e artifact root helper passes",
+    expectSuccess: true,
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "e2e/visual/helpers.ts",
+        'export const artifactRoot = process.env.ARTIFACT_ROOT ?? "../../artifacts";',
+      );
+    },
+  },
+  {
+    name: "repository artifact directory is blocked",
+    expectSuccess: false,
+    expectedOutput: "Disallowed repository artifact directory",
+    setup(root) {
+      mkdirSync(join(root, "artifacts/actual/DSH-01"), { recursive: true });
+    },
+  },
+  {
+    name: "public artifact directory is blocked",
+    expectSuccess: false,
+    expectedOutput: "Disallowed repository artifact directory",
+    setup(root) {
+      mkdirSync(join(root, "public/artifacts/actual/DSH-01"), { recursive: true });
+    },
+  },
+  {
+    name: "runtime artifact reference is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime artifact reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/dashboard/artifact.ts",
+        'export const screenshot = "../../artifacts/figma/DSH-01/default-1920.png";',
+      );
+    },
+  },
+  {
+    name: "public svg artifact reference is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime artifact reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "public/example.svg",
+        '<svg><image href="../../artifacts/actual/DSH-01/default.png" /></svg>',
+      );
+    },
+  },
+  {
     name: "admin route page deferred placeholder passes",
     expectSuccess: true,
     setup(root) {
