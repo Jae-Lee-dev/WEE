@@ -122,6 +122,8 @@ const contentRules = [
 ];
 const runtimeArtifactReferencePattern =
   /\bARTIFACT_ROOT\b|(?:^|["'`(])(?:\.{1,2}\/)*artifacts\//;
+const runtimeIntegrationEnvPattern =
+  /\bNEXT_PUBLIC_[A-Z0-9_]+\b|\bprocess\s*\.\s*env\s*(?:\.\s*(?:NEXT_PUBLIC_[A-Z0-9_]+|FIREBASE[A-Z0-9_]*|FIRESTORE[A-Z0-9_]*|AUTH[A-Z0-9_]*|GOOGLE[A-Z0-9_]*|GCLOUD[A-Z0-9_]*|VERCEL[A-Z0-9_]*|DATABASE[A-Z0-9_]*)|\[\s*["'](?:NEXT_PUBLIC_[A-Z0-9_]+|FIREBASE[A-Z0-9_]*|FIRESTORE[A-Z0-9_]*|AUTH[A-Z0-9_]*|GOOGLE[A-Z0-9_]*|GCLOUD[A-Z0-9_]*|VERCEL[A-Z0-9_]*|DATABASE[A-Z0-9_]*)["']\s*\])/;
 const submitDrivenUiRules = [
   {
     name: "form element",
@@ -242,6 +244,22 @@ function auditRuntimeArtifactReference(file, content) {
 
   if (runtimeArtifactReferencePattern.test(content)) {
     addFinding("Runtime artifact reference", file, `screenshot artifacts must stay under ${artifactRoot}`);
+  }
+}
+
+function auditRuntimeIntegrationEnvReference(file, content) {
+  const rel = relative(root, file);
+
+  if (!rel.startsWith("src/") && !rootFiles.includes(rel)) {
+    return;
+  }
+
+  if (runtimeIntegrationEnvPattern.test(content)) {
+    addFinding(
+      "Runtime integration environment reference",
+      file,
+      "Firebase/Auth/Firestore/deployment env setup is deferred until the backend/integration phase",
+    );
   }
 }
 
@@ -485,6 +503,7 @@ for (const codeRoot of codeRoots) {
     }
 
     auditRuntimeArtifactReference(file, content);
+    auditRuntimeIntegrationEnvReference(file, content);
     auditSubmitDrivenUi(file, content);
     auditLocalArrayMutation(file, content);
     auditAdminRoutePageUsage(file, content);
@@ -516,6 +535,8 @@ for (const file of rootFiles) {
       addFinding(rule.name, fullPath, `matched ${rule.pattern}`);
     }
   }
+
+  auditRuntimeIntegrationEnvReference(fullPath, content);
 }
 
 const packageJsonPath = join(root, "package.json");

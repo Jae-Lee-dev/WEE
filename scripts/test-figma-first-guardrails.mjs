@@ -152,6 +152,28 @@ const cases = [
     },
   },
   {
+    name: "generic node env reference passes",
+    expectSuccess: true,
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/dashboard/env-preview.ts",
+        'export const isDevelopment = process.env.NODE_ENV === "development";',
+      );
+    },
+  },
+  {
+    name: "playwright base url env reference passes",
+    expectSuccess: true,
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "playwright.config.ts",
+        "export default { use: { baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3000' } };",
+      );
+    },
+  },
+  {
     name: "repository artifact directory is blocked",
     expectSuccess: false,
     expectedOutput: "Disallowed repository artifact directory",
@@ -176,6 +198,90 @@ const cases = [
         root,
         "src/features/dashboard/artifact.ts",
         'export const screenshot = "../../artifacts/figma/DSH-01/default-1920.png";',
+      );
+    },
+  },
+  {
+    name: "runtime next public env reference is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/firebase-config.ts",
+        "export const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;",
+      );
+    },
+  },
+  {
+    name: "runtime bracket firebase env reference is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/firebase-config.ts",
+        'export const projectId = process.env["FIREBASE_PROJECT_ID"];',
+      );
+    },
+  },
+  {
+    name: "runtime bracket next public env reference is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/firebase-config.ts",
+        'export const apiKey = process.env["NEXT_PUBLIC_FIREBASE_API_KEY"];',
+      );
+    },
+  },
+  {
+    name: "runtime bracket database env reference is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/database-config.ts",
+        'export const databaseUrl = process.env["DATABASE_URL"];',
+      );
+    },
+  },
+  {
+    name: "root config integration env reference is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "next.config.ts",
+        'export default { env: { projectId: process.env.GOOGLE_CLOUD_PROJECT } };',
+      );
+    },
+  },
+  {
+    name: "root config deployment env reference is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "next.config.ts",
+        "export default { env: { vercelEnv: process . env . VERCEL_ENV } };",
+      );
+    },
+  },
+  {
+    name: "next public env literal is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/env-names.ts",
+        'export const firebaseApiKeyName = "NEXT_PUBLIC_FIREBASE_API_KEY";',
       );
     },
   },
