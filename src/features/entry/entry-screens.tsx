@@ -17,6 +17,7 @@ import {
 import { entryRoutes } from "@/app/_config/admin-navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -97,9 +98,10 @@ export function LoginScreen() {
       screenId="AUTH-01"
       title="로그인"
       description="관리자 계정으로 Wee 운영 화면에 접속합니다."
+      cardClassName="max-w-[440px]"
     >
-      <div className="w-full max-w-[520px]" data-testid="login-screen">
-        <div className="space-y-4">
+      <div className="w-full" data-testid="login-screen">
+        <div className="space-y-3.5">
           <EntryField
             label="이메일"
             type="email"
@@ -112,8 +114,8 @@ export function LoginScreen() {
           />
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <CheckboxLine label="로그인 유지" />
+        <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3">
+          <CheckboxLine id="login-remember" label="로그인 유지" />
           <Link
             href="/forgot-password"
             className="text-label-14-medium tracking-normal text-green-400 transition-colors hover:text-green-500"
@@ -124,15 +126,15 @@ export function LoginScreen() {
 
         <Button
           asChild
-          className="mt-7 h-[50px] w-full rounded-[8px] text-h-18-semibold tracking-normal"
+          className="mt-6 h-[50px] w-full rounded-[8px] text-h-18-semibold tracking-normal"
         >
           <Link href="/dashboard">로그인</Link>
         </Button>
 
-        <FormDivider label="또는 소셜 계정으로 계속" />
+        <FormDivider label="또는 소셜 로그인" />
         <SocialProviderButtons />
 
-        <p className="mt-5 text-center text-body-14-regular tracking-normal text-gray-500">
+        <p className="mt-4 text-center text-body-14-regular tracking-normal text-gray-500">
           계정이 없나요?{" "}
           <Link
             href="/signup"
@@ -192,8 +194,14 @@ export function SignupScreen() {
         </div>
 
         <div className="mt-5 space-y-3">
-          <CheckboxLine label="서비스 이용약관과 개인정보 처리방침에 동의합니다." />
-          <CheckboxLine label="운영 알림 수신에 동의합니다." />
+          <CheckboxLine
+            id="signup-terms"
+            label="서비스 이용약관과 개인정보 처리방침에 동의합니다."
+          />
+          <CheckboxLine
+            id="signup-notifications"
+            label="운영 알림 수신에 동의합니다."
+          />
         </div>
 
         <Button
@@ -516,17 +524,17 @@ function AuthShell({
   cardClassName,
 }: AuthShellProps) {
   return (
-    <main className="min-h-screen bg-gray-50 px-5 py-6 tracking-normal text-gray-900 md:px-8 lg:py-8">
-      <section className="mx-auto flex min-h-[calc(100vh-48px)] w-full max-w-[1040px] items-center justify-center py-8">
+    <main className="h-dvh overflow-hidden bg-gray-50 px-4 py-4 tracking-normal text-gray-900 sm:px-5 sm:py-6 lg:px-8">
+      <section className="mx-auto flex h-full w-full max-w-[1040px] items-center justify-center">
         <div
           className={cn(
-            "w-full max-w-[560px] rounded-[10px] border border-gray-200 bg-white px-6 py-7 shadow-[0_18px_48px_rgba(17,24,39,0.08)] sm:px-8 lg:px-10 lg:py-9",
+            "max-h-full w-full max-w-[560px] overflow-hidden rounded-[10px] border border-gray-200 bg-white px-6 py-6 shadow-[0_18px_48px_rgba(17,24,39,0.08)] sm:px-7 lg:px-8 lg:py-7",
             cardClassName,
           )}
         >
           <header>
             <BrandBlock />
-            <h1 className="mt-8 text-h-32 tracking-normal text-gray-900">
+            <h1 className="mt-6 text-h-32 tracking-normal text-gray-900">
               {title}
             </h1>
             <p className="mt-2 text-body-16-regular tracking-normal text-gray-500">
@@ -534,7 +542,7 @@ function AuthShell({
             </p>
           </header>
 
-          <div className="mt-8">{children}</div>
+          <div className="mt-6">{children}</div>
         </div>
       </section>
     </main>
@@ -696,17 +704,21 @@ function EntryNav({
 
 function SocialProviderButtons() {
   return (
-    <div className="grid gap-3" aria-label="소셜 로그인">
+    <div
+      className="flex items-center justify-center gap-3"
+      aria-label="소셜 로그인"
+    >
       {socialProviders.map((provider) => (
         <button
           key={provider.label}
           type="button"
-          className="relative flex h-12 w-full items-center justify-center rounded-[8px] border border-gray-200 bg-white px-12 text-label-14-medium tracking-normal text-gray-800 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+          aria-label={provider.label}
+          title={provider.label}
+          className="flex size-12 items-center justify-center rounded-full border border-gray-200 bg-white text-label-14-medium tracking-normal text-gray-700 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
         >
-          <span className="absolute left-4 flex size-7 items-center justify-center rounded-full bg-gray-100 text-label-12-medium tracking-normal text-gray-700">
+          <span aria-hidden="true">
             {provider.mark}
           </span>
-          <span className="min-w-0 truncate">{provider.label}</span>
         </button>
       ))}
     </div>
@@ -715,7 +727,7 @@ function SocialProviderButtons() {
 
 function FormDivider({ label }: { label: string }) {
   return (
-    <div className="my-6 flex items-center gap-3 text-label-12-medium tracking-normal text-gray-400">
+    <div className="my-5 flex items-center gap-3 text-label-12-medium tracking-normal text-gray-400">
       <span className="h-px flex-1 bg-gray-100" />
       <span>{label}</span>
       <span className="h-px flex-1 bg-gray-100" />
@@ -747,15 +759,18 @@ function EntryField({
   );
 }
 
-function CheckboxLine({ label }: { label: string }) {
+function CheckboxLine({ id, label }: { id: string; label: string }) {
   return (
-    <label className="flex min-h-6 items-start gap-2 text-body-14-regular tracking-normal text-gray-600">
-      <input
-        type="checkbox"
-        className="mt-0.5 size-4 rounded-[4px] border border-gray-300 accent-green-400"
+    <div className="flex min-h-6 items-start gap-2 text-body-14-regular tracking-normal text-gray-600">
+      <Checkbox
+        id={id}
+        aria-label={label}
+        className="mt-0.5 size-4 rounded-[4px]"
       />
-      <span>{label}</span>
-    </label>
+      <label htmlFor={id} className="cursor-pointer select-none">
+        {label}
+      </label>
+    </div>
   );
 }
 
