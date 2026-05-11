@@ -2,7 +2,10 @@ import type { CSSProperties } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { WorkerDetailShell } from "./worker-detail-shell";
+import {
+  WorkerDetailShell,
+  WorkerDetailSubsection,
+} from "./worker-detail-shell";
 import {
   workerDetailRecentWorkRecords,
   workerDetailScheduleBlocks,
@@ -58,7 +61,7 @@ function ScheduleGrid() {
   return (
     <section
       aria-label="주간 시간표"
-      className="min-w-0 overflow-hidden rounded-[8px] border border-gray-200 bg-white"
+      className="min-w-0 overflow-hidden rounded-[8px] border border-gray-100 bg-white"
     >
       <div
         className="grid h-[50px] grid-cols-[47px_minmax(0,1fr)] border-b border-gray-200"
@@ -152,9 +155,9 @@ function ScheduleBlock({ block }: { block: WorkerDetailScheduleBlock }) {
 
 function ScheduleHistoryPanel() {
   return (
-    <aside
-      aria-label="시간표 변경 이력"
-      className="flex min-h-[815px] flex-col rounded-[8px] border border-gray-200 bg-white p-5"
+    <WorkerDetailSubsection
+      ariaLabel="시간표 변경 이력"
+      className="flex min-h-[815px] flex-col"
     >
       <h2 className="text-h-20 text-gray-900">시간표 변경 이력</h2>
       <div className="mt-5 flex flex-col gap-5">
@@ -162,7 +165,7 @@ function ScheduleHistoryPanel() {
           <ScheduleHistoryCard item={item} key={item.id} />
         ))}
       </div>
-    </aside>
+    </WorkerDetailSubsection>
   );
 }
 
@@ -215,12 +218,12 @@ function ScheduleHistoryCard({
 
 function RecentWorkRecords() {
   return (
-    <section
-      aria-label="최근 근무 기록"
-      className="rounded-[8px] bg-white"
-      data-testid="worker-detail-recent-work-records"
+    <WorkerDetailSubsection
+      ariaLabel="최근 근무 기록"
+      className="overflow-hidden"
+      testId="worker-detail-recent-work-records"
     >
-      <div className="flex h-[70px] items-center justify-between px-5">
+      <div className="flex min-h-[42px] items-center justify-between gap-4">
         <h2 className="text-h-20 text-gray-900">최근 근무 기록</h2>
         <Button
           type="button"
@@ -231,7 +234,7 @@ function RecentWorkRecords() {
         </Button>
       </div>
       <div
-        className="grid h-[54px] grid-cols-[23%_26%_26%_1fr] items-center border-b border-gray-300 px-5 text-h-18-regular text-gray-500"
+        className="mt-5 grid h-[54px] grid-cols-[23%_26%_26%_1fr] items-center border-b border-gray-300 text-h-18-regular text-gray-500"
         role="row"
       >
         <div role="columnheader">날짜</div>
@@ -244,7 +247,7 @@ function RecentWorkRecords() {
           <RecentWorkRecordRow key={record.id} record={record} />
         ))}
       </div>
-    </section>
+    </WorkerDetailSubsection>
   );
 }
 
@@ -257,7 +260,7 @@ function RecentWorkRecordRow({
 
   return (
     <div
-      className="grid h-[46px] grid-cols-[23%_26%_26%_1fr] items-center border-b border-gray-100 px-5 text-h-18-regular text-gray-900 last:border-b-0"
+      className="grid h-[46px] grid-cols-[23%_26%_26%_1fr] items-center border-b border-gray-100 text-h-18-regular text-gray-900 last:border-b-0"
       role="row"
     >
       <div role="cell">{record.date}</div>

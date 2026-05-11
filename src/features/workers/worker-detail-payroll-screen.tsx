@@ -1,6 +1,9 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { WorkerDetailShell } from "./worker-detail-shell";
+import {
+  WorkerDetailShell,
+  WorkerDetailSubsection,
+} from "./worker-detail-shell";
 import {
   workerDetailPayrollIssues,
   workerDetailPayrollStatements,
@@ -59,7 +62,7 @@ export function WorkerDetailPayrollScreen() {
 
 function PayrollSummaryCard() {
   return (
-    <section className="rounded-[8px] bg-white p-5" aria-label="급여 요약">
+    <WorkerDetailSubsection ariaLabel="급여 요약">
       <h2 className="text-h-20 text-gray-900">
         {workerDetailPayrollSummary.title}
       </h2>
@@ -80,7 +83,7 @@ function PayrollSummaryCard() {
           </Button>
         ))}
       </div>
-    </section>
+    </WorkerDetailSubsection>
   );
 }
 
@@ -113,10 +116,10 @@ function PayrollMetricCard({ metric }: { metric: WorkerDetailPayrollMetric }) {
 
 function RecentStatementsCard() {
   return (
-    <section
-      aria-label="최근 확정 명세"
-      className="min-h-[438px] rounded-[8px] bg-white p-5"
-      data-testid="worker-detail-payroll-statements"
+    <WorkerDetailSubsection
+      ariaLabel="최근 확정 명세"
+      className="min-h-[438px]"
+      testId="worker-detail-payroll-statements"
     >
       <h2 className="text-h-20 text-gray-900">최근 확정 명세</h2>
       <div
@@ -133,7 +136,7 @@ function RecentStatementsCard() {
           <RecentStatementRow key={statement.id} statement={statement} />
         ))}
       </div>
-    </section>
+    </WorkerDetailSubsection>
   );
 }
 
@@ -159,10 +162,10 @@ function RecentStatementRow({
 
 function PendingIssuesCard() {
   return (
-    <aside
-      aria-label="처리 대기 건"
-      className="min-h-[732px] rounded-[8px] bg-white p-5"
-      data-testid="worker-detail-payroll-issues"
+    <WorkerDetailSubsection
+      ariaLabel="처리 대기 건"
+      className="min-h-[732px]"
+      testId="worker-detail-payroll-issues"
     >
       <div className="flex items-center gap-3">
         <h2 className="text-h-20 text-gray-900">처리 대기 건</h2>
@@ -175,7 +178,7 @@ function PendingIssuesCard() {
           <PendingIssueRow issue={issue} key={issue.id} />
         ))}
       </div>
-    </aside>
+    </WorkerDetailSubsection>
   );
 }
 

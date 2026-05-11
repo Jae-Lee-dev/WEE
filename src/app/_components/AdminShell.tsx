@@ -120,14 +120,7 @@ function AdminSidebar({
         </nav>
       </div>
 
-      <div className="flex items-center gap-3 rounded-[8px] px-1 py-2 2xl:gap-3 2xl:py-2">
-        <Image
-          src="/admin-shell/avatar.png"
-          alt=""
-          width={48}
-          height={48}
-          className="size-10 shrink-0 rounded-full 2xl:size-12"
-        />
+      <div className="rounded-[8px] px-3 py-2 2xl:px-3 2xl:py-2">
         <div className="min-w-0">
           <div className="truncate text-h-16-semibold text-gray-800 2xl:text-h-18-semibold">
             {demoWorkspace.managerName}
