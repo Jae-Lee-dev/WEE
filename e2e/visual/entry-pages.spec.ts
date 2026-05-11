@@ -102,14 +102,14 @@ test("AUTH-02 keeps signup fields in a single column", async ({ page }) => {
 
   const metrics = await page.evaluate(() => {
     const root = document.documentElement;
-    const fieldIds = [
-      "signup-name",
-      "signup-email",
-      "signup-password",
-      "signup-password-confirm",
+    const controlSelectors = [
+      "#signup-name",
+      '[data-testid="signup-email-control"]',
+      "#signup-password",
+      "#signup-password-confirm",
     ];
-    const fields = fieldIds.map((fieldId) => {
-      const field = document.getElementById(fieldId);
+    const fields = controlSelectors.map((selector) => {
+      const field = document.querySelector(selector);
       const rect = field?.getBoundingClientRect();
 
       return {
@@ -122,9 +122,20 @@ test("AUTH-02 keeps signup fields in a single column", async ({ page }) => {
     const signupScreen = document.querySelector('[data-testid="signup-screen"]');
     const card = signupScreen?.parentElement?.parentElement;
     const cardRect = card?.getBoundingClientRect();
+    const emailControl = document.querySelector(
+      '[data-testid="signup-email-control"]',
+    );
+    const emailInputRect = emailControl
+      ?.querySelector("input")
+      ?.getBoundingClientRect();
+    const emailDomainRect = emailControl
+      ?.querySelector('[data-slot="select-trigger"]')
+      ?.getBoundingClientRect();
 
     return {
       cardWidth: cardRect?.width ?? 0,
+      emailDomainWidth: emailDomainRect?.width ?? 0,
+      emailInputWidth: emailInputRect?.width ?? 0,
       fields,
       horizontalOverflow: root.scrollWidth - root.clientWidth,
     };
@@ -132,6 +143,9 @@ test("AUTH-02 keeps signup fields in a single column", async ({ page }) => {
 
   expect(metrics.cardWidth).toBeLessThanOrEqual(520);
   expect(metrics.horizontalOverflow).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(metrics.emailInputWidth - metrics.emailDomainWidth),
+  ).toBeLessThanOrEqual(1);
 
   for (const field of metrics.fields) {
     expect(Math.abs(field.left - metrics.fields[0].left)).toBeLessThanOrEqual(
@@ -180,7 +194,13 @@ test("AUTH-02 validates native signup before Firebase submit", async ({
   );
 
   await page.getByLabel("이름").fill("김민채");
-  await page.getByLabel("이메일").fill("admin@wee.kr");
+  await page.getByLabel("이메일", { exact: true }).fill("admin");
+  await page.getByRole("combobox", { name: "이메일 도메인 선택" }).click();
+  await page.getByRole("option", { name: "gmail.com" }).click();
+  await expect(page.getByLabel("이메일", { exact: true })).toHaveValue("admin");
+  await expect(
+    page.getByRole("combobox", { name: "이메일 도메인 선택" }),
+  ).toContainText("gmail.com");
   await page.getByLabel("비밀번호", { exact: true }).fill("password");
   await page.getByLabel("비밀번호 확인", { exact: true }).fill("password");
 
@@ -216,6 +236,7 @@ test("AUTH-02 submits native signup through Firebase Auth", async ({
   page,
 }) => {
   const authRequests: string[] = [];
+  const signupEmails: string[] = [];
 
   await page.route(
     /https:\/\/identitytoolkit\.googleapis\.com\/v1\/accounts:(signUp|lookup|update|sendOobCode).*/,
@@ -224,10 +245,15 @@ test("AUTH-02 submits native signup through Firebase Auth", async ({
       authRequests.push(requestUrl);
 
       if (requestUrl.includes("accounts:signUp")) {
+        const requestBody = route.request().postDataJSON() as {
+          email?: string;
+        };
+        signupEmails.push(requestBody.email ?? "");
+
         await route.fulfill({
           contentType: "application/json",
           json: {
-            email: "manager@wee.kr",
+            email: "manager@gmail.com",
             expiresIn: "3600",
             idToken: "mock-id-token",
             kind: "identitytoolkit#SignupNewUserResponse",
@@ -243,7 +269,7 @@ test("AUTH-02 submits native signup through Firebase Auth", async ({
           contentType: "application/json",
           json: {
             displayName: "김민채",
-            email: "manager@wee.kr",
+            email: "manager@gmail.com",
             expiresIn: "3600",
             idToken: "mock-id-token",
             kind: "identitytoolkit#SetAccountInfoResponse",
@@ -262,14 +288,14 @@ test("AUTH-02 submits native signup through Firebase Auth", async ({
             users: [
               {
                 displayName: "김민채",
-                email: "manager@wee.kr",
+                email: "manager@gmail.com",
                 emailVerified: false,
                 localId: "test-manager-uid",
                 providerUserInfo: [
                   {
-                    email: "manager@wee.kr",
+                    email: "manager@gmail.com",
                     providerId: "password",
-                    rawId: "manager@wee.kr",
+                    rawId: "manager@gmail.com",
                   },
                 ],
                 validSince: "0",
@@ -283,7 +309,7 @@ test("AUTH-02 submits native signup through Firebase Auth", async ({
       await route.fulfill({
         contentType: "application/json",
         json: {
-          email: "manager@wee.kr",
+          email: "manager@gmail.com",
           kind: "identitytoolkit#GetOobConfirmationCodeResponse",
         },
       });
@@ -294,7 +320,15 @@ test("AUTH-02 submits native signup through Firebase Auth", async ({
   await page.evaluate(() => document.fonts.ready);
 
   await page.getByLabel("이름").fill("김민채");
-  await page.getByLabel("이메일").fill("manager@wee.kr");
+  await page.getByLabel("이메일", { exact: true }).fill("manager");
+  await page.getByRole("combobox", { name: "이메일 도메인 선택" }).click();
+  await page.getByRole("option", { name: "gmail.com" }).click();
+  await expect(page.getByLabel("이메일", { exact: true })).toHaveValue(
+    "manager",
+  );
+  await expect(
+    page.getByRole("combobox", { name: "이메일 도메인 선택" }),
+  ).toContainText("gmail.com");
   await page.getByLabel("비밀번호", { exact: true }).fill("password1");
   await page.getByLabel("비밀번호 확인", { exact: true }).fill("password1");
   await page
@@ -307,6 +341,7 @@ test("AUTH-02 submits native signup through Firebase Auth", async ({
     .click();
 
   await expect(page).toHaveURL(/\/onboarding\/workspace$/);
+  expect(signupEmails).toContain("manager@gmail.com");
   expect(authRequests.some((url) => url.includes("accounts:signUp"))).toBe(
     true,
   );

@@ -17,6 +17,7 @@ import { Check, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { OptionSelect, type SelectOption } from "@/components/ui/select";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +38,14 @@ const initialSignupForm: SignupFormState = {
   password: "",
   passwordConfirm: "",
 };
+
+const emailDomainOptions: SelectOption[] = [
+  { label: "gmail.com", value: "gmail.com" },
+  { label: "naver.com", value: "naver.com" },
+  { label: "kakao.com", value: "kakao.com" },
+  { label: "daum.net", value: "daum.net" },
+  { label: "hanmail.net", value: "hanmail.net" },
+];
 
 const passwordRequirements = [
   {
@@ -70,6 +79,7 @@ export function SignupForm() {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isPasswordConfirmVisible, setIsPasswordConfirmVisible] =
     useState(false);
+  const [emailDomain, setEmailDomain] = useState("");
 
   const validationErrors = getSignupFormErrors(form, termsAccepted);
   const hasValidationErrors = hasSignupFormErrors(validationErrors);
@@ -87,6 +97,30 @@ export function SignupForm() {
 
   const handleFieldBlur = (field: SignupField) => () => {
     setTouchedFields((current) => ({ ...current, [field]: true }));
+  };
+
+  const handleEmailLocalPartChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const { domain, localPart } = parseEmailInput(event.target.value);
+    const nextDomain = isEmailDomainOption(domain) ? domain : emailDomain;
+
+    if (isEmailDomainOption(domain)) {
+      setEmailDomain(domain);
+    }
+
+    setForm((current) => ({
+      ...current,
+      email: buildEmailAddress(localPart, nextDomain),
+    }));
+    setFirebaseErrorMessage(null);
+  };
+
+  const handleEmailDomainChange = (domain: string) => {
+    setEmailDomain(domain);
+    setForm((current) => ({
+      ...current,
+      email: buildEmailAddress(getEmailLocalPart(current.email), domain),
+    }));
+    setFirebaseErrorMessage(null);
   };
 
   const getVisibleFieldError = (field: SignupField) => {
@@ -139,24 +173,24 @@ export function SignupForm() {
           value={form.name}
           onChange={handleFieldChange("name")}
           onBlur={handleFieldBlur("name")}
-          placeholder="김민채"
           error={getVisibleFieldError("name")}
           required
           autoFocus
           disabled={isSubmitting}
         />
-        <SignupTextField
+        <SignupEmailField
           id="signup-email"
           label="이메일"
-          type="email"
           autoComplete="email"
           inputMode="email"
           autoCapitalize="none"
           spellCheck={false}
-          value={form.email}
-          onChange={handleFieldChange("email")}
+          localPart={getEmailLocalPart(form.email)}
+          domain={emailDomain}
+          onChange={handleEmailLocalPartChange}
           onBlur={handleFieldBlur("email")}
-          placeholder="admin@wee.kr"
+          onDomainChange={handleEmailDomainChange}
+          placeholder="이메일 아이디"
           error={getVisibleFieldError("email")}
           required
           disabled={isSubmitting}
@@ -274,6 +308,75 @@ function SignupTextField({
         className="h-12 rounded-[8px] border-gray-200 text-body-16-regular tracking-normal"
         {...props}
       />
+      {error ? (
+        <p
+          className="mt-2 text-label-12-medium tracking-normal text-red-500"
+          id={errorId}
+        >
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function SignupEmailField({
+  id,
+  label,
+  error,
+  className,
+  onDomainChange,
+  domain,
+  localPart,
+  disabled,
+  ...props
+}: ComponentProps<typeof Input> & {
+  id: string;
+  label: string;
+  domain: string;
+  error?: string;
+  localPart: string;
+  onDomainChange: (domain: string) => void;
+}) {
+  const errorId = `${id}-error`;
+
+  return (
+    <div className={cn("block", className)}>
+      <label
+        className="mb-2 block text-label-14-medium tracking-normal text-gray-700"
+        htmlFor={id}
+      >
+        {label}
+      </label>
+      <div
+        className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2"
+        data-testid="signup-email-control"
+      >
+        <Input
+          id={id}
+          aria-describedby={error ? errorId : undefined}
+          aria-invalid={error ? true : undefined}
+          className="h-12 rounded-[8px] border-gray-200 text-body-16-regular tracking-normal"
+          type="text"
+          value={localPart}
+          disabled={disabled}
+          {...props}
+        />
+        <span className="select-none text-body-16-medium tracking-normal text-gray-500">
+          @
+        </span>
+        <OptionSelect
+          disabled={disabled}
+          onValueChange={onDomainChange}
+          options={emailDomainOptions}
+          placeholder="선택"
+          triggerAriaDescribedBy={error ? errorId : undefined}
+          triggerAriaInvalid={error ? true : undefined}
+          triggerAriaLabel="이메일 도메인 선택"
+          triggerClassName="h-12 min-h-12 w-full rounded-[8px] border-gray-200 px-3 text-body-14-medium tracking-normal focus-visible:border-green-400 focus-visible:ring-green-100 data-placeholder:text-gray-400 [&_svg]:text-gray-400"
+          value={domain}
+        />
+      </div>
       {error ? (
         <p
           className="mt-2 text-label-12-medium tracking-normal text-red-500"
@@ -454,6 +557,33 @@ function getPasswordStrength(metCount: number, password: string) {
   return { id: "weak", label: "낮음", tone: "grey" } as const;
 }
 
+function parseEmailInput(value: string) {
+  const [rawLocalPart = "", rawDomain = ""] = value.split("@");
+
+  return {
+    domain: rawDomain.trim().toLowerCase(),
+    localPart: rawLocalPart.trim(),
+  };
+}
+
+function getEmailLocalPart(email: string) {
+  return parseEmailInput(email).localPart;
+}
+
+function buildEmailAddress(localPart: string, domain: string) {
+  const trimmedLocalPart = localPart.trim();
+
+  if (!trimmedLocalPart) {
+    return "";
+  }
+
+  return domain ? `${trimmedLocalPart}@${domain}` : trimmedLocalPart;
+}
+
+function isEmailDomainOption(domain: string) {
+  return emailDomainOptions.some((option) => option.value === domain);
+}
+
 function SignupCheckbox({
   id,
   checked,
@@ -526,6 +656,8 @@ function getSignupFormErrors(
 
   if (!email) {
     errors.email = "이메일을 입력해 주세요.";
+  } else if (!email.includes("@")) {
+    errors.email = "이메일 도메인을 선택해 주세요.";
   } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     errors.email = "이메일 형식이 올바르지 않습니다.";
   }

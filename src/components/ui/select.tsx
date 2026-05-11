@@ -21,6 +21,9 @@ type OptionSelectProps = Omit<
   options: SelectOption[]
   placeholder?: React.ReactNode
   size?: "sm" | "default"
+  triggerAriaDescribedBy?: string
+  triggerAriaInvalid?: boolean
+  triggerAriaLabel?: string
   triggerClassName?: string
 }
 
@@ -36,12 +39,21 @@ function OptionSelect({
   options,
   placeholder,
   size = "default",
+  triggerAriaDescribedBy,
+  triggerAriaInvalid,
+  triggerAriaLabel,
   triggerClassName,
   ...props
 }: OptionSelectProps) {
   return (
     <Select {...props}>
-      <SelectTrigger className={triggerClassName} size={size}>
+      <SelectTrigger
+        aria-describedby={triggerAriaDescribedBy}
+        aria-invalid={triggerAriaInvalid}
+        aria-label={triggerAriaLabel}
+        className={triggerClassName}
+        size={size}
+      >
         <SelectValue placeholder={placeholder} />
         <SelectTriggerSizer options={options} />
       </SelectTrigger>
