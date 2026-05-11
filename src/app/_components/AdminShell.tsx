@@ -69,10 +69,10 @@ function AdminSidebar({
   currentSection: AdminSection;
 }) {
   return (
-    <aside className="sticky top-0 flex h-screen w-[260px] shrink-0 flex-col justify-between border-r border-gray-100 bg-white py-4 2xl:w-[300px] 2xl:py-5">
+    <aside className="sticky top-0 flex h-screen w-[260px] shrink-0 flex-col justify-between border-r border-gray-100 bg-white pb-4 2xl:w-[300px] 2xl:pb-5">
       <div>
         <div
-          className="border-b border-gray-200 px-4 pb-3.5 2xl:px-4 2xl:pb-5"
+          className="flex h-[88px] items-center border-b border-gray-200 px-4 2xl:h-[108px] 2xl:px-4"
           data-testid="sidebar-logo-header"
         >
           <Link

@@ -23,18 +23,23 @@ for (const viewport of viewports) {
         '[data-testid="sidebar-logo-header"]',
       );
       const sidebar = logoHeader?.closest("aside");
+      const adminHeader = document.querySelector("header");
 
       if (
         !(logoHeader instanceof HTMLElement) ||
-        !(sidebar instanceof HTMLElement)
+        !(sidebar instanceof HTMLElement) ||
+        !(adminHeader instanceof HTMLElement)
       ) {
         throw new Error("Sidebar logo header measurement target not found");
       }
 
       const logoHeaderRect = logoHeader.getBoundingClientRect();
       const sidebarRect = sidebar.getBoundingClientRect();
+      const adminHeaderRect = adminHeader.getBoundingClientRect();
 
       return {
+        adminHeaderBottom: adminHeaderRect.bottom,
+        logoHeaderBottom: logoHeaderRect.bottom,
         logoHeaderLeft: logoHeaderRect.left,
         logoHeaderRight: logoHeaderRect.right,
         sidebarLeft: sidebarRect.left,
@@ -48,6 +53,12 @@ for (const viewport of viewports) {
     expect(
       Math.abs(
         logoHeaderMetrics.logoHeaderRight - logoHeaderMetrics.sidebarRight,
+      ),
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(
+        logoHeaderMetrics.logoHeaderBottom -
+          logoHeaderMetrics.adminHeaderBottom,
       ),
     ).toBeLessThanOrEqual(1);
 
