@@ -98,12 +98,55 @@ const cases = [
     },
   },
   {
+    name: "deferred route field id fails",
+    expectSuccess: false,
+    expectedOutput: 'missing issue form item "route-url"',
+    setup(fixtureRoot) {
+      mutateFixtureFile(fixtureRoot, ".github/ISSUE_TEMPLATE/deferred-figma-screen.yml", (content) =>
+        content.replace("    id: route-url", "    id: route-path"),
+      );
+    },
+  },
+  {
+    name: "deferred unexpected field id fails",
+    expectSuccess: false,
+    expectedOutput: 'unexpected issue form item "unexpected-extra"',
+    setup(fixtureRoot) {
+      mutateFixtureFile(fixtureRoot, ".github/ISSUE_TEMPLATE/deferred-figma-screen.yml", (content) =>
+        content.replace(
+          "  - type: input\n    id: route-url",
+          "  - type: input\n    id: unexpected-extra\n    attributes:\n      label: Unexpected extra field\n  - type: input\n    id: route-url",
+        ),
+      );
+    },
+  },
+  {
     name: "alert phase safety required checkbox fails",
     expectSuccess: false,
     expectedOutput: 'checkbox "No fetch" in "phase-safety" must be present with required: true',
     setup(fixtureRoot) {
       mutateFixtureFile(fixtureRoot, ".github/ISSUE_TEMPLATE/alert-component.yml", (content) =>
         content.replace("        - label: No fetch\n          required: true", "        - label: No fetch"),
+      );
+    },
+  },
+  {
+    name: "alert usage surfaces field id fails",
+    expectSuccess: false,
+    expectedOutput: 'missing issue form item "usage-surfaces"',
+    setup(fixtureRoot) {
+      mutateFixtureFile(fixtureRoot, ".github/ISSUE_TEMPLATE/alert-component.yml", (content) =>
+        content.replace("    id: usage-surfaces", "    id: usage-targets"),
+      );
+    },
+  },
+  {
+    name: "deployment default branch field id fails",
+    expectSuccess: false,
+    expectedOutput: 'missing issue form item "default-branch"',
+    setup(fixtureRoot) {
+      mutateFixtureFile(fixtureRoot, ".github/ISSUE_TEMPLATE/deployment-setup.yml", (content) =>
+        content.replace("    id: default-branch", "    id: branch-policy"),
       );
     },
   },

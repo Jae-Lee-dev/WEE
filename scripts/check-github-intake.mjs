@@ -101,6 +101,56 @@ const expectedForms = [
     ],
   },
 ];
+const expectedIssueFormItemIds = [
+  {
+    file: ".github/ISSUE_TEMPLATE/deferred-figma-screen.yml",
+    ids: ["screen-id", "route-url", "authoritative-frame", "why-authoritative", "states", "evidence", "fallback", "fallback-reason", "phase-safety"],
+  },
+  {
+    file: ".github/ISSUE_TEMPLATE/deployment-setup.yml",
+    ids: [
+      "github-owner",
+      "github-repo",
+      "default-branch",
+      "branch-notes",
+      "vercel-team",
+      "vercel-project",
+      "production-domain",
+      "preview-deployments",
+      "env-vars",
+      "readiness",
+    ],
+  },
+  {
+    file: ".github/ISSUE_TEMPLATE/alert-component.yml",
+    ids: [
+      "component-name",
+      "authoritative-frame",
+      "ownership",
+      "ownership-notes",
+      "usage-surfaces",
+      "variants",
+      "visual-states",
+      "evidence",
+      "storybook",
+      "phase-safety",
+    ],
+  },
+  {
+    file: ".github/ISSUE_TEMPLATE/backend-phase-switch.yml",
+    ids: [
+      "requested-scope",
+      "scope-notes",
+      "explicit-capabilities",
+      "environments",
+      "auth-requirements",
+      "data-model",
+      "repo-boundary",
+      "verification",
+      "guardrail-acknowledgement",
+    ],
+  },
+];
 
 const findings = [];
 
@@ -152,6 +202,30 @@ function requireRequiredCheckboxOptions(file, content, id, labels) {
   }
 }
 
+function requireIssueFormItemIds(file, content, expectedIds) {
+  const actualIds = Array.from(content.matchAll(/^ {4}id: ([a-z0-9-]+)$/gm), (match) => match[1]);
+  const expectedIdSet = new Set(expectedIds);
+  const seenIds = new Set();
+
+  for (const id of expectedIds) {
+    if (!actualIds.includes(id)) {
+      findings.push(`${file}: missing issue form item "${id}"`);
+    }
+  }
+
+  for (const id of actualIds) {
+    if (!expectedIdSet.has(id)) {
+      findings.push(`${file}: unexpected issue form item "${id}"`);
+    }
+
+    if (seenIds.has(id)) {
+      findings.push(`${file}: duplicate issue form item "${id}"`);
+    }
+
+    seenIds.add(id);
+  }
+}
+
 function extractMarkdownSection(file, content, heading) {
   const headingIndex = content.indexOf(`${heading}\n`);
 
@@ -195,6 +269,10 @@ for (const form of expectedForms) {
   for (const snippet of form.snippets) {
     requireSnippet(form.file, content, snippet);
   }
+}
+
+for (const form of expectedIssueFormItemIds) {
+  requireIssueFormItemIds(form.file, readRequiredFile(form.file), form.ids);
 }
 
 requireRequiredCheckboxOptions(
