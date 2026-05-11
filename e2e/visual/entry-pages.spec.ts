@@ -59,6 +59,7 @@ test("AUTH-01 keeps login layout compact without page scroll", async ({ page }) 
   await page.evaluate(() => document.fonts.ready);
 
   await expect(page.locator('nav[aria-label="진입 메뉴"]')).toHaveCount(0);
+  await expect(page.getByRole("img", { name: "Wee" })).toBeVisible();
 
   const rememberCheckbox = page.getByRole("checkbox", {
     name: "로그인 유지",
@@ -93,6 +94,59 @@ test("AUTH-01 keeps login layout compact without page scroll", async ({ page }) 
   expect(metrics.cardWidth).toBeLessThanOrEqual(480);
   expect(metrics.checkboxBackground).not.toBe("rgb(0, 0, 0)");
   expect(metrics.socialLoginCount).toBe(0);
+});
+
+test("AUTH-02 keeps signup fields in a single column", async ({ page }) => {
+  await prepareVisualPage({ page, path: "/signup", viewport: "laptop-1366" });
+  await page.evaluate(() => document.fonts.ready);
+
+  const metrics = await page.evaluate(() => {
+    const root = document.documentElement;
+    const fieldIds = [
+      "signup-name",
+      "signup-email",
+      "signup-password",
+      "signup-password-confirm",
+    ];
+    const fields = fieldIds.map((fieldId) => {
+      const field = document.getElementById(fieldId);
+      const rect = field?.getBoundingClientRect();
+
+      return {
+        bottom: rect?.bottom ?? 0,
+        left: rect?.left ?? 0,
+        top: rect?.top ?? 0,
+        width: rect?.width ?? 0,
+      };
+    });
+    const signupScreen = document.querySelector('[data-testid="signup-screen"]');
+    const card = signupScreen?.parentElement?.parentElement;
+    const cardRect = card?.getBoundingClientRect();
+
+    return {
+      cardWidth: cardRect?.width ?? 0,
+      fields,
+      horizontalOverflow: root.scrollWidth - root.clientWidth,
+    };
+  });
+
+  expect(metrics.cardWidth).toBeLessThanOrEqual(520);
+  expect(metrics.horizontalOverflow).toBeLessThanOrEqual(1);
+
+  for (const field of metrics.fields) {
+    expect(Math.abs(field.left - metrics.fields[0].left)).toBeLessThanOrEqual(
+      1,
+    );
+    expect(Math.abs(field.width - metrics.fields[0].width)).toBeLessThanOrEqual(
+      1,
+    );
+  }
+
+  for (let index = 1; index < metrics.fields.length; index += 1) {
+    expect(metrics.fields[index].top).toBeGreaterThan(
+      metrics.fields[index - 1].bottom,
+    );
+  }
 });
 
 test("AUTH-02 validates native signup before Firebase submit", async ({

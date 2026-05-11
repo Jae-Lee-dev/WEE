@@ -131,7 +131,7 @@ export function SignupForm() {
 
   return (
     <form className="w-full" onSubmit={handleSubmit} noValidate>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="space-y-4">
         <SignupTextField
           id="signup-name"
           label="이름"
@@ -161,9 +161,6 @@ export function SignupForm() {
           required
           disabled={isSubmitting}
         />
-      </div>
-
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <SignupPasswordField
           id="signup-password"
           label="비밀번호"
@@ -181,6 +178,7 @@ export function SignupForm() {
           required
           disabled={isSubmitting}
         />
+        <PasswordRequirementList password={form.password} />
         <SignupPasswordField
           id="signup-password-confirm"
           label="비밀번호 확인"
@@ -199,8 +197,6 @@ export function SignupForm() {
           disabled={isSubmitting}
         />
       </div>
-
-      <PasswordRequirementList password={form.password} />
 
       <div className="mt-5 space-y-3">
         <SignupCheckbox

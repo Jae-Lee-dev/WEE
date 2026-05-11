@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { ComponentProps, ComponentType, ReactNode } from "react";
 import {
   ArrowRight,
@@ -146,7 +147,7 @@ export function SignupScreen() {
       screenId="AUTH-02"
       title="회원가입"
       description="이메일과 비밀번호로 관리자 계정을 만듭니다."
-      cardClassName="max-w-[620px]"
+      cardClassName="max-w-[480px]"
     >
       <div className="w-full" data-testid="signup-screen">
         <SignupForm />
@@ -464,17 +465,17 @@ function AuthShell({
   cardClassName,
 }: AuthShellProps) {
   return (
-    <main className="h-dvh overflow-hidden bg-gray-50 px-4 py-4 tracking-normal text-gray-900 sm:px-5 sm:py-6 lg:px-8">
-      <section className="mx-auto flex h-full w-full max-w-[1040px] items-center justify-center">
+    <main className="min-h-dvh overflow-x-hidden bg-gray-50 px-4 py-4 tracking-normal text-gray-900 sm:px-5 sm:py-6 lg:px-8">
+      <section className="mx-auto flex min-h-[calc(100dvh-32px)] w-full max-w-[1040px] items-center justify-center sm:min-h-[calc(100dvh-48px)]">
         <div
           className={cn(
-            "max-h-full w-full max-w-[560px] overflow-hidden rounded-[10px] border border-gray-200 bg-white px-6 py-6 shadow-[0_18px_48px_rgba(17,24,39,0.08)] sm:px-7 lg:px-8 lg:py-7",
+            "w-full max-w-[560px] rounded-[10px] border border-gray-200 bg-white px-6 py-6 shadow-[0_18px_48px_rgba(17,24,39,0.08)] sm:px-7 lg:px-8 lg:py-7",
             cardClassName,
           )}
         >
-          <header>
-            <BrandBlock />
-            <h1 className="mt-6 text-h-32 tracking-normal text-gray-900">
+          <header className="text-center">
+            <AuthLogo />
+            <h1 className="mt-5 text-h-32 tracking-normal text-gray-900">
               {title}
             </h1>
             <p className="mt-2 text-body-16-regular tracking-normal text-gray-500">
@@ -545,8 +546,15 @@ function BrandBlock() {
       href="/login"
       className="flex w-fit items-center gap-3 rounded-[8px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
     >
-      <span className="flex size-12 items-center justify-center rounded-[10px] bg-green-400 text-h-24 tracking-normal text-white">
-        W
+      <span className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-[10px] bg-white">
+        <Image
+          src="/admin-shell/logo.png"
+          alt=""
+          width={72}
+          height={50}
+          priority
+          className="h-8 w-auto object-contain"
+        />
       </span>
       <span>
         <span className="block text-h-20 tracking-normal text-gray-900">
@@ -556,6 +564,24 @@ function BrandBlock() {
           관리자
         </span>
       </span>
+    </Link>
+  );
+}
+
+function AuthLogo() {
+  return (
+    <Link
+      href="/login"
+      className="inline-flex items-center justify-center rounded-[8px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+    >
+      <Image
+        src="/admin-shell/logo.png"
+        alt="Wee"
+        width={96}
+        height={67}
+        priority
+        className="h-10 w-auto object-contain"
+      />
     </Link>
   );
 }
