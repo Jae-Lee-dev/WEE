@@ -8,17 +8,22 @@ const meta = {
   argTypes: {
     variant: {
       control: "select",
-      options: ["green", "orange", "red", "blue", "grey", "outline"],
+      options: ["green", "greenSolid", "orange", "red", "blue", "grey", "outline"],
     },
     size: {
       control: "inline-radio",
-      options: ["M", "L"],
+      options: ["M", "L", "count"],
+    },
+    shape: {
+      control: "inline-radio",
+      options: ["default", "pill"],
     },
   },
   args: {
     children: "승인 대기",
     variant: "green",
     size: "M",
+    shape: "default",
   },
 } satisfies Meta<typeof Badge>;
 
@@ -32,11 +37,29 @@ export const Variants: Story = {
   render: () => (
     <div className="flex flex-wrap items-center gap-2">
       <Badge variant="green">승인</Badge>
+      <Badge variant="greenSolid">6</Badge>
       <Badge variant="orange">대기</Badge>
       <Badge variant="red">반려</Badge>
       <Badge variant="blue">정보</Badge>
       <Badge variant="grey">비활성</Badge>
       <Badge variant="outline">선택</Badge>
+    </div>
+  ),
+};
+
+export const NavigationPills: Story = {
+  name: "Navigation count pills",
+  render: () => (
+    <div className="flex flex-wrap items-center gap-2">
+      <Badge variant="greenSolid" size="count" shape="pill">
+        6
+      </Badge>
+      <Badge variant="greenSolid" size="count" shape="pill">
+        12
+      </Badge>
+      <Badge variant="greenSolid" size="count" shape="pill">
+        22
+      </Badge>
     </div>
   ),
 };

@@ -13,6 +13,7 @@ import {
 } from "@/app/_config/admin-navigation";
 import { HeaderNotificationSlot } from "@/app/_components/HeaderNotificationSlot";
 import { IconChevronLeft } from "@/components/icons";
+import { Badge } from "@/components/ui/badge";
 import { SlidingTabTextMask } from "@/components/ui/sliding-tab-text-mask";
 import { useSlidingTabIndicator } from "@/components/ui/use-sliding-tab-indicator";
 import { demoWorkspace } from "@/app/_data/admin-demo";
@@ -33,20 +34,22 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const workerDetail = isWorkerDetailPath(pathname);
 
   return (
-    <div className="flex min-h-screen min-w-[1180px] bg-gray-100 text-gray-900">
+    <div className="flex h-screen min-w-[1180px] overflow-hidden bg-gray-100 text-gray-900">
       <AdminSidebar currentSection={currentSection} />
-      <div className="min-w-0 flex-1 bg-gray-100">
-        <AdminHeader
-          title={workerDetail ? "조교 상세" : currentSection.label}
-          backHref={workerDetail ? "/workers" : undefined}
-          showInviteCodeAction={currentSection.key === "workers"}
-        />
-        {workerDetail ? null : (
-          <SectionTabs pathname={pathname} tabs={currentSection.tabs} />
-        )}
-        <main className="px-4 pb-4 pt-5 2xl:px-5 2xl:pb-5 2xl:pt-7">
-          {children}
-        </main>
+      <div className="min-h-0 min-w-0 flex-1 bg-gray-100">
+        <div className="h-full overflow-y-auto overscroll-contain">
+          <AdminHeader
+            title={workerDetail ? "조교 상세" : currentSection.label}
+            backHref={workerDetail ? "/workers" : undefined}
+            showInviteCodeAction={currentSection.key === "workers"}
+          />
+          {workerDetail ? null : (
+            <SectionTabs pathname={pathname} tabs={currentSection.tabs} />
+          )}
+          <main className="px-4 pb-4 pt-5 2xl:px-5 2xl:pb-5 2xl:pt-7">
+            {children}
+          </main>
+        </div>
       </div>
     </div>
   );
@@ -92,16 +95,28 @@ function AdminSidebar({
           </div>
         </Link>
 
-        <div className="my-3.5 h-px bg-gray-100 2xl:my-5" />
+        <SidebarSeparator className="my-3.5 2xl:my-5" />
 
-        <nav className="space-y-1.5 2xl:space-y-2" aria-label="관리자 메뉴">
-          {adminSections.map((section) => (
-            <SidebarItem
-              key={section.key}
-              section={section}
-              active={currentSection.key === section.key}
-            />
-          ))}
+        <nav className="flex flex-col gap-1.5 2xl:gap-2" aria-label="관리자 메뉴">
+          <div className="space-y-1.5 2xl:space-y-2">
+            {adminSections.slice(0, 5).map((section) => (
+              <SidebarItem
+                key={section.key}
+                section={section}
+                active={currentSection.key === section.key}
+              />
+            ))}
+          </div>
+          <SidebarSeparator />
+          <SidebarItem
+            section={adminSections[5]}
+            active={currentSection.key === adminSections[5].key}
+          />
+          <SidebarSeparator />
+          <SidebarItem
+            section={adminSections[6]}
+            active={currentSection.key === adminSections[6].key}
+          />
         </nav>
       </div>
 
@@ -126,6 +141,10 @@ function AdminSidebar({
   );
 }
 
+function SidebarSeparator({ className = "" }: { className?: string }) {
+  return <div className={`h-px bg-gray-100 ${className}`} />;
+}
+
 function SidebarItem({
   section,
   active,
@@ -133,11 +152,6 @@ function SidebarItem({
   section: AdminSection;
   active: boolean;
 }) {
-  const badgeClassName =
-    section.badgeTone === "ai"
-      ? "bg-green-100 text-green-300"
-      : "bg-green-400 text-white";
-
   return (
     <Link
       href={section.href}
@@ -159,11 +173,14 @@ function SidebarItem({
         {section.label}
       </span>
       {section.badge ? (
-        <span
-          className={`rounded-[4px] px-1.5 py-0.5 text-detail-16-semibold ${badgeClassName}`}
+        <Badge
+          variant={section.badgeTone === "ai" ? "green" : "greenSolid"}
+          size={section.badgeTone === "ai" ? "M" : "count"}
+          shape={section.badgeTone === "ai" ? "default" : "pill"}
+          className={section.badgeTone === "ai" ? "text-green-300" : undefined}
         >
           {section.badge}
-        </span>
+        </Badge>
       ) : null}
     </Link>
   );
@@ -196,7 +213,7 @@ function AdminHeader({
   showInviteCodeAction: boolean;
 }) {
   return (
-    <header className="flex h-[72px] items-center justify-between border-b border-gray-200 bg-white px-5 2xl:h-[92px] 2xl:px-5">
+    <header className="flex h-[88px] shrink-0 items-center justify-between border-b border-gray-200 bg-white px-5 2xl:h-[108px] 2xl:px-5">
       <div className="flex items-center gap-4">
         {backHref ? (
           <Link
@@ -247,10 +264,10 @@ function SectionTabs({
     });
 
   return (
-    <div className="px-5 pt-5 2xl:px-5 2xl:pt-7">
+    <div className="sticky top-0 z-30 bg-gray-100 px-5 pt-5 2xl:px-5 2xl:pt-7">
       <nav
         ref={listRef}
-        className="group/section-tabs relative isolate flex h-[34px] items-end gap-8 overflow-hidden border-b border-gray-200 2xl:h-[34px] 2xl:gap-8"
+        className="group/section-tabs relative isolate flex h-11 items-end gap-8 overflow-hidden border-b border-gray-200 2xl:h-11 2xl:gap-8"
       >
         <span
           aria-hidden="true"
@@ -277,7 +294,7 @@ function SectionTabs({
               href={tab.href}
               aria-current={active ? "page" : undefined}
               {...{ [slidingTabValueAttribute]: tab.href }}
-              className={`relative z-10 flex h-[34px] items-start border-b-2 text-h-18-semibold transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 2xl:h-[34px] 2xl:text-h-20 ${
+              className={`relative z-10 flex h-11 items-start border-b-2 text-h-18-semibold transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 2xl:h-11 2xl:text-h-20 ${
                 active
                   ? "border-transparent text-gray-500 hover:text-gray-800 active:text-gray-900"
                   : "border-transparent text-gray-500 hover:border-gray-200 hover:text-gray-800 active:text-gray-900"
@@ -289,12 +306,12 @@ function SectionTabs({
                 itemStyle={itemStyles[tab.href]}
                 overlayClassName="items-start justify-center"
               >
-                <span className="flex items-center gap-2">
+                <span className="flex items-center gap-2 pt-1">
                   <span>{tab.label}</span>
                   {badge ? (
-                    <span className="rounded-full bg-green-400 px-2 py-0.5 text-detail-16-semibold text-white">
+                    <Badge variant="greenSolid" size="count" shape="pill">
                       {badge}
-                    </span>
+                    </Badge>
                   ) : null}
                 </span>
               </SlidingTabTextMask>
