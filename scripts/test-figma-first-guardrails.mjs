@@ -163,6 +163,17 @@ const cases = [
     },
   },
   {
+    name: "generic node env assignment passes",
+    expectSuccess: true,
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/dashboard/env-preview.ts",
+        'export const nodeEnv = process.env.NODE_ENV;',
+      );
+    },
+  },
+  {
     name: "generic node env bracket reference passes",
     expectSuccess: true,
     setup(root) {
@@ -304,6 +315,66 @@ const cases = [
         root,
         "src/lib/env-config.ts",
         'const suffix = "FIREBASE_API_KEY"; export const value = process.env[`NEXT_PUBLIC_${suffix}`];',
+      );
+    },
+  },
+  {
+    name: "runtime alternate env object access is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/env-config.ts",
+        'const key = "FIREBASE_PROJECT_ID"; export const value = process["env"][key];',
+      );
+    },
+  },
+  {
+    name: "runtime env alias is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/env-config.ts",
+        'const env = process.env; export const value = env.FIREBASE_PROJECT_ID;',
+      );
+    },
+  },
+  {
+    name: "runtime typed env alias is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/env-config.ts",
+        'const env: NodeJS.ProcessEnv = process.env; export const value = env.FIREBASE_PROJECT_ID;',
+      );
+    },
+  },
+  {
+    name: "runtime env destructuring is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/env-config.ts",
+        'const { FIREBASE_PROJECT_ID } = process.env; export const projectId = FIREBASE_PROJECT_ID;',
+      );
+    },
+  },
+  {
+    name: "runtime typed env destructuring is blocked",
+    expectSuccess: false,
+    expectedOutput: "Runtime integration environment reference",
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/lib/env-config.ts",
+        'const { FIREBASE_PROJECT_ID }: NodeJS.ProcessEnv = process.env; export const projectId = FIREBASE_PROJECT_ID;',
       );
     },
   },

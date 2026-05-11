@@ -126,6 +126,9 @@ const runtimeIntegrationEnvPattern =
   /\bNEXT_PUBLIC_[A-Z0-9_]+\b|\bprocess\s*\.\s*env\s*(?:\.\s*(?:NEXT_PUBLIC_[A-Z0-9_]+|FIREBASE[A-Z0-9_]*|FIRESTORE[A-Z0-9_]*|AUTH[A-Z0-9_]*|GOOGLE[A-Z0-9_]*|GCLOUD[A-Z0-9_]*|VERCEL[A-Z0-9_]*|DATABASE[A-Z0-9_]*)|\[\s*["'](?:NEXT_PUBLIC_[A-Z0-9_]+|FIREBASE[A-Z0-9_]*|FIRESTORE[A-Z0-9_]*|AUTH[A-Z0-9_]*|GOOGLE[A-Z0-9_]*|GCLOUD[A-Z0-9_]*|VERCEL[A-Z0-9_]*|DATABASE[A-Z0-9_]*)["']\s*\])/;
 const runtimeDynamicEnvAccessPattern =
   /\bprocess\s*\.\s*env\s*(?:\?\.\s*)?\[\s*(?!["'](?:NODE_ENV|PLAYWRIGHT_BASE_URL)["']\s*\])/;
+const runtimeAlternateEnvAccessPattern = /\bprocess\s*\[\s*["']env["']\s*\]/;
+const runtimeEnvAliasPattern =
+  /\b(?:const|let|var)\s+(?:\{[^}]*\}|[A-Za-z_$][\w$]*)\s*(?::[^=]+)?=\s*process\s*\.\s*env\b(?!\s*(?:\.|\[|\?\.))/;
 const submitDrivenUiRules = [
   {
     name: "form element",
@@ -256,7 +259,12 @@ function auditRuntimeIntegrationEnvReference(file, content) {
     return;
   }
 
-  if (runtimeIntegrationEnvPattern.test(content) || runtimeDynamicEnvAccessPattern.test(content)) {
+  if (
+    runtimeIntegrationEnvPattern.test(content) ||
+    runtimeDynamicEnvAccessPattern.test(content) ||
+    runtimeAlternateEnvAccessPattern.test(content) ||
+    runtimeEnvAliasPattern.test(content)
+  ) {
     addFinding(
       "Runtime integration environment reference",
       file,
