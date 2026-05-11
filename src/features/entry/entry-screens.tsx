@@ -35,6 +35,10 @@ import { LoginForm } from "./login-form";
 import { SignupForm } from "./signup-form";
 import { createManagerWorkspace } from "./workspace-data-source";
 import {
+  createWorkspaceSetupDataSource,
+  type WorkspaceSetupProgress,
+} from "./workspace-setup-data-source";
+import {
   getSetupGuideRedirectPath,
   persistWorkspaceOnboardingState,
   readWorkspaceOnboardingStatus,
@@ -114,6 +118,12 @@ type WorkspaceStepStatus = {
   label: string;
   tone: WorkspaceStepStatusTone;
 };
+type SetupProgressStepState = "active" | "complete" | "pending";
+type SetupProgressStep = {
+  caption: string;
+  state: SetupProgressStepState;
+  title: string;
+};
 
 const onboardingProgressSteps = [
   {
@@ -165,6 +175,13 @@ const initialBillingForm: BillingFormState = {
   expiry: "",
   cvc: "",
   holderName: "",
+};
+
+const emptySetupProgress: WorkspaceSetupProgress = {
+  dutyCount: 0,
+  locationCount: 0,
+  setupComplete: false,
+  status: "workspace-created",
 };
 
 const planOptions: {
@@ -1284,8 +1301,88 @@ function getWorkspaceCreationErrorMessage(error: unknown) {
     : "소속 생성 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.";
 }
 
+function getSetupProgressSteps(
+  progress: WorkspaceSetupProgress,
+): SetupProgressStep[] {
+  const locationComplete = progress.locationCount > 0;
+  const dutyComplete = progress.dutyCount > 0;
+
+  return [
+    {
+      caption: locationComplete
+        ? `${progress.locationCount}개 등록됨`
+        : "등록 대기",
+      state: locationComplete ? "complete" : "active",
+      title: "근무지 등록",
+    },
+    {
+      caption: dutyComplete ? `${progress.dutyCount}개 개설됨` : "개설 대기",
+      state: dutyComplete
+        ? "complete"
+        : locationComplete
+          ? "active"
+          : "pending",
+      title: "첫 근무 개설",
+    },
+    {
+      caption: progress.setupComplete ? "진입 가능" : "설정 완료 후 가능",
+      state: progress.setupComplete
+        ? "complete"
+        : dutyComplete
+          ? "active"
+          : "pending",
+      title: "대시보드 진입",
+    },
+  ];
+}
+
+function getSetupStepContainerClassName(state: SetupProgressStepState) {
+  if (state === "complete") {
+    return "border-green-200 bg-green-50";
+  }
+
+  if (state === "active") {
+    return "border-blue-100 bg-blue-50";
+  }
+
+  return "border-gray-200 bg-gray-50";
+}
+
+function getSetupStepIconClassName(state: SetupProgressStepState) {
+  if (state === "complete") {
+    return "bg-green-400 text-white";
+  }
+
+  if (state === "active") {
+    return "bg-blue-500 text-white";
+  }
+
+  return "bg-white text-gray-500";
+}
+
+function getSetupGuideMessage(
+  progress: WorkspaceSetupProgress,
+  setupLoadError: string | null,
+) {
+  if (setupLoadError) {
+    return setupLoadError;
+  }
+
+  if (progress.setupComplete) {
+    return "초기 설정이 완료되었습니다. Wee 대시보드에서 운영 현황을 볼 수 있습니다.";
+  }
+
+  if (progress.locationCount > 0) {
+    return "근무지가 등록되었습니다. 첫 근무를 개설하면 대시보드가 열립니다.";
+  }
+
+  return "근무지를 먼저 등록한 뒤 첫 근무를 개설하면 Wee 대시보드를 사용할 수 있습니다.";
+}
+
 export function SetupGuideScreen() {
   const router = useRouter();
+  const [progress, setProgress] = useState<WorkspaceSetupProgress | null>(null);
+  const [setupLoadError, setSetupLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const redirectPath = getSetupGuideRedirectPath(
@@ -1294,12 +1391,54 @@ export function SetupGuideScreen() {
 
     if (redirectPath) {
       router.replace(redirectPath);
+      return;
     }
+
+    let cancelled = false;
+
+    createWorkspaceSetupDataSource()
+      .loadProgress()
+      .then((nextProgress) => {
+        if (cancelled) {
+          return;
+        }
+
+        const nextRedirectPath = getSetupGuideRedirectPath(nextProgress.status);
+
+        if (nextRedirectPath) {
+          router.replace(nextRedirectPath);
+          return;
+        }
+
+        setProgress(nextProgress);
+        setSetupLoadError(null);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSetupLoadError(
+            "초기 설정 진행 상태를 불러오지 못했습니다. 각 관리 화면에서 계속 진행할 수 있습니다.",
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
+
+  const setupProgress = progress ?? emptySetupProgress;
+  const setupSteps = getSetupProgressSteps(setupProgress);
+  const locationComplete = setupProgress.locationCount > 0;
+  const dutyComplete = setupProgress.dutyCount > 0;
+  const guideMessage = getSetupGuideMessage(setupProgress, setupLoadError);
 
   return (
     <EntryShell
-      title="관리자 설정으로 이어가기"
+      title={
+        setupProgress.setupComplete
+          ? "관리자 설정이 완료되었습니다"
+          : "관리자 설정으로 이어가기"
+      }
       description="근무지와 첫 근무를 등록해야 대시보드로 이동합니다."
       activeStepIndex={1}
     >
@@ -1312,39 +1451,46 @@ export function SetupGuideScreen() {
           />
 
           <div className="mt-6 grid gap-3 md:grid-cols-3">
-            {["근무지 등록", "첫 근무 개설", "대시보드 진입"].map(
-              (item, index) => (
-                <div
-                  key={item}
+            {setupSteps.map((step, index) => (
+              <div
+                key={step.title}
+                className={cn(
+                  "flex items-center gap-3 rounded-[8px] border px-4 py-3",
+                  getSetupStepContainerClassName(step.state),
+                )}
+              >
+                <span
                   className={cn(
-                    "flex items-center gap-3 rounded-[8px] border px-4 py-3",
-                    index === 0
-                      ? "border-green-200 bg-green-50"
-                      : "border-gray-200 bg-gray-50",
+                    "flex size-7 shrink-0 items-center justify-center rounded-full text-label-12-medium tracking-normal",
+                    getSetupStepIconClassName(step.state),
                   )}
                 >
-                  <span
-                    className={cn(
-                      "flex size-7 shrink-0 items-center justify-center rounded-full text-label-12-medium tracking-normal",
-                      index === 0
-                        ? "bg-green-400 text-white"
-                        : "bg-white text-gray-500",
-                    )}
-                  >
-                    {index + 1}
+                  {step.state === "complete" ? (
+                    <Check className="size-4" strokeWidth={2.4} />
+                  ) : (
+                    index + 1
+                  )}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-label-14-medium tracking-normal text-gray-900">
+                    {step.title}
                   </span>
-                  <span className="text-label-14-medium tracking-normal text-gray-900">
-                    {item}
+                  <span className="mt-0.5 block text-label-12-regular tracking-normal text-gray-500">
+                    {step.caption}
                   </span>
-                </div>
-              ),
-            )}
+                </span>
+              </div>
+            ))}
           </div>
 
           <div className="mt-5 grid gap-4 lg:grid-cols-2">
             <AdminSetupActionCard
-              badgeLabel="먼저 진행"
-              highlighted
+              badgeLabel={
+                locationComplete
+                  ? `${setupProgress.locationCount}개 등록`
+                  : "먼저 진행"
+              }
+              highlighted={!locationComplete}
               icon={MapPin}
               title="근무지 관리"
               description="주소와 출퇴근 허용 반경을 등록합니다. 반경은 숫자로 입력하고 m 단위가 붙습니다."
@@ -1352,7 +1498,14 @@ export function SetupGuideScreen() {
               actionLabel="근무지 관리 열기"
             />
             <AdminSetupActionCard
-              badgeLabel="다음 단계"
+              badgeLabel={
+                dutyComplete
+                  ? `${setupProgress.dutyCount}개 개설`
+                  : locationComplete
+                    ? "다음 진행"
+                    : "다음 단계"
+              }
+              highlighted={locationComplete && !dutyComplete}
               icon={Clock3}
               title="근무 목록"
               description="요일, 시간, 시급 기준으로 조교가 배정될 첫 근무를 개설합니다."
@@ -1361,8 +1514,31 @@ export function SetupGuideScreen() {
             />
           </div>
 
-          <div className="mt-5 rounded-[8px] border border-blue-50 bg-blue-50 px-4 py-3 text-body-14-regular tracking-normal text-gray-600">
-            두 설정을 마치면 Wee 대시보드에서 운영 현황을 볼 수 있습니다.
+          <div
+            className={cn(
+              "mt-5 rounded-[8px] border px-4 py-3 text-body-14-regular tracking-normal text-gray-600",
+              setupLoadError
+                ? "border-red-100 bg-red-50"
+                : setupProgress.setupComplete
+                  ? "border-green-100 bg-green-50"
+                  : "border-blue-50 bg-blue-50",
+            )}
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p>{guideMessage}</p>
+              {setupProgress.setupComplete ? (
+                <Button
+                  asChild
+                  variant="primary"
+                  className="h-10 shrink-0 rounded-[8px] px-4 text-label-14-medium tracking-normal"
+                >
+                  <Link href="/dashboard">
+                    대시보드로 이동
+                    <ArrowRight className="size-4" strokeWidth={2.2} />
+                  </Link>
+                </Button>
+              ) : null}
+            </div>
           </div>
         </section>
       </div>

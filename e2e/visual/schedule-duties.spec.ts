@@ -1,4 +1,4 @@
-import { expect, test } from "playwright/test";
+import { expect, test, type Page } from "playwright/test";
 import {
   captureActualScreenshot,
   expectTimelineFrameOwnsStickyScroll,
@@ -63,6 +63,7 @@ test(`DUT-01 create-duty-dialog ${desktop}`, async ({ page }) => {
   await page.evaluate(() => document.fonts.ready);
   await page.getByRole("button", { name: "근무 개설" }).click();
   await expect(page.getByTestId("duty-list-create-dialog")).toBeVisible();
+  await expect(page.getByTestId("duty-list-create-dialog").getByLabel("이름")).toBeEditable();
 
   await captureActualScreenshot({
     page,
@@ -70,6 +71,30 @@ test(`DUT-01 create-duty-dialog ${desktop}`, async ({ page }) => {
     state: "create-duty-dialog",
     viewport: desktop,
   });
+});
+
+test("DUT-01 creates duty through data source", async ({ page }) => {
+  await prepareVisualPage({ page, path: routePath, viewport: desktop });
+  await page.evaluate(() => document.fonts.ready);
+  await page.getByRole("button", { name: "근무 개설" }).click();
+
+  const dialog = page.getByTestId("duty-list-create-dialog");
+  await dialog.getByLabel("이름").fill("수학 A반 질문");
+  await dialog.getByLabel("근무 태그 (복수 가능)").fill("질문");
+  await dialog.locator("select").selectOption({ label: "대치 A학원" });
+  await dialog.getByRole("button", { name: "월" }).click();
+  await dialog.getByLabel("시작 시간").fill("09:00");
+  await dialog.getByLabel("종료 시간").fill("11:00");
+  await dialog.getByRole("button", { name: "근무 저장" }).click();
+
+  await expect(dialog).toBeHidden();
+  await expect(page.getByTestId("duty-list-screen")).toContainText(
+    "수학 A반 질문 근무를 개설했습니다.",
+  );
+  await expect(page.getByTestId("duty-detail-panel")).toContainText(
+    "수학 A반 질문",
+  );
+  await expect(page.getByTestId("duty-detail-panel")).toContainText("대치 A학원");
 });
 
 test(`DUT-01 edit-basic-dialog ${desktop}`, async ({ page }) => {
@@ -102,6 +127,29 @@ test(`DUT-01 edit-time-dialog ${desktop}`, async ({ page }) => {
   });
 });
 
+test(`DUT-01 dialogs fit viewport ${laptop}`, async ({ page }) => {
+  await prepareVisualPage({ page, path: routePath, viewport: laptop });
+  await page.evaluate(() => document.fonts.ready);
+
+  await page.getByRole("button", { name: "근무 개설" }).click();
+  await expectDialogWithinViewport(page, "duty-list-create-dialog");
+  await page
+    .getByTestId("duty-list-create-dialog")
+    .getByRole("button", { name: "취소" })
+    .click();
+
+  await page.getByTestId("duty-list-select-first").click();
+  await page.getByRole("button", { name: "기본 정보 수정" }).click();
+  await expectDialogWithinViewport(page, "duty-list-edit-basic-dialog");
+  await page
+    .getByTestId("duty-list-edit-basic-dialog")
+    .getByRole("button", { name: "취소" })
+    .click();
+
+  await page.getByRole("button", { name: "시간 조정" }).click();
+  await expectDialogWithinViewport(page, "duty-list-edit-time-dialog");
+});
+
 test(`DUT-01 timeline owns sticky scroll ${laptop}`, async ({ page }) => {
   await prepareVisualPage({ page, path: routePath, viewport: laptop });
   await page.evaluate(() => document.fonts.ready);
@@ -110,3 +158,24 @@ test(`DUT-01 timeline owns sticky scroll ${laptop}`, async ({ page }) => {
     page,
   });
 });
+
+async function expectDialogWithinViewport(page: Page, testId: string) {
+  const dialog = page.getByTestId(testId);
+  await expect(dialog).toBeVisible();
+
+  const box = await dialog.boundingBox();
+  const viewport = page.viewportSize();
+
+  expect(box).not.toBeNull();
+  expect(viewport).not.toBeNull();
+
+  if (!box || !viewport) {
+    return;
+  }
+
+  const verticalInset = 24;
+  expect(box.y).toBeGreaterThanOrEqual(verticalInset - 1);
+  expect(box.y + box.height).toBeLessThanOrEqual(
+    viewport.height - verticalInset + 1,
+  );
+}

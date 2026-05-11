@@ -432,7 +432,7 @@ export const dutyCreateDialog = {
     placeholder: "예) 수학 A반 질문조교",
   },
   tagSearchField: {
-    label: "근무자 태그 (복수 가능)",
+    label: "근무 태그 (복수 가능)",
     placeholder: "태그를 검색하거나 새 태그를 입력하세요",
   },
   locationField: {
