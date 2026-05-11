@@ -252,14 +252,14 @@ export function DutyListScreen({
   return (
     <section
       aria-label="근무 목록"
-      className="flex h-[calc(100vh-188px)] w-full flex-col gap-5 overflow-hidden 2xl:h-[calc(100vh-228px)]"
+      className="flex h-[calc(100vh-144px)] w-full flex-col gap-4 overflow-hidden"
       data-duty-list-state={selectedDuty ? "selected" : "default"}
       data-testid="duty-list-screen"
     >
       {statusMessage || errorMessage ? (
         <div
           className={cn(
-            "flex min-h-[42px] items-center rounded-[8px] border px-4 py-2.5 text-body-14-medium tracking-normal",
+            "flex min-h-9 items-center rounded-[8px] border px-4 py-2.5 text-body-14-medium tracking-normal",
             statusMessage
               ? "border-green-100 bg-green-50 text-green-500"
               : "border-red-100 bg-red-50 text-red-500",
@@ -280,7 +280,7 @@ export function DutyListScreen({
         viewMode={viewMode}
       />
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_340px] gap-5 2xl:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_320px] gap-4">
         {viewMode === "timeline" ? (
           <DutyTimelineGrid
             onSelectDuty={(duty) => setSelectedDutyId(duty.id)}
@@ -335,7 +335,7 @@ function DutyToolbar({
   viewMode: DutyViewMode;
 }) {
   return (
-    <div className="flex h-[42px] items-center justify-between gap-5">
+    <div className="flex h-9 items-center justify-between gap-4">
       <div className="flex min-w-0 items-center gap-3">
         <FilterTrigger label={dutyLocationOptions[0].label} />
         <FilterTrigger label={dutyTagFilterOptions[0].label} />
@@ -362,7 +362,7 @@ function DutyToolbar({
           variant="secondary"
           disabled={createDisabled}
           onClick={onCreate}
-          className="ml-2 h-[42px] gap-2 rounded-full px-4 font-normal tracking-normal"
+          className="ml-2 h-9 gap-2 rounded-full px-4 font-normal tracking-normal"
         >
           <Plus className="size-5" strokeWidth={2.2} />
           근무 개설
@@ -507,7 +507,7 @@ function DutyListTable({
       data-testid="duty-list-table"
       role="table"
     >
-      <div className="flex h-[70px] items-center gap-3 px-5">
+      <div className="flex h-[56px] items-center gap-3 px-4">
         <h2 className="text-h-20 tracking-normal text-gray-900">근무 목록</h2>
         <span className="rounded-[4px] bg-gray-100 px-1.5 py-0.5 text-detail-16-regular tracking-normal text-gray-600">
           {rows.length}건
@@ -515,7 +515,7 @@ function DutyListTable({
       </div>
 
       <div
-        className="grid h-[41px] grid-cols-[1.45fr_1fr_1.1fr_1.25fr_0.8fr_0.75fr] items-center border-b border-gray-300 px-5 text-h-18-regular tracking-normal text-gray-500"
+        className="grid h-9 grid-cols-[1.45fr_1fr_1.1fr_1.25fr_0.8fr_0.75fr] items-center border-b border-gray-300 px-4 text-h-18-regular tracking-normal text-gray-500"
         role="row"
       >
         <div role="columnheader">근무</div>
@@ -554,7 +554,7 @@ function DutyListTableRow({
       type="button"
       aria-selected={selected}
       className={cn(
-        "grid min-h-[78px] w-full grid-cols-[1.45fr_1fr_1.1fr_1.25fr_0.8fr_0.75fr] items-center border-b border-gray-100 px-5 text-left text-h-18-regular tracking-normal text-gray-900 transition-colors duration-150 ease-out last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200",
+        "grid min-h-16 w-full grid-cols-[1.45fr_1fr_1.1fr_1.25fr_0.8fr_0.75fr] items-center border-b border-gray-100 px-4 text-left text-h-18-regular tracking-normal text-gray-900 transition-colors duration-150 ease-out last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200",
         selected && "bg-green-50 hover:bg-green-50",
       )}
       data-testid={
@@ -637,7 +637,7 @@ function DutyDetailPanel({
 
   return (
     <aside
-      className="flex h-full flex-col rounded-[8px] border border-gray-200 bg-white p-5"
+      className="flex h-full flex-col rounded-[8px] border border-gray-200 bg-white p-4"
       data-testid="duty-detail-panel"
     >
       <h2 className="text-h-20 tracking-normal text-gray-900">
@@ -689,7 +689,7 @@ function DutyDetailPanel({
           type="button"
           variant="secondary"
           onClick={onEditBasic}
-          className="h-[41px] rounded-full px-4 text-label-18 font-medium tracking-normal"
+          className="h-9 rounded-full px-4 text-label-18 font-medium tracking-normal"
         >
           {detail.editBasicButtonLabel}
         </Button>
@@ -697,7 +697,7 @@ function DutyDetailPanel({
           type="button"
           variant="secondary"
           onClick={onEditTime}
-          className="h-[41px] rounded-full px-4 text-label-18 font-medium tracking-normal"
+          className="h-9 rounded-full px-4 text-label-18 font-medium tracking-normal"
         >
           {detail.editTimeButtonLabel}
         </Button>
@@ -806,7 +806,7 @@ function CreateDutyDialog({
         aria-labelledby="duty-list-create-dialog-title"
         data-testid="duty-list-create-dialog"
         showCloseButton={false}
-        className="flex max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] max-w-[684px] grid-cols-none flex-col gap-0 overflow-hidden rounded-[8px] bg-white px-10 py-10 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0"
+        className="flex max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] max-w-[620px] grid-cols-none flex-col gap-0 overflow-hidden rounded-[8px] bg-white p-8 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0"
       >
         <form
           className="flex min-h-0 flex-1 flex-col"
@@ -822,8 +822,8 @@ function CreateDutyDialog({
             </DialogTitle>
           </DialogHeader>
 
-          <div className="mt-7 min-h-0 flex-1 overflow-y-auto pr-1">
-            <div className="flex flex-col gap-5">
+          <div className="mt-6 min-h-0 flex-1 overflow-y-auto pr-1">
+            <div className="flex flex-col gap-4">
               <CreateDutyTextField
                 error={submitted ? errors.name : undefined}
                 field={fixture.nameField}
@@ -887,7 +887,7 @@ function EditBasicDialog({ onClose }: { onClose: () => void }) {
     <DialogShell
       labelledBy="duty-list-edit-basic-dialog-title"
       testId="duty-list-edit-basic-dialog"
-      className="max-w-[682px] px-10 py-10"
+      className="max-w-[620px] p-8"
     >
       <h2
         id="duty-list-edit-basic-dialog-title"
@@ -896,7 +896,7 @@ function EditBasicDialog({ onClose }: { onClose: () => void }) {
         {fixture.title}
       </h2>
 
-      <div className="mt-10 flex flex-col gap-8">
+      <div className="mt-8 flex flex-col gap-6">
         <DialogField field={fixture.nameField} />
         <EditBasicTagRow fixture={fixture} />
         <WeekdayPicker weekdays={fixture.weekdays} />
@@ -921,7 +921,7 @@ function EditTimeDialog({ onClose }: { onClose: () => void }) {
     <DialogShell
       labelledBy="duty-list-edit-time-dialog-title"
       testId="duty-list-edit-time-dialog"
-      className="max-w-[684px] px-10 py-10"
+      className="max-w-[620px] p-8"
     >
       <h2
         id="duty-list-edit-time-dialog-title"
@@ -930,7 +930,7 @@ function EditTimeDialog({ onClose }: { onClose: () => void }) {
         {fixture.title}
       </h2>
 
-      <div className="mt-10 grid grid-cols-2 gap-5">
+      <div className="mt-8 grid grid-cols-2 gap-4">
         <DialogField field={fixture.startTimeField} />
         <DialogField field={fixture.endTimeField} />
       </div>
@@ -988,7 +988,7 @@ function DialogField({
         {field.label}
         {field.required ? <span className="text-red-500"> *</span> : null}
       </span>
-      <span className="mt-3 flex h-[49px] items-center gap-3 rounded-[8px] border border-gray-200 bg-gray-50 px-4">
+      <span className="mt-3 flex h-11 items-center gap-3 rounded-[8px] border border-gray-200 bg-gray-50 px-4">
         <input
           readOnly
           value={field.value ?? ""}
@@ -1035,7 +1035,7 @@ function CreateDutyTextField({
         onChange={onChange}
         aria-describedby={error ? errorId : undefined}
         aria-invalid={Boolean(error)}
-        className="mt-3 h-[49px] rounded-[8px] border-gray-200 bg-gray-50 text-h-18-regular tracking-normal text-gray-900 placeholder:text-gray-400"
+        className="mt-3 h-11 rounded-[8px] border-gray-200 bg-gray-50 text-h-18-regular tracking-normal text-gray-900 placeholder:text-gray-400"
       />
       {error ? (
         <p id={errorId} className="mt-2 text-label-12-medium text-red-500">
@@ -1084,7 +1084,7 @@ function CreateDutyLocationField({
         triggerAriaDescribedBy={error ? errorId : undefined}
         triggerAriaInvalid={Boolean(error)}
         triggerAriaLabel="근무지"
-        triggerClassName="mt-3 h-[49px] w-full rounded-[8px] border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-900"
+        triggerClassName="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-900"
         contentClassName="z-[70]"
         itemClassName="text-h-16-medium tracking-normal"
       />
@@ -1119,7 +1119,7 @@ function WeekdayPicker({
             aria-pressed={selectedWeekday ? selectedWeekday === weekday.value : weekday.selected}
             onClick={() => onSelect?.(weekday.value)}
             className={cn(
-              "flex h-[49px] w-16 items-center justify-center rounded-[8px] border text-h-18-semibold tracking-normal transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
+              "flex h-11 w-16 items-center justify-center rounded-[8px] border text-h-18-semibold tracking-normal transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
               (selectedWeekday ? selectedWeekday === weekday.value : weekday.selected)
                 ? "border-green-400 bg-green-400 text-white"
                 : "border-gray-200 bg-white text-gray-900",
@@ -1150,7 +1150,7 @@ function CreateTimeFields({
   saving: boolean;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-5">
+    <div className="grid grid-cols-2 gap-4">
       <TimeField
         error={errors?.startTime}
         label="시작 시간"
@@ -1194,7 +1194,7 @@ function CreateOperationPeriodFields({
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-5">
+      <div className="grid grid-cols-2 gap-4">
         <DateField
           error={errors?.operationStartDate}
           label="운영 시작일"
@@ -1245,7 +1245,7 @@ function TimeField({
         disabled={disabled}
         onChange={onChange}
         aria-invalid={Boolean(error)}
-        className="mt-3 h-[49px] rounded-[8px] border-gray-200 bg-gray-50 text-h-18-regular tracking-normal text-gray-900"
+        className="mt-3 h-11 rounded-[8px] border-gray-200 bg-gray-50 text-h-18-regular tracking-normal text-gray-900"
       />
       {error ? (
         <p className="mt-2 text-label-12-medium text-red-500">{error}</p>
@@ -1281,7 +1281,7 @@ function DateField({
         min={min}
         onChange={onChange}
         aria-invalid={Boolean(error)}
-        className="mt-3 h-[49px] rounded-[8px] border-gray-200 bg-gray-50 text-h-18-regular tracking-normal text-gray-900"
+        className="mt-3 h-11 rounded-[8px] border-gray-200 bg-gray-50 text-h-18-regular tracking-normal text-gray-900"
       />
       {error ? (
         <p className="mt-2 text-label-12-medium text-red-500">{error}</p>
@@ -1358,7 +1358,7 @@ function EditTimeWorkerList({
             key={worker.id}
             className="flex h-[51px] items-center justify-between gap-4 border-b border-gray-100 px-4 last:border-b-0"
           >
-            <div className="flex min-w-0 items-center gap-5">
+            <div className="flex min-w-0 items-center gap-4">
               <span className="min-w-0 truncate text-h-18-semibold tracking-normal text-gray-900">
                 {worker.name}
               </span>
@@ -1393,7 +1393,7 @@ function CreateDutyDialogActions({
   onClose: () => void;
 }) {
   return (
-    <DialogFooter className="mx-0 mb-0 mt-6 flex-row justify-end gap-2.5 rounded-none border-t border-gray-100 bg-transparent p-0 pt-5 sm:flex-row sm:justify-end">
+    <DialogFooter className="mx-0 mb-0 mt-6 flex-row justify-end gap-2.5 rounded-none border-t border-gray-100 bg-transparent p-0 pt-4 sm:flex-row sm:justify-end">
       <Button
         type="button"
         variant="secondary"
@@ -1427,7 +1427,7 @@ function DialogActions({
   onClose: () => void;
 }) {
   return (
-    <div className="mt-6 flex shrink-0 justify-end gap-2.5 border-t border-gray-100 pt-5">
+    <div className="mt-6 flex shrink-0 justify-end gap-2.5 border-t border-gray-100 pt-4">
       <Button
         type="button"
         variant="secondary"

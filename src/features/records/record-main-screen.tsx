@@ -76,10 +76,10 @@ export function RecordMainScreen() {
 
       <div
         className={cn(
-          "mt-[21px] grid grid-cols-[minmax(920px,1fr)_400px] gap-5 overflow-hidden max-2xl:grid-cols-[minmax(820px,1fr)_380px]",
+          "mt-4 grid grid-cols-[minmax(760px,1fr)_340px] gap-4 overflow-hidden",
           tallDetailState
-            ? "h-[900px] min-h-[900px]"
-            : "h-[calc(100vh-264px)] min-h-[640px]",
+            ? "h-[640px] min-h-[640px]"
+            : "h-[calc(100vh-192px)] min-h-[520px]",
         )}
       >
         <RecordTimelineGrid
@@ -99,7 +99,7 @@ function RecordToolbar() {
   const { filters } = recordTimelineFixture;
 
   return (
-    <div className="flex h-[42px] items-center justify-between gap-5">
+    <div className="flex h-9 items-center justify-between gap-4">
       <div className="flex shrink-0 items-center gap-3">
         <RoundArrowButton direction="left" />
         <h2 className="text-h-20 tracking-normal text-gray-900">
@@ -182,7 +182,7 @@ function RecordTypeChips({
             type="button"
             aria-pressed={selected}
             className={cn(
-              "flex h-[42px] items-center justify-center rounded-full border px-4 text-h-18-semibold tracking-normal transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
+              "flex h-9 items-center justify-center rounded-full border px-4 text-h-18-semibold tracking-normal transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
               selected
                 ? "border-green-400 bg-green-400 text-white hover:border-green-450 hover:bg-green-450"
                 : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50",
@@ -386,7 +386,7 @@ function RecordDetailPanel({
 }) {
   return (
     <aside
-      className="flex min-h-0 min-w-0 flex-col rounded-[8px] border border-gray-200 bg-white px-5 py-5"
+      className="flex min-h-0 min-w-0 flex-col rounded-[8px] border border-gray-200 bg-white px-4 py-4"
       data-testid="record-detail-panel"
     >
       {state.id === "empty" ? (
@@ -454,7 +454,7 @@ function SelectedDetail({
             <div
               className={cn(
                 "rounded-[8px] bg-red-50 px-4 text-h-18-regular leading-[1.55] tracking-normal text-red-500",
-                compactForm ? "mt-4 py-4" : "mt-[26px] py-5",
+                compactForm ? "mt-4 py-4" : "mt-[26px] py-4",
               )}
             >
               {state.alertText}
@@ -496,7 +496,7 @@ function SelectedDetail({
                 aria-label={state.reasonField.label}
                 className={cn(
                   "mt-3 w-full resize-none rounded-[8px] border border-gray-200 bg-white px-4 py-4 text-h-18-regular tracking-normal text-gray-500 outline-none",
-                  compactForm ? "h-[90px]" : "h-[99px]",
+                  compactForm ? "h-[76px]" : "h-[84px]",
                 )}
                 placeholder={state.reasonField.placeholder}
               />
@@ -510,7 +510,7 @@ function SelectedDetail({
                   <span className="text-h-18-semibold tracking-normal text-gray-900">
                     {field.label}
                   </span>
-                  <div className="mt-3 flex h-[50px] items-center rounded-[8px] border border-gray-200 bg-white px-4 text-h-18-regular tracking-normal text-gray-800">
+                  <div className="mt-3 flex h-11 items-center rounded-[8px] border border-gray-200 bg-white px-4 text-h-18-regular tracking-normal text-gray-800">
                     {field.value}
                   </div>
                 </label>
@@ -549,7 +549,7 @@ function SelectedDetail({
         <div className="mt-5 flex justify-end">
           <button
             type="button"
-            className="flex h-[50px] min-w-[78px] items-center justify-center rounded-[10px] bg-green-400 px-5 text-h-18-semibold tracking-normal text-white transition-colors duration-150 ease-out hover:bg-green-450 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+            className="flex h-11 min-w-[78px] items-center justify-center rounded-[10px] bg-green-400 px-4 text-h-18-semibold tracking-normal text-white transition-colors duration-150 ease-out hover:bg-green-450 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
           >
             {state.confirmLabel}
           </button>

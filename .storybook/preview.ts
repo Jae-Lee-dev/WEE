@@ -1,7 +1,19 @@
 import type { Preview } from '@storybook/nextjs-vite'
+import { createElement } from 'react'
 import '../src/app/globals.css'
 
 const preview: Preview = {
+  decorators: [
+    (Story) =>
+      createElement(
+        'div',
+        {
+          'data-admin-shell': 'compact',
+          className: 'min-h-screen bg-gray-100 p-6 text-gray-900',
+        },
+        createElement(Story),
+      ),
+  ],
   parameters: {
     controls: {
       matchers: {

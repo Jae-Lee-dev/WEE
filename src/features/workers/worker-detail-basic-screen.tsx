@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   WorkerDetailShell,
   WorkerDetailSubsection,
+  WorkerDetailSubsectionHeader,
 } from "./worker-detail-shell";
 import {
   workerDetailBasicFixture,
@@ -42,7 +43,7 @@ export function WorkerDetailBasicScreen() {
       data-testid="worker-detail-basic-screen"
     >
       <WorkerDetailShell activeTab="basic">
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-2 gap-4">
           <PersonalAccountCard onEdit={() => setDialog("edit-info")} />
           <PayrollSettingsCard />
         </div>
@@ -62,16 +63,19 @@ function PersonalAccountCard({ onEdit }: { onEdit: () => void }) {
   const fixture = workerDetailBasicFixture;
 
   return (
-    <WorkerDetailSubsection className="flex min-h-[501px] flex-col gap-5 overflow-hidden">
-      <div className="flex min-h-[41px] items-center justify-between gap-4">
+    <WorkerDetailSubsection className="min-h-[360px] overflow-hidden">
+      <WorkerDetailSubsectionHeader
+        actions={
+          <>
+            <PillButton>{fixture.bankCopyLabel}</PillButton>
+            <PillButton onClick={onEdit} testId="worker-basic-edit-trigger">
+              {fixture.editLabel}
+            </PillButton>
+          </>
+        }
+      >
         <h2 className="text-h-20 text-gray-900">{fixture.personalTitle}</h2>
-        <div className="flex items-center gap-3">
-          <PillButton>{fixture.bankCopyLabel}</PillButton>
-          <PillButton onClick={onEdit} testId="worker-basic-edit-trigger">
-            {fixture.editLabel}
-          </PillButton>
-        </div>
-      </div>
+      </WorkerDetailSubsectionHeader>
 
       <div>
         {fixture.personalRows.map((row, index) => (
@@ -90,10 +94,10 @@ function PayrollSettingsCard() {
   const fixture = workerDetailBasicFixture;
 
   return (
-    <WorkerDetailSubsection className="flex min-h-[501px] flex-col gap-5 overflow-hidden">
-      <div className="flex h-[41px] items-center">
+    <WorkerDetailSubsection className="min-h-[360px] overflow-hidden">
+      <WorkerDetailSubsectionHeader>
         <h2 className="text-h-20 text-gray-900">{fixture.payrollTitle}</h2>
-      </div>
+      </WorkerDetailSubsectionHeader>
 
       <div>
         {fixture.payrollRows.map((row, index) => (
@@ -122,7 +126,7 @@ function PillButton({
       type="button"
       onClick={onClick}
       data-testid={testId}
-      className="flex h-[42px] items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-18-regular font-medium text-gray-700 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+      className="flex h-9 items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-18-regular font-medium text-gray-700 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
     >
       {children}
     </button>
@@ -133,7 +137,7 @@ function InfoRow({ row, last }: { row: BasicInfoRow; last: boolean }) {
   return (
     <div
       className={cn(
-        "flex min-h-[57px] items-center justify-between py-4 text-h-18-semibold",
+        "flex min-h-11 items-center justify-between py-3 text-h-18-semibold",
         !last && "border-b border-gray-200",
       )}
     >
@@ -159,7 +163,7 @@ function PayrollRow({ row, last }: { row: PayrollSettingRow; last: boolean }) {
   return (
     <div
       className={cn(
-        "flex min-h-[57px] items-center justify-between py-4 text-h-18-semibold",
+        "flex min-h-11 items-center justify-between py-3 text-h-18-semibold",
         !last && "border-b border-gray-200",
       )}
     >
@@ -180,18 +184,18 @@ function EditInfoDialog({ onClose }: { onClose: () => void }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="worker-edit-info-dialog-title"
-        className="flex w-[680px] flex-col gap-10 rounded-[8px] bg-white p-10 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
+        className="flex w-[calc(100vw-32px)] max-w-[620px] flex-col gap-8 rounded-[8px] bg-white p-8 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
         data-testid="worker-edit-info-dialog"
       >
         <h2 id="worker-edit-info-dialog-title" className="text-h-20 text-gray-900">
           {dialog.title}
         </h2>
 
-        <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-6">
           <DialogField field={dialog.fields[0]} />
           <DialogField field={dialog.fields[1]} />
 
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-2 gap-4">
             <DialogField field={dialog.fields[2]} />
             <DialogField field={dialog.fields[3]} />
           </div>
@@ -214,7 +218,7 @@ function EditInfoDialog({ onClose }: { onClose: () => void }) {
             <span className="text-h-18-semibold text-gray-900">
               {dialog.payTypeLabel}
             </span>
-            <div className="grid h-[57px] grid-cols-2 rounded-[8px] border border-gray-200 bg-white p-1">
+            <div className="grid h-11 grid-cols-2 rounded-[8px] border border-gray-200 bg-white p-1">
               <button
                 type="button"
                 className="rounded-[8px] bg-green-400 text-h-18-semibold text-white"
@@ -239,13 +243,13 @@ function EditInfoDialog({ onClose }: { onClose: () => void }) {
             type="button"
             variant="secondary"
             onClick={onClose}
-            className="h-[50px] rounded-[8px] px-6 text-h-18-semibold tracking-normal"
+            className="h-11 rounded-[8px] px-6 text-h-18-semibold tracking-normal"
           >
             {dialog.cancelLabel}
           </Button>
           <Button
             type="button"
-            className="h-[50px] rounded-[8px] px-6 text-h-18-semibold tracking-normal text-white"
+            className="h-11 rounded-[8px] px-6 text-h-18-semibold tracking-normal text-white"
           >
             {dialog.saveLabel}
           </Button>
@@ -262,7 +266,7 @@ function DialogField({ field }: { field: EditInfoField }) {
       <input
         readOnly
         value={field.value}
-        className="h-[49px] rounded-[8px] border-0 bg-gray-100 px-4 text-h-18-regular text-gray-400 outline-none"
+        className="h-11 rounded-[8px] border-0 bg-gray-100 px-4 text-h-18-regular text-gray-400 outline-none"
       />
     </label>
   );
@@ -277,7 +281,7 @@ function DeleteBlockedDialog({ onClose }: { onClose: () => void }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="worker-delete-blocked-dialog-title"
-        className="flex w-[560px] flex-col gap-10 rounded-[8px] bg-white p-10 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
+        className="flex w-[calc(100vw-32px)] max-w-[520px] flex-col gap-8 rounded-[8px] bg-white p-8 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
         data-testid="worker-delete-blocked-dialog"
       >
         <h2
@@ -303,7 +307,7 @@ function DeleteBlockedDialog({ onClose }: { onClose: () => void }) {
           <Button
             type="button"
             onClick={onClose}
-            className="h-[50px] rounded-[8px] px-6 text-h-18-semibold tracking-normal text-white"
+            className="h-11 rounded-[8px] px-6 text-h-18-semibold tracking-normal text-white"
           >
             {dialog.confirmLabel}
           </Button>

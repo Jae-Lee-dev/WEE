@@ -43,19 +43,19 @@ export function DutyTagsScreen() {
   const [editOpen, setEditOpen] = useState(false);
 
   return (
-    <section className="h-[calc(100vh-202px)] min-h-[760px] rounded-[8px] bg-white p-5">
-      <div className="flex h-[42px] items-center justify-between">
+    <section className="h-[calc(100vh-144px)] min-h-[520px] rounded-[8px] bg-white p-4">
+      <div className="flex h-9 items-center justify-between">
         <h2 className="text-h-20 text-gray-900">근무 태그 관리</h2>
         <Button
           type="button"
           variant="secondary"
-          className="h-[42px] rounded-full px-4"
+          className="h-9 rounded-full px-4"
         >
           태그 추가
         </Button>
       </div>
 
-      <div className="mt-5 flex flex-col gap-5">
+      <div className="mt-5 flex flex-col gap-4">
         {dutyTagRows.map((tag, index) => (
           <DutyTagCard
             key={tag.id}
@@ -83,7 +83,7 @@ function DutyTagCard({
   onEdit: () => void;
 }) {
   return (
-    <div className="flex h-[82px] items-center justify-between rounded-[8px] border border-gray-100 px-4">
+    <div className="flex h-[68px] items-center justify-between rounded-[8px] border border-gray-100 px-4">
       <div className="flex items-center gap-3">
         <DutyTagBadge tag={tag} />
         <span className="text-h-18-semibold text-gray-900">{tag.countText}</span>
@@ -92,7 +92,7 @@ function DutyTagCard({
         <Button
           type="button"
           variant="danger"
-          className="h-[50px] rounded-[8px] px-6"
+          className="h-11 rounded-[8px] px-6"
         >
           삭제
         </Button>
@@ -101,7 +101,7 @@ function DutyTagCard({
           variant="secondary"
           data-testid={first ? "duty-tags-edit-trigger-first" : undefined}
           onClick={first ? onEdit : undefined}
-          className="h-[50px] rounded-[8px] px-6"
+          className="h-11 rounded-[8px] px-6"
         >
           수정
         </Button>
@@ -122,24 +122,24 @@ function DutyTagBadge({ tag }: { tag: DutyTagRow }) {
 
 function DutyTagEditDialog({ onClose }: { onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[150px]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="duty-tags-dialog-title"
         data-testid="duty-tags-edit-dialog"
-        className="flex h-[780px] w-[680px] flex-col rounded-[8px] bg-white px-10 py-10 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
+        className="flex max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] max-w-[620px] flex-col rounded-[8px] bg-white p-8 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
       >
         <h2 id="duty-tags-dialog-title" className="text-h-20 text-gray-900">
           {dutyTagEditDialog.title}
         </h2>
 
-        <label className="mt-10 block">
+        <label className="mt-8 block">
           <span className="text-h-18-semibold text-gray-900">태그명</span>
           <input
             readOnly
             value={dutyTagEditDialog.selectedTag.label}
-            className="mt-3 h-[49px] w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular text-gray-500 outline-none"
+            className="mt-3 h-11 w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular text-gray-500 outline-none"
           />
         </label>
 
@@ -152,7 +152,7 @@ function DutyTagEditDialog({ onClose }: { onClose: () => void }) {
               {dutyTagEditDialog.currentCountText}
             </Badge>
           </div>
-          <label className="mt-3 flex h-[49px] items-center gap-3 rounded-[8px] border border-gray-200 bg-white px-4">
+          <label className="mt-3 flex h-11 items-center gap-3 rounded-[8px] border border-gray-200 bg-white px-4">
             <span className="sr-only">근무명 또는 근무지 검색</span>
             <input
               readOnly
@@ -164,11 +164,11 @@ function DutyTagEditDialog({ onClose }: { onClose: () => void }) {
           </label>
         </div>
 
-        <div className="mt-8 overflow-hidden rounded-[8px] border border-gray-100 py-1.5">
+        <div className="mt-6 min-h-0 overflow-y-auto rounded-[8px] border border-gray-100 py-1.5">
           {dutyTagEditDialog.duties.map((duty) => (
             <div
               key={duty.id}
-              className="grid h-[49px] grid-cols-[72px_88px_1fr_20px] items-center border-b border-gray-100 px-4 last:border-b-0"
+              className="grid h-11 grid-cols-[72px_88px_1fr_20px] items-center border-b border-gray-100 px-4 last:border-b-0"
             >
               <span className="min-w-0 truncate text-h-18-semibold text-gray-900">
                 {duty.name}
@@ -199,11 +199,11 @@ function DutyTagEditDialog({ onClose }: { onClose: () => void }) {
             type="button"
             variant="secondary"
             onClick={onClose}
-            className="h-[50px] rounded-[8px] px-6"
+            className="h-11 rounded-[8px] px-6"
           >
             {dutyTagEditDialog.cancelLabel}
           </Button>
-          <Button type="button" className="h-[50px] rounded-[8px] px-7">
+          <Button type="button" className="h-11 rounded-[8px] px-7">
             {dutyTagEditDialog.saveLabel}
           </Button>
         </div>

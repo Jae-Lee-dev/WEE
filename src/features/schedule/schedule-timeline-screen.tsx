@@ -74,7 +74,7 @@ export function ScheduleTimelineScreen() {
   return (
     <section
       aria-label="근무 시간표"
-      className="mx-auto flex h-[calc(100vh-188px)] w-full max-w-[1580px] flex-col overflow-hidden tracking-normal 2xl:h-[calc(100vh-228px)]"
+      className="mx-auto flex h-[calc(100vh-144px)] w-full max-w-[1480px] flex-col overflow-hidden tracking-normal"
       data-schedule-timeline-state={
         workerSelected ? "worker-selected" : "default"
       }
@@ -84,7 +84,7 @@ export function ScheduleTimelineScreen() {
         onLocationToggle={() => setLocationMenuOpen((open) => !open)}
       />
 
-      <div className="mt-[21px] grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_360px] gap-4 2xl:grid-cols-[minmax(0,1fr)_400px] 2xl:gap-5">
+      <div className="mt-4 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_320px] gap-4">
         <TimelineGrid
           blocks={timelineBlocks}
           selectedBlockIds={selectedBlockIds}
@@ -184,7 +184,7 @@ function LocationFilterMenu() {
             type="button"
             role="option"
             aria-selected={selected}
-            className="flex h-[49px] w-full items-center justify-between gap-2 border-b border-gray-100 text-left text-h-18-regular text-gray-800 last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200"
+            className="flex h-11 w-full items-center justify-between gap-2 border-b border-gray-100 text-left text-h-18-regular text-gray-800 last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200"
           >
             <span className="min-w-0 truncate">{option.label}</span>
             {selected ? (
@@ -305,7 +305,7 @@ function TimelineBlock({
 
 function WorkerDetailPanel({ selected }: { selected: boolean }) {
   return (
-    <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[8px] border border-gray-200 bg-white px-5 py-5">
+    <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[8px] border border-gray-200 bg-white px-4 py-4">
       {selected ? <SelectedWorkerDetail /> : <EmptyWorkerDetail />}
     </aside>
   );
@@ -352,7 +352,7 @@ function SelectedWorkerDetail() {
         <Button
           asChild
           variant="secondary"
-          className="h-[50px] flex-1 rounded-[6px] border-0 bg-gray-100 px-3 tracking-normal text-gray-700 shadow-none hover:bg-gray-100"
+          className="h-11 flex-1 rounded-[6px] border-0 bg-gray-100 px-3 tracking-normal text-gray-700 shadow-none hover:bg-gray-100"
         >
           <Link href={scheduleSelectedWorkerContext.scheduleHref}>
             {scheduleSelectedWorkerContext.actions.editScheduleLabel}
@@ -361,7 +361,7 @@ function SelectedWorkerDetail() {
         <Button
           asChild
           variant="secondary"
-          className="h-[50px] flex-1 rounded-[6px] border-0 bg-gray-100 px-3 tracking-normal text-gray-700 shadow-none hover:bg-gray-100"
+          className="h-11 flex-1 rounded-[6px] border-0 bg-gray-100 px-3 tracking-normal text-gray-700 shadow-none hover:bg-gray-100"
         >
           <Link href={scheduleSelectedWorkerContext.detailHref}>
             {scheduleSelectedWorkerContext.actions.viewWorkerLabel}
@@ -380,7 +380,7 @@ function AssignmentCard({
   const tagTone = assignmentTagTone[assignment.tagLabel];
 
   return (
-    <article className="flex h-[97px] flex-col justify-center rounded-[8px] border border-gray-200 px-4">
+    <article className="flex h-20 flex-col justify-center rounded-[8px] border border-gray-200 px-4">
       <div className="flex min-w-0 items-center gap-2">
         <h3 className="min-w-0 truncate text-h-20 text-gray-900">
           {assignment.dutyName}

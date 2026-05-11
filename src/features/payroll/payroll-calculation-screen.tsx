@@ -45,9 +45,9 @@ const amountToneClassName: Record<PayrollAmountTone, string> = {
 };
 
 const detailMinHeight: Record<PayrollDetailStateId, string> = {
-  detail: "min-h-[1284px]",
-  "bonus-add": "min-h-[1472px]",
-  "no-open-items": "min-h-[1249px]",
+  detail: "min-h-[980px]",
+  "bonus-add": "min-h-[1100px]",
+  "no-open-items": "min-h-[950px]",
 };
 
 const openItemsPanelHeight: Record<PayrollDetailStateId, string> = {
@@ -73,7 +73,7 @@ export function PayrollCalculationScreen() {
   return (
     <section
       aria-label="급여 신청"
-      className="flex w-full flex-col gap-5"
+      className="flex w-full flex-col gap-4"
       data-testid="payroll-calculation-screen"
       data-payroll-calculation-state="default"
     >
@@ -89,7 +89,7 @@ export function PayrollCalculationScreen() {
 function PayrollListToolbar() {
   return (
     <div
-      className="flex min-h-[42px] items-center justify-between gap-5"
+      className="flex min-h-9 items-center justify-between gap-4"
       data-testid="payroll-calculation-default"
     >
       <button
@@ -121,8 +121,8 @@ function PayrollListTable({
   onShowDetail: () => void;
 }) {
   return (
-    <section className="h-[calc(100vh-244px)] min-h-[640px] overflow-hidden rounded-[8px] bg-white">
-      <div className="flex h-[70px] items-center gap-3 px-5">
+    <section className="h-[calc(100vh-144px)] min-h-[520px] overflow-hidden rounded-[8px] bg-white">
+      <div className="flex h-[56px] items-center gap-3 px-4">
         <h2 className="text-h-20 tracking-normal text-gray-900">
           {payrollCalculationFixture.listTitle}
         </h2>
@@ -131,7 +131,7 @@ function PayrollListTable({
         </span>
       </div>
 
-      <div className="grid h-[41px] grid-cols-[0.9fr_1.2fr_1.2fr_1.25fr_0.95fr_1.25fr_0.95fr_1.05fr_96px] items-center border-b border-gray-300 px-5 text-h-18-regular tracking-normal text-gray-500">
+      <div className="grid h-9 grid-cols-[0.9fr_1.2fr_1.2fr_1.25fr_0.95fr_1.25fr_0.95fr_1.05fr_96px] items-center border-b border-gray-300 px-4 text-h-18-regular tracking-normal text-gray-500">
         {payrollCalculationFixture.columns.map((column) => (
           <div key={column.id} className="min-w-0 truncate">
             {column.label}
@@ -164,7 +164,7 @@ function PayrollListRow({
   onShowDetail?: () => void;
 }) {
   return (
-    <div className="grid min-h-[61px] grid-cols-[0.9fr_1.2fr_1.2fr_1.25fr_0.95fr_1.25fr_0.95fr_1.05fr_96px] items-center border-b border-gray-100 px-5 text-h-18-regular tracking-normal text-gray-900 last:border-b-0">
+    <div className="grid min-h-11 grid-cols-[0.9fr_1.2fr_1.2fr_1.25fr_0.95fr_1.25fr_0.95fr_1.05fr_96px] items-center border-b border-gray-100 px-4 text-h-18-regular tracking-normal text-gray-900 last:border-b-0">
       <div className="min-w-0 truncate">{row.workerName}</div>
       <div className="min-w-0 truncate">{row.basePay}</div>
       <div className="min-w-0 truncate">{row.overtimePay}</div>
@@ -192,7 +192,7 @@ function PayrollListRow({
               : undefined
           }
           onClick={onShowDetail}
-          className="flex h-[42px] items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-16-medium tracking-normal text-gray-800 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+          className="flex h-9 items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-16-medium tracking-normal text-gray-800 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
         >
           {row.detailButtonLabel}
         </button>
@@ -216,17 +216,17 @@ function PayrollDetailScreen({
     <section
       aria-label={detail.headerTitle}
       className={cn(
-        "absolute left-[300px] right-0 top-0 z-40 flex min-w-[880px] flex-col bg-gray-100",
+        "absolute left-[var(--admin-sidebar-width)] right-0 top-0 z-40 flex min-w-[808px] flex-col bg-gray-100",
         detailMinHeight[detail.id],
       )}
       data-testid="payroll-calculation-detail-state"
       data-payroll-calculation-state={detail.id}
     >
-      <header className="flex h-[92px] shrink-0 items-center justify-between border-b border-gray-200 bg-white px-5">
+      <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4">
         <button
           type="button"
           onClick={onBack}
-          className="flex h-[42px] items-center gap-4 rounded-[8px] pr-4 text-h-20 tracking-normal text-gray-900 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+          className="flex h-9 items-center gap-4 rounded-[8px] pr-4 text-h-20 tracking-normal text-gray-900 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
         >
           <ChevronLeft className="size-6 text-gray-800" />
           <span>{detail.headerTitle}</span>
@@ -253,12 +253,12 @@ function PayrollDetailScreen({
       </header>
 
       <main
-        className="flex flex-1 flex-col gap-5 px-5 py-7"
+        className="flex flex-1 flex-col gap-4 px-4 py-7"
         data-testid={`payroll-calculation-state-${detail.id}`}
       >
         <WorkerSummaryCard detail={detail} />
 
-        <div className="grid items-start gap-5 xl:grid-cols-[minmax(540px,1fr)_minmax(520px,1fr)]">
+        <div className="grid items-start gap-4 xl:grid-cols-[minmax(540px,1fr)_minmax(520px,1fr)]">
           <PayrollCalculationCard
             detail={detail}
             onShowBonusForm={onShowBonusForm}
@@ -276,7 +276,7 @@ function WorkerSummaryCard({ detail }: { detail: PayrollCalculationDetail }) {
   const worker = detail.worker;
 
   return (
-    <section className="flex min-h-[96px] shrink-0 items-center rounded-[8px] border border-gray-300 bg-white px-5 py-4">
+    <section className="flex min-h-[68px] shrink-0 items-center rounded-[8px] border border-gray-300 bg-white px-4 py-4">
       <div className="min-w-0">
         <div className="flex items-center gap-3">
           <h2 className="text-h-20 tracking-normal text-gray-900">
@@ -313,7 +313,7 @@ function PayrollCalculationCard({
   onShowBonusForm: () => void;
 }) {
   return (
-    <section className="rounded-[8px] bg-white px-5 pb-5 pt-5">
+    <section className="rounded-[8px] bg-white px-4 pb-4 pt-4">
       <h2 className="text-h-20 tracking-normal text-gray-900">
         {detail.calculationTitle}
       </h2>
@@ -369,7 +369,7 @@ function AdjustmentsBox({
           type="button"
           data-testid="payroll-calculation-add-adjustment"
           onClick={onShowBonusForm}
-          className="flex h-[42px] items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-16-medium tracking-normal text-gray-800 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+          className="flex h-9 items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-16-medium tracking-normal text-gray-800 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
         >
           {detail.addButtonLabel}
         </button>
@@ -406,10 +406,10 @@ function AdjustmentForm({ detail }: { detail: PayrollCalculationDetail }) {
         <span>{form.amountLabel}</span>
       </div>
       <div className="mt-2 grid grid-cols-[minmax(180px,1fr)_90px_minmax(150px,0.7fr)] gap-4">
-        <div className="flex h-[50px] items-center rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-400">
+        <div className="flex h-11 items-center rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-400">
           {form.itemPlaceholder}
         </div>
-        <div className="grid h-[50px] grid-cols-2 overflow-hidden rounded-[8px] border border-gray-200 bg-white p-1">
+        <div className="grid h-11 grid-cols-2 overflow-hidden rounded-[8px] border border-gray-200 bg-white p-1">
           {form.operators.map((operator) => (
             <button
               key={operator.id}
@@ -425,7 +425,7 @@ function AdjustmentForm({ detail }: { detail: PayrollCalculationDetail }) {
             </button>
           ))}
         </div>
-        <div className="flex h-[50px] items-center rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-400">
+        <div className="flex h-11 items-center rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-400">
           {form.amountPlaceholder}
         </div>
       </div>
@@ -441,7 +441,7 @@ function AdjustmentForm({ detail }: { detail: PayrollCalculationDetail }) {
 
 function AdjustmentRow({ item }: { item: PayrollAdjustmentItem }) {
   return (
-    <div className="flex min-h-[57px] items-center gap-4 border-b border-gray-100 text-h-18-regular tracking-normal last:border-b-0">
+    <div className="flex min-h-[48px] items-center gap-4 border-b border-gray-100 text-h-18-regular tracking-normal last:border-b-0">
       <span className="min-w-0 flex-1 text-gray-600">{item.label}</span>
       <span
         className={cn(
@@ -467,7 +467,7 @@ function OpenItemsPanel({ detail }: { detail: PayrollCalculationDetail }) {
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-[8px] bg-white px-5 pb-5 pt-5",
+        "overflow-hidden rounded-[8px] bg-white px-4 pb-4 pt-4",
         openItemsPanelHeight[detail.id],
       )}
     >
@@ -485,7 +485,7 @@ function OpenItemsPanel({ detail }: { detail: PayrollCalculationDetail }) {
         ) : null}
       </div>
 
-      <div className="mt-5 flex flex-col gap-5">
+      <div className="mt-5 flex flex-col gap-4">
         {section.cards.map((card) => (
           <OpenItemCard key={card.id} card={card} />
         ))}
@@ -567,7 +567,7 @@ function OpenItemLine({ line }: { line: PayrollOpenItemLine }) {
 
 function PayrollDetailFooter({ detail }: { detail: PayrollCalculationDetail }) {
   return (
-    <footer className="mt-auto flex h-[95px] shrink-0 items-center justify-between gap-6 border-t border-gray-200 bg-white px-5">
+    <footer className="mt-auto flex h-[72px] shrink-0 items-center justify-between gap-6 border-t border-gray-200 bg-white px-4">
       <div className="min-w-0">
         <h2 className="text-h-20 tracking-normal text-green-400">
           {detail.footer.title}

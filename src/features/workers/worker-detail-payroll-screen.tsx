@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import {
   WorkerDetailShell,
   WorkerDetailSubsection,
+  WorkerDetailSubsectionHeader,
 } from "./worker-detail-shell";
 import {
   workerDetailPayrollIssues,
@@ -47,10 +48,10 @@ export function WorkerDetailPayrollScreen() {
   return (
     <WorkerDetailShell activeTab="payroll">
       <div
-        className="grid grid-cols-[minmax(0,1fr)_minmax(480px,1fr)] gap-5"
+        className="grid grid-cols-[minmax(0,1fr)_minmax(480px,1fr)] gap-4"
         data-testid="worker-detail-payroll-screen"
       >
-        <div className="flex min-w-0 flex-col gap-5">
+        <div className="flex min-w-0 flex-col gap-4">
           <PayrollSummaryCard />
           <RecentStatementsCard />
         </div>
@@ -63,21 +64,23 @@ export function WorkerDetailPayrollScreen() {
 function PayrollSummaryCard() {
   return (
     <WorkerDetailSubsection ariaLabel="급여 요약">
-      <h2 className="text-h-20 text-gray-900">
-        {workerDetailPayrollSummary.title}
-      </h2>
-      <div className="mt-5 grid grid-cols-3 gap-4">
+      <WorkerDetailSubsectionHeader>
+        <h2 className="text-h-20 text-gray-900">
+          {workerDetailPayrollSummary.title}
+        </h2>
+      </WorkerDetailSubsectionHeader>
+      <div className="grid grid-cols-3 gap-3">
         {workerDetailPayrollSummary.metrics.map((metric) => (
           <PayrollMetricCard key={metric.id} metric={metric} />
         ))}
       </div>
-      <div className="mt-5 flex gap-3">
+      <div className="flex gap-3">
         {workerDetailPayrollSummary.actions.map((label) => (
           <Button
             key={label}
             type="button"
             variant="secondary"
-            className="h-[42px] rounded-full px-4 text-h-18-regular text-gray-800"
+            className="h-9 rounded-full px-4 text-h-18-regular text-gray-800"
           >
             {label}
           </Button>
@@ -96,7 +99,7 @@ function PayrollMetricCard({ metric }: { metric: WorkerDetailPayrollMetric }) {
         : "text-gray-900";
 
   return (
-    <article className="flex h-[125px] flex-col justify-between rounded-[8px] border border-gray-200 p-5">
+    <article className="flex h-[108px] flex-col justify-between rounded-[8px] border border-gray-200 p-3.5">
       <div className="text-h-18-semibold text-gray-800">{metric.label}</div>
       <div className="flex items-center gap-2">
         <span className={`text-h-24 ${valueColor}`}>{metric.value}</span>
@@ -118,12 +121,14 @@ function RecentStatementsCard() {
   return (
     <WorkerDetailSubsection
       ariaLabel="최근 확정 명세"
-      className="min-h-[438px]"
+      className="min-h-[280px]"
       testId="worker-detail-payroll-statements"
     >
-      <h2 className="text-h-20 text-gray-900">최근 확정 명세</h2>
+      <WorkerDetailSubsectionHeader>
+        <h2 className="text-h-20 text-gray-900">최근 확정 명세</h2>
+      </WorkerDetailSubsectionHeader>
       <div
-        className="mt-9 grid h-[42px] grid-cols-[24%_24%_24%_1fr] items-center border-b border-gray-300 text-h-18-regular text-gray-500"
+        className="grid h-10 grid-cols-[24%_24%_24%_1fr] items-center border-b border-gray-300 text-h-18-regular text-gray-500"
         role="row"
       >
         <div role="columnheader">월</div>
@@ -147,7 +152,7 @@ function RecentStatementRow({
 }) {
   return (
     <div
-      className="grid h-[46px] grid-cols-[24%_24%_24%_1fr] items-center border-b border-gray-100 text-h-18-regular text-gray-900 last:border-b-0"
+      className="grid h-10 grid-cols-[24%_24%_24%_1fr] items-center border-b border-gray-100 text-h-18-regular text-gray-900 last:border-b-0"
       role="row"
     >
       <div role="cell">{statement.month}</div>
@@ -164,16 +169,16 @@ function PendingIssuesCard() {
   return (
     <WorkerDetailSubsection
       ariaLabel="처리 대기 건"
-      className="min-h-[732px]"
+      className="min-h-[480px]"
       testId="worker-detail-payroll-issues"
     >
-      <div className="flex items-center gap-3">
+      <WorkerDetailSubsectionHeader>
         <h2 className="text-h-20 text-gray-900">처리 대기 건</h2>
         <Badge variant="grey" size="M">
           3건
         </Badge>
-      </div>
-      <div className="mt-5 flex flex-col gap-5">
+      </WorkerDetailSubsectionHeader>
+      <div className="flex flex-col gap-3">
         {workerDetailPayrollIssues.map((issue) => (
           <PendingIssueRow issue={issue} key={issue.id} />
         ))}
@@ -184,8 +189,8 @@ function PendingIssuesCard() {
 
 function PendingIssueRow({ issue }: { issue: WorkerDetailPayrollIssue }) {
   return (
-    <article className="flex h-[119px] items-center justify-between gap-5 rounded-[8px] border border-gray-100 px-4">
-      <div className="flex min-w-0 items-start gap-3 self-start pt-4">
+    <article className="flex min-h-[96px] items-center justify-between gap-4 rounded-[8px] border border-gray-100 px-3.5 py-3">
+      <div className="flex min-w-0 items-start gap-3">
         <PayrollBadge label={issue.tag} tone={issue.tagTone} />
         <h3 className="min-w-0 truncate text-h-18-semibold text-gray-900">
           {issue.title}
@@ -198,13 +203,13 @@ function PendingIssueRow({ issue }: { issue: WorkerDetailPayrollIssue }) {
         <Button
           type="button"
           variant="secondary"
-          className="h-[49px] rounded-[8px] px-6 text-h-18-semibold text-gray-900"
+          className="h-9 rounded-[8px] px-4 text-h-18-semibold text-gray-900"
         >
           {issue.detailLabel}
         </Button>
         <Button
           type="button"
-          className="h-[49px] rounded-[8px] px-6 text-h-18-semibold text-white"
+          className="h-9 rounded-[8px] px-4 text-h-18-semibold text-white"
         >
           {issue.processLabel}
         </Button>

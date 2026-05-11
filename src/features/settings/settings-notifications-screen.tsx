@@ -9,11 +9,11 @@ export function SettingsNotificationsScreen() {
   return (
     <section
       aria-label="알림"
-      className="mx-auto w-full max-w-[1580px] overflow-hidden rounded-[10px] border border-gray-100 bg-white py-5 tracking-normal"
+      className="mx-auto w-full max-w-[1480px] overflow-hidden rounded-[10px] border border-gray-100 bg-white py-4 tracking-normal"
       data-testid="settings-notifications-screen"
     >
       <div
-        className="grid h-[36px] grid-cols-[1fr_200px_200px] items-start border-b border-gray-300 px-5 text-h-18-regular font-medium text-gray-500"
+        className="grid h-[36px] grid-cols-[1fr_200px_200px] items-start border-b border-gray-300 px-4 text-h-18-regular font-medium text-gray-500"
         role="row"
       >
         {settingsNotificationsFixture.columns.map((column) => (
@@ -46,7 +46,7 @@ function SettingsNotificationTableRow({
   return (
     <div
       className={cn(
-        "grid h-[45px] grid-cols-[1fr_200px_200px] items-center px-5 text-h-18-regular text-gray-900",
+        "grid h-[45px] grid-cols-[1fr_200px_200px] items-center px-4 text-h-18-regular text-gray-900",
         last ? "border-b-0" : "border-b border-gray-100",
       )}
       role="row"

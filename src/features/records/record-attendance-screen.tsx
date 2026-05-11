@@ -29,7 +29,7 @@ export function RecordAttendanceScreen() {
   return (
     <section
       aria-label="출퇴근 이력"
-      className="mx-auto flex w-full max-w-[1580px] flex-col tracking-normal"
+      className="mx-auto flex w-full max-w-[1480px] flex-col tracking-normal"
       data-testid="record-attendance-screen"
     >
       <AttendanceFilters />
@@ -80,12 +80,12 @@ function AttendanceTable() {
   return (
     <div
       aria-label="출퇴근 이력 표"
-      className="mt-[29px] min-h-[calc(100vh-252px)] overflow-hidden rounded-[8px] bg-white px-5"
+      className="mt-[29px] min-h-[calc(100vh-252px)] overflow-hidden rounded-[8px] bg-white px-4"
       data-testid="record-attendance-table"
       role="table"
     >
       <div
-        className="grid h-[64px] grid-cols-6 items-end border-b border-gray-200 px-[18px] pb-3 text-h-18-regular text-gray-500"
+        className="grid h-[48px] grid-cols-6 items-end border-b border-gray-200 px-[18px] pb-3 text-h-18-regular text-gray-500"
         role="row"
       >
         {attendanceLogColumns.map((column) => (
@@ -107,7 +107,7 @@ function AttendanceTable() {
 function AttendanceTableRow({ row }: { row: AttendanceLogRow }) {
   return (
     <div
-      className="grid h-[46px] grid-cols-6 items-center border-b border-gray-100 px-[18px] text-h-18-regular text-gray-900 last:border-b-0"
+      className="grid h-[42px] grid-cols-6 items-center border-b border-gray-100 px-[18px] text-h-18-regular text-gray-900 last:border-b-0"
       data-testid={`record-attendance-row-${row.id}`}
       role="row"
     >

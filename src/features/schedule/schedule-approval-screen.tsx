@@ -63,10 +63,10 @@ function ApprovalWaitingList({
   return (
     <section
       aria-label="시간표 승인 대기"
-      className="h-[calc(100vh-202px)] min-h-[760px] overflow-hidden rounded-[8px] bg-white"
+      className="h-[calc(100vh-144px)] min-h-[520px] overflow-hidden rounded-[8px] bg-white"
       data-testid="schedule-approval-screen"
     >
-      <div className="flex h-[70px] items-center gap-3 px-5">
+      <div className="flex h-[56px] items-center gap-3 px-4">
         <h2 className="text-h-20 tracking-normal text-gray-900">
           승인 대기 목록
         </h2>
@@ -75,7 +75,7 @@ function ApprovalWaitingList({
         </Badge>
       </div>
 
-      <div className="grid h-[41px] grid-cols-[22%_22%_22%_1fr_114px] items-center border-b border-gray-300 px-5 text-h-18-regular tracking-normal text-gray-500">
+      <div className="grid h-9 grid-cols-[22%_22%_22%_1fr_114px] items-center border-b border-gray-300 px-4 text-h-18-regular tracking-normal text-gray-500">
         <div>조교</div>
         <div>유형</div>
         <div>제출일</div>
@@ -108,7 +108,7 @@ function ApprovalWaitingRow({
   onSelect?: () => void;
 }) {
   return (
-    <div className="grid min-h-[61px] grid-cols-[22%_22%_22%_1fr_114px] items-center border-b border-gray-100 px-5 text-h-18-regular tracking-normal text-gray-900 last:border-b-0">
+    <div className="grid min-h-11 grid-cols-[22%_22%_22%_1fr_114px] items-center border-b border-gray-100 px-4 text-h-18-regular tracking-normal text-gray-900 last:border-b-0">
       <div className="min-w-0 truncate">{row.workerName}</div>
       <div>
         <RequestKindBadge row={row} />
@@ -128,7 +128,7 @@ function ApprovalWaitingRow({
               ? onSelect
               : undefined
           }
-          className="flex h-[42px] items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-16-medium tracking-normal text-gray-800 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+          className="flex h-9 items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-16-medium tracking-normal text-gray-800 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
         >
           상세보기
         </button>
@@ -169,14 +169,14 @@ function SelectedApprovalState({
   return (
     <section
       aria-label="시간표 승인 상세"
-      className="fixed bottom-0 left-[300px] right-0 top-0 z-40 flex min-w-[880px] flex-col bg-gray-100"
+      className="fixed bottom-0 left-[var(--admin-sidebar-width)] right-0 top-0 z-40 flex min-w-[808px] flex-col bg-gray-100"
       data-testid="schedule-approval-selected-state"
     >
-      <header className="flex h-[92px] shrink-0 items-center justify-between border-b border-gray-200 bg-white px-5">
+      <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4">
         <button
           type="button"
           onClick={onBack}
-          className="flex h-[42px] items-center gap-4 rounded-[8px] pr-4 text-h-20 tracking-normal text-gray-900 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+          className="flex h-9 items-center gap-4 rounded-[8px] pr-4 text-h-20 tracking-normal text-gray-900 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
         >
           <IconChevronLeft className="size-6 text-gray-800" />
           <span>목록</span>
@@ -190,15 +190,15 @@ function SelectedApprovalState({
         </button>
       </header>
 
-      <main className="min-h-0 flex-1 overflow-hidden px-5 py-7">
+      <main className="min-h-0 flex-1 overflow-hidden px-4 py-7">
         <div className="flex h-full min-h-0 flex-col gap-7">
           <SelectedProfileHeader
             request={request}
             onOpenRejectDialog={onOpenRejectDialog}
           />
 
-          <div className="grid min-h-0 flex-1 grid-cols-[minmax(780px,1fr)_360px] gap-5">
-            <section className="min-h-0 overflow-hidden rounded-[8px] bg-white p-5">
+          <div className="grid min-h-0 flex-1 grid-cols-[minmax(780px,1fr)_360px] gap-4">
+            <section className="min-h-0 overflow-hidden rounded-[8px] bg-white p-4">
               <ApprovalSummaryCards detail={detail} />
               <ApprovalTimelineGrid
                 blocks={detail.timelineBlocks}
@@ -228,7 +228,7 @@ function SelectedProfileHeader({
   const detail = request.selectedDetail;
 
   return (
-    <section className="flex min-h-[96px] shrink-0 items-center justify-between gap-6 rounded-[8px] border border-gray-300 bg-white px-5 py-4">
+    <section className="flex min-h-[68px] shrink-0 items-center justify-between gap-6 rounded-[8px] border border-gray-300 bg-white px-4 py-4">
       <div className="min-w-0">
         <div className="flex items-center gap-3">
           <h2 className="text-h-20 tracking-normal text-gray-900">
@@ -252,14 +252,14 @@ function SelectedProfileHeader({
           variant="danger"
           data-testid="schedule-approval-reject-trigger"
           onClick={onOpenRejectDialog}
-          className="h-[42px] rounded-full px-4 tracking-normal"
+          className="h-9 rounded-full px-4 tracking-normal"
         >
           {scheduleApprovalSummary.rejectLabel}
         </Button>
         <Button
           type="button"
           variant="secondary"
-          className="h-[42px] rounded-full px-4 tracking-normal"
+          className="h-9 rounded-full px-4 tracking-normal"
         >
           {scheduleApprovalSummary.approveLabel}
         </Button>
@@ -285,12 +285,12 @@ function ApprovalSummaryCards({
       {summaryCards.map((card) => (
         <section
           key={card.label}
-          className="h-[118px] rounded-[8px] border border-gray-200 bg-white px-5 py-4"
+          className="h-[118px] rounded-[8px] border border-gray-200 bg-white px-4 py-4"
         >
           <h3 className="text-h-18-semibold tracking-normal text-gray-800">
             {card.label}
           </h3>
-          <p className="mt-5 text-[32px] font-semibold leading-[42px] tracking-normal text-green-400">
+          <p className="mt-5 text-h-24 font-semibold tracking-normal text-green-400">
             {card.value}
           </p>
         </section>
@@ -343,7 +343,7 @@ function TimelineBlock({
     <div
       aria-label={`${block.worker} ${block.label} ${block.time}`}
       className={cn(
-        "absolute top-0 z-10 flex h-[54px] min-w-0 flex-col justify-center overflow-hidden rounded-[6px] border px-2.5 text-left shadow-[0_1px_2px_rgba(17,24,39,0.04)]",
+        "absolute top-0 z-10 flex h-[46px] min-w-0 flex-col justify-center overflow-hidden rounded-[6px] border px-2.5 text-left shadow-[0_1px_2px_rgba(17,24,39,0.04)]",
         selected
           ? "border-green-400 bg-green-400 text-white"
           : "border-green-400 bg-green-100 text-gray-900",
@@ -366,7 +366,7 @@ function TimeAdjustmentPanel({
   detail: ScheduleApprovalRequestDetail;
 }) {
   return (
-    <aside className="flex min-h-0 flex-col rounded-[8px] border border-gray-300 bg-white p-5">
+    <aside className="flex min-h-0 flex-col rounded-[8px] border border-gray-300 bg-white p-4">
       <h2 className="text-h-20 tracking-normal text-gray-900">시간 조정</h2>
 
       <section className="mt-6 rounded-[8px] border border-gray-100 px-4 py-4">
@@ -387,7 +387,7 @@ function TimeAdjustmentPanel({
         <input
           readOnly
           value={detail.adjustmentStartTime}
-          className="mt-3 h-[50px] w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-400 outline-none"
+          className="mt-3 h-11 w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-400 outline-none"
         />
       </label>
 
@@ -398,7 +398,7 @@ function TimeAdjustmentPanel({
         <input
           readOnly
           value={detail.adjustmentEndTime}
-          className="mt-3 h-[50px] w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-400 outline-none"
+          className="mt-3 h-11 w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-400 outline-none"
         />
       </label>
 
@@ -406,13 +406,13 @@ function TimeAdjustmentPanel({
         <Button
           type="button"
           variant="secondary"
-          className="h-[50px] rounded-[8px] px-6 tracking-normal"
+          className="h-11 rounded-[8px] px-6 tracking-normal"
         >
           취소
         </Button>
         <Button
           type="button"
-          className="h-[50px] rounded-[8px] px-6 tracking-normal"
+          className="h-11 rounded-[8px] px-6 tracking-normal"
         >
           시간 반영
         </Button>
@@ -438,13 +438,13 @@ function RejectDialog({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="schedule-approval-reject-title"
         data-testid="schedule-approval-reject-dialog"
-        className="flex h-[371px] w-[680px] flex-col rounded-[8px] bg-white p-10 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
+        className="flex w-[calc(100vw-32px)] max-w-[620px] flex-col rounded-[8px] bg-white p-8 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
       >
         <h2
           id="schedule-approval-reject-title"
@@ -453,7 +453,7 @@ function RejectDialog({
           {detail.rejectDialog.title}
         </h2>
 
-        <label className="mt-10 block">
+        <label className="mt-8 block">
           <span className="text-h-18-semibold tracking-normal text-gray-900">
             {detail.rejectDialog.reasonLabel}
           </span>
@@ -470,13 +470,13 @@ function RejectDialog({
             type="button"
             variant="secondary"
             onClick={onClose}
-            className="h-[50px] rounded-[8px] px-6 tracking-normal"
+            className="h-11 rounded-[8px] px-6 tracking-normal"
           >
             취소
           </Button>
           <Button
             type="button"
-            className="h-[50px] rounded-[8px] px-6 tracking-normal"
+            className="h-11 rounded-[8px] px-6 tracking-normal"
           >
             {detail.rejectDialog.confirmLabel}
           </Button>

@@ -34,7 +34,6 @@ import {
   type DashboardLocationId,
   type DashboardLocationPeriodId,
   type DashboardLocationWorkerRow,
-  type DashboardMetric,
   type DashboardMetricTone,
   type DashboardOperationalMetric,
   type DashboardSelectOption,
@@ -45,50 +44,30 @@ import {
 } from "./dashboard-fixtures";
 
 const dashboardBadgeClassName =
-  "[font-size:16px] font-semibold leading-[1.4] tracking-[-0.02em]";
+  "text-detail-16-semibold tracking-normal";
 
 const toneClassNames: Record<
   DashboardTone,
   {
-    text: string;
-    textStyle: { color: string };
     badgeStyle: { color: string };
     badge: "green" | "blue" | "orange" | "red";
-    selectedBorder: string;
-    selectedBackground: string;
   }
 > = {
   green: {
-    text: "text-green-400",
-    textStyle: { color: "var(--color-green-400)" },
     badgeStyle: { color: "var(--color-green-400)" },
     badge: "green",
-    selectedBorder: "border-green-400",
-    selectedBackground: "bg-green-100",
   },
   blue: {
-    text: "text-blue-500",
-    textStyle: { color: "var(--color-blue-500)" },
     badgeStyle: { color: "var(--color-blue-500)" },
     badge: "blue",
-    selectedBorder: "border-blue-500",
-    selectedBackground: "bg-blue-50",
   },
   orange: {
-    text: "text-orange-400",
-    textStyle: { color: "var(--color-orange-400)" },
     badgeStyle: { color: "var(--color-orange-400)" },
     badge: "orange",
-    selectedBorder: "border-orange-400",
-    selectedBackground: "bg-orange-100",
   },
   red: {
-    text: "text-red-500",
-    textStyle: { color: "var(--color-red-500)" },
     badgeStyle: { color: "var(--color-red-500)" },
     badge: "red",
-    selectedBorder: "border-red-500",
-    selectedBackground: "bg-red-50",
   },
 };
 
@@ -140,11 +119,7 @@ export function DashboardScreen() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const rows = filterInboxRows(dashboardInboxRows[activeFilter], searchQuery);
-  const selectedMetric =
-    activeFilter === "all"
-      ? undefined
-      : dashboardMetrics.find((metric) => metric.id === activeFilter);
-  const triggerLabel = getFilterTriggerLabel(activeFilter, dropdownOpen);
+  const triggerLabel = getFilterTriggerLabel(activeFilter);
   const countLabel = `${rows.length}건`;
 
   const dropdownLabelId = "dashboard-inbox-filter-label";
@@ -152,24 +127,10 @@ export function DashboardScreen() {
   return (
     <section
       aria-label="운영 인박스"
-      className="flex w-full flex-col gap-5"
+      className="flex w-full flex-col gap-4"
       data-dashboard-state={activeFilter}
     >
-      <div className="grid grid-cols-6 gap-4" aria-label="확인 필요 요약">
-        {dashboardMetrics.map((metric) => (
-          <MetricCard
-            key={metric.id}
-            metric={metric}
-            selected={activeFilter === metric.id}
-            onSelect={() => {
-              setActiveFilter(metric.id);
-              setDropdownOpen(false);
-            }}
-          />
-        ))}
-      </div>
-
-      <div className="relative flex min-h-[45px] items-center justify-between gap-4">
+      <div className="relative flex min-h-[38px] items-center justify-between gap-4">
         <div className="relative shrink-0">
           <span id={dropdownLabelId} className="sr-only">
             확인 필요 유형
@@ -193,82 +154,14 @@ export function DashboardScreen() {
         </div>
 
         <SearchBox
-          className={dropdownOpen ? "mx-auto" : "ml-auto"}
+          className="ml-auto"
           value={searchQuery}
           onChange={setSearchQuery}
         />
-
-        {dropdownOpen && selectedMetric ? (
-          <FilterTrigger
-            ariaLabelledBy={dropdownLabelId}
-            dropdownOpen
-            label={selectedMetric.inboxType}
-            onClick={() => setDropdownOpen(false)}
-            testId="dashboard-filter-close-trigger"
-          />
-        ) : null}
       </div>
 
       <InboxTable countLabel={countLabel} rows={rows} />
     </section>
-  );
-}
-
-function MetricCard({
-  metric,
-  selected,
-  onSelect,
-}: {
-  metric: DashboardMetric;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  const tone = toneClassNames[metric.tone];
-
-  return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      data-testid={`dashboard-filter-${metric.id}`}
-      onClick={onSelect}
-      className={cn(
-        "flex h-[111px] min-w-0 flex-col justify-center gap-1 rounded-[8px] border border-gray-200 bg-white px-5 py-4 text-left transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
-        selected && tone.selectedBorder,
-        selected && tone.selectedBackground,
-      )}
-    >
-      <span className="w-full truncate text-label-18 text-gray-800">
-        {metric.title}
-      </span>
-      <span className="flex min-w-0 items-start gap-3">
-        <span className="flex shrink-0 items-start gap-1">
-          <span
-            className={cn(
-              "text-[36px] font-semibold leading-[1.4] tracking-tight",
-              tone.text,
-            )}
-          >
-            {metric.value}
-          </span>
-          <span
-            className="mt-2 text-h-20"
-            data-testid={`dashboard-metric-${metric.id}-unit`}
-            style={tone.textStyle}
-          >
-            {metric.unit}
-          </span>
-        </span>
-        <Badge
-          variant={tone.badge}
-          size="M"
-          className={cn("mt-2 min-w-0 truncate", dashboardBadgeClassName)}
-          data-testid={`dashboard-metric-${metric.id}-badge`}
-          style={tone.badgeStyle}
-        >
-          {metric.badge}
-        </Badge>
-      </span>
-    </button>
   );
 }
 
@@ -326,9 +219,10 @@ function FilterMenu({
             type="button"
             role="option"
             aria-selected={selected}
+            data-testid={`dashboard-filter-option-${option.id}`}
             onClick={() => onSelect(option.id)}
             className={cn(
-              "flex h-[49px] w-full items-center justify-between gap-2 border-gray-100 px-3 text-left text-h-18-regular text-gray-800 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200",
+              "flex h-11 w-full items-center justify-between gap-2 border-gray-100 px-3 text-left text-h-18-regular text-gray-800 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200",
               index > 0 && "border-t",
             )}
           >
@@ -380,8 +274,8 @@ function InboxTable({
   rows: readonly DashboardInboxRow[];
 }) {
   return (
-    <div className="min-h-[680px] overflow-hidden rounded-[8px] bg-white">
-      <div className="flex h-[70px] items-center gap-3 px-5">
+    <div className="min-h-[560px] overflow-hidden rounded-[8px] bg-white">
+      <div className="flex h-[56px] items-center gap-3 px-4">
         <h2 className="text-h-20 text-gray-900">확인 필요</h2>
         <Badge variant="grey" size="M">
           {countLabel}
@@ -389,7 +283,7 @@ function InboxTable({
       </div>
       <div className="overflow-x-auto">
         <div className="min-w-[1540px]">
-          <div className="grid h-[41px] grid-cols-[260px_200px_260px_380px_200px_240px] items-center border-b border-gray-300 px-5 text-h-18-regular text-gray-500">
+          <div className="grid h-9 grid-cols-[260px_200px_260px_380px_200px_240px] items-center border-b border-gray-300 px-4 text-h-18-regular text-gray-500">
             <div>유형</div>
             <div>대상</div>
             <div>근무지</div>
@@ -403,7 +297,7 @@ function InboxTable({
               data-action-type={row.action.actionType}
               data-target-id={row.action.targetId}
               data-record-type={row.action.recordType}
-              className="grid h-[46px] grid-cols-[260px_200px_260px_380px_200px_240px] items-center border-b border-gray-100 px-5 text-h-18-regular text-gray-900"
+              className="grid h-[42px] grid-cols-[260px_200px_260px_380px_200px_240px] items-center border-b border-gray-100 px-4 text-h-18-regular text-gray-900"
             >
               <div>
                 <InboxTypeBadge filter={row.filter}>{row.type}</InboxTypeBadge>
@@ -471,7 +365,7 @@ export function DashboardLocationsScreen() {
   return (
     <section
       aria-label="근무지별 대시보드"
-      className="flex w-full flex-col gap-5"
+      className="flex w-full flex-col gap-4"
       data-dashboard-location-state={`${locationId}:${periodId}`}
       data-testid="dashboard-locations-screen"
     >
@@ -540,7 +434,7 @@ export function DashboardWorkersScreen() {
   return (
     <section
       aria-label="근무자별 대시보드"
-      className="flex w-full flex-col gap-5"
+      className="flex w-full flex-col gap-4"
       data-dashboard-worker-state={`${periodId}:${tagId}:${selectedWorker?.id ?? "empty"}`}
       data-testid="dashboard-workers-screen"
     >
@@ -568,7 +462,7 @@ export function DashboardWorkersScreen() {
         </p>
       </ToolbarShell>
 
-      <div className="grid min-h-[680px] grid-cols-[260px_minmax(0,1fr)] gap-5">
+      <div className="grid min-h-[520px] grid-cols-[232px_minmax(0,1fr)] gap-4">
         <WorkerSelectorPanel
           filteredWorkers={filteredWorkers}
           searchQuery={searchQuery}
@@ -609,13 +503,13 @@ export function DashboardAiMonitoringScreen({
   return (
     <section
       aria-label="AI 이상탐지 및 모니터링"
-      className="flex w-full flex-col gap-5"
+      className="flex w-full flex-col gap-4"
       data-dashboard-ai-state={`${plan}:${lastRunPeriodId}`}
       data-testid="dashboard-ai-monitoring-screen"
     >
       <OperationalMetricGrid metrics={dashboardAiMonitoringFixture.metrics} />
 
-      <div className="rounded-[8px] border border-gray-200 bg-white p-5">
+      <div className="rounded-[8px] border border-gray-200 bg-white p-4">
         <div className="flex items-start justify-between gap-6">
           <div className="min-w-0">
             <h2 className="text-h-20 text-gray-900">AI 이상탐지 실행</h2>
@@ -661,7 +555,7 @@ export function DashboardAiMonitoringScreen({
 
 function ToolbarShell({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-[45px] items-center justify-between gap-4">
+    <div className="flex min-h-[38px] items-center justify-between gap-4">
       {children}
     </div>
   );
@@ -724,15 +618,13 @@ function OperationalMetricCard({
   const compactValue = !metric.unit && metric.value.length >= 7;
 
   return (
-    <div className="min-h-[111px] rounded-[8px] border border-gray-200 bg-white px-5 py-4">
+    <div className="min-h-[92px] rounded-[8px] border border-gray-200 bg-white px-4 py-4">
       <div className="truncate text-label-18 text-gray-800">{metric.label}</div>
       <div className={cn("mt-1 flex items-baseline gap-1", tone.value)}>
         <span
           className={cn(
-            "font-semibold",
-            compactValue
-              ? "text-[28px] leading-[36px]"
-              : "text-[36px] leading-[45px]",
+            "tracking-normal",
+            compactValue ? "text-h-24 font-semibold" : "text-h-32",
           )}
         >
           {metric.value}
@@ -755,7 +647,7 @@ function LocationWorkerTable({
 }) {
   return (
     <div className="min-h-[520px] overflow-hidden rounded-[8px] bg-white">
-      <div className="flex h-[70px] items-center gap-3 px-5">
+      <div className="flex h-[56px] items-center gap-3 px-4">
         <h2 className="text-h-20 text-gray-900">조교별 근태 현황</h2>
         <Badge variant="grey" size="M">
           {rows.length}명
@@ -763,7 +655,7 @@ function LocationWorkerTable({
       </div>
       <div className="overflow-x-auto">
         <div className="min-w-[1120px]">
-          <div className="grid h-[41px] grid-cols-[1.2fr_1fr_1fr_1fr_1fr_1fr] items-center border-b border-gray-300 px-5 text-h-18-regular text-gray-500">
+          <div className="grid h-9 grid-cols-[1.2fr_1fr_1fr_1fr_1fr_1fr] items-center border-b border-gray-300 px-4 text-h-18-regular text-gray-500">
             <div>조교</div>
             <div>근무시간</div>
             <div>지각</div>
@@ -777,7 +669,7 @@ function LocationWorkerTable({
               data-action-type={row.action.actionType}
               data-target-id={row.action.targetId}
               data-record-type={row.action.recordType}
-              className="grid h-[52px] grid-cols-[1.2fr_1fr_1fr_1fr_1fr_1fr] items-center border-b border-gray-100 px-5 text-h-18-regular text-gray-900 last:border-b-0"
+              className="grid h-11 grid-cols-[1.2fr_1fr_1fr_1fr_1fr_1fr] items-center border-b border-gray-100 px-4 text-h-18-regular text-gray-900 last:border-b-0"
             >
               <div className="min-w-0 truncate">{row.workerName}</div>
               <div>{row.workHours}h</div>
@@ -970,10 +862,10 @@ function WorkerDashboardPanel({
 
   return (
     <div className="min-w-0 overflow-y-auto">
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-4">
         <OperationalMetricGrid metrics={metrics} />
 
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-2 gap-4">
           <TrendCard
             accentTone="green"
             labels={profile.labels}
@@ -990,7 +882,7 @@ function WorkerDashboardPanel({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-2 gap-4">
           <FlagDistributionCard worker={worker} />
           <WorkerMemoCard worker={worker} />
         </div>
@@ -1032,7 +924,7 @@ function TrendCard({
 
 function FlagDistributionCard({ worker }: { worker: DashboardWorkerSummary }) {
   return (
-    <div className="rounded-[8px] border border-gray-200 bg-white p-5">
+    <div className="rounded-[8px] border border-gray-200 bg-white p-4">
       <h2 className="text-h-20 text-gray-900">이상 플래그 분포</h2>
       <div className="mt-4 divide-y divide-gray-100">
         {worker.flagDistribution.map((item) => (
@@ -1060,7 +952,7 @@ function FlagDistributionCard({ worker }: { worker: DashboardWorkerSummary }) {
 
 function WorkerMemoCard({ worker }: { worker: DashboardWorkerSummary }) {
   return (
-    <div className="rounded-[8px] border border-gray-200 bg-white p-5">
+    <div className="rounded-[8px] border border-gray-200 bg-white p-4">
       <h2 className="text-h-20 text-gray-900">운영 메모</h2>
       <div className="mt-3 flex flex-wrap gap-1.5">
         {worker.tags.map((tag) => (
@@ -1094,13 +986,13 @@ function WorkerPayrollHistoryTable({
 }) {
   return (
     <div className="overflow-hidden rounded-[8px] bg-white">
-      <div className="flex h-[70px] items-center gap-3 px-5">
+      <div className="flex h-[56px] items-center gap-3 px-4">
         <h2 className="text-h-20 text-gray-900">최근 명세 상태</h2>
         <Badge variant="grey" size="M">
           {worker.payrollHistory.length}건
         </Badge>
       </div>
-      <div className="grid h-[41px] grid-cols-[1fr_1fr_1fr] items-center border-b border-gray-300 px-5 text-h-18-regular text-gray-500">
+      <div className="grid h-9 grid-cols-[1fr_1fr_1fr] items-center border-b border-gray-300 px-4 text-h-18-regular text-gray-500">
         <div>월</div>
         <div>최종 급여</div>
         <div>상태</div>
@@ -1108,7 +1000,7 @@ function WorkerPayrollHistoryTable({
       {worker.payrollHistory.map((item) => (
         <div
           key={item.month}
-          className="grid h-[52px] grid-cols-[1fr_1fr_1fr] items-center border-b border-gray-100 px-5 text-h-18-regular text-gray-900 last:border-b-0"
+          className="grid h-11 grid-cols-[1fr_1fr_1fr] items-center border-b border-gray-100 px-4 text-h-18-regular text-gray-900 last:border-b-0"
         >
           <div>{item.month}</div>
           <div>{formatCurrency(item.finalPay)}</div>
@@ -1183,7 +1075,7 @@ function AiRunInfoCard({ label, value }: { label: string; value: string }) {
 function AiPatternTable({ rows }: { rows: readonly DashboardAiPatternRow[] }) {
   return (
     <div className="min-h-[360px] overflow-hidden rounded-[8px] bg-white">
-      <div className="flex h-[70px] items-center gap-3 px-5">
+      <div className="flex h-[56px] items-center gap-3 px-4">
         <h2 className="text-h-20 text-gray-900">탐지 결과</h2>
         <Badge variant="grey" size="M">
           {rows.length}건
@@ -1191,7 +1083,7 @@ function AiPatternTable({ rows }: { rows: readonly DashboardAiPatternRow[] }) {
       </div>
       <div className="overflow-x-auto">
         <div className="min-w-[1060px]">
-          <div className="grid h-[41px] grid-cols-[120px_170px_250px_minmax(360px,1fr)_130px] items-center border-b border-gray-300 px-5 text-h-18-regular text-gray-500">
+          <div className="grid h-9 grid-cols-[120px_170px_250px_minmax(360px,1fr)_130px] items-center border-b border-gray-300 px-4 text-h-18-regular text-gray-500">
             <div>심각도</div>
             <div>대상</div>
             <div>패턴</div>
@@ -1204,7 +1096,7 @@ function AiPatternTable({ rows }: { rows: readonly DashboardAiPatternRow[] }) {
               data-action-type={row.action.actionType}
               data-target-id={row.action.targetId}
               data-record-type={row.action.recordType}
-              className="grid min-h-[58px] grid-cols-[120px_170px_250px_minmax(360px,1fr)_130px] items-center border-b border-gray-100 px-5 text-h-18-regular text-gray-900 last:border-b-0"
+              className="grid min-h-[48px] grid-cols-[120px_170px_250px_minmax(360px,1fr)_130px] items-center border-b border-gray-100 px-4 text-h-18-regular text-gray-900 last:border-b-0"
             >
               <div>
                 <MetricToneBadge tone={row.severityTone}>{row.severity}</MetricToneBadge>
@@ -1311,15 +1203,8 @@ function InboxTypeBadge({
   );
 }
 
-function getFilterTriggerLabel(
-  activeFilter: DashboardInboxFilter,
-  dropdownOpen: boolean,
-) {
-  if (dropdownOpen && activeFilter !== "all") {
-    return getOption(activeFilter).triggerLabel;
-  }
-
-  if (activeFilter === "affiliation" || activeFilter === "schedule") {
+function getFilterTriggerLabel(activeFilter: DashboardInboxFilter) {
+  if (activeFilter !== "all") {
     return getOption(activeFilter).triggerLabel;
   }
 

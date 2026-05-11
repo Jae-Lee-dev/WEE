@@ -39,7 +39,7 @@ export function WorkerApplicationsScreen() {
   return (
     <section
       aria-label="소속 신청"
-      className="grid h-[calc(100vh-202px)] min-h-[560px] w-full grid-cols-[minmax(560px,1fr)_minmax(420px,640px)] gap-5"
+      className="grid h-[calc(100vh-144px)] min-h-[520px] w-full grid-cols-[minmax(520px,1fr)_minmax(380px,560px)] gap-4"
       data-testid="worker-applications-screen"
       data-worker-applications-state={
         selectedApplication
@@ -79,14 +79,14 @@ function ApplicationList({
 }) {
   return (
     <div className="min-w-0 overflow-hidden rounded-[8px] bg-white">
-      <div className="flex h-[70px] items-center gap-3 px-5">
+      <div className="flex h-[56px] items-center gap-3 px-4">
         <h2 className="text-h-20 text-gray-900">신청 목록</h2>
         <Badge variant="grey" size="M">
           {rows.length}건
         </Badge>
       </div>
 
-      <div className="grid h-[41px] grid-cols-[28%_28%_1fr] items-center border-b border-gray-300 px-5 text-h-18-regular text-gray-500">
+      <div className="grid h-9 grid-cols-[28%_28%_1fr] items-center border-b border-gray-300 px-4 text-h-18-regular text-gray-500">
         <div>이름</div>
         <div>연락처</div>
         <div>신청일</div>
@@ -106,7 +106,7 @@ function ApplicationList({
               aria-label={`${row.name} 소속 신청 ${selected ? "선택 취소" : "선택"}`}
               onClick={() => onSelect(row.id)}
               className={cn(
-                "grid h-[61px] w-full grid-cols-[28%_28%_1fr] items-center border-b border-gray-100 px-5 text-left text-h-18-regular text-gray-900 transition-colors duration-150 ease-out last:border-b-0 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-green-400",
+                "grid h-11 w-full grid-cols-[28%_28%_1fr] items-center border-b border-gray-100 px-4 text-left text-h-18-regular text-gray-900 transition-colors duration-150 ease-out last:border-b-0 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-green-400",
                 selected && "bg-green-50 ring-2 ring-inset ring-green-400 hover:bg-green-50",
               )}
             >
@@ -152,9 +152,9 @@ function ApplicationDecisionPanel({
 
   return (
     <aside className="flex min-w-0 flex-col overflow-hidden rounded-[8px] border border-gray-300 bg-white">
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-5">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4">
         <h2 className="text-h-20 text-gray-900">소속 승인</h2>
-        <div className="mt-5 flex flex-col gap-5">
+        <div className="mt-5 flex flex-col gap-4">
           <ApplicationInfoCard />
           <WorkerTagCard
             tagAdded={tagAdded}
@@ -169,17 +169,17 @@ function ApplicationDecisionPanel({
         </div>
       </div>
 
-      <div className="mt-auto flex h-[86px] shrink-0 items-center justify-end gap-3 px-5 pb-5 pt-4">
+      <div className="mt-auto flex h-16 shrink-0 items-center justify-end gap-3 px-4 pb-4 pt-4">
         <Button
           type="button"
           variant="danger"
-          className="h-[50px] rounded-[8px] px-6 text-h-16-semibold"
+          className="h-11 rounded-[8px] px-6 text-h-16-semibold"
         >
           반려
         </Button>
         <Button
           type="button"
-          className="h-[50px] rounded-[8px] px-7 text-h-16-semibold"
+          className="h-11 rounded-[8px] px-7 text-h-16-semibold"
         >
           승인 완료
         </Button>
@@ -200,7 +200,7 @@ function ApplicationInfoCard() {
       <div className="mt-5 flex justify-end">
         <button
           type="button"
-          className="flex h-[42px] items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-16-medium text-gray-800 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+          className="flex h-9 items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-16-medium text-gray-800 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
         >
           통장 사본 다운로드
         </button>
@@ -258,7 +258,7 @@ function WorkerTagCard({
             aria-haspopup="listbox"
             data-testid="worker-application-tag-search-trigger"
             onClick={onOpenTagMenu}
-            className="flex h-[49px] w-full items-center justify-between gap-3 rounded-[8px] border border-gray-200 bg-white px-4 text-left text-h-18-regular text-gray-400 transition-colors duration-150 ease-out hover:border-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+            className="flex h-11 w-full items-center justify-between gap-3 rounded-[8px] border border-gray-200 bg-white px-4 text-left text-h-18-regular text-gray-400 transition-colors duration-150 ease-out hover:border-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
           >
             <span className="min-w-0 truncate">
               태그를 검색하거나 새 태그를 입력하세요
@@ -304,7 +304,7 @@ function TagMenu({ onAddTag }: { onAddTag: () => void }) {
             index === 0 ? "worker-application-tag-option-first" : undefined
           }
           onClick={index === 0 ? onAddTag : undefined}
-          className="flex h-[49px] w-full items-center justify-between gap-2 border-b border-gray-200 text-left text-h-18-regular text-gray-900 last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200"
+          className="flex h-11 w-full items-center justify-between gap-2 border-b border-gray-200 text-left text-h-18-regular text-gray-900 last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200"
         >
           <span className="min-w-0 truncate">{tag.label}</span>
           {index === 0 ? (
@@ -350,7 +350,7 @@ function PaySettingCard({
           readOnly
           value=""
           placeholder={setting.placeholder}
-          className="h-[49px] min-w-0 flex-1 rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular text-gray-900 outline-none placeholder:text-gray-400"
+          className="h-11 min-w-0 flex-1 rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular text-gray-900 outline-none placeholder:text-gray-400"
           aria-label="급여 입력"
         />
         <span className="w-[52px] shrink-0 text-right text-h-18-regular text-gray-900">
@@ -358,7 +358,7 @@ function PaySettingCard({
         </span>
       </div>
 
-      <div className="mt-4 flex min-h-[57px] items-center gap-3 border-t border-gray-100 pt-4">
+      <div className="mt-4 flex min-h-[48px] items-center gap-3 border-t border-gray-100 pt-4">
         <span className="shrink-0 text-h-18-semibold text-gray-800">세율</span>
         <Badge
           variant="green"
@@ -370,7 +370,7 @@ function PaySettingCard({
         </Badge>
         <button
           type="button"
-          className="h-[42px] rounded-full border border-gray-200 bg-white px-4 text-h-16-medium text-gray-700 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+          className="h-9 rounded-full border border-gray-200 bg-white px-4 text-h-16-medium text-gray-700 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
         >
           직접 입력 (%)
         </button>

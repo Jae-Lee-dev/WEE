@@ -51,7 +51,7 @@ export function PayrollStatementsScreen() {
   return (
     <section
       aria-label="급여 명세"
-      className="mx-auto flex w-full max-w-[1580px] flex-col gap-5 tracking-normal"
+      className="mx-auto flex w-full max-w-[1480px] flex-col gap-4 tracking-normal"
       data-testid="payroll-statements-screen"
     >
       <MonthSelect />
@@ -65,7 +65,7 @@ function MonthSelect() {
   return (
     <button
       type="button"
-      className="flex h-[41px] w-fit items-center gap-2 rounded-[6px] border border-gray-200 bg-white px-2.5 text-h-18-regular text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+      className="flex h-9 w-fit items-center gap-2 rounded-[6px] border border-gray-200 bg-white px-2.5 text-h-18-regular text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
       data-testid="payroll-statements-month-select"
     >
       <span>{payrollStatementFixture.selectedMonthLabel}</span>
@@ -88,7 +88,7 @@ function StatementSummaryCards({
       {metrics.map((metric) => (
         <div
           key={metric.id}
-          className="h-[123px] rounded-[8px] border border-gray-200 bg-white px-5 py-4"
+          className="h-[123px] rounded-[8px] border border-gray-200 bg-white px-4 py-4"
         >
           <div className="text-h-18-semibold text-gray-900">
             {metric.label}
@@ -97,7 +97,7 @@ function StatementSummaryCards({
             className="mt-5 flex items-baseline gap-1"
             style={toneTextStyles[metric.tone]}
           >
-            <span className="text-[36px] font-semibold leading-[42px]">
+            <span className="text-h-32 tracking-normal">
               {metric.value}
             </span>
             <span className="text-h-20">{metric.unit}</span>
@@ -116,10 +116,10 @@ function StatementTable({
   return (
     <section
       aria-label="급여 명세 표"
-      className="h-[calc(100vh-415px)] min-h-[340px] overflow-hidden rounded-[8px] bg-white"
+      className="h-[calc(100vh-340px)] min-h-[320px] overflow-hidden rounded-[8px] bg-white"
       data-testid="payroll-statements-table"
     >
-      <div className="flex h-[70px] items-center gap-3 px-5">
+      <div className="flex h-[56px] items-center gap-3 px-4">
         <h2 className="text-h-20 text-gray-900">
           {payrollStatementFixture.listTitle}
         </h2>
@@ -129,7 +129,7 @@ function StatementTable({
       </div>
 
       <div
-        className="grid h-[42px] grid-cols-[22.5%_22.5%_22.5%_22.5%_1fr] items-center border-b border-gray-300 px-5 text-h-18-regular text-gray-500"
+        className="grid h-9 grid-cols-[22.5%_22.5%_22.5%_22.5%_1fr] items-center border-b border-gray-300 px-4 text-h-18-regular text-gray-500"
         role="row"
       >
         {payrollStatementFixture.columns.map((column) => (
@@ -168,7 +168,7 @@ function StatementTableRow({
 }) {
   return (
     <div
-      className="grid h-[61px] grid-cols-[22.5%_22.5%_22.5%_22.5%_1fr] items-center border-b border-gray-100 px-5 text-h-18-regular text-gray-900 last:border-b-0"
+      className="grid h-11 grid-cols-[22.5%_22.5%_22.5%_22.5%_1fr] items-center border-b border-gray-100 px-4 text-h-18-regular text-gray-900 last:border-b-0"
       data-testid={`payroll-statements-row-${row.id}`}
       role="row"
     >
@@ -186,7 +186,7 @@ function StatementTableRow({
           data-testid={first ? "payroll-statements-first-detail" : undefined}
           onClick={onOpenDetail}
           className={cn(
-            "flex h-[42px] items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-16-medium text-gray-800 transition-colors duration-150 ease-out",
+            "flex h-9 items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-16-medium text-gray-800 transition-colors duration-150 ease-out",
             "hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
           )}
         >
@@ -227,10 +227,10 @@ function PayrollStatementDetailState({
   return (
     <section
       aria-label="급여 명세 상세"
-      className="fixed bottom-0 left-[300px] right-0 top-0 z-40 flex min-w-[880px] flex-col bg-gray-100"
+      className="fixed bottom-0 left-[var(--admin-sidebar-width)] right-0 top-0 z-40 flex min-w-[808px] flex-col bg-gray-100"
       data-testid="payroll-statements-detail"
     >
-      <header className="flex h-[92px] shrink-0 items-center justify-between border-b border-gray-200 bg-white px-5">
+      <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -256,7 +256,7 @@ function PayrollStatementDetailState({
         </button>
       </header>
 
-      <main className="min-h-0 flex-1 overflow-hidden px-5 py-7">
+      <main className="min-h-0 flex-1 overflow-hidden px-4 py-7">
         <WorkerSummaryCard worker={detail.worker} />
         <div
           aria-hidden="true"
@@ -276,7 +276,7 @@ function WorkerSummaryCard({
   return (
     <section
       aria-label="조교 요약"
-      className="flex min-h-[96px] items-center rounded-[8px] border border-gray-300 bg-white px-5 py-4"
+      className="flex min-h-[68px] items-center rounded-[8px] border border-gray-300 bg-white px-4 py-4"
       data-testid="payroll-statements-worker-summary"
     >
       <div className="min-w-0">

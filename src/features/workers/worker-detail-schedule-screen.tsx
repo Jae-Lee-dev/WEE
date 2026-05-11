@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import {
   WorkerDetailShell,
   WorkerDetailSubsection,
+  WorkerDetailSubsectionHeader,
 } from "./worker-detail-shell";
 import {
   workerDetailRecentWorkRecords,
@@ -46,7 +47,7 @@ export function WorkerDetailScheduleScreen() {
   return (
     <WorkerDetailShell activeTab="schedule">
       <div
-        className="grid grid-cols-[minmax(0,1fr)_400px] gap-5"
+        className="grid grid-cols-[minmax(0,1fr)_360px] gap-4"
         data-testid="worker-detail-schedule-screen"
       >
         <ScheduleGrid />
@@ -64,7 +65,7 @@ function ScheduleGrid() {
       className="min-w-0 overflow-hidden rounded-[8px] border border-gray-100 bg-white"
     >
       <div
-        className="grid h-[50px] grid-cols-[47px_minmax(0,1fr)] border-b border-gray-200"
+        className="grid h-10 grid-cols-[44px_minmax(0,1fr)] border-b border-gray-200"
         role="row"
       >
         <div className="border-r border-gray-200" />
@@ -94,7 +95,7 @@ function ScheduleGrid() {
         return (
           <div
             className={cn(
-              "grid h-[110px] grid-cols-[47px_minmax(0,1fr)]",
+              "grid h-[92px] grid-cols-[44px_minmax(0,1fr)]",
               !last && "border-b border-gray-100",
             )}
             key={day.id}
@@ -142,7 +143,7 @@ function ScheduleBlock({ block }: { block: WorkerDetailScheduleBlock }) {
     <div
       aria-label={`${block.title} ${block.startHour}:00~${block.endHour}:00`}
       className={cn(
-        "absolute top-5 z-10 flex h-[54px] items-center overflow-hidden rounded-[6px] border px-2.5 text-h-14-semibold",
+        "absolute top-3 z-10 flex h-[42px] items-center overflow-hidden rounded-[6px] border px-2.5 text-h-14-semibold",
         scheduleBlockToneClassNames[block.tone],
       )}
       role="gridcell"
@@ -157,10 +158,12 @@ function ScheduleHistoryPanel() {
   return (
     <WorkerDetailSubsection
       ariaLabel="시간표 변경 이력"
-      className="flex min-h-[815px] flex-col"
+      className="min-h-[500px]"
     >
-      <h2 className="text-h-20 text-gray-900">시간표 변경 이력</h2>
-      <div className="mt-5 flex flex-col gap-5">
+      <WorkerDetailSubsectionHeader>
+        <h2 className="text-h-20 text-gray-900">시간표 변경 이력</h2>
+      </WorkerDetailSubsectionHeader>
+      <div className="flex flex-col gap-3">
         {workerDetailScheduleHistory.map((item) => (
           <ScheduleHistoryCard item={item} key={item.id} />
         ))}
@@ -179,7 +182,7 @@ function ScheduleHistoryCard({
   return (
     <article
       className={cn(
-        "rounded-[8px] border p-5",
+        "rounded-[8px] border p-3.5",
         active ? "border-green-400 bg-white" : "border-gray-100 bg-white",
       )}
     >
@@ -197,17 +200,17 @@ function ScheduleHistoryCard({
           {item.title}
         </h3>
       </div>
-      <dl className="mt-4 grid grid-cols-[48px_minmax(0,1fr)] gap-x-5 gap-y-3 text-h-18-regular">
+      <dl className="mt-3 grid grid-cols-[48px_minmax(0,1fr)] gap-x-4 gap-y-2.5 text-h-18-regular">
         <dt className="text-gray-800">근무일</dt>
         <dd className="min-w-0 truncate text-gray-900">{item.workDays}</dd>
         <dt className="text-gray-800">메모</dt>
         <dd className="min-w-0 truncate text-gray-900">{item.memo}</dd>
       </dl>
-      <div className="mt-4 flex justify-end">
+      <div className="mt-3 flex justify-end">
         <Button
           type="button"
           variant="secondary"
-          className="h-[42px] rounded-full px-4 text-h-18-regular text-gray-800"
+          className="h-9 rounded-full px-4 text-h-18-regular text-gray-800"
         >
           {item.actionLabel}
         </Button>
@@ -223,18 +226,21 @@ function RecentWorkRecords() {
       className="overflow-hidden"
       testId="worker-detail-recent-work-records"
     >
-      <div className="flex min-h-[42px] items-center justify-between gap-4">
+      <WorkerDetailSubsectionHeader
+        actions={
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-9 rounded-full px-4 text-h-18-regular text-gray-800"
+          >
+            근무기록으로 이동
+          </Button>
+        }
+      >
         <h2 className="text-h-20 text-gray-900">최근 근무 기록</h2>
-        <Button
-          type="button"
-          variant="secondary"
-          className="h-[42px] rounded-full px-4 text-h-18-regular text-gray-800"
-        >
-          근무기록으로 이동
-        </Button>
-      </div>
+      </WorkerDetailSubsectionHeader>
       <div
-        className="mt-5 grid h-[54px] grid-cols-[23%_26%_26%_1fr] items-center border-b border-gray-300 text-h-18-regular text-gray-500"
+        className="grid h-10 grid-cols-[23%_26%_26%_1fr] items-center border-b border-gray-300 text-h-18-regular text-gray-500"
         role="row"
       >
         <div role="columnheader">날짜</div>
@@ -260,7 +266,7 @@ function RecentWorkRecordRow({
 
   return (
     <div
-      className="grid h-[46px] grid-cols-[23%_26%_26%_1fr] items-center border-b border-gray-100 text-h-18-regular text-gray-900 last:border-b-0"
+      className="grid h-10 grid-cols-[23%_26%_26%_1fr] items-center border-b border-gray-100 text-h-18-regular text-gray-900 last:border-b-0"
       role="row"
     >
       <div role="cell">{record.date}</div>

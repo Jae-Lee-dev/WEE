@@ -50,10 +50,10 @@ export function WorkersListScreen() {
   return (
     <section
       aria-label="조교 목록"
-      className="flex w-full flex-col gap-5"
+      className="flex w-full flex-col gap-4"
       data-worker-list-state={status}
     >
-      <div className="flex min-h-[45px] items-center justify-between gap-5">
+      <div className="flex min-h-[38px] items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <TagFilterTrigger
             open={tagMenuOpen}
@@ -143,7 +143,7 @@ function TagFilterOption({
       type="button"
       role="option"
       aria-selected={selected}
-      className="flex h-[49px] w-full items-center justify-between gap-2 border-b border-gray-100 text-left text-h-18-regular text-gray-800 last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200"
+      className="flex h-11 w-full items-center justify-between gap-2 border-b border-gray-100 text-left text-h-18-regular text-gray-800 last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200"
     >
       <span className="min-w-0 truncate">{label}</span>
       {selected ? <IconCheck className="size-5 shrink-0 text-green-400" /> : null}
@@ -179,15 +179,15 @@ function WorkerListTable({
   status: WorkerListStatus;
 }) {
   return (
-    <div className="min-h-[812px] overflow-hidden rounded-[8px] bg-white">
-      <div className="flex h-[70px] items-center gap-3 px-5">
+    <div className="min-h-[560px] overflow-hidden rounded-[8px] bg-white">
+      <div className="flex h-[56px] items-center gap-3 px-4">
         <h2 className="text-h-20 text-gray-900">조교 목록</h2>
         <span className="rounded-[4px] bg-gray-100 px-1.5 py-0.5 text-detail-16-regular text-gray-600">
           17/20명
         </span>
       </div>
 
-      <div className="grid h-[41px] grid-cols-[15%_24%_19%_24%_1fr] items-center border-b border-gray-300 px-5 text-h-18-regular text-gray-500">
+      <div className="grid h-9 grid-cols-[15%_24%_19%_24%_1fr] items-center border-b border-gray-300 px-4 text-h-18-regular text-gray-500">
         <div>이름</div>
         <div>등록일</div>
         <div>근무자 태그</div>
@@ -212,8 +212,8 @@ function WorkerListRowItem({
   status: WorkerListStatus;
 }) {
   const className = cn(
-    "grid min-h-[46px] grid-cols-[15%_24%_19%_24%_1fr] items-center border-b border-gray-100 px-5 text-h-18-regular text-gray-900 last:border-b-0",
-    status === "inactive" && "min-h-[73px]",
+    "grid min-h-[42px] grid-cols-[15%_24%_19%_24%_1fr] items-center border-b border-gray-100 px-4 text-h-18-regular text-gray-900 last:border-b-0",
+    status === "inactive" && "min-h-[60px]",
     row.detailHref &&
       "transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200",
   );

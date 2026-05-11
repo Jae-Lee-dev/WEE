@@ -79,7 +79,7 @@ export function TimelineGridFrame({
             {timeSlots.map((slot, index) => (
               <div
                 className={cn(
-                  "flex min-w-0 items-center justify-center border-r border-gray-100 px-1 text-[16px] font-normal leading-[1.4] tracking-[-0.32px] text-gray-500",
+                  "flex min-w-0 items-center justify-center border-r border-gray-100 px-1 text-h-14-regular tracking-normal text-gray-500",
                   index === timeSlots.length - 1 && "border-r-0",
                 )}
                 key={slot}
@@ -97,7 +97,7 @@ export function TimelineGridFrame({
               <div className="contents" key={day.id}>
                 <div
                   className={cn(
-                    "sticky left-0 z-20 flex items-center justify-center border-r border-gray-200 bg-gray-50 px-1 text-[18px] font-medium leading-[1.4] tracking-[-0.36px]",
+                    "sticky left-0 z-20 flex items-center justify-center border-r border-gray-200 bg-gray-50 px-1 text-label-18 tracking-normal",
                     getTimelineDayTextClassName(day.id),
                     !isLastDay && "border-b border-gray-100",
                   )}
@@ -156,12 +156,12 @@ export function TimelineBlockText({
 }: TimelineBlockTextProps) {
   return (
     <>
-      <span className="truncate text-[14px] font-semibold leading-[19.6px] tracking-[-0.28px]">
+      <span className="truncate text-label-12-medium tracking-normal">
         {title}
       </span>
       <span
         className={cn(
-          "truncate text-[14px] font-normal leading-[19.6px] tracking-[-0.28px]",
+          "truncate text-label-12-regular tracking-normal",
           selected ? "text-white/90" : "text-gray-800",
         )}
       >

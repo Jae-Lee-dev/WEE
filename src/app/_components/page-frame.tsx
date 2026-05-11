@@ -11,7 +11,7 @@ export function PageFrame({ children, className }: PageFrameProps) {
   return (
     <div
       className={cn(
-        "mx-auto flex w-full max-w-[1580px] flex-col gap-5",
+        "mx-auto flex w-full max-w-[1480px] flex-col gap-4",
         className,
       )}
     >
@@ -38,7 +38,7 @@ export function PageFrameHeader({
   return (
     <header
       className={cn(
-        "flex min-h-[52px] items-start justify-between gap-6",
+        "flex min-h-10 items-start justify-between gap-5",
         className,
       )}
     >
@@ -50,7 +50,7 @@ export function PageFrameHeader({
         ) : null}
         <h2 className="truncate text-h-24 text-gray-900">{title}</h2>
         {description ? (
-          <p className="mt-2 max-w-[720px] text-body-14-regular text-gray-500">
+          <p className="mt-1.5 max-w-[640px] text-body-14-regular text-gray-500">
             {description}
           </p>
         ) : null}
@@ -77,7 +77,7 @@ export function MetricStrip({
 }) {
   return (
     <section
-      className={cn("grid grid-cols-3 gap-4 xl:grid-cols-6", className)}
+      className={cn("grid grid-cols-3 gap-3 xl:grid-cols-6", className)}
       aria-label="요약 지표"
     >
       {metrics.map((metric) => (
@@ -89,8 +89,8 @@ export function MetricStrip({
 
 export function MetricCard({ metric }: { metric: MetricItem }) {
   return (
-    <div className="min-h-[111px] rounded-[8px] border border-gray-200 bg-white px-5 py-4">
-      <div className="flex items-center justify-between gap-3">
+    <div className="min-h-[92px] rounded-[8px] border border-gray-200 bg-white px-4 py-3">
+      <div className="flex items-center justify-between gap-2.5">
         <div className="truncate text-label-18 text-gray-800">
           {metric.label}
         </div>
@@ -101,7 +101,7 @@ export function MetricCard({ metric }: { metric: MetricItem }) {
         ) : null}
       </div>
       <div className="mt-1 flex items-baseline gap-1 text-green-400">
-        <span className="text-[36px] font-semibold leading-[45px] tracking-tight">
+        <span className="text-h-32">
           {metric.value}
         </span>
         {metric.unit ? (
@@ -122,7 +122,7 @@ export function ToolbarRow({
   return (
     <div
       className={cn(
-        "flex min-h-[45px] items-center justify-between gap-4",
+        "flex min-h-[38px] items-center justify-between gap-3",
         className,
       )}
     >
@@ -141,7 +141,7 @@ export function SectionTitle({
   className?: string;
 }) {
   return (
-    <div className={cn("flex items-center gap-3", className)}>
+    <div className={cn("flex items-center gap-2.5", className)}>
       <h3 className="text-h-20 text-gray-900">{title}</h3>
       {count ? (
         <Badge variant="green" size="M">
@@ -151,4 +151,3 @@ export function SectionTitle({
     </div>
   );
 }
-

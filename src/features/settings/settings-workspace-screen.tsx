@@ -105,7 +105,7 @@ export function SettingsWorkspaceScreen({
   return (
     <section
       aria-label="소속 설정"
-      className="mx-auto h-[calc(100vh-202px)] min-h-[620px] w-full max-w-[1580px] overflow-hidden rounded-[10px] border border-gray-200 bg-white p-5 tracking-normal"
+      className="mx-auto h-[calc(100vh-144px)] min-h-[520px] w-full max-w-[1480px] overflow-hidden rounded-[10px] border border-gray-200 bg-white p-4 tracking-normal"
       data-testid="settings-workspace-screen"
     >
       <div className="flex h-full flex-col items-end gap-6">
@@ -133,7 +133,7 @@ export function SettingsWorkspaceScreen({
           data-testid="settings-workspace-edit-trigger"
           disabled={!workspace || saving}
           onClick={() => setDialogOpen(true)}
-          className="h-[42px] rounded-full px-4 text-h-18-regular font-medium tracking-normal text-white"
+          className="h-9 rounded-full px-4 text-h-18-regular font-medium tracking-normal text-white"
         >
           정보 수정
         </Button>
@@ -216,14 +216,14 @@ function WorkspaceEditDialog({
         aria-modal="true"
         aria-labelledby="settings-workspace-dialog-title"
         onSubmit={handleSubmit}
-        className="flex h-[548px] w-[680px] flex-col rounded-[8px] bg-white px-10 py-10 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
+        className="flex max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] max-w-[620px] flex-col rounded-[8px] bg-white p-8 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
         data-testid="settings-workspace-dialog"
       >
         <h2 id="settings-workspace-dialog-title" className="text-h-20 text-gray-900">
           {dialog.title}
         </h2>
 
-        <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-5">
+        <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-4 overflow-y-auto pr-1">
           {workspaceDialogFields.map((field) => (
             <WorkspaceDialogField
               key={field.id}
@@ -241,14 +241,14 @@ function WorkspaceEditDialog({
             variant="secondary"
             disabled={saving}
             onClick={onClose}
-            className="h-[50px] rounded-[8px] px-6 text-h-18-semibold tracking-normal"
+            className="h-11 rounded-[8px] px-6 text-h-18-semibold tracking-normal"
           >
             {dialog.cancelLabel}
           </Button>
           <Button
             type="submit"
             disabled={saving}
-            className="h-[50px] rounded-[8px] px-6 text-h-18-semibold tracking-normal text-white"
+            className="h-11 rounded-[8px] px-6 text-h-18-semibold tracking-normal text-white"
           >
             {saving ? "저장 중" : dialog.saveLabel}
           </Button>
@@ -276,7 +276,7 @@ function WorkspaceDialogField({
         value={value}
         onChange={onChange}
         aria-invalid={Boolean(error)}
-        className="mt-3 h-[49px] w-full rounded-[8px] border-gray-200 bg-white text-h-18-regular text-gray-800"
+        className="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-white text-h-18-regular text-gray-800"
       />
       <span className="mt-1 block min-h-4 text-label-12-regular text-red-500">
         {error ?? ""}

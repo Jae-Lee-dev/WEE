@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "playwright/test";
+import { expect, test } from "playwright/test";
 import {
   captureActualScreenshot,
   prepareVisualPage,
@@ -8,21 +8,36 @@ import {
 const desktop: VisualViewportName = "desktop-1920";
 
 const filterStates = [
-  { state: "filter-affiliation", testId: "dashboard-filter-affiliation" },
-  { state: "filter-schedule", testId: "dashboard-filter-schedule" },
-  { state: "filter-overtime", testId: "dashboard-filter-overtime" },
-  { state: "filter-correction", testId: "dashboard-filter-correction" },
-  { state: "filter-anomaly", testId: "dashboard-filter-anomaly" },
-  { state: "filter-payroll", testId: "dashboard-filter-payroll" },
-] as const;
-
-const metricIds = [
-  "affiliation",
-  "schedule",
-  "overtime",
-  "correction",
-  "anomaly",
-  "payroll",
+  {
+    state: "filter-affiliation",
+    optionId: "affiliation",
+    option: "소속 신청 대기",
+  },
+  {
+    state: "filter-schedule",
+    optionId: "schedule",
+    option: "시간표 승인 대기",
+  },
+  {
+    state: "filter-overtime",
+    optionId: "overtime",
+    option: "추가근무 승인 대기",
+  },
+  {
+    state: "filter-correction",
+    optionId: "correction",
+    option: "이의신청 처리 대기",
+  },
+  {
+    state: "filter-anomaly",
+    optionId: "anomaly",
+    option: "이상 플래그 미처리",
+  },
+  {
+    state: "filter-payroll",
+    optionId: "payroll",
+    option: "급여 재확정 필요",
+  },
 ] as const;
 
 for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
@@ -33,7 +48,12 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
       page.getByRole("heading", { name: "확인 필요" }),
     ).toBeVisible();
     await expect(page.getByText("24건")).toBeVisible();
-    await expectMetricBadgesToAlignWithUnits(page);
+    await expect(page.getByTestId("dashboard-filter-trigger")).toContainText(
+      "전체 유형",
+    );
+    await expect(page.getByTestId("dashboard-filter-affiliation")).toHaveCount(
+      0,
+    );
 
     await captureActualScreenshot({
       page,
@@ -41,25 +61,6 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
       viewport,
     });
   });
-}
-
-async function expectMetricBadgesToAlignWithUnits(page: Page) {
-  for (const metricId of metricIds) {
-    const unitBox = await page
-      .getByTestId(`dashboard-metric-${metricId}-unit`)
-      .boundingBox();
-    const badgeBox = await page
-      .getByTestId(`dashboard-metric-${metricId}-badge`)
-      .boundingBox();
-
-    expect(unitBox).not.toBeNull();
-    expect(badgeBox).not.toBeNull();
-    if (!unitBox || !badgeBox) {
-      continue;
-    }
-
-    expect(Math.abs(unitBox.y - badgeBox.y)).toBeLessThanOrEqual(1);
-  }
 }
 
 test(`SHELL-01 default ${desktop}`, async ({ page }) => {
@@ -75,14 +76,14 @@ test(`SHELL-01 default ${desktop}`, async ({ page }) => {
   });
 });
 
-for (const { state, testId } of filterStates) {
+for (const { state, optionId, option } of filterStates) {
   test(`DSH-01 ${state} ${desktop}`, async ({ page }) => {
     await prepareVisualPage({ page, path: "/dashboard", viewport: desktop });
     await page.evaluate(() => document.fonts.ready);
-    await page.getByTestId(testId).click();
-    await expect(page.getByTestId(testId)).toHaveAttribute(
-      "aria-pressed",
-      "true",
+    await page.getByTestId("dashboard-filter-trigger").click();
+    await page.getByTestId(`dashboard-filter-option-${optionId}`).click();
+    await expect(page.getByTestId("dashboard-filter-trigger")).toContainText(
+      option,
     );
 
     await captureActualScreenshot({
@@ -97,7 +98,8 @@ for (const { state, testId } of filterStates) {
 test(`DSH-01 filter-dropdown ${desktop}`, async ({ page }) => {
   await prepareVisualPage({ page, path: "/dashboard", viewport: desktop });
   await page.evaluate(() => document.fonts.ready);
-  await page.getByTestId("dashboard-filter-affiliation").click();
+  await page.getByTestId("dashboard-filter-trigger").click();
+  await page.getByTestId("dashboard-filter-option-affiliation").click();
   await page.getByTestId("dashboard-filter-trigger").click();
   await expect(page.getByTestId("dashboard-filter-menu")).toBeVisible();
 

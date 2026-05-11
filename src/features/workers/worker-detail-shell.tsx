@@ -15,6 +15,12 @@ type WorkerDetailSubsectionProps = {
   testId?: string;
 };
 
+type WorkerDetailSubsectionHeaderProps = {
+  actions?: ReactNode;
+  children: ReactNode;
+  className?: string;
+};
+
 export function WorkerDetailShell({
   activeTab,
   children,
@@ -28,7 +34,7 @@ export function WorkerDetailShell({
     <section
       aria-label="조교 상세"
       className={cn(
-        "mx-auto flex w-full max-w-[1580px] flex-col gap-5 tracking-normal",
+        "mx-auto flex w-full max-w-[1480px] flex-col gap-4 tracking-normal",
         className,
       )}
       data-testid="worker-detail-shell"
@@ -50,7 +56,7 @@ export function WorkerDetailSubsection({
     <section
       aria-label={ariaLabel}
       className={cn(
-        "rounded-[8px] border border-gray-100 bg-white p-5",
+        "flex min-h-0 flex-col gap-4 rounded-[8px] border border-gray-100 bg-white p-4",
         className,
       )}
       data-testid={testId}
@@ -60,9 +66,29 @@ export function WorkerDetailSubsection({
   );
 }
 
+export function WorkerDetailSubsectionHeader({
+  actions,
+  children,
+  className,
+}: WorkerDetailSubsectionHeaderProps) {
+  return (
+    <div
+      className={cn(
+        "flex min-h-9 items-center justify-between gap-4",
+        className,
+      )}
+    >
+      <div className="flex min-w-0 items-center gap-3">{children}</div>
+      {actions ? (
+        <div className="flex shrink-0 items-center gap-2.5">{actions}</div>
+      ) : null}
+    </div>
+  );
+}
+
 function WorkerProfileCard() {
   return (
-    <section className="flex min-h-[96px] items-center justify-between gap-5 rounded-[8px] border border-gray-100 bg-white px-5 py-4">
+    <section className="flex min-h-[68px] items-center justify-between gap-4 rounded-[8px] border border-gray-100 bg-white px-4 py-4">
       <div className="min-w-0">
         <div className="flex items-center gap-3">
           <h2 className="text-h-20 text-gray-900">
@@ -89,7 +115,7 @@ function WorkerProfileCard() {
       </div>
       <button
         type="button"
-        className="flex h-[42px] items-center justify-center rounded-full border border-red-100 bg-white px-4 text-h-18-regular font-medium text-red-500 transition-colors duration-150 ease-out hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-100"
+        className="flex h-9 items-center justify-center rounded-full border border-red-100 bg-white px-4 text-h-18-regular font-medium text-red-500 transition-colors duration-150 ease-out hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-100"
       >
         {workerDetailProfile.deleteLabel}
       </button>
@@ -101,7 +127,7 @@ function WorkerDetailTabs({ activeTab }: { activeTab: WorkerDetailTabId }) {
   return (
     <nav
       aria-label="조교 상세 탭"
-      className="flex h-[41px] items-end gap-8 border-b border-gray-200"
+      className="flex h-9 items-end gap-8 border-b border-gray-200"
     >
       {workerDetailTabs.map((tab) => {
         const active = tab.id === activeTab;
@@ -112,7 +138,7 @@ function WorkerDetailTabs({ activeTab }: { activeTab: WorkerDetailTabId }) {
             href={tab.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex h-[41px] items-start border-b-2 text-h-20 transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
+              "flex h-9 items-start border-b-2 text-h-20 transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
               active
                 ? "border-green-400 text-green-400"
                 : "border-transparent text-gray-500 hover:border-gray-200 hover:text-gray-800",

@@ -23,10 +23,10 @@ export function HandoverScreen() {
   return (
     <section
       aria-label="인수인계 문서 편집"
-      className="mx-auto grid h-[calc(100vh-202px)] w-full max-w-[1580px] grid-cols-[minmax(0,1fr)_minmax(360px,440px)] gap-5 overflow-hidden tracking-normal"
+      className="mx-auto grid h-[calc(100vh-144px)] w-full max-w-[1480px] grid-cols-[minmax(0,1fr)_minmax(320px,380px)] gap-4 overflow-hidden tracking-normal"
       data-testid="handover-screen"
     >
-      <div className="flex min-h-0 min-w-0 flex-col gap-5 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-col gap-4 overflow-hidden">
         <HandoverToolbar />
         <HandoverEditor />
       </div>
@@ -39,10 +39,10 @@ function HandoverToolbar() {
   const { toolbar } = handoverFixture;
 
   return (
-    <div className="flex h-20 shrink-0 items-center gap-3 rounded-[8px] bg-white px-5">
+    <div className="flex h-14 shrink-0 items-center gap-3 rounded-[8px] bg-white px-4">
       <button
         type="button"
-        className="flex h-[42px] items-center gap-2 rounded-[6px] border border-gray-200 bg-white px-2.5 text-h-18-regular tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+        className="flex h-9 items-center gap-2 rounded-[6px] border border-gray-200 bg-white px-2.5 text-h-18-regular tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
       >
         <span>{toolbar.styleLabel}</span>
         <IconChevronDown className="size-5 shrink-0 text-gray-700" />
@@ -50,19 +50,19 @@ function HandoverToolbar() {
       <button
         type="button"
         aria-label="굵게"
-        className="flex h-[42px] min-w-[45px] items-center justify-center rounded-[6px] border border-gray-200 bg-white px-3 text-h-18-semibold tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+        className="flex h-9 min-w-[45px] items-center justify-center rounded-[6px] border border-gray-200 bg-white px-3 text-h-18-semibold tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
       >
         {toolbar.boldLabel}
       </button>
       <button
         type="button"
-        className="flex h-[42px] items-center justify-center rounded-[6px] border border-gray-200 bg-white px-3 text-h-18-regular tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+        className="flex h-9 items-center justify-center rounded-[6px] border border-gray-200 bg-white px-3 text-h-18-regular tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
       >
         {toolbar.dividerLabel}
       </button>
       <button
         type="button"
-        className="flex h-[42px] items-center justify-center rounded-[6px] border border-gray-200 bg-white px-3 text-h-18-regular tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+        className="flex h-9 items-center justify-center rounded-[6px] border border-gray-200 bg-white px-3 text-h-18-regular tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
       >
         {toolbar.codeLabel}
       </button>
@@ -77,7 +77,7 @@ function HandoverEditor() {
       className="min-h-0 flex-1 overflow-hidden rounded-[8px] bg-white"
       data-testid="handover-editor"
     >
-      <div className="px-5 py-[21px] text-gray-900">
+      <div className="px-4 py-[21px] text-gray-900">
         {handoverFixture.document.blocks.map((block) => (
           <HandoverDocumentBlockView key={block.id} block={block} />
         ))}
@@ -177,7 +177,7 @@ function HandoverSuggestionBlock({
   return (
     <div
       className={cn(
-        "relative min-h-[196px] rounded-[8px] border border-green-400 bg-green-50 px-4 pb-[72px] pt-4 text-h-18-regular",
+        "relative min-h-[160px] rounded-[8px] border border-green-400 bg-green-50 px-4 pb-14 pt-4 text-h-18-regular",
         className,
       )}
       data-testid="handover-selected-suggestion"
@@ -203,13 +203,13 @@ function HandoverSuggestionBlock({
         <Button
           type="button"
           variant="secondary"
-          className="h-[49px] rounded-[8px] px-6 text-h-18-semibold tracking-normal"
+          className="h-11 rounded-[8px] px-6 text-h-18-semibold tracking-normal"
         >
           {suggestion.cancelLabel}
         </Button>
         <Button
           type="button"
-          className="h-[49px] rounded-[8px] px-6 text-h-18-semibold tracking-normal"
+          className="h-11 rounded-[8px] px-6 text-h-18-semibold tracking-normal"
         >
           {suggestion.applyLabel}
         </Button>
@@ -227,7 +227,7 @@ function HandoverChatPanel() {
       className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[8px] border border-gray-200 bg-white"
       data-testid="handover-chat-panel"
     >
-      <header className="flex h-[70px] shrink-0 items-center gap-3 px-5">
+      <header className="flex h-[56px] shrink-0 items-center gap-3 px-4">
         <h2 className="text-h-20 text-gray-900">{chat.title}</h2>
         <Badge
           variant="green"
@@ -237,21 +237,21 @@ function HandoverChatPanel() {
           {chat.planBadge}
         </Badge>
       </header>
-      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden px-5 pt-0">
+      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden px-4 pt-0">
         {chat.messages.map((message) => (
           <HandoverChatMessageBubble key={message.id} message={message} />
         ))}
       </div>
-      <div className="flex h-20 shrink-0 items-center gap-3 border-t border-gray-200 px-5">
+      <div className="flex h-14 shrink-0 items-center gap-3 border-t border-gray-200 px-4">
         <input
           readOnly
           aria-label="수정할 내용"
           placeholder={chat.inputPlaceholder}
-          className="h-[50px] min-w-0 flex-1 rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-900 outline-none placeholder:text-gray-400"
+          className="h-11 min-w-0 flex-1 rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-900 outline-none placeholder:text-gray-400"
         />
         <Button
           type="button"
-          className="h-[50px] rounded-[12px] px-4 text-h-18-semibold tracking-normal"
+          className="h-11 rounded-[12px] px-4 text-h-18-semibold tracking-normal"
         >
           {chat.sendLabel}
         </Button>

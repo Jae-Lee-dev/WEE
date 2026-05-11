@@ -112,13 +112,13 @@ function HistoryScreenShell({
   return (
     <section
       aria-label="근무 기록 이력"
-      className="mx-auto flex w-full max-w-[1580px] flex-col gap-5"
+      className="mx-auto flex w-full max-w-[1480px] flex-col gap-4"
       data-testid={screenTestId}
     >
       <FilterBar filters={filters} />
 
-      <div className="grid min-h-[816px] grid-cols-[minmax(0,1fr)_360px] gap-5">
-        <section className="min-w-0 overflow-hidden rounded-[8px] bg-white px-5 py-5">
+      <div className="grid min-h-[680px] grid-cols-[minmax(0,1fr)_320px] gap-4">
+        <section className="min-w-0 overflow-hidden rounded-[8px] bg-white px-4 py-4">
           <MetricCards metrics={metrics} />
           <div className="mt-7">{left}</div>
         </section>
@@ -136,7 +136,7 @@ function FilterBar({
   filters: Record<string, readonly RecordsFilterOption[]>;
 }) {
   return (
-    <div className="flex min-h-[41px] flex-wrap items-center gap-3">
+    <div className="flex min-h-9 flex-wrap items-center gap-3">
       {Object.entries(filters).map(([id, options]) => {
         const selected = options.find((option) => option.selected) ?? options[0];
 
@@ -166,13 +166,13 @@ function MetricCards({ metrics }: { metrics: readonly RecordsMetricCard[] }) {
       {metrics.map((metric) => (
         <div
           key={metric.id}
-          className="h-[118px] rounded-[8px] border border-gray-200 bg-white px-5 py-4"
+          className="h-[118px] rounded-[8px] border border-gray-200 bg-white px-4 py-4"
         >
           <div className="text-h-18-semibold tracking-normal text-gray-900">
             {metric.label}
           </div>
           <div
-            className="mt-5 text-[36px] font-semibold leading-[42px] tracking-normal"
+            className="mt-5 text-h-32 tracking-normal"
             style={toneStyles[metric.tone]}
           >
             {metric.value}
@@ -219,7 +219,7 @@ function AnomalyHistoryTableRow({
   return (
     <div
       className={cn(
-        "grid min-h-[61px] grid-cols-[13%_13%_13%_13%_13%_13%_13%_1fr] items-center border-b border-gray-100 px-5 text-h-18-regular tracking-normal text-gray-900 last:border-b-0",
+        "grid min-h-11 grid-cols-[13%_13%_13%_13%_13%_13%_13%_1fr] items-center border-b border-gray-100 px-4 text-h-18-regular tracking-normal text-gray-900 last:border-b-0",
         selected && "bg-green-50",
       )}
     >
@@ -287,7 +287,7 @@ function CorrectionTableRow({
   return (
     <div
       className={cn(
-        "grid min-h-[61px] grid-cols-[13%_13%_15%_13%_24%_10%_1fr] items-center border-b border-gray-100 px-5 text-h-18-regular tracking-normal text-gray-900 last:border-b-0",
+        "grid min-h-11 grid-cols-[13%_13%_15%_13%_24%_10%_1fr] items-center border-b border-gray-100 px-4 text-h-18-regular tracking-normal text-gray-900 last:border-b-0",
         selected && "bg-green-50",
       )}
     >
@@ -335,7 +335,7 @@ function HistoryTableFrame({
     <div className="min-w-0">
       <div
         className={cn(
-          "grid h-[38px] items-center border-b border-gray-300 px-5 text-h-18-regular tracking-normal text-gray-500",
+          "grid h-[38px] items-center border-b border-gray-300 px-4 text-h-18-regular tracking-normal text-gray-500",
           headerGrid,
         )}
       >
@@ -365,7 +365,7 @@ function DetailToggleButton({
       data-testid={testId}
       onClick={onClick}
       className={cn(
-        "flex h-[42px] min-w-[94px] items-center justify-center rounded-full px-4 text-h-18-regular tracking-normal transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 max-[1500px]:min-w-[86px] max-[1500px]:px-3",
+        "flex h-9 min-w-[94px] items-center justify-center rounded-full px-4 text-h-18-regular tracking-normal transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 max-[1500px]:min-w-[86px] max-[1500px]:px-3",
         selected
           ? "bg-green-400 text-white hover:bg-green-450"
           : "border border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50",
@@ -393,7 +393,7 @@ function TableCell({ children }: { children: ReactNode }) {
 function EmptyDetailPanel() {
   return (
     <div
-      className="flex h-full min-h-[814px] items-center justify-center text-center text-h-18-regular leading-[28px] tracking-normal text-gray-400"
+      className="flex h-full min-h-[560px] items-center justify-center text-center text-h-18-regular leading-[24px] tracking-normal text-gray-400"
       data-testid="record-history-empty-detail"
     >
       <p>
@@ -434,7 +434,7 @@ function CorrectionDetailPanel({ detail }: { detail: CorrectionDetail }) {
         <div className="text-detail-16-semibold tracking-normal text-green-400">
           {detail.reasonTitle}
         </div>
-        <p className="mt-3 text-h-18-regular leading-[26px] tracking-normal text-gray-900">
+        <p className="mt-3 text-h-18-regular leading-[22px] tracking-normal text-gray-900">
           {detail.reasonText}
         </p>
       </div>
@@ -444,7 +444,7 @@ function CorrectionDetailPanel({ detail }: { detail: CorrectionDetail }) {
       <DetailSection title={detail.approvedTitle}>
         <DetailLineBox lines={detail.approvedLines} />
       </DetailSection>
-      <div className="rounded-[8px] bg-green-50 px-4 py-4 text-body-16-regular leading-[26px] tracking-normal text-green-400">
+      <div className="rounded-[8px] bg-green-50 px-4 py-4 text-body-16-regular leading-[22px] tracking-normal text-green-400">
         {detail.noteText}
       </div>
     </DetailPanel>
@@ -460,7 +460,7 @@ function DetailPanel({
 }) {
   return (
     <div
-      className="flex h-full min-h-[814px] flex-col gap-4 px-5 py-5"
+      className="flex h-full min-h-[560px] flex-col gap-4 px-4 py-4"
       data-testid={testId}
     >
       {children}
@@ -526,7 +526,7 @@ function DetailLineBox({
       {lines.map((line) => (
         <div
           key={line.id}
-          className="flex min-h-[52px] items-center justify-between gap-4 border-b border-gray-200 text-h-18-regular tracking-normal last:border-b-0"
+          className="flex min-h-11 items-center justify-between gap-4 border-b border-gray-200 text-h-18-regular tracking-normal last:border-b-0"
         >
           <div className="text-gray-500">{line.label}</div>
           <div

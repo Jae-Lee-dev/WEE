@@ -140,20 +140,20 @@ export function SettingsLocationsScreen({
   return (
     <section
       aria-label="근무지 설정"
-      className="mx-auto flex h-[calc(100vh-202px)] min-h-[620px] w-full max-w-[1580px] flex-col items-end gap-5 tracking-normal"
+      className="mx-auto flex h-[calc(100vh-144px)] min-h-[520px] w-full max-w-[1480px] flex-col items-end gap-4 tracking-normal"
       data-testid="settings-locations-screen"
     >
       <div className="flex w-full items-center justify-end gap-4">
         {statusMessage ? (
           <div
-            className="min-h-[42px] rounded-[8px] border border-green-100 bg-green-50 px-4 py-2.5 text-body-14-medium tracking-normal text-green-500"
+            className="min-h-9 rounded-[8px] border border-green-100 bg-green-50 px-4 py-2.5 text-body-14-medium tracking-normal text-green-500"
             role="status"
           >
             {statusMessage}
           </div>
         ) : errorMessage ? (
           <div
-            className="min-h-[42px] rounded-[8px] border border-red-100 bg-red-50 px-4 py-2.5 text-body-14-medium tracking-normal text-red-500"
+            className="min-h-9 rounded-[8px] border border-red-100 bg-red-50 px-4 py-2.5 text-body-14-medium tracking-normal text-red-500"
             role="alert"
           >
             {errorMessage}
@@ -168,7 +168,7 @@ export function SettingsLocationsScreen({
             setEditingLocation(null);
             setDialogOpen(true);
           }}
-          className="h-[42px] rounded-full px-4 text-h-18-regular font-normal tracking-normal"
+          className="h-9 rounded-full px-4 text-h-18-regular font-normal tracking-normal"
         >
           {settingsLocationsFixture.addButtonLabel}
         </Button>
@@ -233,11 +233,11 @@ function LocationsTable({
   return (
     <section
       aria-label="근무지 목록"
-      className="min-h-0 w-full flex-1 overflow-hidden rounded-[10px] border border-gray-100 bg-white py-5"
+      className="min-h-0 w-full flex-1 overflow-hidden rounded-[10px] border border-gray-100 bg-white py-4"
       data-testid="settings-locations-table"
     >
       <div
-        className="grid h-[32px] grid-cols-[1fr_1.45fr_110px_120px_120px_180px] items-start border-b border-gray-300 px-5 text-h-18-regular text-gray-500"
+        className="grid h-[32px] grid-cols-[1fr_1.45fr_110px_120px_120px_180px] items-start border-b border-gray-300 px-4 text-h-18-regular text-gray-500"
         role="row"
       >
         {settingsLocationsFixture.columns.map((column) => (
@@ -252,7 +252,7 @@ function LocationsTable({
       </div>
 
       {loading ? (
-        <div className="flex h-full min-h-[360px] items-center justify-center px-5 text-h-18-regular text-gray-500">
+        <div className="flex h-full min-h-[360px] items-center justify-center px-4 text-h-18-regular text-gray-500">
           {settingsLocationsFixture.loadingLabel}
         </div>
       ) : locations.length > 0 ? (
@@ -268,7 +268,7 @@ function LocationsTable({
           ))}
         </div>
       ) : (
-        <div className="flex h-full min-h-[360px] flex-col items-center justify-center px-5 text-center">
+        <div className="flex h-full min-h-[360px] flex-col items-center justify-center px-4 text-center">
           <h2 className="text-h-20 tracking-normal text-gray-900">
             {settingsLocationsFixture.emptyTitle}
           </h2>
@@ -294,7 +294,7 @@ function LocationTableRow({
 }) {
   return (
     <div
-      className="grid h-[61px] grid-cols-[1fr_1.45fr_110px_120px_120px_180px] items-center border-b border-gray-100 px-5 text-h-18-regular text-gray-800 last:border-b-0"
+      className="grid h-11 grid-cols-[1fr_1.45fr_110px_120px_120px_180px] items-center border-b border-gray-100 px-4 text-h-18-regular text-gray-800 last:border-b-0"
       role="row"
       data-testid={first ? "settings-locations-first-row" : undefined}
     >
@@ -318,7 +318,7 @@ function LocationTableRow({
           type="button"
           variant="secondary"
           onClick={() => onEdit(row)}
-          className="h-[42px] rounded-full px-4 text-h-18-regular font-medium tracking-normal"
+          className="h-9 rounded-full px-4 text-h-18-regular font-medium tracking-normal"
         >
           {settingsLocationsFixture.editButtonLabel}
         </Button>
@@ -326,7 +326,7 @@ function LocationTableRow({
           type="button"
           variant="danger"
           onClick={() => onDelete(row)}
-          className="h-[42px] rounded-full px-4 text-h-18-regular font-medium tracking-normal text-red-500"
+          className="h-9 rounded-full px-4 text-h-18-regular font-medium tracking-normal text-red-500"
         >
           {settingsLocationsFixture.deleteButtonLabel}
         </Button>
@@ -392,7 +392,7 @@ function LocationDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-location-dialog-title"
-        className="flex max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] max-w-[680px] flex-col overflow-hidden rounded-[8px] bg-white px-10 py-10 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
+        className="flex max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] max-w-[620px] flex-col overflow-hidden rounded-[8px] bg-white p-8 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
         data-testid="settings-location-dialog"
         noValidate
         onSubmit={handleSave}
@@ -440,7 +440,7 @@ function LocationDialog({
           <StaticRadiusMap />
         </div>
 
-        <div className="mt-6 flex shrink-0 justify-end gap-2.5 border-t border-gray-100 pt-5">
+        <div className="mt-6 flex shrink-0 justify-end gap-2.5 border-t border-gray-100 pt-4">
           <Button
             type="button"
             variant="secondary"
@@ -487,7 +487,7 @@ function DeleteLocationDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-location-delete-dialog-title"
-        className="w-[520px] rounded-[8px] bg-white px-8 py-8 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
+        className="w-[calc(100vw-32px)] max-w-[480px] rounded-[8px] bg-white px-6 py-6 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
       >
         <h2
           id="settings-location-delete-dialog-title"
@@ -506,7 +506,7 @@ function DeleteLocationDialog({
               type="button"
               variant="secondary"
               onClick={onClose}
-              className="h-[50px] rounded-[8px] px-6 text-h-18-semibold tracking-normal"
+              className="h-11 rounded-[8px] px-6 text-h-18-semibold tracking-normal"
             >
               {deleteDialog.closeLabel}
             </Button>
@@ -517,7 +517,7 @@ function DeleteLocationDialog({
                 variant="secondary"
                 onClick={onClose}
                 disabled={deleting}
-                className="h-[50px] rounded-[8px] px-6 text-h-18-semibold tracking-normal"
+                className="h-11 rounded-[8px] px-6 text-h-18-semibold tracking-normal"
               >
                 {deleteDialog.cancelLabel}
               </Button>
@@ -528,7 +528,7 @@ function DeleteLocationDialog({
                 onClick={() => {
                   void onConfirm(location);
                 }}
-                className="h-[50px] rounded-[8px] px-6 text-h-18-semibold tracking-normal text-red-500"
+                className="h-11 rounded-[8px] px-6 text-h-18-semibold tracking-normal text-red-500"
               >
                 {deleting ? "삭제 중" : deleteDialog.confirmLabel}
               </Button>
@@ -561,7 +561,7 @@ function LocationDialogField({
         name={name}
         aria-describedby={error ? errorId : undefined}
         aria-invalid={Boolean(error)}
-        className="mt-3 h-[49px] rounded-[8px] border-gray-200 bg-gray-50 text-h-18-regular text-gray-800"
+        className="mt-3 h-11 rounded-[8px] border-gray-200 bg-gray-50 text-h-18-regular text-gray-800"
         {...props}
       />
       {error ? (
@@ -602,7 +602,7 @@ function LocationRadiusField({
           disabled={saving}
           aria-describedby="settings-location-radius-unit"
           aria-invalid={Boolean(error)}
-          className="h-[49px] w-60 rounded-[8px] border-gray-200 bg-gray-50 px-4 text-right text-h-18-regular text-gray-800"
+          className="h-11 w-60 rounded-[8px] border-gray-200 bg-gray-50 px-4 text-right text-h-18-regular text-gray-800"
         />
         <span
           id="settings-location-radius-unit"

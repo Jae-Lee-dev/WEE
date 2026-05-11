@@ -45,13 +45,13 @@ export function DataTable<Row extends { id: string }>({
       )}
     >
       <div className="overflow-x-auto">
-        <Table className={cn("min-w-[760px]", tableClassName)}>
+        <Table className={cn("min-w-[720px]", tableClassName)}>
           <TableHeader>
             <TableRow className="hover:bg-transparent active:bg-transparent">
               {columns.map((column) => (
                 <TableHead
                   key={column.id}
-                  className={cn("h-[45px]", column.headerClassName)}
+                  className={cn("h-[38px]", column.headerClassName)}
                 >
                   {column.header}
                 </TableHead>
@@ -69,7 +69,7 @@ export function DataTable<Row extends { id: string }>({
                     key={row.id}
                     data-state={selected ? "selected" : undefined}
                     className={cn(
-                      "h-[46px]",
+                      "h-[40px]",
                       rowHref && "cursor-pointer",
                       selected && "bg-green-50 hover:bg-green-50",
                     )}
@@ -77,7 +77,7 @@ export function DataTable<Row extends { id: string }>({
                     {columns.map((column) => (
                       <TableCell
                         key={column.id}
-                        className={cn("py-2.5", column.className)}
+                        className={cn("py-2", column.className)}
                       >
                         {rowHref ? (
                           <Link

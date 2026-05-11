@@ -12,10 +12,10 @@ export function SettingsBillingScreen() {
   return (
     <section
       aria-label="요금제"
-      className="mx-auto flex w-full max-w-[1580px] flex-col gap-5 tracking-normal"
+      className="mx-auto flex w-full max-w-[1480px] flex-col gap-4 tracking-normal"
       data-testid="settings-billing-screen"
     >
-      <div className="grid grid-cols-2 gap-5">
+      <div className="grid grid-cols-2 gap-4">
         {settingsBillingFixture.plans.map((plan) => (
           <BillingPlanCard key={plan.id} plan={plan} />
         ))}
@@ -23,7 +23,7 @@ export function SettingsBillingScreen() {
       <div className="flex justify-end">
         <button
           type="button"
-          className="flex h-[41px] items-center justify-center rounded-full border border-red-100 bg-white px-4 text-h-18-regular font-medium text-red-500 transition-colors duration-150 ease-out hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-100"
+          className="flex h-9 items-center justify-center rounded-full border border-red-100 bg-white px-4 text-h-18-regular font-medium text-red-500 transition-colors duration-150 ease-out hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-100"
         >
           {settingsBillingFixture.cancelSubscriptionLabel}
         </button>
@@ -36,7 +36,7 @@ function BillingPlanCard({ plan }: { plan: BillingPlan }) {
   return (
     <article
       className={cn(
-        "flex min-h-[500px] flex-col gap-4 rounded-[10px] bg-white p-6 2xl:min-h-[646px] 2xl:gap-6 2xl:p-7",
+        "flex min-h-[420px] flex-col gap-4 rounded-[10px] bg-white p-5",
         plan.highlighted ? "border border-green-400" : "border border-white",
       )}
       data-testid={`settings-billing-plan-${plan.id}`}
@@ -46,7 +46,7 @@ function BillingPlanCard({ plan }: { plan: BillingPlan }) {
           <span className="rounded-full bg-green-100 px-3 py-2 text-detail-16-semibold text-green-400">
             {plan.badge}
           </span>
-          <h2 className="text-[32px] font-semibold leading-[45px] text-gray-700">
+          <h2 className="text-h-24 font-semibold tracking-normal text-gray-700">
             {plan.title}
             {plan.period ? (
               <span className="ml-1 align-baseline text-h-20 text-gray-700">
@@ -66,7 +66,7 @@ function BillingPlanCard({ plan }: { plan: BillingPlan }) {
 
       <div className="h-px bg-gray-200" />
 
-      <div className="flex flex-col gap-1.5 2xl:gap-2">
+      <div className="flex flex-col gap-1.5">
         <PlanMetaRow
           icon={<Users className="size-5 text-green-400" />}
           label="포함 인원"
@@ -81,7 +81,7 @@ function BillingPlanCard({ plan }: { plan: BillingPlan }) {
 
       <div className="h-px bg-gray-200" />
 
-      <div className="flex flex-col gap-1.5 2xl:gap-2">
+      <div className="flex flex-col gap-1.5">
         {plan.features.map((feature) => (
           <BillingFeatureRow key={feature.id} feature={feature} />
         ))}
@@ -92,7 +92,7 @@ function BillingPlanCard({ plan }: { plan: BillingPlan }) {
         variant="secondary"
         disabled={plan.current}
         className={cn(
-          "mt-auto h-[48px] w-full rounded-[10px] px-6 text-h-18-semibold tracking-normal disabled:opacity-100 2xl:h-[56px]",
+          "mt-auto h-[40px] w-full rounded-[8px] px-4 text-h-18-semibold tracking-normal disabled:opacity-100",
           plan.current
             ? "border-gray-200 bg-gray-100 text-gray-300"
             : "border-gray-200 bg-white text-gray-900",

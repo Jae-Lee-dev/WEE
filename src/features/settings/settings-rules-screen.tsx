@@ -15,7 +15,7 @@ export function SettingsRulesScreen() {
   return (
     <section
       aria-label="운영 설정"
-      className="mx-auto flex h-[calc(100vh-202px)] min-h-[566px] w-full max-w-[1580px] flex-col items-end gap-6 overflow-hidden rounded-[10px] border border-gray-200 bg-white p-5 tracking-normal"
+      className="mx-auto flex h-[calc(100vh-144px)] min-h-[520px] w-full max-w-[1480px] flex-col items-end gap-4 overflow-hidden rounded-[10px] border border-gray-200 bg-white p-4 tracking-normal"
       data-testid="settings-rules-screen"
     >
       <div className="flex w-full flex-col gap-3">
@@ -34,7 +34,7 @@ export function SettingsRulesScreen() {
 
       <button
         type="button"
-        className="flex h-[41px] items-center justify-center rounded-full bg-green-400 px-4 text-h-18-regular font-medium text-white transition-colors duration-150 ease-out hover:bg-green-450 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+        className="flex h-9 items-center justify-center rounded-full bg-green-400 px-4 text-h-18-regular font-medium text-white transition-colors duration-150 ease-out hover:bg-green-450 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
         data-testid="settings-rules-edit-trigger"
         onClick={() => setDialogOpen(true)}
       >
@@ -53,12 +53,12 @@ function SettingsRulesDialog({ onClose }: { onClose: () => void }) {
     settingsRulesFixture.dialog.fields;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#9a9a9a]/70">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#9a9a9a]/70 px-4 py-6">
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-rules-dialog-title"
-        className="flex w-[720px] flex-col gap-10 rounded-[10px] bg-white p-10 shadow-[0px_16px_44px_rgba(17,24,39,0.16)]"
+        className="flex w-[calc(100vw-32px)] max-w-[640px] flex-col gap-8 rounded-[10px] bg-white p-8 shadow-[0px_16px_44px_rgba(17,24,39,0.16)]"
         data-testid="settings-rules-dialog"
       >
         <h2
@@ -68,8 +68,8 @@ function SettingsRulesDialog({ onClose }: { onClose: () => void }) {
           {settingsRulesFixture.dialog.title}
         </h2>
 
-        <div className="flex flex-col gap-8">
-          <div className="grid grid-cols-2 gap-8">
+        <div className="flex flex-col gap-6">
+          <div className="grid grid-cols-2 gap-6">
             <SettingsRuleInputField field={firstField} />
             <SettingsRuleInputField field={secondField} />
           </div>
@@ -81,14 +81,14 @@ function SettingsRulesDialog({ onClose }: { onClose: () => void }) {
             type="button"
             variant="secondary"
             onClick={onClose}
-            className="h-[50px] rounded-[10px] px-6 text-h-18-semibold tracking-normal"
+            className="h-11 rounded-[10px] px-6 text-h-18-semibold tracking-normal"
           >
             {settingsRulesFixture.dialog.cancelLabel}
           </Button>
           <Button
             type="button"
             onClick={onClose}
-            className="h-[50px] rounded-[10px] px-6 text-h-18-semibold tracking-normal text-white"
+            className="h-11 rounded-[10px] px-6 text-h-18-semibold tracking-normal text-white"
           >
             {settingsRulesFixture.dialog.saveLabel}
           </Button>
@@ -107,7 +107,7 @@ function SettingsRuleInputField({ field }: { field: SettingsRuleField }) {
       <span className="mt-2 flex items-center gap-2">
         <span
           className={cn(
-            "flex h-[51px] w-[280px] items-center rounded-[10px] border px-4 text-h-18-regular tracking-normal text-gray-900",
+            "flex h-11 w-[260px] items-center rounded-[8px] border px-3 text-h-18-regular tracking-normal text-gray-900",
             field.kind === "select"
               ? "justify-between border-gray-400 bg-white"
               : "justify-end border-gray-200 bg-gray-50",
