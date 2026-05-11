@@ -16,6 +16,7 @@ permissions:
 
 env:
   NEXT_TELEMETRY_DISABLED: "1"
+  STORYBOOK_DISABLE_TELEMETRY: "1"
 
 jobs:
   verify:
