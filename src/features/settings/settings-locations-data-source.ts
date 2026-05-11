@@ -10,8 +10,13 @@ import {
   type DocumentData,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
+import { resolveActiveWorkspaceId } from "@/features/entry/workspace-data-source";
 import { readActiveWorkspaceId } from "@/features/entry/workspace-onboarding-state";
-import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase/client";
+import {
+  getFirebaseAuth,
+  getFirebaseDb,
+  isMockFirebaseProject,
+} from "@/lib/firebase/client";
 import {
   type CreateSettingsLocationInput,
   type SettingsLocation,
@@ -20,6 +25,7 @@ import {
   type SettingsLocationStatus,
   type UpdateSettingsLocationInput,
 } from "./settings-locations-model";
+import { settingsLocationsFixture } from "./settings-locations-fixtures";
 
 export type SettingsLocationsDataSource = {
   listLocations: () => Promise<readonly SettingsLocation[]>;
@@ -34,13 +40,17 @@ export type SettingsLocationsDataSource = {
 };
 
 export function createSettingsLocationsDataSource(): SettingsLocationsDataSource {
+  if (shouldUseVisualMockDataSource()) {
+    return createMockSettingsLocationsDataSource();
+  }
+
   return createFirestoreSettingsLocationsDataSource();
 }
 
 function createFirestoreSettingsLocationsDataSource(): SettingsLocationsDataSource {
   return {
     async listLocations() {
-      const workspaceId = requireActiveWorkspaceId();
+      const workspaceId = await requireActiveWorkspaceId();
       const snapshot = await getDocs(
         query(getLocationsCollection(workspaceId), orderBy("createdAt", "desc")),
       );
@@ -51,7 +61,7 @@ function createFirestoreSettingsLocationsDataSource(): SettingsLocationsDataSour
     },
 
     async createLocation(input) {
-      const workspaceId = requireActiveWorkspaceId();
+      const workspaceId = await requireActiveWorkspaceId();
       const db = getFirebaseDb();
       const createdBy = getFirebaseAuth().currentUser?.uid ?? null;
       const document = {
@@ -82,7 +92,7 @@ function createFirestoreSettingsLocationsDataSource(): SettingsLocationsDataSour
     },
 
     async updateLocation(location, input) {
-      const workspaceId = requireActiveWorkspaceId();
+      const workspaceId = await requireActiveWorkspaceId();
       const db = getFirebaseDb();
       const locationRef = getLocationDocument(workspaceId, location.id);
       const batch = writeBatch(db);
@@ -104,7 +114,7 @@ function createFirestoreSettingsLocationsDataSource(): SettingsLocationsDataSour
         throw new Error("근무에 사용 중인 근무지는 삭제할 수 없습니다.");
       }
 
-      const workspaceId = requireActiveWorkspaceId();
+      const workspaceId = await requireActiveWorkspaceId();
       const db = getFirebaseDb();
       const batch = writeBatch(db);
 
@@ -122,6 +132,52 @@ function createFirestoreSettingsLocationsDataSource(): SettingsLocationsDataSour
   };
 }
 
+function createMockSettingsLocationsDataSource(): SettingsLocationsDataSource {
+  let locations = [...settingsLocationsFixture.rows];
+  let nextIndex = 1;
+
+  return {
+    async listLocations() {
+      return locations.filter((location) => location.status !== "deleted");
+    },
+
+    async createLocation(input) {
+      const location = {
+        ...input,
+        dutyCount: 0,
+        id: `location-local-${nextIndex}`,
+        status: "active" as const,
+      };
+
+      nextIndex += 1;
+      locations = [location, ...locations];
+
+      return location;
+    },
+
+    async updateLocation(location, input) {
+      const updatedLocation = {
+        ...location,
+        ...input,
+      };
+
+      locations = locations.map((current) =>
+        current.id === location.id ? updatedLocation : current,
+      );
+
+      return updatedLocation;
+    },
+
+    async deleteLocation(location) {
+      if (location.dutyCount > 0) {
+        throw new Error("근무에 사용 중인 근무지는 삭제할 수 없습니다.");
+      }
+
+      locations = locations.filter((current) => current.id !== location.id);
+    },
+  };
+}
+
 function getLocationsCollection(workspaceId: string) {
   return collection(getFirebaseDb(), "workspaces", workspaceId, "locations");
 }
@@ -134,14 +190,18 @@ function getWorkspaceDocument(workspaceId: string) {
   return doc(getFirebaseDb(), "workspaces", workspaceId);
 }
 
-function requireActiveWorkspaceId() {
-  const workspaceId = readActiveWorkspaceId();
+async function requireActiveWorkspaceId() {
+  const workspaceId = await resolveActiveWorkspaceId();
 
   if (!workspaceId) {
     throw new Error("활성 소속을 확인할 수 없습니다.");
   }
 
   return workspaceId;
+}
+
+function shouldUseVisualMockDataSource() {
+  return isMockFirebaseProject() || readActiveWorkspaceId() === "workspace_visual";
 }
 
 function mapLocationDocument(

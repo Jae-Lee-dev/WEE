@@ -574,7 +574,7 @@ export const dutyTagRows = [
 ] as const satisfies readonly DutyTagRow[];
 
 export const dutyTagEditDialog = {
-  title: "근무자 태그 수정",
+  title: "근무 태그 수정",
   selectedTag: dutyTagRows[0],
   currentCountText: "4건",
   searchPlaceholder: "근무명 또는 근무지를 검색해 주세요",

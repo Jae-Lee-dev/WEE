@@ -10,6 +10,7 @@ import {
   type DocumentData,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
+import { resolveActiveWorkspaceId } from "@/features/entry/workspace-data-source";
 import {
   markWorkspaceSetupComplete,
   readActiveWorkspaceId,
@@ -43,7 +44,7 @@ export function createDutyDataSource(): DutyDataSource {
 function createFirestoreDutyDataSource(): DutyDataSource {
   return {
     async listDuties() {
-      const workspaceId = requireActiveWorkspaceId();
+      const workspaceId = await requireActiveWorkspaceId();
       const snapshot = await getDocs(
         query(getDutiesCollection(workspaceId), orderBy("createdAt", "desc")),
       );
@@ -52,7 +53,7 @@ function createFirestoreDutyDataSource(): DutyDataSource {
     },
 
     async listLocations() {
-      const workspaceId = requireActiveWorkspaceId();
+      const workspaceId = await requireActiveWorkspaceId();
       const snapshot = await getDocs(
         query(getLocationsCollection(workspaceId), orderBy("createdAt", "desc")),
       );
@@ -64,7 +65,7 @@ function createFirestoreDutyDataSource(): DutyDataSource {
     },
 
     async createDuty(input) {
-      const workspaceId = requireActiveWorkspaceId();
+      const workspaceId = await requireActiveWorkspaceId();
       const db = getFirebaseDb();
       const createdBy = getFirebaseAuth().currentUser?.uid ?? null;
       const dutyRef = doc(getDutiesCollection(workspaceId));
@@ -180,8 +181,8 @@ function getLocationDocument(workspaceId: string, locationId: string) {
   return doc(getFirebaseDb(), "workspaces", workspaceId, "locations", locationId);
 }
 
-function requireActiveWorkspaceId() {
-  const workspaceId = readActiveWorkspaceId();
+async function requireActiveWorkspaceId() {
+  const workspaceId = await resolveActiveWorkspaceId();
 
   if (!workspaceId) {
     throw new Error("활성 소속을 확인할 수 없습니다.");

@@ -1,4 +1,5 @@
 import { doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { resolveActiveWorkspaceId } from "@/features/entry/workspace-data-source";
 import { readActiveWorkspaceId } from "@/features/entry/workspace-onboarding-state";
 import { getFirebaseDb, isMockFirebaseProject } from "@/lib/firebase/client";
 import { settingsWorkspaceFixture } from "./settings-workspace-fixtures";
@@ -39,7 +40,7 @@ export function createSettingsWorkspaceDataSource(): SettingsWorkspaceDataSource
 function createFirestoreSettingsWorkspaceDataSource(): SettingsWorkspaceDataSource {
   return {
     async getWorkspace() {
-      const workspaceId = requireActiveWorkspaceId();
+      const workspaceId = await requireActiveWorkspaceId();
       const snapshot = await getDoc(getWorkspaceDocument(workspaceId));
 
       if (!snapshot.exists()) {
@@ -50,7 +51,7 @@ function createFirestoreSettingsWorkspaceDataSource(): SettingsWorkspaceDataSour
     },
 
     async updateWorkspace(input) {
-      const workspaceId = requireActiveWorkspaceId();
+      const workspaceId = await requireActiveWorkspaceId();
       const workspaceRef = getWorkspaceDocument(workspaceId);
       const update = {
         businessNumber: input.businessNumber.trim(),
@@ -96,8 +97,8 @@ function getWorkspaceDocument(workspaceId: string) {
   return doc(getFirebaseDb(), "workspaces", workspaceId);
 }
 
-function requireActiveWorkspaceId() {
-  const workspaceId = readActiveWorkspaceId();
+async function requireActiveWorkspaceId() {
+  const workspaceId = await resolveActiveWorkspaceId();
 
   if (!workspaceId) {
     throw new Error("활성 소속을 확인할 수 없습니다.");

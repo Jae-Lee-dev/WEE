@@ -1,4 +1,5 @@
 import type { User } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
   doc,
@@ -13,6 +14,8 @@ import {
   isMockFirebaseProject,
 } from "@/lib/firebase/client";
 import {
+  persistWorkspaceOnboardingState,
+  readActiveWorkspaceId,
   readActiveWorkspaceUser,
   readWorkspaceOnboardingStatus,
   type WorkspaceOnboardingStatus,
@@ -158,6 +161,30 @@ export async function resolveManagerWorkspaceState(
   return state;
 }
 
+export async function resolveActiveWorkspaceId() {
+  const storedWorkspaceId = readActiveWorkspaceId();
+
+  if (isMockFirebaseProject() || storedWorkspaceId === "workspace_visual") {
+    return storedWorkspaceId;
+  }
+
+  const user = await readCurrentFirebaseUser();
+
+  if (!user) {
+    return storedWorkspaceId;
+  }
+
+  const workspaceState = await resolveManagerWorkspaceState(user);
+
+  persistWorkspaceOnboardingState({
+    status: workspaceState.status,
+    userId: workspaceState.managerUid,
+    workspaceId: workspaceState.workspaceId,
+  });
+
+  return workspaceState.workspaceId ?? storedWorkspaceId;
+}
+
 export async function createManagerWorkspace(
   input: CreateManagerWorkspaceInput,
 ): Promise<ManagerWorkspaceState> {
@@ -293,6 +320,28 @@ function readCurrentManagerIdentity(): ManagerIdentity | null {
     emailVerified: false,
     uid: activeUserId,
   };
+}
+
+function readCurrentFirebaseUser() {
+  const auth = getFirebaseAuth();
+
+  if (auth.currentUser) {
+    return Promise.resolve(auth.currentUser);
+  }
+
+  return new Promise<User | null>((resolve) => {
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      (user) => {
+        unsubscribe();
+        resolve(user);
+      },
+      () => {
+        unsubscribe();
+        resolve(null);
+      },
+    );
+  });
 }
 
 function resolveWorkspaceStatus(setup: unknown): WorkspaceOnboardingStatus {

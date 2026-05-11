@@ -1235,7 +1235,7 @@ function EditBasicTagRow({
   return (
     <div>
       <h3 className="text-h-18-semibold tracking-normal text-gray-900">
-        근무자 태그
+        근무 태그
       </h3>
       <div className="mt-3 flex items-center gap-2">
         {fixture.tags.map((tag) => {

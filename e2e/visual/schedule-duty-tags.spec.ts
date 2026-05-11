@@ -12,7 +12,7 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await prepareVisualPage({ page, path: "/schedule/duty-tags", viewport });
     await page.evaluate(() => document.fonts.ready);
     await expect(
-      page.getByRole("heading", { name: "근무지 태그 관리" }),
+      page.getByRole("heading", { name: "근무 태그 관리" }),
     ).toBeVisible();
 
     await captureActualScreenshot({

@@ -45,7 +45,7 @@ export function DutyTagsScreen() {
   return (
     <section className="h-[calc(100vh-202px)] min-h-[760px] rounded-[8px] bg-white p-5">
       <div className="flex h-[42px] items-center justify-between">
-        <h2 className="text-h-20 text-gray-900">근무지 태그 관리</h2>
+        <h2 className="text-h-20 text-gray-900">근무 태그 관리</h2>
         <Button
           type="button"
           variant="secondary"

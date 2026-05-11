@@ -1,5 +1,6 @@
 import { doc, getDoc } from "firebase/firestore";
 import { getFirebaseDb, isMockFirebaseProject } from "@/lib/firebase/client";
+import { resolveActiveWorkspaceId } from "./workspace-data-source";
 import {
   markWorkspaceSetupComplete,
   readActiveWorkspaceId,
@@ -29,7 +30,7 @@ export function createWorkspaceSetupDataSource(): WorkspaceSetupDataSource {
 function createFirestoreWorkspaceSetupDataSource(): WorkspaceSetupDataSource {
   return {
     async loadProgress() {
-      const workspaceId = readActiveWorkspaceId();
+      const workspaceId = await resolveActiveWorkspaceId();
 
       if (!workspaceId) {
         return createEmptySetupProgress("missing");
