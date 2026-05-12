@@ -7,6 +7,11 @@ export type WorkerTag = {
 
 export type WorkerListStatus = "active" | "all" | "inactive";
 
+export type WorkerListStatusFilter = {
+  value: WorkerListStatus;
+  label: string;
+};
+
 export type WorkerListRow = {
   id: string;
   name: string;
@@ -16,6 +21,17 @@ export type WorkerListRow = {
   status: "활성" | "비활성";
   detailHref?: string;
   statusDate?: string;
+};
+
+export type WorkerListRowsByStatus = Record<
+  WorkerListStatus,
+  readonly WorkerListRow[]
+>;
+
+export type WorkerListData = {
+  rowsByStatus: WorkerListRowsByStatus;
+  statusFilters: readonly WorkerListStatusFilter[];
+  tagOptions: readonly WorkerTag[];
 };
 
 export const workerTagOptions = [
@@ -32,7 +48,7 @@ export const workerListStatusFilters = [
   { value: "active", label: "활성 17" },
   { value: "all", label: "전체 20" },
   { value: "inactive", label: "비활성 3" },
-] as const satisfies readonly { value: WorkerListStatus; label: string }[];
+] as const satisfies readonly WorkerListStatusFilter[];
 
 export const workerListActiveRows = [
   row(
@@ -96,7 +112,13 @@ export const workerListRowsByStatus = {
   active: workerListActiveRows,
   all: workerListActiveRows,
   inactive: workerListInactiveRows,
-} as const satisfies Record<WorkerListStatus, readonly WorkerListRow[]>;
+} as const satisfies WorkerListRowsByStatus;
+
+export const workerListFixtureData = {
+  rowsByStatus: workerListRowsByStatus,
+  statusFilters: workerListStatusFilters,
+  tagOptions: workerTagOptions,
+} as const satisfies WorkerListData;
 
 function row(
   id: string,

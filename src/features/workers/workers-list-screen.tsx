@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -14,9 +20,12 @@ import { FilterTabs } from "@/components/ui/filter-tabs";
 import { Pagination } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 import {
-  workerListRowsByStatus,
-  workerListStatusFilters,
-  workerTagOptions,
+  createWorkerListDataSource,
+  emptyWorkerListData,
+  type WorkerListDataSource,
+} from "./workers-list-data-source";
+import {
+  type WorkerListData,
   type WorkerListRow,
   type WorkerListStatus,
   type WorkerTag,
@@ -46,19 +55,81 @@ const activeStatusStyle = { color: "var(--color-green-400)" };
 const defaultWorkersPageSize = 20;
 const initialWorkerListUpdatedAt = "2026.05.13 10:30";
 
-export function WorkersListScreen() {
+export function WorkersListScreen({
+  dataSource: dataSourceProp,
+}: {
+  dataSource?: WorkerListDataSource;
+} = {}) {
+  const fallbackDataSource = useMemo(() => createWorkerListDataSource(), []);
+  const dataSource = dataSourceProp ?? fallbackDataSource;
+  const [listData, setListData] = useState<WorkerListData>(
+    dataSource.initialData ?? emptyWorkerListData,
+  );
   const [status, setStatus] = useState<WorkerListStatus>("active");
   const [tagMenuOpen, setTagMenuOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultWorkersPageSize);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(initialWorkerListUpdatedAt);
-  const rows = workerListRowsByStatus[status];
+  const [loading, setLoading] = useState(!dataSource.initialData);
+  const [refreshing, setRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const rows = listData.rowsByStatus[status];
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const pagedRows = rows.slice(
     (safeCurrentPage - 1) * pageSize,
     safeCurrentPage * pageSize,
   );
+
+  useEffect(() => {
+    let active = true;
+
+    void dataSource
+      .listWorkers()
+      .then((nextListData) => {
+        if (!active) {
+          return;
+        }
+
+        setListData(nextListData);
+        setErrorMessage("");
+        setLoading(false);
+
+        if (!dataSource.initialData) {
+          setLastUpdatedAt(formatWorkerListUpdatedAt(new Date()));
+        }
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setErrorMessage("조교 목록을 불러오지 못했습니다.");
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [dataSource]);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    setErrorMessage("");
+
+    try {
+      const nextListData = await dataSource.listWorkers();
+
+      setListData(nextListData);
+      setCurrentPage(1);
+      setLastUpdatedAt(formatWorkerListUpdatedAt(new Date()));
+    } catch {
+      setErrorMessage("조교 목록을 불러오지 못했습니다.");
+    } finally {
+      setRefreshing(false);
+      setLoading(false);
+    }
+  }
 
   function handleStatusChange(next: WorkerListStatus) {
     setStatus(next);
@@ -79,10 +150,11 @@ export function WorkersListScreen() {
         <div className="flex items-center gap-4">
           <TagFilterTrigger
             open={tagMenuOpen}
+            tagOptions={listData.tagOptions}
             onClick={() => setTagMenuOpen((open) => !open)}
           />
           <FilterTabs
-            options={[...workerListStatusFilters]}
+            options={[...listData.statusFilters]}
             value={status}
             onChange={handleStatusChange}
           />
@@ -102,19 +174,23 @@ export function WorkersListScreen() {
       </div>
 
       <WorkerListTable
+        errorMessage={errorMessage}
+        loading={loading}
         rows={pagedRows}
         status={status}
         currentPage={safeCurrentPage}
         lastUpdatedAt={lastUpdatedAt}
         pageSize={pageSize}
+        refreshing={refreshing}
         totalItems={rows.length}
         totalPages={totalPages}
         onPageChange={setCurrentPage}
-        onRefresh={() => setLastUpdatedAt(formatWorkerListUpdatedAt(new Date()))}
+        onRefresh={handleRefresh}
         onPageSizeChange={(nextPageSize) => {
           setPageSize(nextPageSize);
           setCurrentPage(1);
         }}
+        tagOptions={listData.tagOptions}
       />
     </section>
   );
@@ -123,9 +199,11 @@ export function WorkersListScreen() {
 function TagFilterTrigger({
   open,
   onClick,
+  tagOptions,
 }: {
   open: boolean;
   onClick: () => void;
+  tagOptions: readonly WorkerTag[];
 }) {
   const Icon = open ? IconChevronUp : IconChevronDown;
 
@@ -143,12 +221,12 @@ function TagFilterTrigger({
         <Icon className="size-5 shrink-0 text-gray-600" />
       </button>
 
-      {open ? <TagFilterMenu /> : null}
+      {open ? <TagFilterMenu tagOptions={tagOptions} /> : null}
     </div>
   );
 }
 
-function TagFilterMenu() {
+function TagFilterMenu({ tagOptions }: { tagOptions: readonly WorkerTag[] }) {
   return (
     <div
       role="listbox"
@@ -157,8 +235,8 @@ function TagFilterMenu() {
       className="absolute left-0 top-[44px] z-30 w-[126px] overflow-hidden rounded-[4px] border border-gray-200 bg-white px-3 shadow-[0px_8px_20px_rgba(17,24,39,0.12)]"
     >
       <TagFilterOption selected label="전체" />
-      {workerTagOptions.map((tag) => (
-        <TagFilterOption key={tag.label} label={tag.label} />
+      {tagOptions.map((tag, index) => (
+        <TagFilterOption key={`${tag.label}-${index}`} label={tag.label} />
       ))}
     </div>
   );
@@ -220,24 +298,32 @@ function padDatePart(value: number) {
 
 function WorkerListTable({
   currentPage,
+  errorMessage,
   lastUpdatedAt,
+  loading,
   onPageChange,
   onPageSizeChange,
   onRefresh,
   pageSize,
+  refreshing,
   rows,
   status,
+  tagOptions,
   totalItems,
   totalPages,
 }: {
   currentPage: number;
+  errorMessage: string;
   lastUpdatedAt: string;
+  loading: boolean;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
-  onRefresh: () => void;
+  onRefresh: () => void | Promise<void>;
   pageSize: number;
+  refreshing: boolean;
   rows: readonly WorkerListRow[];
   status: WorkerListStatus;
+  tagOptions: readonly WorkerTag[];
   totalItems: number;
   totalPages: number;
 }) {
@@ -256,6 +342,7 @@ function WorkerListTable({
             type="button"
             aria-label="조교 목록 새로고침"
             title="새로고침"
+            disabled={refreshing}
             onClick={onRefresh}
             className="flex size-8 items-center justify-center rounded-[8px] text-gray-600 transition-colors duration-150 ease-out hover:bg-gray-50 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
           >
@@ -276,9 +363,23 @@ function WorkerListTable({
         className="min-h-0 flex-1 overflow-y-auto"
         data-testid="workers-table-scroll"
       >
-        {rows.map((row) => (
-          <WorkerListRowItem key={row.id} row={row} status={status} />
-        ))}
+        {loading ? (
+          <WorkerListTableState label="조교 목록을 불러오는 중입니다." />
+        ) : errorMessage ? (
+          <WorkerListTableState label={errorMessage} role="alert" />
+        ) : rows.length > 0 ? (
+          rows.map((row) => (
+            <WorkerListRowItem key={row.id} row={row} status={status} />
+          ))
+        ) : (
+          <WorkerListTableState
+            label={
+              tagOptions.length > 0
+                ? "조건에 맞는 조교가 없습니다."
+                : "표시할 조교가 없습니다."
+            }
+          />
+        )}
       </div>
 
       <Pagination
@@ -291,6 +392,23 @@ function WorkerListTable({
         onPageChange={onPageChange}
         onPageSizeChange={onPageSizeChange}
       />
+    </div>
+  );
+}
+
+function WorkerListTableState({
+  label,
+  role = "status",
+}: {
+  label: string;
+  role?: "alert" | "status";
+}) {
+  return (
+    <div
+      className="flex h-full min-h-[240px] items-center justify-center px-4 text-center text-h-18-regular text-gray-500"
+      role={role}
+    >
+      {label}
     </div>
   );
 }
