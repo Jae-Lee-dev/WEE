@@ -26,6 +26,7 @@ export type ScheduleTimelineBlock = {
   dayId: ScheduleTimelineDayId;
   label: string;
   worker: string;
+  workerId?: string;
   time: string;
   startHour: number;
   endHour: number;
