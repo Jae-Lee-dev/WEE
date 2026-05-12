@@ -277,7 +277,7 @@ function createTargetHref(item: OperationalInboxItem) {
 
   switch (item.targetScreen) {
     case "WKR-01":
-      return "/workers/applications";
+      return `/workers/applications${suffix}`;
     case "WKR-02":
       return item.workerId ? `/workers/${encodeURIComponent(item.workerId)}` : "/workers";
     case "SCH-01":
@@ -318,7 +318,7 @@ function createTargetHref(item: OperationalInboxItem) {
 function createFallbackHref(item: OperationalInboxItem, suffix: string) {
   switch (item.sourceType) {
     case "membership":
-      return "/workers/applications";
+      return `/workers/applications${suffix}`;
     case "scheduleRequest":
       return `/schedule${suffix}`;
     case "overtimeWork":

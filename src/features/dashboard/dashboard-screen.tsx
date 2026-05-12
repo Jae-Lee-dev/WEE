@@ -545,6 +545,22 @@ export function DashboardLocationsScreen() {
           variant="outline"
           size="sm"
           disabled={loading || !!errorMessage}
+          onClick={() =>
+            downloadCsv(
+              `wee-location-dashboard-${locationId || "all"}-${periodId || "period"}.csv`,
+              [
+                ["조교", "근무시간", "지각", "위치이상", "결근", "이상 비율"],
+                ...rows.map((row) => [
+                  row.workerName,
+                  `${row.workHours}h`,
+                  `${row.lateCount}회`,
+                  `${row.locationAnomalyCount}건`,
+                  `${row.absenceCount}건`,
+                  `${row.anomalyRate.toFixed(1)}%`,
+                ]),
+              ],
+            )
+          }
           className="h-10 rounded-full px-4 text-h-18-regular font-normal tracking-normal"
         >
           <Printer className="size-5 text-green-400" />
@@ -660,6 +676,37 @@ export function DashboardWorkersScreen() {
             variant="outline"
             size="sm"
             disabled={loading || !!errorMessage}
+            onClick={() =>
+              downloadCsv("wee-worker-dashboard.csv", [
+                ["조교", "태그", "근무시간", "예상 급여", "이상 플래그", "지각률"],
+                ...filteredWorkers.map((worker) => [
+                  worker.name,
+                  worker.tags
+                    .map((tag) => getOptionLabel(viewModel.tagOptions, tag))
+                    .join(" / "),
+                  `${Math.round(
+                    worker.baseHours *
+                      dashboardWorkerPeriodProfiles[periodId].hoursFactor,
+                  )}h`,
+                  formatCurrency(
+                    Math.round(
+                      worker.basePay *
+                        dashboardWorkerPeriodProfiles[periodId].payFactor,
+                    ),
+                  ),
+                  `${Math.max(
+                    0,
+                    worker.baseFlags +
+                      dashboardWorkerPeriodProfiles[periodId].flagDelta,
+                  )}건`,
+                  `${Math.max(
+                    0,
+                    worker.lateRate +
+                      dashboardWorkerPeriodProfiles[periodId].lateDelta,
+                  ).toFixed(1)}%`,
+                ]),
+              ])
+            }
             className="h-10 rounded-full px-4 text-h-18-regular font-normal tracking-normal"
           >
             <Printer className="size-5 text-green-400" />
@@ -822,6 +869,30 @@ function ToolbarShell({ children }: { children: ReactNode }) {
       {children}
     </div>
   );
+}
+
+function downloadCsv(filename: string, rows: readonly (readonly string[])[]) {
+  if (rows.length <= 1) {
+    return;
+  }
+
+  const csv = rows
+    .map((row) =>
+      row
+        .map((cell) => `"${cell.replaceAll("\"", "\"\"")}"`)
+        .join(","),
+    )
+    .join("\n");
+  const blob = new Blob([`\uFEFF${csv}`], {
+    type: "text/csv;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 function DashboardSelectField<T extends string>({
