@@ -51,7 +51,7 @@ export function WorkerTagsScreen({
   const [rows, setRows] = useState<readonly WorkerTagRow[]>(
     dataSource.initialRows ?? emptyWorkerTagRows,
   );
-  const [editOpen, setEditOpen] = useState(false);
+  const [editingTag, setEditingTag] = useState<WorkerTagRow | null>(null);
   const [loading, setLoading] = useState(!dataSource.initialRows);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -103,7 +103,7 @@ export function WorkerTagsScreen({
               key={tag.id}
               tag={tag}
               first={index === 0}
-              onEdit={() => setEditOpen(true)}
+              onEdit={() => setEditingTag(tag)}
             />
           ))
         ) : (
@@ -111,7 +111,12 @@ export function WorkerTagsScreen({
         )}
       </div>
 
-      {editOpen ? <WorkerTagEditDialog onClose={() => setEditOpen(false)} /> : null}
+      {editingTag ? (
+        <WorkerTagEditDialog
+          tag={editingTag}
+          onClose={() => setEditingTag(null)}
+        />
+      ) : null}
     </section>
   );
 }
@@ -161,7 +166,7 @@ function WorkerTagCard({
           type="button"
           variant="secondary"
           data-testid={first ? "worker-tags-edit-trigger-first" : undefined}
-          onClick={first ? onEdit : undefined}
+          onClick={onEdit}
           className="h-11 rounded-[8px] px-6"
         >
           수정
@@ -195,7 +200,15 @@ function WorkerTagBadge({ tag }: { tag: WorkerTagRow }) {
   );
 }
 
-function WorkerTagEditDialog({ onClose }: { onClose: () => void }) {
+function WorkerTagEditDialog({
+  onClose,
+  tag,
+}: {
+  onClose: () => void;
+  tag: WorkerTagRow;
+}) {
+  const currentCountText = tag.countText.replace(/^적용 조교\s*/, "");
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
       <section
@@ -213,7 +226,7 @@ function WorkerTagEditDialog({ onClose }: { onClose: () => void }) {
           <span className="text-h-18-semibold text-gray-900">태그명</span>
           <input
             readOnly
-            value={workerTagEditDialog.selectedTag.label}
+            value={tag.label}
             className="mt-3 h-11 w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular text-gray-500 outline-none"
           />
         </label>
@@ -222,7 +235,7 @@ function WorkerTagEditDialog({ onClose }: { onClose: () => void }) {
           <div className="flex items-center gap-2">
             <h3 className="text-h-18-semibold text-gray-900">현재 받고 있는 조교</h3>
             <Badge variant="grey" size="M">
-              {workerTagEditDialog.currentCountText}
+              {currentCountText}
             </Badge>
           </div>
           <label className="mt-3 flex h-11 items-center gap-3 rounded-[8px] border border-gray-200 bg-white px-4">

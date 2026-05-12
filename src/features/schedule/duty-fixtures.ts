@@ -42,6 +42,7 @@ export type DutyAssignedWorker = {
   name: string;
   weekday: DutyWeekday;
   time: string;
+  workerId?: string;
   checked?: boolean;
   disabled?: boolean;
 };
@@ -111,7 +112,10 @@ export type DutyEditTimeDialogFixture = {
   startTimeField: DutyDialogField;
   endTimeField: DutyDialogField;
   applyScheduleLabel: string;
-  assignedWorkers: readonly Required<DutyAssignedWorker>[];
+  assignedWorkers: readonly (DutyAssignedWorker & {
+    checked: boolean;
+    disabled: boolean;
+  })[];
   cancelLabel: string;
   saveLabel: string;
 };
@@ -417,9 +421,27 @@ export const selectedDutyDetail = {
   },
   assignedWorkersTitle: "할당된 조교 (3명)",
   assignedWorkers: [
-    { id: "worker-kim-seoyeon", name: "김서연", weekday: "월", time: "19:00~21:00" },
-    { id: "worker-park-jihoon", name: "박지훈", weekday: "월", time: "19:00~21:00" },
-    { id: "worker-kang-taewoo", name: "강태우", weekday: "월", time: "19:00~21:00" },
+    {
+      id: "worker-kim-seoyeon",
+      name: "김서연",
+      weekday: "월",
+      time: "19:00~21:00",
+      workerId: "worker_kim_seoyeon",
+    },
+    {
+      id: "worker-park-jihoon",
+      name: "박지훈",
+      weekday: "월",
+      time: "19:00~21:00",
+      workerId: "worker_park_jihoon",
+    },
+    {
+      id: "worker-kang-taewoo",
+      name: "강태우",
+      weekday: "월",
+      time: "19:00~21:00",
+      workerId: "worker_kang_taewoo",
+    },
   ],
   editBasicButtonLabel: "기본 정보 수정",
   editTimeButtonLabel: "시간 조정",

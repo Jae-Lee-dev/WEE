@@ -40,3 +40,16 @@ test(`DUT-03 edit-tag-dialog ${desktop}`, async ({ page }) => {
     viewport: desktop,
   });
 });
+
+test("DUT-03 edit dialog uses clicked tag", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/schedule/duty-tags",
+    viewport: desktop,
+  });
+
+  await page.getByRole("button", { name: "수정" }).nth(1).click();
+  const dialog = page.getByTestId("duty-tags-edit-dialog");
+  await expect(dialog.getByLabel("태그명")).toHaveValue("행정");
+  await expect(dialog.getByText("2건")).toBeVisible();
+});

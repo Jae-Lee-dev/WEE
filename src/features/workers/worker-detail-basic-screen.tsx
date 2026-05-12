@@ -52,6 +52,7 @@ export function WorkerDetailBasicScreen({
       },
     },
   );
+  const [loading, setLoading] = useState(!dataSource.initialData);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -63,6 +64,7 @@ export function WorkerDetailBasicScreen({
         if (!ignore) {
           setDetailData(nextData);
           setLoadError(null);
+          setLoading(false);
         }
       })
       .catch((error: unknown) => {
@@ -72,6 +74,7 @@ export function WorkerDetailBasicScreen({
               ? error.message
               : "조교 상세 정보를 불러오지 못했습니다.",
           );
+          setLoading(false);
         }
       });
 
@@ -111,9 +114,15 @@ export function WorkerDetailBasicScreen({
         <div className="grid grid-cols-2 gap-4">
           <PersonalAccountCard
             fixture={fixture}
+            loading={loading}
+            loadError={loadError}
             onEdit={() => setDialog("edit-info")}
           />
-          <PayrollSettingsCard fixture={fixture} />
+          <PayrollSettingsCard
+            fixture={fixture}
+            loading={loading}
+            loadError={loadError}
+          />
         </div>
       </WorkerDetailShell>
 
@@ -129,60 +138,110 @@ export function WorkerDetailBasicScreen({
 
 function PersonalAccountCard({
   fixture,
+  loading,
+  loadError,
   onEdit,
 }: {
   fixture: WorkerDetailBasicData["fixture"];
+  loading: boolean;
+  loadError: string | null;
   onEdit: () => void;
 }) {
+  const stateLabel = getDetailCardStateLabel(
+    loading,
+    loadError,
+    "개인/계좌 정보를 불러오는 중입니다.",
+  );
+
   return (
     <WorkerDetailSubsection className="min-h-[360px] overflow-hidden">
       <WorkerDetailSubsectionHeader
         actions={
-          <>
-            <PillButton>{fixture.bankCopyLabel}</PillButton>
-            <PillButton onClick={onEdit} testId="worker-basic-edit-trigger">
-              {fixture.editLabel}
-            </PillButton>
-          </>
+          stateLabel ? null : (
+            <>
+              <PillButton>{fixture.bankCopyLabel}</PillButton>
+              <PillButton onClick={onEdit} testId="worker-basic-edit-trigger">
+                {fixture.editLabel}
+              </PillButton>
+            </>
+          )
         }
       >
         <h2 className="text-h-20 text-gray-900">{fixture.personalTitle}</h2>
       </WorkerDetailSubsectionHeader>
 
-      <div>
-        {fixture.personalRows.map((row, index) => (
-          <InfoRow
-            key={row.id}
-            row={row}
-            last={index === fixture.personalRows.length - 1}
-          />
-        ))}
-      </div>
+      {stateLabel ? (
+        <DetailCardState label={stateLabel} />
+      ) : (
+        <div>
+          {fixture.personalRows.map((row, index) => (
+            <InfoRow
+              key={row.id}
+              row={row}
+              last={index === fixture.personalRows.length - 1}
+            />
+          ))}
+        </div>
+      )}
     </WorkerDetailSubsection>
   );
 }
 
 function PayrollSettingsCard({
   fixture,
+  loading,
+  loadError,
 }: {
   fixture: WorkerDetailBasicData["fixture"];
+  loading: boolean;
+  loadError: string | null;
 }) {
+  const stateLabel = getDetailCardStateLabel(
+    loading,
+    loadError,
+    "급여 설정을 불러오는 중입니다.",
+  );
+
   return (
     <WorkerDetailSubsection className="min-h-[360px] overflow-hidden">
       <WorkerDetailSubsectionHeader>
         <h2 className="text-h-20 text-gray-900">{fixture.payrollTitle}</h2>
       </WorkerDetailSubsectionHeader>
 
-      <div>
-        {fixture.payrollRows.map((row, index) => (
-          <PayrollRow
-            key={row.id}
-            row={row}
-            last={index === fixture.payrollRows.length - 1}
-          />
-        ))}
-      </div>
+      {stateLabel ? (
+        <DetailCardState label={stateLabel} />
+      ) : (
+        <div>
+          {fixture.payrollRows.map((row, index) => (
+            <PayrollRow
+              key={row.id}
+              row={row}
+              last={index === fixture.payrollRows.length - 1}
+            />
+          ))}
+        </div>
+      )}
     </WorkerDetailSubsection>
+  );
+}
+
+function getDetailCardStateLabel(
+  loading: boolean,
+  loadError: string | null,
+  loadingLabel: string,
+) {
+  if (loading) {
+    return loadingLabel;
+  }
+
+  return loadError ? "정보를 표시할 수 없습니다." : "";
+}
+
+function DetailCardState({ label }: { label: string }) {
+  return (
+    <div className="flex min-h-[240px] items-center justify-center rounded-[8px] border border-gray-100 px-4 text-center text-h-18-regular text-gray-500">
+      {label}
+    </div>
   );
 }
 

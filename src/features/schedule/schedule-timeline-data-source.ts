@@ -112,9 +112,18 @@ const fixtureScheduleTimelineViewModel = {
   workerContexts: [scheduleSelectedWorkerContext],
 } as const satisfies ScheduleTimelineViewModel;
 
+const emptyScheduleTimelineFilters = {
+  dutyOptions: [{ label: "근무 (전체)", value: "all" }],
+  dutyTagOptions: [{ label: "근무 태그 (전체)", value: "all" }],
+  locationOptions: [{ label: "근무지 (전체)", value: "all" }],
+  weekLabel: "",
+  weekShortLabel: "",
+  workerOptions: [{ label: "조교 (전체)", value: "all" }],
+} as const satisfies ScheduleTimelineFilters;
+
 export const emptyScheduleTimelineViewModel = {
   blocks: [],
-  filters: scheduleTimelineFilters,
+  filters: emptyScheduleTimelineFilters,
   workerContexts: [],
 } as const satisfies ScheduleTimelineViewModel;
 
@@ -440,12 +449,15 @@ function buildBlocksFromScheduleVersions({
 
         return {
           dayId,
+          dutyId: slot.dutyId || duty?.id,
           endHour: parseHour(endTime, parseHour(startTime, 0) + 1),
           id: `${version.id}-${slot.dutyId || "slot"}-${index}`,
           label: slot.dutyName || duty?.name || "근무 이름 없음",
+          locationId: slot.locationId || duty?.locationId,
           locationName:
             slot.locationName || duty?.locationName || "근무지 미지정",
           startHour: parseHour(startTime, 8),
+          tagIds: slot.tagIds.length > 0 ? slot.tagIds : duty?.tagIds,
           tagLabel,
           time: `${startTime}~${endTime}`,
           tone: readTimelineTone(
@@ -486,11 +498,14 @@ function buildBlocksFromDuties({
 
       return {
         dayId,
+        dutyId: duty.id,
         endHour: parseHour(duty.endTime, parseHour(duty.startTime, 0) + 1),
         id: `duty-${duty.id}`,
         label: duty.name,
+        locationId: duty.locationId,
         locationName: duty.locationName,
         startHour: parseHour(duty.startTime, 8),
+        tagIds: duty.tagIds,
         tagLabel,
         time: `${duty.startTime}~${duty.endTime}`,
         tone: readTimelineTone(tagLabel, dutyTagByLabel, index),

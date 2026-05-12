@@ -25,12 +25,15 @@ export type ScheduleTimelineBlock = {
   id: string;
   dayId: ScheduleTimelineDayId;
   label: string;
+  dutyId?: string;
   worker: string;
   workerId?: string;
   time: string;
   startHour: number;
   endHour: number;
+  locationId?: string;
   locationName: string;
+  tagIds?: readonly string[];
   tone: ScheduleTimelineTone;
   tagLabel?: string;
 };

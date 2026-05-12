@@ -66,6 +66,8 @@ export function WorkersListScreen({
     dataSource.initialData ?? emptyWorkerListData,
   );
   const [status, setStatus] = useState<WorkerListStatus>("active");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTagLabel, setSelectedTagLabel] = useState<string | null>(null);
   const [tagMenuOpen, setTagMenuOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultWorkersPageSize);
@@ -73,7 +75,10 @@ export function WorkersListScreen({
   const [loading, setLoading] = useState(!dataSource.initialData);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const rows = listData.rowsByStatus[status];
+  const rows = filterWorkerRows(listData.rowsByStatus[status], {
+    searchQuery,
+    selectedTagLabel,
+  });
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const pagedRows = rows.slice(
@@ -150,8 +155,14 @@ export function WorkersListScreen({
         <div className="flex items-center gap-4">
           <TagFilterTrigger
             open={tagMenuOpen}
+            selectedTagLabel={selectedTagLabel}
             tagOptions={listData.tagOptions}
             onClick={() => setTagMenuOpen((open) => !open)}
+            onSelect={(nextTagLabel) => {
+              setSelectedTagLabel(nextTagLabel);
+              setCurrentPage(1);
+              setTagMenuOpen(false);
+            }}
           />
           <FilterTabs
             options={[...listData.statusFilters]}
@@ -162,9 +173,12 @@ export function WorkersListScreen({
 
         <SearchShell className="w-[280px] shrink-0">
           <input
-            readOnly
             type="search"
-            value=""
+            value={searchQuery}
+            onChange={(event) => {
+              setSearchQuery(event.target.value);
+              setCurrentPage(1);
+            }}
             placeholder="이름 검색"
             className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-gray-400"
             aria-label="조교 이름 검색"
@@ -199,13 +213,18 @@ export function WorkersListScreen({
 function TagFilterTrigger({
   open,
   onClick,
+  onSelect,
+  selectedTagLabel,
   tagOptions,
 }: {
   open: boolean;
   onClick: () => void;
+  onSelect: (tagLabel: string | null) => void;
+  selectedTagLabel: string | null;
   tagOptions: readonly WorkerTag[];
 }) {
   const Icon = open ? IconChevronUp : IconChevronDown;
+  const label = selectedTagLabel ?? "전체 근무자";
 
   return (
     <div className="relative">
@@ -217,16 +236,30 @@ function TagFilterTrigger({
         onClick={onClick}
         className="flex h-10 w-[126px] items-center justify-between rounded-[6px] border border-gray-200 bg-white px-2.5 text-h-18-regular text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
       >
-        <span>전체 근무자</span>
+        <span className="min-w-0 truncate">{label}</span>
         <Icon className="size-5 shrink-0 text-gray-600" />
       </button>
 
-      {open ? <TagFilterMenu tagOptions={tagOptions} /> : null}
+      {open ? (
+        <TagFilterMenu
+          selectedTagLabel={selectedTagLabel}
+          tagOptions={tagOptions}
+          onSelect={onSelect}
+        />
+      ) : null}
     </div>
   );
 }
 
-function TagFilterMenu({ tagOptions }: { tagOptions: readonly WorkerTag[] }) {
+function TagFilterMenu({
+  onSelect,
+  selectedTagLabel,
+  tagOptions,
+}: {
+  onSelect: (tagLabel: string | null) => void;
+  selectedTagLabel: string | null;
+  tagOptions: readonly WorkerTag[];
+}) {
   return (
     <div
       role="listbox"
@@ -234,9 +267,18 @@ function TagFilterMenu({ tagOptions }: { tagOptions: readonly WorkerTag[] }) {
       data-testid="workers-tag-filter-menu"
       className="absolute left-0 top-[44px] z-30 w-[126px] overflow-hidden rounded-[4px] border border-gray-200 bg-white px-3 shadow-[0px_8px_20px_rgba(17,24,39,0.12)]"
     >
-      <TagFilterOption selected label="전체" />
+      <TagFilterOption
+        selected={selectedTagLabel === null}
+        label="전체"
+        onSelect={() => onSelect(null)}
+      />
       {tagOptions.map((tag, index) => (
-        <TagFilterOption key={`${tag.label}-${index}`} label={tag.label} />
+        <TagFilterOption
+          key={`${tag.label}-${index}`}
+          selected={selectedTagLabel === tag.label}
+          label={tag.label}
+          onSelect={() => onSelect(tag.label)}
+        />
       ))}
     </div>
   );
@@ -244,9 +286,11 @@ function TagFilterMenu({ tagOptions }: { tagOptions: readonly WorkerTag[] }) {
 
 function TagFilterOption({
   label,
+  onSelect,
   selected = false,
 }: {
   label: string;
+  onSelect: () => void;
   selected?: boolean;
 }) {
   return (
@@ -254,6 +298,7 @@ function TagFilterOption({
       type="button"
       role="option"
       aria-selected={selected}
+      onClick={onSelect}
       className="flex h-11 w-full items-center justify-between gap-2 border-b border-gray-100 text-left text-h-18-regular text-gray-800 last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200"
     >
       <span className="min-w-0 truncate">{label}</span>
@@ -294,6 +339,29 @@ function formatWorkerListUpdatedAt(date: Date) {
 
 function padDatePart(value: number) {
   return String(value).padStart(2, "0");
+}
+
+function filterWorkerRows(
+  rows: readonly WorkerListRow[],
+  {
+    searchQuery,
+    selectedTagLabel,
+  }: {
+    searchQuery: string;
+    selectedTagLabel: string | null;
+  },
+) {
+  const normalizedQuery = searchQuery.trim().toLocaleLowerCase("ko-KR");
+
+  return rows.filter((row) => {
+    const matchesSearch =
+      !normalizedQuery ||
+      row.name.toLocaleLowerCase("ko-KR").includes(normalizedQuery);
+    const matchesTag =
+      selectedTagLabel === null || row.tag.label === selectedTagLabel;
+
+    return matchesSearch && matchesTag;
+  });
 }
 
 function WorkerListTable({

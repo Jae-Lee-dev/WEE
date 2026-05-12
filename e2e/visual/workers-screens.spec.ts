@@ -79,6 +79,29 @@ test(`WKR-02 filtering ${desktop}`, async ({ page }) => {
   });
 });
 
+test("WKR-02 search and tag filters rows", async ({ page }) => {
+  await prepareVisualPage({ page, path: "/workers", viewport: desktop });
+
+  const searchInput = page.getByLabel("조교 이름 검색");
+  await expect(searchInput).toBeEditable();
+  await searchInput.fill("박정훈");
+  await expect(page.getByText("박정훈")).toBeVisible();
+  await expect(page.getByText("김서연")).toHaveCount(0);
+
+  await searchInput.fill("");
+  await page.getByTestId("workers-tag-filter-trigger").click();
+  await page
+    .getByTestId("workers-tag-filter-menu")
+    .getByRole("option", { name: "신입" })
+    .click();
+
+  await expect(page.getByTestId("workers-tag-filter-trigger")).toContainText(
+    "신입",
+  );
+  await expect(page.getByText("박정훈")).toBeVisible();
+  await expect(page.getByText("김서연")).toHaveCount(0);
+});
+
 test(`WKR-02 pagination ${desktop}`, async ({ page }) => {
   await prepareVisualPage({ page, path: "/workers", viewport: desktop });
   await page.evaluate(() => document.fonts.ready);

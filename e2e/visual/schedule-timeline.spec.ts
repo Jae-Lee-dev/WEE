@@ -46,6 +46,31 @@ test(`SCH-02 dropdown-open ${desktop}`, async ({ page }) => {
   });
 });
 
+test("SCH-02 filters timeline blocks and worker context", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/schedule/timeline",
+    viewport: desktop,
+  });
+
+  await page.getByTestId("schedule-timeline-location-filter").click();
+  await page
+    .getByTestId("schedule-timeline-location-menu")
+    .getByRole("option", { name: "송파 E학원" })
+    .click();
+
+  const grid = page.getByRole("grid", { name: "주간 근무 시간표" });
+  await expect(page.getByTestId("schedule-timeline-location-filter"))
+    .toContainText("송파 E학원");
+  await expect(grid).toContainText("국어 E반");
+  await expect(grid).not.toContainText("화학 G반");
+
+  await page.getByTestId("schedule-timeline-worker-select").click();
+  const detail = page.getByTestId("schedule-timeline-worker-detail-scroll");
+  await expect(detail).toContainText("송파 E학원");
+  await expect(detail).not.toContainText("잠실 C학원");
+});
+
 test(`SCH-02 worker-selected ${desktop}`, async ({ page }) => {
   await prepareVisualPage({
     page,

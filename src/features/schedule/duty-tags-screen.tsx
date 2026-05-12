@@ -153,7 +153,7 @@ function DutyTagCard({
           type="button"
           variant="secondary"
           data-testid={first ? "duty-tags-edit-trigger-first" : undefined}
-          onClick={first ? onEdit : undefined}
+          onClick={onEdit}
           className="h-11 rounded-[8px] px-6"
         >
           수정

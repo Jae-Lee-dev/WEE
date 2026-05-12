@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   useEffect,
   useMemo,
@@ -712,12 +713,34 @@ function DutyDetailPanel({
 }
 
 function AssignedWorkerRow({ worker }: { worker: DutyAssignedWorker }) {
-  return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-h-18-semibold tracking-normal">
+  const className =
+    "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-h-18-semibold tracking-normal";
+  const content = (
+    <>
       <span className="min-w-0 truncate text-gray-900">{worker.name}</span>
       <span className="shrink-0 text-h-18-regular tracking-normal text-gray-500">
         {worker.weekday} {worker.time}
       </span>
+    </>
+  );
+
+  if (worker.workerId) {
+    return (
+      <Link
+        href={`/workers/${encodeURIComponent(worker.workerId)}/schedule`}
+        className={cn(
+          className,
+          "rounded-[4px] transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
+        )}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <div className={className}>
+      {content}
     </div>
   );
 }

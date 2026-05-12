@@ -15,6 +15,7 @@ import {
   createScheduleTimelineDataSource,
   emptyScheduleTimelineViewModel,
   type ScheduleTimelineDataSource,
+  type ScheduleTimelineViewModel,
 } from "./schedule-timeline-data-source";
 import {
   scheduleTimelineDays,
@@ -41,6 +42,7 @@ type PositionedBlock = {
 };
 
 type ScheduleTimelineFilterKey = "location" | "duty" | "dutyTag" | "worker";
+type ScheduleTimelineFilterState = Record<ScheduleTimelineFilterKey, string>;
 
 type AssignmentTagTone = {
   variant: "green" | "orange" | "blue" | "red" | "grey";
@@ -90,6 +92,13 @@ const assignmentTagTone: Record<string, AssignmentTagTone> = {
   },
 };
 
+const initialScheduleTimelineFilters = {
+  duty: "all",
+  dutyTag: "all",
+  location: "all",
+  worker: "all",
+} as const satisfies ScheduleTimelineFilterState;
+
 export function ScheduleTimelineScreen({
   dataSource: dataSourceProp,
 }: {
@@ -99,19 +108,25 @@ export function ScheduleTimelineScreen({
   const dataSource = dataSourceProp ?? fallbackDataSource;
   const [openFilter, setOpenFilter] =
     useState<ScheduleTimelineFilterKey | null>(null);
+  const [selectedFilters, setSelectedFilters] =
+    useState<ScheduleTimelineFilterState>(initialScheduleTimelineFilters);
   const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
   const [viewModel, setViewModel] = useState(
     dataSource.initialData ?? emptyScheduleTimelineViewModel,
   );
   const [loading, setLoading] = useState(!dataSource.initialData);
   const [errorMessage, setErrorMessage] = useState("");
+  const filteredViewModel = useMemo(
+    () => filterScheduleTimelineViewModel(viewModel, selectedFilters),
+    [selectedFilters, viewModel],
+  );
   const selectedWorkerContext =
     selectedWorkerId === null
       ? null
-      : viewModel.workerContexts.find(
+      : filteredViewModel.workerContexts.find(
           (context) => context.workerId === selectedWorkerId,
         ) ?? null;
-  const timelineBlocks = getTimelineBlocksForDisplay(viewModel.blocks);
+  const timelineBlocks = getTimelineBlocksForDisplay(filteredViewModel.blocks);
   const selectedBlockIds = selectedWorkerContext?.selectedBlockIds ?? [];
 
   useEffect(() => {
@@ -175,19 +190,26 @@ export function ScheduleTimelineScreen({
       <Toolbar
         filters={viewModel.filters}
         openFilter={openFilter}
+        selectedFilters={selectedFilters}
         onFilterToggle={(filter) =>
           setOpenFilter((currentFilter) =>
             currentFilter === filter ? null : filter,
           )
         }
-        onMenuClose={() => setOpenFilter(null)}
+        onSelectFilter={(filter, value) => {
+          setSelectedFilters((currentFilters) => ({
+            ...currentFilters,
+            [filter]: value,
+          }));
+          setOpenFilter(null);
+        }}
       />
 
       <div className="mt-4 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_320px] gap-4">
         <TimelineGrid
           blocks={timelineBlocks}
           selectedBlockIds={selectedBlockIds}
-          workerContexts={viewModel.workerContexts}
+          workerContexts={filteredViewModel.workerContexts}
           onWorkerSelect={(workerId) => {
             setSelectedWorkerId(workerId);
             setOpenFilter(null);
@@ -201,19 +223,25 @@ export function ScheduleTimelineScreen({
 
 function Toolbar({
   filters,
+  selectedFilters,
   openFilter,
   onFilterToggle,
-  onMenuClose,
+  onSelectFilter,
 }: {
   filters: ScheduleTimelineFilters;
+  selectedFilters: ScheduleTimelineFilterState;
   openFilter: ScheduleTimelineFilterKey | null;
   onFilterToggle: (filter: ScheduleTimelineFilterKey) => void;
-  onMenuClose: () => void;
+  onSelectFilter: (filter: ScheduleTimelineFilterKey, value: string) => void;
 }) {
   const filterControls = [
     {
       key: "location",
-      label: filters.locationOptions[0]?.label ?? "근무지 (전체)",
+      label: getSelectedFilterLabel(
+        filters.locationOptions,
+        selectedFilters.location,
+        "근무지 (전체)",
+      ),
       menuLabel: "근무지 필터",
       menuTestId: "schedule-timeline-location-menu",
       options: filters.locationOptions,
@@ -222,7 +250,11 @@ function Toolbar({
     },
     {
       key: "duty",
-      label: filters.dutyOptions[0]?.label ?? "근무 (전체)",
+      label: getSelectedFilterLabel(
+        filters.dutyOptions,
+        selectedFilters.duty,
+        "근무 (전체)",
+      ),
       menuLabel: "근무 필터",
       menuTestId: undefined,
       options: filters.dutyOptions,
@@ -231,7 +263,11 @@ function Toolbar({
     },
     {
       key: "dutyTag",
-      label: filters.dutyTagOptions[0]?.label ?? "근무 태그 (전체)",
+      label: getSelectedFilterLabel(
+        filters.dutyTagOptions,
+        selectedFilters.dutyTag,
+        "근무 태그 (전체)",
+      ),
       menuLabel: "근무 태그 필터",
       menuTestId: undefined,
       options: filters.dutyTagOptions,
@@ -240,7 +276,11 @@ function Toolbar({
     },
     {
       key: "worker",
-      label: filters.workerOptions[0]?.label ?? "조교 (전체)",
+      label: getSelectedFilterLabel(
+        filters.workerOptions,
+        selectedFilters.worker,
+        "조교 (전체)",
+      ),
       menuLabel: "조교 필터",
       menuTestId: undefined,
       options: filters.workerOptions,
@@ -274,7 +314,10 @@ function Toolbar({
             {menuOpen ? (
               <FilterMenu
                 label={control.menuLabel}
-                onOptionClick={onMenuClose}
+                selectedValue={selectedFilters[control.key]}
+                onOptionClick={(value) => {
+                  onSelectFilter(control.key, value);
+                }}
                 options={control.options}
                 testId={control.menuTestId}
               />
@@ -322,11 +365,13 @@ function FilterMenu({
   label,
   onOptionClick,
   options,
+  selectedValue,
   testId,
 }: {
   label: string;
-  onOptionClick: () => void;
+  onOptionClick: (value: string) => void;
   options: readonly ScheduleFilterOption[];
+  selectedValue: string;
   testId?: string;
 }) {
   return (
@@ -336,8 +381,8 @@ function FilterMenu({
       data-testid={testId}
       className="absolute left-0 top-12 z-30 w-[148px] overflow-hidden rounded-[4px] border border-gray-200 bg-white px-3 shadow-[0px_8px_20px_rgba(17,24,39,0.12)]"
     >
-      {options.map((option, index) => {
-        const selected = index === 0;
+      {options.map((option) => {
+        const selected = option.value === selectedValue;
 
         return (
           <button
@@ -345,7 +390,7 @@ function FilterMenu({
             type="button"
             role="option"
             aria-selected={selected}
-            onClick={onOptionClick}
+            onClick={() => onOptionClick(option.value)}
             className="flex h-11 w-full items-center justify-between gap-2 border-b border-gray-100 text-left text-h-18-regular text-gray-800 last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200"
           >
             <span className="min-w-0 truncate">{option.label}</span>
@@ -610,6 +655,150 @@ function AssignmentCard({
 
 function getAssignmentTagTone(tagLabel: string): AssignmentTagTone {
   return assignmentTagTone[tagLabel] ?? { variant: "grey" };
+}
+
+function filterScheduleTimelineViewModel(
+  viewModel: ScheduleTimelineViewModel,
+  selectedFilters: ScheduleTimelineFilterState,
+): ScheduleTimelineViewModel {
+  const blocks = viewModel.blocks.filter((block) =>
+    matchesScheduleFilters(block, viewModel.filters, selectedFilters),
+  );
+  const visibleBlockIds = new Set(blocks.map((block) => block.id));
+  const workerContexts = viewModel.workerContexts
+    .map((context) => filterWorkerContext(context, visibleBlockIds))
+    .filter(
+      (context): context is ScheduleSelectedWorkerContext => context !== null,
+    );
+
+  return {
+    ...viewModel,
+    blocks,
+    workerContexts,
+  };
+}
+
+function filterWorkerContext(
+  context: ScheduleSelectedWorkerContext,
+  visibleBlockIds: ReadonlySet<string>,
+): ScheduleSelectedWorkerContext | null {
+  const selectedBlockIds = context.selectedBlockIds.filter((blockId) =>
+    visibleBlockIds.has(blockId),
+  );
+
+  if (selectedBlockIds.length === 0) {
+    return null;
+  }
+
+  const assignments = context.assignments.filter((_, index) =>
+    visibleBlockIds.has(context.selectedBlockIds[index] ?? ""),
+  );
+
+  return {
+    ...context,
+    assignedCountText: `현재 배정 근무 (${assignments.length}건)`,
+    assignments,
+    selectedBlockIds,
+  } satisfies ScheduleSelectedWorkerContext;
+}
+
+function matchesScheduleFilters(
+  block: ScheduleTimelineBlock,
+  filters: ScheduleTimelineFilters,
+  selectedFilters: ScheduleTimelineFilterState,
+) {
+  return (
+    matchesLocationFilter(
+      block,
+      filters.locationOptions,
+      selectedFilters.location,
+    ) &&
+    matchesDutyFilter(block, filters.dutyOptions, selectedFilters.duty) &&
+    matchesDutyTagFilter(
+      block,
+      filters.dutyTagOptions,
+      selectedFilters.dutyTag,
+    ) &&
+    matchesWorkerFilter(block, filters.workerOptions, selectedFilters.worker)
+  );
+}
+
+function matchesLocationFilter(
+  block: ScheduleTimelineBlock,
+  options: readonly ScheduleFilterOption[],
+  selectedValue: string,
+) {
+  return matchesSelectedOption(options, selectedValue, (option) =>
+    block.locationId === option.value ||
+    block.locationName === option.label ||
+    block.locationName === option.value,
+  );
+}
+
+function matchesDutyFilter(
+  block: ScheduleTimelineBlock,
+  options: readonly ScheduleFilterOption[],
+  selectedValue: string,
+) {
+  return matchesSelectedOption(options, selectedValue, (option) =>
+    block.dutyId === option.value ||
+    block.label === option.label ||
+    block.label === option.value,
+  );
+}
+
+function matchesDutyTagFilter(
+  block: ScheduleTimelineBlock,
+  options: readonly ScheduleFilterOption[],
+  selectedValue: string,
+) {
+  return matchesSelectedOption(options, selectedValue, (option) =>
+    block.tagIds?.includes(option.value) === true ||
+    block.tagLabel === option.label ||
+    block.tagLabel === option.value,
+  );
+}
+
+function matchesWorkerFilter(
+  block: ScheduleTimelineBlock,
+  options: readonly ScheduleFilterOption[],
+  selectedValue: string,
+) {
+  return matchesSelectedOption(options, selectedValue, (option) =>
+    block.workerId === option.value ||
+    block.worker === option.value ||
+    block.worker === getWorkerNameFromFilterLabel(option.label),
+  );
+}
+
+function matchesSelectedOption(
+  options: readonly ScheduleFilterOption[],
+  selectedValue: string,
+  matcher: (option: ScheduleFilterOption) => boolean,
+) {
+  if (selectedValue === "all") {
+    return true;
+  }
+
+  const selectedOption = options.find((option) => option.value === selectedValue);
+
+  return selectedOption ? matcher(selectedOption) : false;
+}
+
+function getSelectedFilterLabel(
+  options: readonly ScheduleFilterOption[],
+  selectedValue: string,
+  fallback: string,
+) {
+  return (
+    options.find((option) => option.value === selectedValue)?.label ??
+    options[0]?.label ??
+    fallback
+  );
+}
+
+function getWorkerNameFromFilterLabel(label: string) {
+  return label.split("·")[0]?.trim() ?? label;
 }
 
 function getTimelineBlocksForDisplay(

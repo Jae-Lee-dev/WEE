@@ -317,6 +317,7 @@ function createAssignedWorkersByDutyId({
           name: workerNameById.get(slot.workerId) ?? "이름 없는 조교",
           weekday: readWeekday(slot.weekday || duty.weekday),
           time: `${slot.startTime || duty.startTime}~${slot.endTime || duty.endTime}`,
+          workerId: slot.workerId,
         },
       ]);
     });

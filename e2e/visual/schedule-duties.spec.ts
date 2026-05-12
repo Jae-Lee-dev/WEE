@@ -58,6 +58,15 @@ test(`DUT-01 selected-duty ${desktop}`, async ({ page }) => {
   });
 });
 
+test("DUT-02 assigned worker links to worker schedule", async ({ page }) => {
+  await prepareVisualPage({ page, path: routePath, viewport: desktop });
+
+  await page.getByTestId("duty-list-select-first").click();
+  await expect(
+    page.getByRole("link", { name: "김서연 월 19:00~21:00" }),
+  ).toHaveAttribute("href", "/workers/worker_kim_seoyeon/schedule");
+});
+
 test(`DUT-01 create-duty-dialog ${desktop}`, async ({ page }) => {
   await prepareVisualPage({ page, path: routePath, viewport: desktop });
   await page.evaluate(() => document.fonts.ready);

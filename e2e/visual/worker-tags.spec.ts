@@ -36,3 +36,12 @@ test(`WKR-06 edit-tag-dialog ${desktop}`, async ({ page }) => {
     viewport: desktop,
   });
 });
+
+test("WKR-06 edit dialog uses clicked tag", async ({ page }) => {
+  await prepareVisualPage({ page, path: "/workers/tags", viewport: desktop });
+
+  await page.getByRole("button", { name: "수정" }).nth(1).click();
+  const dialog = page.getByTestId("worker-tags-edit-dialog");
+  await expect(dialog.getByLabel("태그명")).toHaveValue("신입");
+  await expect(dialog.getByText("3명")).toBeVisible();
+});
