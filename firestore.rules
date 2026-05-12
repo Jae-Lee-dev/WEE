@@ -197,6 +197,64 @@ service cloud.firestore {
         && data.updatedAt == request.time;
     }
 
+    function isNotificationEventMap(value) {
+      return value is map
+        && value.keys().hasOnly([
+          'affiliation-application-received',
+          'affiliation-application-accepted',
+          'overtime-application',
+          'correction-received'
+        ])
+        && value.keys().hasAll([
+          'affiliation-application-received',
+          'affiliation-application-accepted',
+          'overtime-application',
+          'correction-received'
+        ])
+        && value['affiliation-application-received'] is bool
+        && value['affiliation-application-accepted'] is bool
+        && value['overtime-application'] is bool
+        && value['correction-received'] is bool;
+    }
+
+    function isNotificationSettingsBase(workspaceId) {
+      let data = request.resource.data;
+
+      return data.keys().hasOnly([
+          'kakaoAlimtalk',
+          'kakaoAlimtalkEnabled',
+          'managerWeb',
+          'managerWebEnabled',
+          'updatedAt',
+          'workerFcmEnabled',
+          'workspaceId'
+        ])
+        && data.workspaceId == workspaceId
+        && data.kakaoAlimtalkEnabled is bool
+        && data.managerWebEnabled is bool
+        && isNotificationEventMap(data.kakaoAlimtalk)
+        && isNotificationEventMap(data.managerWeb)
+        && data.updatedAt == request.time;
+    }
+
+    function isNotificationSettingsCreate(workspaceId) {
+      return isNotificationSettingsBase(workspaceId);
+    }
+
+    function isNotificationSettingsEdit(workspaceId) {
+      let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
+
+      return isNotificationSettingsBase(workspaceId)
+        && changedKeys.hasOnly([
+          'kakaoAlimtalk',
+          'kakaoAlimtalkEnabled',
+          'managerWeb',
+          'managerWebEnabled',
+          'updatedAt',
+          'workspaceId'
+        ]);
+    }
+
     match /users/{userId} {
       allow get, create, update: if isSelf(userId);
       allow list, delete: if false;
@@ -228,6 +286,17 @@ service cloud.firestore {
         allow create: if isWorkspaceManagerAfter(workspaceId)
           && isDutyCreate(workspaceId);
         allow update: if false;
+        allow delete: if false;
+      }
+
+      match /notificationSettings/{settingsId} {
+        allow get, list: if isWorkspaceManager(workspaceId);
+        allow create: if isWorkspaceManagerAfter(workspaceId)
+          && settingsId == 'default'
+          && isNotificationSettingsCreate(workspaceId);
+        allow update: if isWorkspaceManagerAfter(workspaceId)
+          && settingsId == 'default'
+          && isNotificationSettingsEdit(workspaceId);
         allow delete: if false;
       }
 
