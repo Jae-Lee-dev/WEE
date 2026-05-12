@@ -20,17 +20,31 @@ import {
   getFirebaseDb,
   isMockFirebaseProject,
 } from "@/lib/firebase/client";
-import { dutyListRows, type DutyListRow, type DutyWeekday } from "./duty-fixtures";
+import {
+  dutyListRows,
+  type DutyAssignedWorker,
+  type DutyListRow,
+  type DutyWeekday,
+} from "./duty-fixtures";
 import {
   createDutyListRow,
   type CreateDutyInput,
   type DutyLocationOption,
+  type StoredDuty,
 } from "./duty-model";
 
 export type DutyDataSource = {
   listDuties: () => Promise<readonly DutyListRow[]>;
   listLocations: () => Promise<readonly DutyLocationOption[]>;
   createDuty: (input: CreateDutyInput) => Promise<DutyListRow>;
+};
+
+type ScheduleVersionSlot = {
+  dutyId: string;
+  endTime: string;
+  startTime: string;
+  weekday: string;
+  workerId: string;
 };
 
 export function createDutyDataSource(): DutyDataSource {
@@ -45,11 +59,47 @@ function createFirestoreDutyDataSource(): DutyDataSource {
   return {
     async listDuties() {
       const workspaceId = await requireActiveWorkspaceId();
-      const snapshot = await getDocs(
-        query(getDutiesCollection(workspaceId), orderBy("createdAt", "desc")),
-      );
+      const [dutiesSnapshot, scheduleVersionsSnapshot, workersSnapshot] =
+        await Promise.all([
+          getDocs(
+            query(getDutiesCollection(workspaceId), orderBy("createdAt", "desc")),
+          ),
+          getDocs(getScheduleVersionsCollection(workspaceId)),
+          getDocs(getWorkersCollection(workspaceId)),
+        ]);
+      const duties = dutiesSnapshot.docs.map(mapDutyDocument);
+      const dutyById = new Map(duties.map((duty) => [duty.id, duty]));
+      const workerNameById = new Map(
+        workersSnapshot.docs.map((worker) => {
+          const data = worker.data();
 
-      return snapshot.docs.map(mapDutyDocument);
+          return [
+            worker.id,
+            readString(
+              data.name,
+              readString(data.displayName, "이름 없는 조교"),
+            ),
+          ] as const;
+        }),
+      );
+      const assignedWorkersByDutyId = createAssignedWorkersByDutyId({
+        dutiesById: dutyById,
+        scheduleVersionDocs: scheduleVersionsSnapshot.docs,
+        workerNameById,
+      });
+
+      return duties.map((duty) => {
+        const assignedWorkers = assignedWorkersByDutyId.get(duty.id) ?? [];
+
+        return createDutyListRow({
+          ...duty,
+          assignedWorkerCount: Math.max(
+            duty.assignedWorkerCount,
+            assignedWorkers.length,
+          ),
+          assignedWorkers,
+        });
+      });
     },
 
     async listLocations() {
@@ -173,6 +223,19 @@ function getLocationsCollection(workspaceId: string) {
   return collection(getFirebaseDb(), "workspaces", workspaceId, "locations");
 }
 
+function getScheduleVersionsCollection(workspaceId: string) {
+  return collection(
+    getFirebaseDb(),
+    "workspaces",
+    workspaceId,
+    "scheduleVersions",
+  );
+}
+
+function getWorkersCollection(workspaceId: string) {
+  return collection(getFirebaseDb(), "workspaces", workspaceId, "workers");
+}
+
 function getWorkspaceDocument(workspaceId: string) {
   return doc(getFirebaseDb(), "workspaces", workspaceId);
 }
@@ -194,7 +257,7 @@ async function requireActiveWorkspaceId() {
 function mapDutyDocument(snapshot: QueryDocumentSnapshot<DocumentData>) {
   const data = snapshot.data();
 
-  return createDutyListRow({
+  return {
     id: snapshot.id,
     name: readString(data.name, "이름 없는 근무"),
     nameKey: readString(data.nameKey, ""),
@@ -208,7 +271,87 @@ function mapDutyDocument(snapshot: QueryDocumentSnapshot<DocumentData>) {
     operationEndDate: readNullableString(data.operationEndDate),
     assignedWorkerCount: readNumber(data.assignedWorkerCount, 0),
     manualStatus: data.manualStatus === "inactive" ? "inactive" : "active",
-  });
+  } satisfies StoredDuty;
+}
+
+function createAssignedWorkersByDutyId({
+  dutiesById,
+  scheduleVersionDocs,
+  workerNameById,
+}: {
+  dutiesById: ReadonlyMap<string, StoredDuty>;
+  scheduleVersionDocs: readonly QueryDocumentSnapshot<DocumentData>[];
+  workerNameById: ReadonlyMap<string, string>;
+}) {
+  const assignedWorkersByDutyId = new Map<string, DutyAssignedWorker[]>();
+  const seenAssignments = new Set<string>();
+
+  for (const scheduleVersion of scheduleVersionDocs) {
+    const data = scheduleVersion.data();
+
+    if (readString(data.status, "") !== "active") {
+      continue;
+    }
+
+    readScheduleVersionSlots(data.slots).forEach((slot, index) => {
+      const duty = dutiesById.get(slot.dutyId);
+
+      if (!duty || !slot.workerId) {
+        return;
+      }
+
+      const assignmentKey = `${slot.dutyId}:${slot.workerId}`;
+
+      if (seenAssignments.has(assignmentKey)) {
+        return;
+      }
+
+      seenAssignments.add(assignmentKey);
+
+      const assignedWorkers = assignedWorkersByDutyId.get(slot.dutyId) ?? [];
+
+      assignedWorkersByDutyId.set(slot.dutyId, [
+        ...assignedWorkers,
+        {
+          id: `${scheduleVersion.id}-${slot.dutyId}-${slot.workerId}-${index}`,
+          name: workerNameById.get(slot.workerId) ?? "이름 없는 조교",
+          weekday: readWeekday(slot.weekday || duty.weekday),
+          time: `${slot.startTime || duty.startTime}~${slot.endTime || duty.endTime}`,
+        },
+      ]);
+    });
+  }
+
+  return assignedWorkersByDutyId;
+}
+
+function readScheduleVersionSlots(value: unknown): ScheduleVersionSlot[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((slot) => {
+      if (!slot || typeof slot !== "object") {
+        return null;
+      }
+
+      const record = slot as Record<string, unknown>;
+      const dutyId = readString(record.dutyId, "");
+
+      if (!dutyId) {
+        return null;
+      }
+
+      return {
+        dutyId,
+        endTime: readString(record.endTime, ""),
+        startTime: readString(record.startTime, ""),
+        weekday: readString(record.weekday, ""),
+        workerId: readString(record.workerId, ""),
+      };
+    })
+    .filter((slot): slot is ScheduleVersionSlot => slot !== null);
 }
 
 function shouldUseVisualMockDataSource() {

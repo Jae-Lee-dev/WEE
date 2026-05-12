@@ -34,6 +34,7 @@ export type DutyListRow = {
   tags: readonly DutyTag[];
   tone: DutyTone;
   timeRows: readonly DutyTimeRow[];
+  assignedWorkers?: readonly DutyAssignedWorker[];
 };
 
 export type DutyAssignedWorker = {
@@ -120,6 +121,8 @@ export type DutyTagRow = {
   label: string;
   countText: string;
   tone: DutyTone;
+  statusText?: string;
+  statusTone?: DutyTone;
 };
 
 export type DutyTagDialogDuty = {

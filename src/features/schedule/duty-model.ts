@@ -1,4 +1,5 @@
 import type {
+  DutyAssignedWorker,
   DutyListRow,
   DutyStatus,
   DutyTag,
@@ -42,6 +43,7 @@ export type CreateDutyInput = {
 export type StoredDuty = CreateDutyInput & {
   id: string;
   assignedWorkerCount: number;
+  assignedWorkers?: readonly DutyAssignedWorker[];
   manualStatus: "active" | "inactive";
 };
 
@@ -183,6 +185,7 @@ export function createDutyListRow(duty: StoredDuty): DutyListRow {
     appliedWorkerCountText: `할당 조교 ${duty.assignedWorkerCount}명`,
     tags: duty.tags.map((label) => createDutyTag(label)),
     tone: getDutyTone(duty.name),
+    assignedWorkers: duty.assignedWorkers,
     timeRows: [
       {
         id: duty.id,
