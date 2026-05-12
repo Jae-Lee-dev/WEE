@@ -11,7 +11,7 @@ export type WorkerDetailScheduleBlock = {
 
 export type WorkerDetailScheduleHistory = {
   id: string;
-  status: "활성" | "종료";
+  status: "활성" | "종료" | "대기";
   title: string;
   workDays: string;
   memo: string;

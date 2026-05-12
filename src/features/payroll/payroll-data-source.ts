@@ -10,7 +10,13 @@ import { getFirebaseDb, isMockFirebaseProject } from "@/lib/firebase/client";
 import {
   payrollCalculationFixture,
   payrollStatementFixture,
+  type PayrollAdjustmentItem,
+  type PayrollAmountTone,
+  type PayrollCalculationDetail,
   type PayrollCalculationFixture,
+  type PayrollCalculationLine,
+  type PayrollDetailStateId,
+  type PayrollOpenItemCard,
   type PayrollCalculationRow,
   type PayrollStatementBodySection,
   type PayrollStatementDetail,
@@ -23,9 +29,17 @@ import {
 
 export type PayrollDataSourceMode = "fixture" | "firestore";
 
+export type PayrollCalculationTarget = {
+  focusId?: string;
+  monthKey?: string;
+  workerId?: string;
+};
+
 export type PayrollDataSource = {
   mode: PayrollDataSourceMode;
-  loadCalculation: () => Promise<PayrollCalculationFixture>;
+  loadCalculation: (
+    target?: PayrollCalculationTarget,
+  ) => Promise<PayrollCalculationFixture>;
   loadStatements: () => Promise<PayrollStatementFixture>;
 };
 
@@ -35,11 +49,15 @@ type PayrollDocument = {
 };
 
 type PayrollCollections = {
+  anomalyFlags: readonly PayrollDocument[];
   bonusItems: readonly PayrollDocument[];
+  correctionRequests: readonly PayrollDocument[];
+  overtimeWorks: readonly PayrollDocument[];
   payStatements: readonly PayrollDocument[];
   payrollSettings: readonly PayrollDocument[];
   payrollWorkerMonthRows: readonly PayrollDocument[];
   workerPayStatements: readonly PayrollDocument[];
+  workRecords: readonly PayrollDocument[];
 };
 
 type PayrollWorkerMonthProjection = {
@@ -70,8 +88,12 @@ type PayrollSetting = {
 
 type BonusItem = {
   amount: number;
+  createdAt: Date | null;
+  id: string;
+  label: string;
   monthKey: string;
   payrollStatus: string;
+  taxScope: string;
   workerId: string;
 };
 
@@ -91,6 +113,69 @@ type PayStatement = {
   taxAmount: number;
   workerId: string;
   workerName: string;
+};
+
+type WorkRecord = {
+  anomalyType: string;
+  dateKey: string;
+  dutyName: string;
+  effectiveEndAt: Date | null;
+  effectiveStartAt: Date | null;
+  id: string;
+  locationName: string;
+  plannedEndAt: Date | null;
+  plannedStartAt: Date | null;
+  status: string;
+  workerId: string;
+  workerName: string;
+};
+
+type AnomalyFlag = {
+  anomalyType: string;
+  createdAt: Date | null;
+  dateKey: string;
+  dutyName: string;
+  id: string;
+  status: string;
+  workRecordId: string | null;
+  workerId: string;
+  workerName: string;
+};
+
+type OvertimeWork = {
+  createdAt: Date | null;
+  id: string;
+  monthKey: string;
+  payrollEffect: string;
+  payrollStatus: string;
+  reason: string;
+  status: string;
+  workRecordId: string | null;
+  workerId: string;
+  workerName: string;
+};
+
+type CorrectionRequest = {
+  createdAt: Date | null;
+  id: string;
+  monthKey: string;
+  payrollEffect: string;
+  payrollStatus: string;
+  reason: string;
+  status: string;
+  workRecordId: string | null;
+  workerId: string;
+  workerName: string;
+};
+
+type CalculationAmounts = {
+  basePay: number | null;
+  finalAmount: number | null;
+  postTaxAdjustment: number;
+  preTaxAdjustment: number;
+  taxAmount: number;
+  totalWorkMinutes: number;
+  overtimePay: number;
 };
 
 export function createPayrollDataSource(): PayrollDataSource {
@@ -119,8 +204,8 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
   return {
     mode: "firestore",
 
-    async loadCalculation() {
-      return buildCalculationViewModel(await loadPayrollCollections());
+    async loadCalculation(target) {
+      return buildCalculationViewModel(await loadPayrollCollections(), target);
     },
 
     async loadStatements() {
@@ -132,25 +217,37 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
 async function loadPayrollCollections(): Promise<PayrollCollections> {
   const workspaceId = await requireActiveWorkspaceId();
   const [
+    anomalyFlags,
     payrollWorkerMonthRows,
     payStatements,
     workerPayStatements,
     bonusItems,
     payrollSettings,
+    overtimeWorks,
+    correctionRequests,
+    workRecords,
   ] = await Promise.all([
+    getPayrollCollection(workspaceId, "anomalyFlags"),
     getPayrollCollection(workspaceId, "payrollWorkerMonthRows"),
     getPayrollCollection(workspaceId, "payStatements"),
     getPayrollCollection(workspaceId, "workerPayStatements"),
     getPayrollCollection(workspaceId, "bonusItems"),
     getPayrollCollection(workspaceId, "payrollSettings"),
+    getPayrollCollection(workspaceId, "overtimeWorks"),
+    getPayrollCollection(workspaceId, "correctionRequests"),
+    getPayrollCollection(workspaceId, "workRecords"),
   ]);
 
   return {
+    anomalyFlags,
     bonusItems,
+    correctionRequests,
+    overtimeWorks,
     payStatements,
     payrollSettings,
     payrollWorkerMonthRows,
     workerPayStatements,
+    workRecords,
   };
 }
 
@@ -164,6 +261,7 @@ async function getPayrollCollection(workspaceId: string, name: string) {
 
 function buildCalculationViewModel(
   collections: PayrollCollections,
+  target: PayrollCalculationTarget = {},
 ): PayrollCalculationFixture {
   const projections = collections.payrollWorkerMonthRows.map(
     mapPayrollWorkerMonthProjection,
@@ -173,7 +271,13 @@ function buildCalculationViewModel(
   const statements = collections.payStatements
     .map(mapPayStatement)
     .filter(isPayStatement);
-  const monthKey = selectCalculationMonthKey(projections, statements);
+  const workRecords = collections.workRecords.map(mapWorkRecord);
+  const anomalyFlags = collections.anomalyFlags.map(mapAnomalyFlag);
+  const overtimeWorks = collections.overtimeWorks.map(mapOvertimeWork);
+  const correctionRequests = collections.correctionRequests.map(
+    mapCorrectionRequest,
+  );
+  const monthKey = selectCalculationMonthKey(projections, statements, target);
   const settingByWorkerId = indexBy(settings, (setting) => setting.workerId);
   const statementById = indexBy(statements, (statement) => statement.id);
   const statementByWorkerMonth = indexBy(statements, (statement) =>
@@ -182,9 +286,22 @@ function buildCalculationViewModel(
   const bonusesByWorkerMonth = groupBy(bonuses, (bonus) =>
     getWorkerMonthKey(bonus.workerId, bonus.monthKey),
   );
-  const rows = projections
+  const recordsByWorkerMonth = groupBy(workRecords, (record) =>
+    getWorkerMonthKey(record.workerId, record.dateKey.slice(0, 7)),
+  );
+  const anomaliesByWorkerMonth = groupBy(anomalyFlags, (flag) =>
+    getWorkerMonthKey(flag.workerId, flag.dateKey.slice(0, 7)),
+  );
+  const overtimeByWorkerMonth = groupBy(overtimeWorks, (work) =>
+    getWorkerMonthKey(work.workerId, work.monthKey),
+  );
+  const correctionsByWorkerMonth = groupBy(correctionRequests, (request) =>
+    getWorkerMonthKey(request.workerId, request.monthKey),
+  );
+  const monthProjections = projections
     .filter((row) => row.monthKey === monthKey)
-    .sort(compareProjectionRows)
+    .sort(compareProjectionRows);
+  const rows = monthProjections
     .map((projection) => {
       const workerMonthKey = getWorkerMonthKey(
         projection.workerId,
@@ -192,8 +309,12 @@ function buildCalculationViewModel(
       );
 
       return buildCalculationRow({
+        anomalyFlags: anomaliesByWorkerMonth[workerMonthKey] ?? [],
         bonuses: bonusesByWorkerMonth[workerMonthKey] ?? [],
+        correctionRequests: correctionsByWorkerMonth[workerMonthKey] ?? [],
+        overtimeWorks: overtimeByWorkerMonth[workerMonthKey] ?? [],
         projection,
+        records: recordsByWorkerMonth[workerMonthKey] ?? [],
         setting: settingByWorkerId[projection.workerId],
         statement:
           (projection.payStatementId
@@ -201,15 +322,768 @@ function buildCalculationViewModel(
             : undefined) ?? statementByWorkerMonth[workerMonthKey],
       });
     });
+  const detailByRowId = Object.fromEntries(
+    monthProjections.map((projection) => {
+      const workerMonthKey = getWorkerMonthKey(
+        projection.workerId,
+        projection.monthKey,
+      );
+      const statement =
+        (projection.payStatementId
+          ? statementById[projection.payStatementId]
+          : undefined) ?? statementByWorkerMonth[workerMonthKey];
+
+      return [
+        projection.id,
+        buildCalculationDetailSet({
+          anomalyFlags: anomaliesByWorkerMonth[workerMonthKey] ?? [],
+          bonuses: bonusesByWorkerMonth[workerMonthKey] ?? [],
+          correctionRequests: correctionsByWorkerMonth[workerMonthKey] ?? [],
+          overtimeWorks: overtimeByWorkerMonth[workerMonthKey] ?? [],
+          projection,
+          records: recordsByWorkerMonth[workerMonthKey] ?? [],
+          setting: settingByWorkerId[projection.workerId],
+          statement,
+        }),
+      ];
+    }),
+  );
+  const firstDetailSet = detailByRowId[rows[0]?.id ?? ""];
 
   return {
     ...payrollCalculationFixture,
-    details: payrollCalculationFixture.details,
+    detailByRowId,
+    details: firstDetailSet ?? payrollCalculationFixture.details,
     listCountText: `${rows.length}명`,
     rows,
     selectedMonthLabel: formatMonthDot(monthKey),
     selectedRowId: rows[0]?.id ?? "",
   };
+}
+
+function buildCalculationRow({
+  anomalyFlags,
+  bonuses,
+  correctionRequests,
+  overtimeWorks,
+  projection,
+  records,
+  setting,
+  statement,
+}: {
+  anomalyFlags: readonly AnomalyFlag[];
+  bonuses: readonly BonusItem[];
+  correctionRequests: readonly CorrectionRequest[];
+  overtimeWorks: readonly OvertimeWork[];
+  projection: PayrollWorkerMonthProjection;
+  records: readonly WorkRecord[];
+  setting?: PayrollSetting;
+  statement?: PayStatement;
+}): PayrollCalculationRow {
+  const amounts = calculateAmounts({
+    bonuses,
+    projection,
+    records,
+    setting,
+    statement,
+  });
+  const openItemCount = getOpenItemCount({
+    anomalyFlags,
+    bonuses,
+    correctionRequests,
+    overtimeWorks,
+    projection,
+    statement,
+  });
+
+  return {
+    id: projection.id,
+    basePay: formatWon(amounts.basePay),
+    bonusDeduction: formatSignedWon(
+      amounts.preTaxAdjustment + amounts.postTaxAdjustment,
+    ),
+    detailButtonLabel: "상세보기",
+    finalPay: formatWon(amounts.finalAmount),
+    openItems: openItemCount > 0 ? `미처리 ${openItemCount}건` : "-",
+    openItemsTone: openItemCount > 0 ? "orange" : "default",
+    overtimePay: formatWon(amounts.overtimePay),
+    payStatementId: projection.payStatementId ?? undefined,
+    status: getCalculationStatusLabel(projection.rowStatus),
+    statusTone: getCalculationStatusTone(projection.rowStatus),
+    tax: amounts.taxAmount > 0 ? formatWon(amounts.taxAmount) : "-",
+    monthKey: projection.monthKey,
+    workerId: projection.workerId,
+    workerName: projection.workerName,
+  };
+}
+
+function buildCalculationDetailSet({
+  anomalyFlags,
+  bonuses,
+  correctionRequests,
+  overtimeWorks,
+  projection,
+  records,
+  setting,
+  statement,
+}: {
+  anomalyFlags: readonly AnomalyFlag[];
+  bonuses: readonly BonusItem[];
+  correctionRequests: readonly CorrectionRequest[];
+  overtimeWorks: readonly OvertimeWork[];
+  projection: PayrollWorkerMonthProjection;
+  records: readonly WorkRecord[];
+  setting?: PayrollSetting;
+  statement?: PayStatement;
+}): Record<PayrollDetailStateId, PayrollCalculationDetail> {
+  const detail = buildCalculationDetail({
+    anomalyFlags,
+    bonuses,
+    correctionRequests,
+    id: "detail",
+    includeAdjustmentForm: false,
+    overtimeWorks,
+    projection,
+    records,
+    setting,
+    statement,
+  });
+  const bonusAdd = buildCalculationDetail({
+    anomalyFlags,
+    bonuses,
+    correctionRequests,
+    id: "bonus-add",
+    includeAdjustmentForm: true,
+    overtimeWorks,
+    projection,
+    records,
+    setting,
+    statement,
+  });
+  const noOpenItems = buildCalculationDetail({
+    anomalyFlags: [],
+    bonuses,
+    correctionRequests: [],
+    id: "no-open-items",
+    includeAdjustmentForm: false,
+    overtimeWorks: [],
+    projection,
+    records,
+    setting,
+    statement,
+  });
+
+  return {
+    detail,
+    "bonus-add": bonusAdd,
+    "no-open-items": noOpenItems,
+  };
+}
+
+function buildCalculationDetail({
+  anomalyFlags,
+  bonuses,
+  correctionRequests,
+  id,
+  includeAdjustmentForm,
+  overtimeWorks,
+  projection,
+  records,
+  setting,
+  statement,
+}: {
+  anomalyFlags: readonly AnomalyFlag[];
+  bonuses: readonly BonusItem[];
+  correctionRequests: readonly CorrectionRequest[];
+  id: PayrollDetailStateId;
+  includeAdjustmentForm: boolean;
+  overtimeWorks: readonly OvertimeWork[];
+  projection: PayrollWorkerMonthProjection;
+  records: readonly WorkRecord[];
+  setting?: PayrollSetting;
+  statement?: PayStatement;
+}): PayrollCalculationDetail {
+  const amounts = calculateAmounts({
+    bonuses,
+    projection,
+    records,
+    setting,
+    statement,
+  });
+  const openCards = buildOpenItemCards({
+    anomalyFlags,
+    bonuses,
+    correctionRequests,
+    overtimeWorks,
+    records,
+    statement,
+  });
+  const resolvedCards =
+    openCards.length > 0
+      ? openCards
+      : buildResolvedWorkRecordCards(records.slice(0, 8));
+  const footer = buildCalculationFooter({
+    openItemCount: openCards.length,
+    projection,
+  });
+
+  return {
+    id,
+    addButtonLabel: "항목 추가",
+    adjustmentForm: includeAdjustmentForm
+      ? payrollCalculationFixture.details["bonus-add"].adjustmentForm
+      : undefined,
+    adjustmentItems: buildAdjustmentItems(bonuses),
+    adjustmentsTitle: "수기 보너스 차감",
+    calculationRows: buildCalculationLines({
+      amounts,
+      setting,
+    }),
+    calculationTitle: "현재 급여 계산",
+    expectedPay: formatWon(amounts.finalAmount),
+    expectedPayLabel: "지급 예상액",
+    footer,
+    headerTitle: "급여 신청 목록",
+    worker: buildWorkerSummary({
+      finalAmount: amounts.finalAmount,
+      monthKey: projection.monthKey,
+      projection,
+      setting,
+      totalWorkMinutes: amounts.totalWorkMinutes,
+    }),
+    workRecordSection: {
+      cards: resolvedCards,
+      openCount:
+        openCards.length > 0
+          ? `미처리 ${openCards.length.toLocaleString("ko-KR")}건`
+          : undefined,
+      title: "월 근무기록 · 미처리 항목",
+      totalCount: `${Math.max(records.length, resolvedCards.length).toLocaleString("ko-KR")}건`,
+    },
+  };
+}
+
+function calculateAmounts({
+  bonuses,
+  projection,
+  records,
+  setting,
+  statement,
+}: {
+  bonuses: readonly BonusItem[];
+  projection: PayrollWorkerMonthProjection;
+  records: readonly WorkRecord[];
+  setting?: PayrollSetting;
+  statement?: PayStatement;
+}): CalculationAmounts {
+  const totalWorkMinutes = records.reduce(
+    (total, record) => total + getRecordMinutes(record),
+    0,
+  );
+  const basePay = estimateBasePayFromRecords(totalWorkMinutes, setting);
+  const overtimePay = statement?.overtimePay ?? 0;
+  const preTaxAdjustment = sumBonusesByTaxScope(bonuses, "pre_tax");
+  const postTaxAdjustment = sumBonusesByTaxScope(bonuses, "post_tax");
+  const taxableSubtotal = (basePay ?? 0) + overtimePay + preTaxAdjustment;
+  const taxAmount =
+    statement?.taxAmount ??
+    Math.max(
+      Math.round(taxableSubtotal * ((setting?.taxRatePercent ?? 0) / 100)),
+      0,
+    );
+  const calculatedFinalAmount =
+    taxableSubtotal - taxAmount + postTaxAdjustment;
+  const finalAmount =
+    projection.finalAmount ??
+    statement?.currentFinalAmount ??
+    statement?.finalAmount ??
+    (basePay == null ? null : Math.max(Math.round(calculatedFinalAmount), 0));
+
+  return {
+    basePay,
+    finalAmount,
+    overtimePay,
+    postTaxAdjustment,
+    preTaxAdjustment,
+    taxAmount,
+    totalWorkMinutes,
+  };
+}
+
+function buildCalculationLines({
+  amounts,
+  setting,
+}: {
+  amounts: CalculationAmounts;
+  setting?: PayrollSetting;
+}): readonly PayrollCalculationLine[] {
+  const payBasis =
+    setting?.payrollType === "monthly"
+      ? formatWon(setting.monthlySalary)
+      : `${formatHours(amounts.totalWorkMinutes)} × ${formatWon(setting?.hourlyRate)}`;
+
+  return [
+    {
+      id: "base-hours",
+      label: "기준 근무 시간",
+      value: `${formatHours(amounts.totalWorkMinutes)} (${payBasis})`,
+    },
+    {
+      id: "base-pay",
+      label: "기본 지급액",
+      value: formatWon(amounts.basePay),
+    },
+    {
+      id: "overtime",
+      label: "추가근무 반영",
+      tone: amounts.overtimePay > 0 ? "positive" : "muted",
+      value: formatWon(amounts.overtimePay),
+    },
+    {
+      id: "pre-pay-adjustment",
+      label: "세전 보너스/차감",
+      tone: getAmountTone(amounts.preTaxAdjustment),
+      value: formatSignedWon(amounts.preTaxAdjustment),
+    },
+    {
+      id: "tax",
+      label: "공제",
+      tone: amounts.taxAmount > 0 ? "negative" : "muted",
+      value: amounts.taxAmount > 0 ? `- ${formatWon(amounts.taxAmount)}` : "-",
+    },
+    {
+      id: "post-pay-adjustment",
+      label: "세후 보너스/차감",
+      tone: getAmountTone(amounts.postTaxAdjustment),
+      value: formatSignedWon(amounts.postTaxAdjustment),
+    },
+    {
+      id: "rounding",
+      label: "올림 기준",
+      value: "원 단위",
+    },
+  ];
+}
+
+function buildAdjustmentItems(
+  bonuses: readonly BonusItem[],
+): readonly PayrollAdjustmentItem[] {
+  return bonuses.length > 0
+    ? bonuses.map((bonus) => ({
+        amount: formatSignedWon(bonus.amount),
+        deleteLabel: bonus.payrollStatus === "held" ? "보류" : "삭제",
+        id: bonus.id,
+        label:
+          bonus.payrollStatus === "held"
+            ? `${bonus.label} (보류)`
+            : bonus.label,
+        tone: getAmountTone(bonus.amount),
+      }))
+    : [
+        {
+          amount: "-",
+          deleteLabel: "없음",
+          id: "empty",
+          label: "등록된 보너스/차감 항목이 없습니다.",
+          tone: "muted",
+        },
+      ];
+}
+
+function buildOpenItemCards({
+  anomalyFlags,
+  bonuses,
+  correctionRequests,
+  overtimeWorks,
+  records,
+  statement,
+}: {
+  anomalyFlags: readonly AnomalyFlag[];
+  bonuses: readonly BonusItem[];
+  correctionRequests: readonly CorrectionRequest[];
+  overtimeWorks: readonly OvertimeWork[];
+  records: readonly WorkRecord[];
+  statement?: PayStatement;
+}): readonly PayrollOpenItemCard[] {
+  const recordById = new Map(records.map((record) => [record.id, record]));
+  const anomalyCards = anomalyFlags
+    .filter((item) => item.status === "unresolved")
+    .map((flag) => {
+      const record = flag.workRecordId
+        ? recordById.get(flag.workRecordId)
+        : undefined;
+
+      return {
+        actions: [{ id: "record", label: "REC-01에서 처리" }],
+        dateLabel: formatDateKeyDisplay(flag.dateKey),
+        id: flag.id,
+        lines: [
+          {
+            id: "anomaly",
+            label: "감지 유형",
+            value: getAnomalyLabel(flag.anomalyType),
+          },
+          {
+            id: "record",
+            label: "근무기록",
+            value: flag.workRecordId ?? "-",
+          },
+        ],
+        locationName: record?.locationName ?? "근무지 확인 필요",
+        state: "open",
+        statusLabel: "이상 플래그",
+        statusTone: "pink",
+        timeLabel: formatRecordTime(record),
+        title: flag.dutyName || record?.dutyName || "근무 기록 확인 필요",
+      } satisfies PayrollOpenItemCard;
+    });
+  const overtimeCards = overtimeWorks
+    .filter(
+      (item) => item.status === "submitted" || item.payrollStatus === "held",
+    )
+    .map((work) => {
+      const record = work.workRecordId
+        ? recordById.get(work.workRecordId)
+        : undefined;
+
+      return {
+        actions: [{ id: "record", label: "REC-01에서 처리" }],
+        dateLabel: formatDateKeyDisplay(record?.dateKey ?? ""),
+        id: work.id,
+        lines: [
+          { id: "reason", label: "사유", value: work.reason },
+          {
+            id: "payroll",
+            label: "급여 처리",
+            tone: work.payrollStatus === "held" ? "negative" : "default",
+            value: getPayrollStatusLabel(work.payrollStatus),
+          },
+        ],
+        locationName: record?.locationName ?? "근무지 확인 필요",
+        state: "open",
+        statusLabel: "추가근무",
+        statusTone: "orange",
+        timeLabel: formatRecordTime(record),
+        title: record?.dutyName ?? "추가근무",
+      } satisfies PayrollOpenItemCard;
+    });
+  const correctionCards = correctionRequests
+    .filter(
+      (item) => item.status === "submitted" || item.payrollStatus === "held",
+    )
+    .map((request) => {
+      const record = request.workRecordId
+        ? recordById.get(request.workRecordId)
+        : undefined;
+
+      return {
+        actions: [{ id: "record", label: "REC-01에서 처리" }],
+        dateLabel: formatDateKeyDisplay(record?.dateKey ?? ""),
+        id: request.id,
+        lines: [
+          { id: "reason", label: "조교 사유", value: request.reason },
+          {
+            id: "payroll",
+            label: "급여 처리",
+            tone: request.payrollStatus === "held" ? "negative" : "default",
+            value: getPayrollStatusLabel(request.payrollStatus),
+          },
+        ],
+        locationName: record?.locationName ?? "근무지 확인 필요",
+        state: "open",
+        statusLabel: "이의신청",
+        statusTone: "orange",
+        timeLabel: formatRecordTime(record),
+        title: record?.dutyName ?? "이의신청",
+      } satisfies PayrollOpenItemCard;
+    });
+  const bonusCards = bonuses
+    .filter((item) => item.payrollStatus === "held")
+    .map(
+      (bonus) =>
+        ({
+          actions: [{ id: "payroll", label: "반영 여부 결정" }],
+          dateLabel: formatShortDate(bonus.createdAt) ?? "-",
+          id: bonus.id,
+          lines: [
+            {
+              id: "amount",
+              label: "금액",
+              tone: getAmountTone(bonus.amount),
+              value: formatSignedWon(bonus.amount),
+            },
+            {
+              id: "tax-scope",
+              label: "세율 반영",
+              value: getTaxScopeLabel(bonus.taxScope),
+            },
+          ],
+          locationName: "급여 산정",
+          state: "open",
+          statusLabel: "보너스/차감",
+          statusTone: "grey",
+          timeLabel: "보류",
+          title: bonus.label,
+        }) satisfies PayrollOpenItemCard,
+    );
+  const reconfirmationCards = readBoolean(
+    statement?.managerOnly.needsReconfirmation,
+    false,
+  )
+    ? [
+        {
+          actions: [{ id: "reconfirm", label: "재확정" }],
+          dateLabel: formatMonthKorean(statement?.monthKey ?? ""),
+          id: `${statement?.id ?? "statement"}-reconfirmation`,
+          lines: [
+            {
+              id: "snapshot",
+              label: "현재 스냅샷",
+              value: formatWon(statement?.finalAmount),
+            },
+            {
+              id: "current",
+              label: "현재 산정",
+              tone: "positive",
+              value: formatWon(statement?.currentFinalAmount),
+            },
+          ],
+          locationName: "급여 명세",
+          state: "open",
+          statusLabel: "재확정 필요",
+          statusTone: "orange",
+          timeLabel: "처리중 명세",
+          title: "확정 후 산정 입력 변경",
+        } satisfies PayrollOpenItemCard,
+      ]
+    : [];
+
+  return [
+    ...anomalyCards,
+    ...overtimeCards,
+    ...correctionCards,
+    ...bonusCards,
+    ...reconfirmationCards,
+  ];
+}
+
+function buildResolvedWorkRecordCards(
+  records: readonly WorkRecord[],
+): readonly PayrollOpenItemCard[] {
+  return records.map((record) => ({
+    actions: [],
+    dateLabel: formatDateKeyDisplay(record.dateKey),
+    id: record.id,
+    lines: [
+      {
+        id: "status",
+        label: "상태",
+        value: getWorkRecordStatusLabel(record.status),
+      },
+      {
+        id: "duration",
+        label: "반영 시간",
+        value: formatHours(getRecordMinutes(record)),
+      },
+    ],
+    locationName: record.locationName,
+    state: "resolved",
+    statusLabel: record.anomalyType === "none" ? "근무기록" : "이상 플래그",
+    statusTone: record.anomalyType === "none" ? "grey" : "pink",
+    timeLabel: formatRecordTime(record),
+    title: record.dutyName,
+  }));
+}
+
+function buildCalculationFooter({
+  openItemCount,
+  projection,
+}: {
+  openItemCount: number;
+  projection: PayrollWorkerMonthProjection;
+}) {
+  if (projection.rowStatus === "paid") {
+    return {
+      actionDisabled: true,
+      actionLabel: "지급 완료됨",
+      description: "지급 완료된 월은 산정 입력 변경이 잠겨 있습니다.",
+      title: "급여 지급 완료",
+    };
+  }
+
+  const baseAction =
+    projection.rowStatus === "needs_reconfirmation"
+      ? "급여 재확정"
+      : projection.rowStatus === "processing"
+        ? "지급 완료"
+        : "급여 확정";
+
+  if (openItemCount > 0 || projection.hasBlockers) {
+    const blockerCount = Math.max(openItemCount, projection.hasBlockers ? 1 : 0);
+
+    return {
+      actionDisabled: true,
+      actionLabel: `${baseAction} (미처리 항목 ${blockerCount}/${blockerCount})`,
+      description: "미처리 항목을 처리해야 급여 결정을 진행할 수 있습니다.",
+      title: `${baseAction}하기`,
+    };
+  }
+
+  return {
+    actionDisabled: false,
+    actionLabel: baseAction,
+    description: "현재 산정 결과를 기준으로 다음 급여 결정을 진행할 수 있습니다.",
+    title: `${baseAction}하기`,
+  };
+}
+
+function estimateBasePayFromRecords(
+  totalWorkMinutes: number,
+  setting?: PayrollSetting,
+) {
+  if (!setting) {
+    return null;
+  }
+
+  if (setting.payrollType === "monthly") {
+    return setting.monthlySalary;
+  }
+
+  if (setting.hourlyRate == null) {
+    return null;
+  }
+
+  return Math.round((totalWorkMinutes / 60) * setting.hourlyRate);
+}
+
+function getRecordMinutes(record: WorkRecord) {
+  const start = record.effectiveStartAt ?? record.plannedStartAt;
+  const end = record.effectiveEndAt ?? record.plannedEndAt;
+
+  if (!start || !end) {
+    return 0;
+  }
+
+  return Math.max(Math.round((end.getTime() - start.getTime()) / 60000), 0);
+}
+
+function sumBonusesByTaxScope(
+  bonuses: readonly BonusItem[],
+  taxScope: "pre_tax" | "post_tax",
+) {
+  return bonuses
+    .filter(
+      (item) =>
+        item.payrollStatus !== "held" &&
+        (item.taxScope === taxScope ||
+          (taxScope === "pre_tax" && !item.taxScope)),
+    )
+    .reduce((total, item) => total + item.amount, 0);
+}
+
+function getAmountTone(value: number): PayrollAmountTone {
+  if (value > 0) {
+    return "positive";
+  }
+
+  if (value < 0) {
+    return "negative";
+  }
+
+  return "muted";
+}
+
+function formatRecordTime(record: WorkRecord | undefined) {
+  if (!record) {
+    return "--:--~--:--";
+  }
+
+  return `${formatTime(record.effectiveStartAt ?? record.plannedStartAt)}~${formatTime(
+    record.effectiveEndAt ?? record.plannedEndAt,
+  )}`;
+}
+
+function formatTime(value: Date | null) {
+  if (!value) {
+    return "--:--";
+  }
+
+  return `${String(value.getHours()).padStart(2, "0")}:${String(
+    value.getMinutes(),
+  ).padStart(2, "0")}`;
+}
+
+function formatHours(minutes: number) {
+  if (minutes <= 0) {
+    return "0시간";
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+
+  return rest > 0 ? `${hours}시간 ${rest}분` : `${hours}시간`;
+}
+
+function getAnomalyLabel(value: string) {
+  if (value === "checkout_missing" || value === "missing_checkout") {
+    return "퇴근 미처리";
+  }
+
+  if (value === "location_mismatch") {
+    return "위치 이상";
+  }
+
+  if (value === "location_unknown") {
+    return "위치 미확인";
+  }
+
+  if (value === "time_mismatch") {
+    return "시간 이상";
+  }
+
+  if (value === "absence_candidate") {
+    return "결근 후보";
+  }
+
+  return value === "none" ? "정상" : "확인 필요";
+}
+
+function getPayrollStatusLabel(value: string) {
+  if (value === "held") {
+    return "보류";
+  }
+
+  if (value === "confirmed" || value === "applied") {
+    return "반영";
+  }
+
+  return value === "none" ? "미반영" : "확인 필요";
+}
+
+function getTaxScopeLabel(value: string) {
+  return value === "post_tax" ? "세후 가산" : "세전 합산";
+}
+
+function getWorkRecordStatusLabel(value: string) {
+  if (value === "resolved") {
+    return "처리 완료";
+  }
+
+  if (value === "anomaly_unresolved") {
+    return "확인 필요";
+  }
+
+  return "정상";
+}
+
+function formatDateKeyDisplay(value: string) {
+  const [, month, day] = value.split("-");
+
+  if (!month || !day) {
+    return value || "-";
+  }
+
+  return `${month}.${day}`;
 }
 
 function buildStatementViewModel(
@@ -268,50 +1142,6 @@ function buildStatementViewModel(
     selectedMonthLabel: formatMonthKorean(monthKey),
     selectedRowId: rows[0]?.id ?? "",
     summaryCards: buildStatementMetrics(rowsForMonth),
-  };
-}
-
-function buildCalculationRow({
-  bonuses,
-  projection,
-  setting,
-  statement,
-}: {
-  bonuses: readonly BonusItem[];
-  projection: PayrollWorkerMonthProjection;
-  setting?: PayrollSetting;
-  statement?: PayStatement;
-}): PayrollCalculationRow {
-  const finalAmount =
-    projection.finalAmount ??
-    statement?.currentFinalAmount ??
-    statement?.finalAmount ??
-    null;
-  const overtimePay = statement?.overtimePay ?? 0;
-  const taxAmount = statement?.taxAmount ?? estimateTaxAmount(finalAmount, setting);
-  const bonusTotal = sumConfirmedBonuses(bonuses);
-  const basePay = estimateBasePay(
-    finalAmount,
-    overtimePay,
-    bonusTotal,
-    taxAmount,
-    setting,
-  );
-  const openItemCount = getOpenItemCount(projection, bonuses, statement);
-
-  return {
-    id: projection.id,
-    basePay: formatWon(basePay),
-    bonusDeduction: formatSignedWon(bonusTotal),
-    detailButtonLabel: "상세보기",
-    finalPay: formatWon(finalAmount),
-    openItems: openItemCount > 0 ? `미처리 ${openItemCount}건` : "-",
-    openItemsTone: openItemCount > 0 ? "orange" : "default",
-    overtimePay: formatWon(overtimePay),
-    status: getCalculationStatusLabel(projection.rowStatus),
-    statusTone: getCalculationStatusTone(projection.rowStatus),
-    tax: formatWon(taxAmount),
-    workerName: projection.workerName,
   };
 }
 
@@ -485,17 +1315,21 @@ function buildWorkerSummary({
   monthKey,
   projection,
   setting,
+  totalWorkMinutes,
 }: {
   finalAmount: number | null;
   monthKey: string;
   projection: PayrollWorkerMonthProjection;
   setting?: PayrollSetting;
+  totalWorkMinutes?: number;
 }): PayrollWorkerSummary {
   return {
     id: projection.workerId,
     hourlyPayLabel: formatPayrollBasis(setting),
     monthlyWorkLabel:
-      finalAmount == null
+      totalWorkMinutes != null
+        ? `${formatMonthKorean(monthKey)} ${formatHours(totalWorkMinutes)} 근무`
+        : finalAmount == null
         ? `${formatMonthKorean(monthKey)} 산정 대기`
         : `${formatMonthKorean(monthKey)} 산정 ${formatWon(finalAmount)}`,
     name: projection.workerName,
@@ -547,8 +1381,12 @@ function mapBonusItem(document: PayrollDocument): BonusItem {
 
   return {
     amount: readNumber(data.amount, 0),
+    createdAt: readTimestamp(data.createdAt),
+    id: document.id,
+    label: readString(data.label, "보너스/차감"),
     monthKey: readMonthKey(data.monthKey),
     payrollStatus: readString(data.payrollStatus, "confirmed"),
+    taxScope: readString(data.taxScope, "pre_tax"),
     workerId: readString(data.workerId, ""),
   };
 }
@@ -582,6 +1420,75 @@ function mapPayStatement(document: PayrollDocument): PayStatement | null {
   };
 }
 
+function mapWorkRecord(document: PayrollDocument): WorkRecord {
+  const data = document.data;
+
+  return {
+    anomalyType: readString(data.anomalyType, "none"),
+    dateKey: readString(data.dateKey ?? data.date, ""),
+    dutyName: readString(data.dutyName, "근무 기록"),
+    effectiveEndAt: readTimestamp(data.effectiveEndAt),
+    effectiveStartAt: readTimestamp(data.effectiveStartAt),
+    id: document.id,
+    locationName: readString(data.locationName, "근무지 확인 필요"),
+    plannedEndAt: readTimestamp(data.plannedEndAt),
+    plannedStartAt: readTimestamp(data.plannedStartAt),
+    status: readString(data.status, ""),
+    workerId: readString(data.workerId, ""),
+    workerName: readString(data.workerName, "이름 없는 조교"),
+  };
+}
+
+function mapAnomalyFlag(document: PayrollDocument): AnomalyFlag {
+  const data = document.data;
+
+  return {
+    anomalyType: readString(data.anomalyType, "none"),
+    createdAt: readTimestamp(data.createdAt),
+    dateKey: readString(data.dateKey, ""),
+    dutyName: readString(data.dutyName, "근무 기록"),
+    id: document.id,
+    status: readString(data.status, ""),
+    workRecordId: readNullableString(data.workRecordId),
+    workerId: readString(data.workerId, ""),
+    workerName: readString(data.workerName, "이름 없는 조교"),
+  };
+}
+
+function mapOvertimeWork(document: PayrollDocument): OvertimeWork {
+  const data = document.data;
+
+  return {
+    createdAt: readTimestamp(data.createdAt ?? data.submittedAt),
+    id: document.id,
+    monthKey: readMonthKey(data.monthKey),
+    payrollEffect: readString(data.payrollEffect, ""),
+    payrollStatus: readString(data.payrollStatus, "none"),
+    reason: readString(data.reason, "사유 확인 필요"),
+    status: readString(data.status, ""),
+    workRecordId: readNullableString(data.workRecordId),
+    workerId: readString(data.workerId, ""),
+    workerName: readString(data.workerName, "이름 없는 조교"),
+  };
+}
+
+function mapCorrectionRequest(document: PayrollDocument): CorrectionRequest {
+  const data = document.data;
+
+  return {
+    createdAt: readTimestamp(data.createdAt ?? data.submittedAt),
+    id: document.id,
+    monthKey: readMonthKey(data.monthKey),
+    payrollEffect: readString(data.payrollEffect, ""),
+    payrollStatus: readString(data.payrollStatus, "none"),
+    reason: readString(data.reason, "사유 확인 필요"),
+    status: readString(data.status, ""),
+    workRecordId: readNullableString(data.workRecordId),
+    workerId: readString(data.workerId, ""),
+    workerName: readString(data.workerName, "이름 없는 조교"),
+  };
+}
+
 function mapDocument(
   snapshot: QueryDocumentSnapshot<DocumentData>,
 ): PayrollDocument {
@@ -594,11 +1501,19 @@ function mapDocument(
 function selectCalculationMonthKey(
   projections: readonly PayrollWorkerMonthProjection[],
   statements: readonly PayStatement[],
+  target: PayrollCalculationTarget,
 ) {
   const monthKeys = unique([
     ...projections.map((row) => row.monthKey),
     ...statements.map((statement) => statement.monthKey),
   ]).sort(compareMonthKeyDesc);
+  const focusMonth = projections.find(
+    (row) => row.id === target.focusId || row.payStatementId === target.focusId,
+  )?.monthKey;
+  const requestedMonth =
+    target.monthKey && monthKeys.includes(target.monthKey)
+      ? target.monthKey
+      : focusMonth;
   const readyMonth = monthKeys.find((monthKey) =>
     projections.some(
       (row) =>
@@ -607,7 +1522,7 @@ function selectCalculationMonthKey(
     ),
   );
 
-  return readyMonth ?? monthKeys[0] ?? "2026-04";
+  return requestedMonth ?? readyMonth ?? monthKeys[0] ?? "2026-04";
 }
 
 function selectStatementMonthKey(
@@ -661,30 +1576,30 @@ function estimateBasePay(
   return Math.max(finalAmount - overtimePay - bonusTotal + taxAmount, 0);
 }
 
-function estimateTaxAmount(
-  finalAmount: number | null,
-  setting?: PayrollSetting,
-) {
-  if (finalAmount == null || setting?.taxRatePercent == null) {
-    return 0;
-  }
-
-  return Math.max(Math.round(finalAmount * (setting.taxRatePercent / 100)), 0);
-}
-
-function sumConfirmedBonuses(items: readonly BonusItem[]) {
-  return items
-    .filter((item) => item.payrollStatus !== "held")
-    .reduce((total, item) => total + item.amount, 0);
-}
-
-function getOpenItemCount(
-  projection: PayrollWorkerMonthProjection,
-  bonuses: readonly BonusItem[],
-  statement?: PayStatement,
-) {
+function getOpenItemCount({
+  anomalyFlags,
+  bonuses,
+  correctionRequests,
+  overtimeWorks,
+  projection,
+  statement,
+}: {
+  anomalyFlags: readonly AnomalyFlag[];
+  bonuses: readonly BonusItem[];
+  correctionRequests: readonly CorrectionRequest[];
+  overtimeWorks: readonly OvertimeWork[];
+  projection: PayrollWorkerMonthProjection;
+  statement?: PayStatement;
+}) {
   return (
     (projection.hasBlockers ? 1 : 0) +
+    anomalyFlags.filter((item) => item.status === "unresolved").length +
+    overtimeWorks.filter(
+      (item) => item.status === "submitted" || item.payrollStatus === "held",
+    ).length +
+    correctionRequests.filter(
+      (item) => item.status === "submitted" || item.payrollStatus === "held",
+    ).length +
     bonuses.filter((item) => item.payrollStatus === "held").length +
     (readBoolean(statement?.managerOnly.needsReconfirmation, false) ? 1 : 0)
   );
@@ -703,7 +1618,7 @@ function getCalculationStatusLabel(status: PayrollRowStatus) {
     return "지급 완료";
   }
 
-  return "확정";
+  return "처리중";
 }
 
 function getCalculationStatusTone(status: PayrollRowStatus): PayrollTone {

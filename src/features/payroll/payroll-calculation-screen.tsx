@@ -61,10 +61,16 @@ const openItemsPanelHeight: Record<PayrollDetailStateId, string> = {
 
 type PayrollCalculationScreenProps = {
   dataSource?: PayrollDataSource;
+  initialFocusId?: string;
+  initialMonthKey?: string;
+  initialWorkerId?: string;
 };
 
 export function PayrollCalculationScreen({
   dataSource: dataSourceProp,
+  initialFocusId,
+  initialMonthKey,
+  initialWorkerId,
 }: PayrollCalculationScreenProps = {}) {
   const fallbackDataSource = useMemo(() => createPayrollDataSource(), []);
   const dataSource = dataSourceProp ?? fallbackDataSource;
@@ -89,14 +95,30 @@ export function PayrollCalculationScreen({
     let active = true;
 
     void dataSource
-      .loadCalculation()
+      .loadCalculation({
+        focusId: initialFocusId,
+        monthKey: initialMonthKey,
+        workerId: initialWorkerId,
+      })
       .then((nextViewModel) => {
         if (!active) {
           return;
         }
 
+        const nextSelectedRowId = resolveSelectedRowId(nextViewModel, {
+          focusId: initialFocusId,
+          monthKey: initialMonthKey,
+          workerId: initialWorkerId,
+        });
+
         setViewModel(nextViewModel);
-        setSelectedRowId(nextViewModel.selectedRowId);
+        setSelectedRowId(nextSelectedRowId);
+        if (
+          nextSelectedRowId &&
+          (initialFocusId || initialMonthKey || initialWorkerId)
+        ) {
+          setDetailState("detail");
+        }
         setLoading(false);
       })
       .catch(() => {
@@ -111,7 +133,7 @@ export function PayrollCalculationScreen({
     return () => {
       active = false;
     };
-  }, [dataSource, fixtureMode]);
+  }, [dataSource, fixtureMode, initialFocusId, initialMonthKey, initialWorkerId]);
 
   if (detailState) {
     const detailSet =
@@ -150,9 +172,35 @@ export function PayrollCalculationScreen({
           setDetailState("detail");
         }}
         rows={viewModel.rows}
+        selectedRowId={selectedRowId}
         viewModel={viewModel}
       />
     </section>
+  );
+}
+
+function resolveSelectedRowId(
+  viewModel: PayrollCalculationFixture,
+  target: {
+    focusId?: string;
+    monthKey?: string;
+    workerId?: string;
+  },
+) {
+  return (
+    viewModel.rows.find((row) => {
+      const focusMatches =
+        !target.focusId ||
+        row.id === target.focusId ||
+        row.payStatementId === target.focusId;
+      const workerMatches = !target.workerId || row.workerId === target.workerId;
+      const monthMatches = !target.monthKey || row.monthKey === target.monthKey;
+
+      return focusMatches && workerMatches && monthMatches;
+    })?.id ??
+    viewModel.selectedRowId ??
+    viewModel.rows[0]?.id ??
+    ""
   );
 }
 
@@ -190,11 +238,13 @@ function PayrollListToolbar({
 function PayrollListTable({
   loading,
   rows,
+  selectedRowId,
   onShowDetail,
   viewModel,
 }: {
   loading: boolean;
   rows: readonly PayrollCalculationRow[];
+  selectedRowId: string;
   onShowDetail: (rowId: string) => void;
   viewModel: PayrollCalculationFixture;
 }) {
@@ -224,7 +274,7 @@ function PayrollListTable({
           {rows.map((row) => (
             <PayrollListRow
               key={row.id}
-              first={row.id === viewModel.selectedRowId}
+              first={row.id === selectedRowId}
               row={row}
               onShowDetail={() => onShowDetail(row.id)}
             />

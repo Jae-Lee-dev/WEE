@@ -1,4 +1,8 @@
+"use client";
+
 import type { CSSProperties } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -9,16 +13,17 @@ import {
 } from "./worker-detail-shell";
 import { defaultWorkerDetailRouteId } from "./worker-detail-common-fixtures";
 import {
-  workerDetailRecentWorkRecords,
-  workerDetailScheduleBlocks,
   workerDetailScheduleDays,
-  workerDetailScheduleHistory,
   workerDetailScheduleHours,
   type WorkerDetailScheduleBlock,
   type WorkerDetailScheduleHistory,
   type WorkerDetailScheduleTone,
   type WorkerDetailWorkRecord,
 } from "./worker-detail-schedule-fixtures";
+import {
+  createWorkerDetailScheduleDataSource,
+  type WorkerDetailScheduleViewModel,
+} from "./worker-detail-schedule-data-source";
 
 const hourColumnCount = workerDetailScheduleHours.length;
 const firstHour = Number(workerDetailScheduleHours[0]);
@@ -49,21 +54,94 @@ export function WorkerDetailScheduleScreen({
 }: {
   workerId?: string;
 }) {
+  const dataSource = useMemo(() => createWorkerDetailScheduleDataSource(), []);
+  const [viewModel, setViewModel] = useState<WorkerDetailScheduleViewModel>(
+    dataSource.initialData ?? {
+      blocks: [],
+      history: [],
+      profile: {
+        deleteLabel: "조교 삭제",
+        monthlySummary: "근무시간 집계 전",
+        name: "조교 정보 로딩 중",
+        paySummary: "급여 설정 확인 중",
+        registeredSummary: "등록일 확인 중",
+        status: "활성",
+        tag: "태그 확인 중",
+      },
+      recentRecords: [],
+    },
+  );
+  const [loading, setLoading] = useState(!dataSource.initialData);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    if (dataSource.initialData) {
+      return;
+    }
+
+    let active = true;
+
+    void dataSource
+      .getSchedule(workerId)
+      .then((nextViewModel) => {
+        if (!active) {
+          return;
+        }
+
+        setViewModel(nextViewModel);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setErrorMessage("조교 시간표를 불러오지 못했습니다.");
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [dataSource, workerId]);
+
   return (
-    <WorkerDetailShell activeTab="schedule" workerId={workerId}>
+    <WorkerDetailShell
+      activeTab="schedule"
+      profile={viewModel.profile}
+      workerId={workerId}
+    >
+      {errorMessage ? (
+        <div
+          className="rounded-[8px] border border-red-100 bg-red-50 px-4 py-2.5 text-body-14-medium tracking-normal text-red-500"
+          role="alert"
+        >
+          {errorMessage}
+        </div>
+      ) : null}
       <div
         className="grid grid-cols-[minmax(0,1fr)_360px] gap-4"
         data-testid="worker-detail-schedule-screen"
       >
-        <ScheduleGrid />
-        <ScheduleHistoryPanel />
+        <ScheduleGrid blocks={viewModel.blocks} loading={loading} />
+        <ScheduleHistoryPanel history={viewModel.history} loading={loading} />
       </div>
-      <RecentWorkRecords />
+      <RecentWorkRecords
+        loading={loading}
+        records={viewModel.recentRecords}
+        workerId={workerId}
+      />
     </WorkerDetailShell>
   );
 }
 
-function ScheduleGrid() {
+function ScheduleGrid({
+  blocks: scheduleBlocks,
+  loading,
+}: {
+  blocks: readonly WorkerDetailScheduleBlock[];
+  loading: boolean;
+}) {
   return (
     <section
       aria-label="주간 시간표"
@@ -92,7 +170,7 @@ function ScheduleGrid() {
       </div>
 
       {workerDetailScheduleDays.map((day, index) => {
-        const blocks = workerDetailScheduleBlocks.filter(
+        const blocks = scheduleBlocks.filter(
           (block) => block.dayId === day.id,
         );
         const last = index === workerDetailScheduleDays.length - 1;
@@ -135,6 +213,11 @@ function ScheduleGrid() {
               {blocks.map((block) => (
                 <ScheduleBlock block={block} key={block.id} />
               ))}
+              {!loading && blocks.length === 0 ? (
+                <div className="absolute inset-y-0 left-3 flex items-center text-detail-16-regular text-gray-400">
+                  배정 없음
+                </div>
+              ) : null}
             </div>
           </div>
         );
@@ -159,7 +242,13 @@ function ScheduleBlock({ block }: { block: WorkerDetailScheduleBlock }) {
   );
 }
 
-function ScheduleHistoryPanel() {
+function ScheduleHistoryPanel({
+  history,
+  loading,
+}: {
+  history: readonly WorkerDetailScheduleHistory[];
+  loading: boolean;
+}) {
   return (
     <WorkerDetailSubsection
       ariaLabel="시간표 변경 이력"
@@ -169,9 +258,15 @@ function ScheduleHistoryPanel() {
         <h2 className="text-h-20 text-gray-900">시간표 변경 이력</h2>
       </WorkerDetailSubsectionHeader>
       <div className="flex flex-col gap-3">
-        {workerDetailScheduleHistory.map((item) => (
-          <ScheduleHistoryCard item={item} key={item.id} />
-        ))}
+        {loading ? (
+          <PanelState>시간표 이력을 불러오는 중입니다.</PanelState>
+        ) : history.length > 0 ? (
+          history.map((item) => (
+            <ScheduleHistoryCard item={item} key={item.id} />
+          ))
+        ) : (
+          <PanelState>표시할 시간표 이력이 없습니다.</PanelState>
+        )}
       </div>
     </WorkerDetailSubsection>
   );
@@ -183,6 +278,7 @@ function ScheduleHistoryCard({
   item: WorkerDetailScheduleHistory;
 }) {
   const active = item.status === "활성";
+  const pending = item.status === "대기";
 
   return (
     <article
@@ -193,10 +289,14 @@ function ScheduleHistoryCard({
     >
       <div className="flex min-w-0 items-center gap-3">
         <Badge
-          variant={active ? "green" : "red"}
+          variant={active ? "green" : pending ? "orange" : "red"}
           size="M"
           style={{
-            color: active ? "var(--color-green-400)" : "var(--color-red-500)",
+            color: active
+              ? "var(--color-green-400)"
+              : pending
+                ? "var(--color-orange-400)"
+                : "var(--color-red-500)",
           }}
         >
           {item.status}
@@ -224,7 +324,15 @@ function ScheduleHistoryCard({
   );
 }
 
-function RecentWorkRecords() {
+function RecentWorkRecords({
+  loading,
+  records,
+  workerId,
+}: {
+  loading: boolean;
+  records: readonly WorkerDetailWorkRecord[];
+  workerId: string;
+}) {
   return (
     <WorkerDetailSubsection
       ariaLabel="최근 근무 기록"
@@ -234,11 +342,13 @@ function RecentWorkRecords() {
       <WorkerDetailSubsectionHeader
         actions={
           <Button
-            type="button"
+            asChild
             variant="secondary"
             className="h-9 rounded-full px-4 text-h-18-regular text-gray-800"
           >
-            근무기록으로 이동
+            <Link href={`/records?workerId=${encodeURIComponent(workerId)}`}>
+              근무기록으로 이동
+            </Link>
           </Button>
         }
       >
@@ -254,11 +364,25 @@ function RecentWorkRecords() {
         <div role="columnheader">플래그</div>
       </div>
       <div role="rowgroup">
-        {workerDetailRecentWorkRecords.map((record) => (
-          <RecentWorkRecordRow key={record.id} record={record} />
-        ))}
+        {loading ? (
+          <PanelState>최근 근무 기록을 불러오는 중입니다.</PanelState>
+        ) : records.length > 0 ? (
+          records.map((record) => (
+            <RecentWorkRecordRow key={record.id} record={record} />
+          ))
+        ) : (
+          <PanelState>표시할 근무 기록이 없습니다.</PanelState>
+        )}
       </div>
     </WorkerDetailSubsection>
+  );
+}
+
+function PanelState({ children }: { children: string }) {
+  return (
+    <div className="flex min-h-20 items-center justify-center text-center text-h-18-regular text-gray-500">
+      {children}
+    </div>
   );
 }
 

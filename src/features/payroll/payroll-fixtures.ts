@@ -11,6 +11,7 @@ export type PayrollAmountTone =
 export type PayrollCalculationStatus =
   | "미확정"
   | "확정"
+  | "처리중"
   | "재확정 필요"
   | "지급 완료";
 
@@ -31,6 +32,9 @@ export type PayrollTableColumn = {
 
 export type PayrollCalculationRow = {
   id: string;
+  monthKey?: string;
+  payStatementId?: string;
+  workerId?: string;
   workerName: string;
   basePay: string;
   overtimePay: string;
@@ -85,6 +89,7 @@ export type PayrollAdjustmentForm = {
 };
 
 export type PayrollOpenItemStatus =
+  | "근무기록"
   | "이상 플래그"
   | "추가근무"
   | "이의신청"
