@@ -149,7 +149,7 @@ export type AnomalyHistoryDetail = {
   infoLines: readonly RecordDetailLine[];
 };
 
-export type CorrectionStatus = "승인" | "처리 대기" | "반려" | "탈퇴";
+export type CorrectionStatus = "승인" | "처리 대기" | "반려" | "탈퇴" | "철회";
 
 export type CorrectionRow = {
   id: string;
