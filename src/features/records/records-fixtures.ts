@@ -679,7 +679,7 @@ export const correctionHistoryFixtureViewModel = {
   details: {
     [selectedCorrectionDetail.id]: selectedCorrectionDetail,
   },
-  emptyDetailText: ["왼쪽 리스트에서", "이상감지처리 이력을 선택하세요."],
+  emptyDetailText: ["왼쪽 리스트에서", "이의신청 이력을 선택하세요."],
   filters: correctionFilters,
   metrics: correctionMetrics,
   rows: correctionRows,
