@@ -43,6 +43,7 @@ export type RecordTimelineBlockKind =
 
 export type RecordTimelineBlock = {
   id: string;
+  dateKey?: string;
   dayId: RecordTimelineDayId;
   workerName: string;
   dutyName: string;
@@ -56,8 +57,15 @@ export type RecordTimelineBlock = {
   selectedStateId?: RecordDetailStateId;
 };
 
+export type RecordTimelineWeekNavigation = {
+  initialWeekStartKey: string;
+  maxWeekStartKey: string;
+  minWeekStartKey: string;
+};
+
 export type RecordTimelineFixture = {
   weekLabel: string;
+  weekNavigation?: RecordTimelineWeekNavigation;
   dayLabels: readonly {
     id: RecordTimelineDayId;
     label: string;
@@ -194,6 +202,12 @@ export type AttendanceLogRow = {
 export type RecordMainViewModel = {
   blocks: readonly RecordTimelineBlock[];
   detailStates: Record<RecordDetailStateId, RecordDetailState>;
+  detailStatesByBlockId: Record<
+    string,
+    Record<RecordDetailStateId, RecordDetailState>
+  >;
+  initialBlockId?: string | null;
+  initialWeekStartKey?: string | null;
   initialDetailStateId: RecordDetailStateId;
   timeline: RecordTimelineFixture;
 };
@@ -245,15 +259,15 @@ export const recordsTabs = [
 ] as const satisfies readonly RecordsTab[];
 
 export const recordTimelineFixture = {
-  weekLabel: "05.04 (월) ~ 05.10 (일)",
+  weekLabel: "05.03 (일) ~ 05.09 (토)",
   dayLabels: [
+    { id: "sun", label: "일" },
     { id: "mon", label: "월" },
     { id: "tue", label: "화" },
     { id: "wed", label: "수" },
     { id: "thu", label: "목" },
     { id: "fri", label: "금" },
     { id: "sat", label: "토" },
-    { id: "sun", label: "일" },
   ],
   hourLabels: [
     "08",
@@ -508,6 +522,12 @@ export const recordDetailStates = {
 export const recordMainFixtureViewModel = {
   blocks: recordTimelineBlocks,
   detailStates: recordDetailStates,
+  detailStatesByBlockId: {
+    "record-lee-haeun-english-c-mon": recordDetailStates,
+    "record-song-hyunwoo-physics-f-mon": recordDetailStates,
+  },
+  initialBlockId: null,
+  initialWeekStartKey: null,
   initialDetailStateId: "empty",
   timeline: recordTimelineFixture,
 } as const satisfies RecordMainViewModel;

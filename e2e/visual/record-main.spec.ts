@@ -1,6 +1,7 @@
 import { expect, test } from "playwright/test";
 import {
   captureActualScreenshot,
+  expectTimelineFrameOwnsStickyScroll,
   prepareVisualPage,
   type VisualViewportName,
 } from "./helpers";
@@ -12,7 +13,15 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await prepareVisualPage({ page, path: "/records", viewport });
     await page.evaluate(() => document.fonts.ready);
     await expect(page.getByTestId("record-main-screen")).toBeVisible();
-    await expect(page.getByText("05.04 (월) ~ 05.10 (일)")).toBeVisible();
+    await expect(page.getByText("05.03 (일) ~ 05.09 (토)")).toBeVisible();
+    await expect(page.getByRole("rowheader", { name: "일" })).toBeVisible();
+
+    if (viewport === "laptop-1366") {
+      await expectTimelineFrameOwnsStickyScroll({
+        frameTestId: "record-timeline-scroll",
+        page,
+      });
+    }
 
     await captureActualScreenshot({
       page,

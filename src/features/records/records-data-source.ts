@@ -241,7 +241,6 @@ async function readWorkspaceCollection(
 
 function mapRecordMainView(collections: RecordsCollections): RecordMainViewModel {
   const records = collections.workRecords.map(mapWorkRecord).sort(compareRecords);
-  const latestWeekRecords = filterLatestWeekRecords(records);
   const attendanceById = toMap(
     collections.attendanceLogs.map(mapAttendanceLog),
     (log) => log.id,
@@ -262,24 +261,28 @@ function mapRecordMainView(collections: RecordsCollections): RecordMainViewModel
       .filter((work) => work.status === "submitted" && work.workRecordId)
       .map((work) => work.workRecordId as string),
   );
-  const selectedRecord =
-    latestWeekRecords.find((record) => isUnresolvedAnomaly(record, flagsByRecordId)) ??
-    latestWeekRecords[0] ??
-    null;
+  const weekNavigation = createWeekNavigation(records);
+  const initialWeekStartKey = weekNavigation.initialWeekStartKey;
+  const selectedRecord = selectInitialRecord(records, {
+    flagsByRecordId,
+    weekStartKey: initialWeekStartKey,
+  });
   const initialDetailStateId = selectedRecord
     ? isUnresolvedAnomaly(selectedRecord, flagsByRecordId)
       ? "anomaly-step-1"
       : "normal-selected"
     : "empty";
-  const blocks = latestWeekRecords.map((record) =>
+  const blocks = records.map((record) =>
     mapTimelineBlock(record, {
       flag: flagsByRecordId.get(record.id),
       pendingCorrectionIds,
       pendingOvertimeIds,
-      selectedRecordId: selectedRecord?.id ?? null,
-      selectedStateId: initialDetailStateId,
     }),
   );
+  const detailStatesByBlockId = createDetailStatesByBlockId(records, {
+    attendanceById,
+    flagsByRecordId,
+  });
 
   return {
     blocks,
@@ -290,11 +293,17 @@ function mapRecordMainView(collections: RecordsCollections): RecordMainViewModel
       flag: selectedRecord ? flagsByRecordId.get(selectedRecord.id) ?? null : null,
       record: selectedRecord,
     }),
+    detailStatesByBlockId,
+    initialBlockId: selectedRecord?.id ?? null,
+    initialWeekStartKey,
     initialDetailStateId,
     timeline: {
       ...recordMainFixtureViewModel.timeline,
-      filters: createMainFilters(latestWeekRecords),
-      weekLabel: createWeekLabel(latestWeekRecords),
+      weekNavigation,
+      filters: createMainFilters(records),
+      weekLabel: initialWeekStartKey
+        ? formatWeekLabelFromStartKey(initialWeekStartKey)
+        : createWeekLabel(records),
     },
   };
 }
@@ -516,8 +525,6 @@ function mapTimelineBlock(
     flag?: AnomalyFlagModel;
     pendingCorrectionIds: ReadonlySet<string>;
     pendingOvertimeIds: ReadonlySet<string>;
-    selectedRecordId: string | null;
-    selectedStateId: RecordDetailStateId;
   },
 ): RecordTimelineBlock {
   const hasUnresolvedFlag = isUnresolvedAnomaly(record, new Map([[record.id, options.flag]]));
@@ -526,23 +533,81 @@ function mapTimelineBlock(
     pendingCorrectionIds: options.pendingCorrectionIds,
     pendingOvertimeIds: options.pendingOvertimeIds,
   });
-  const selectedStateId =
-    record.id === options.selectedRecordId ? options.selectedStateId : undefined;
 
   return {
     id: record.id,
+    dateKey: getRecordDateKey(record) || undefined,
     dayId: getRecordDayId(record),
     dutyName: record.dutyName,
     endHour: getRecordEndHour(record),
     endTime: formatTime(record.effectiveEndAt ?? record.plannedEndAt),
     kind,
     locationName: record.locationName,
-    selectedStateId,
+    selectedStateId: hasUnresolvedFlag ? "anomaly-step-1" : "normal-selected",
     startHour: getRecordStartHour(record),
     startTime: formatTime(record.effectiveStartAt ?? record.plannedStartAt),
     tone: getTimelineBlockTone(kind),
     workerName: record.workerName,
   };
+}
+
+function createDetailStatesByBlockId(
+  records: readonly WorkRecordModel[],
+  options: {
+    attendanceById: ReadonlyMap<string, AttendanceLogModel>;
+    flagsByRecordId: ReadonlyMap<string, AnomalyFlagModel | undefined>;
+  },
+) {
+  const detailStatesByBlockId: Record<
+    string,
+    Record<RecordDetailStateId, RecordDetailState>
+  > = {};
+
+  for (const record of records) {
+    detailStatesByBlockId[record.id] = createDetailStates({
+      attendance: record.attendanceLogId
+        ? options.attendanceById.get(record.attendanceLogId) ?? null
+        : null,
+      flag: options.flagsByRecordId.get(record.id) ?? null,
+      record,
+    });
+  }
+
+  return detailStatesByBlockId;
+}
+
+function createWeekNavigation(records: readonly WorkRecordModel[]) {
+  const currentWeekStartKey = formatDateKey(startOfWeekSunday(new Date()));
+  const recordWeekStartKeys = records
+    .map(getRecordDate)
+    .filter((date): date is Date => Boolean(date))
+    .map((date) => formatDateKey(startOfWeekSunday(date)));
+  const weekStartKeys = [...new Set([currentWeekStartKey, ...recordWeekStartKeys])].sort();
+
+  return {
+    initialWeekStartKey: currentWeekStartKey,
+    maxWeekStartKey: weekStartKeys.at(-1) ?? currentWeekStartKey,
+    minWeekStartKey: weekStartKeys[0] ?? currentWeekStartKey,
+  };
+}
+
+function selectInitialRecord(
+  records: readonly WorkRecordModel[],
+  options: {
+    flagsByRecordId: ReadonlyMap<string, AnomalyFlagModel | undefined>;
+    weekStartKey: string | null;
+  },
+) {
+  const weekStartKey = options.weekStartKey;
+  const scopedRecords = weekStartKey
+    ? records.filter((record) => isRecordInWeek(record, weekStartKey))
+    : records;
+
+  return (
+    scopedRecords.find((record) => isUnresolvedAnomaly(record, options.flagsByRecordId)) ??
+    scopedRecords[0] ??
+    null
+  );
 }
 
 function createDetailStates({
@@ -1238,29 +1303,12 @@ function getRecordEndHour(record: WorkRecordModel) {
 
 function createWeekLabel(records: readonly WorkRecordModel[]) {
   const anchor = getLatestRecordDate(records) ?? new Date();
-  const monday = startOfWeekMonday(anchor);
-  const sunday = addDays(monday, 6);
+  const sunday = startOfWeekSunday(anchor);
+  const saturday = addDays(sunday, 6);
 
-  return `${formatMonthDay(monday)} (${weekDayLabels[monday.getDay()]}) ~ ${formatMonthDay(
-    sunday,
-  )} (${weekDayLabels[sunday.getDay()]})`;
-}
-
-function filterLatestWeekRecords(records: readonly WorkRecordModel[]) {
-  const anchor = getLatestRecordDate(records);
-
-  if (!anchor) {
-    return records;
-  }
-
-  const monday = startOfWeekMonday(anchor);
-  const nextMonday = addDays(monday, 7);
-
-  return records.filter((record) => {
-    const date = getRecordDate(record);
-
-    return date ? date >= monday && date < nextMonday : false;
-  });
+  return `${formatMonthDay(sunday)} (${weekDayLabels[sunday.getDay()]}) ~ ${formatMonthDay(
+    saturday,
+  )} (${weekDayLabels[saturday.getDay()]})`;
 }
 
 function getLatestRecordDate(records: readonly WorkRecordModel[]) {
@@ -1274,6 +1322,22 @@ function getRecordDate(record: WorkRecordModel) {
   return parseDateKey(record.dateKey) ?? record.plannedStartAt ?? record.effectiveStartAt;
 }
 
+function getRecordDateKey(record: WorkRecordModel) {
+  if (parseDateKey(record.dateKey)) {
+    return record.dateKey;
+  }
+
+  const date = getRecordDate(record);
+
+  return date ? formatDateKey(date) : "";
+}
+
+function formatDateKey(date: Date) {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(
+    date.getDate(),
+  )}`;
+}
+
 function compareRecords(first: WorkRecordModel, second: WorkRecordModel) {
   return (
     getSortTime(second.plannedStartAt ?? parseDateKey(second.dateKey)) -
@@ -1282,12 +1346,37 @@ function compareRecords(first: WorkRecordModel, second: WorkRecordModel) {
   );
 }
 
-function startOfWeekMonday(date: Date) {
-  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const day = next.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
+function isRecordInWeek(record: WorkRecordModel, weekStartKey: string) {
+  const date = getRecordDate(record);
+  const weekStart = parseDateKey(weekStartKey);
 
-  next.setDate(next.getDate() + diff);
+  if (!date || !weekStart) {
+    return false;
+  }
+
+  const nextWeekStart = addDays(weekStart, 7);
+
+  return date >= weekStart && date < nextWeekStart;
+}
+
+function formatWeekLabelFromStartKey(weekStartKey: string) {
+  const sunday = parseDateKey(weekStartKey);
+
+  if (!sunday) {
+    return weekStartKey || "-";
+  }
+
+  const saturday = addDays(sunday, 6);
+
+  return `${formatMonthDay(sunday)} (${weekDayLabels[sunday.getDay()]}) ~ ${formatMonthDay(
+    saturday,
+  )} (${weekDayLabels[saturday.getDay()]})`;
+}
+
+function startOfWeekSunday(date: Date) {
+  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  next.setDate(next.getDate() - next.getDay());
 
   return next;
 }

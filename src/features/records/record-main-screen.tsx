@@ -40,6 +40,7 @@ const timelineHeaderHeight = 45;
 const timelineRowHeight = 110;
 const timelineLaneHeight = 54;
 const timelineLaneStride = 56;
+const weekDayLabels = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
 const blockToneClassNames: Record<RecordsTone, string> = {
   green: "border-green-400 bg-green-100 text-gray-900",
@@ -82,12 +83,63 @@ export function RecordMainScreen({
     useState<RecordDetailStateId>(
       fixtureMode ? recordMainFixtureViewModel.initialDetailStateId : "empty",
     );
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(
+    fixtureMode ? (recordMainFixtureViewModel.initialBlockId ?? null) : null,
+  );
+  const [selectedWeekStartKey, setSelectedWeekStartKey] = useState<string | null>(
+    fixtureMode
+      ? (recordMainFixtureViewModel.initialWeekStartKey ?? null)
+      : null,
+  );
   const [loading, setLoading] = useState(!fixtureMode);
   const [errorMessage, setErrorMessage] = useState("");
+  const selectedDetailStates = selectedBlockId
+    ? viewModel.detailStatesByBlockId[selectedBlockId] ?? viewModel.detailStates
+    : viewModel.detailStates;
   const selectedState =
-    viewModel.detailStates[selectedStateId] ?? viewModel.detailStates.empty;
-  const selectedBlockId = findSelectedBlockId(selectedStateId, viewModel.blocks);
+    selectedDetailStates[selectedStateId] ?? selectedDetailStates.empty;
+  const activeWeekStartKey =
+    selectedWeekStartKey ??
+    viewModel.initialWeekStartKey ??
+    viewModel.timeline.weekNavigation?.initialWeekStartKey ??
+    null;
+  const visibleBlocks =
+    activeWeekStartKey && viewModel.timeline.weekNavigation
+      ? viewModel.blocks.filter((block) => isBlockInWeek(block, activeWeekStartKey))
+      : viewModel.blocks;
+  const timeline = createVisibleTimeline(viewModel.timeline, activeWeekStartKey);
+  const selectedVisibleBlockId =
+    selectedBlockId && visibleBlocks.some((block) => block.id === selectedBlockId)
+      ? selectedBlockId
+      : undefined;
   const tallDetailState = selectedStateId === "anomaly-step-3";
+
+  function handleSelectBlock(block: RecordTimelineBlock) {
+    setSelectedBlockId(block.id);
+    setSelectedStateId(block.selectedStateId ?? "normal-selected");
+
+    if (block.dateKey) {
+      setSelectedWeekStartKey(getWeekStartKeyFromDateKey(block.dateKey));
+    }
+  }
+
+  function handleNavigateWeek(direction: -1 | 1) {
+    const nextWeekStartKey = getNavigatedWeekStartKey(
+      activeWeekStartKey,
+      viewModel.timeline.weekNavigation,
+      direction,
+    );
+
+    if (!nextWeekStartKey) {
+      return;
+    }
+
+    const nextBlock = selectDefaultBlockForWeek(viewModel.blocks, nextWeekStartKey);
+
+    setSelectedWeekStartKey(nextWeekStartKey);
+    setSelectedBlockId(nextBlock?.id ?? null);
+    setSelectedStateId(nextBlock?.selectedStateId ?? "empty");
+  }
 
   useEffect(() => {
     let active = true;
@@ -100,6 +152,8 @@ export function RecordMainScreen({
         }
 
         setViewModel(nextViewModel);
+        setSelectedBlockId(nextViewModel.initialBlockId ?? null);
+        setSelectedWeekStartKey(nextViewModel.initialWeekStartKey ?? null);
         setSelectedStateId(nextViewModel.initialDetailStateId);
         setLoading(false);
       })
@@ -111,6 +165,8 @@ export function RecordMainScreen({
         setViewModel(
           createEmptyRecordMainViewModel(["표시할 근무 기록이 없습니다."]),
         );
+        setSelectedBlockId(null);
+        setSelectedWeekStartKey(null);
         setSelectedStateId("empty");
         setErrorMessage("근무 기록을 불러오지 못했습니다.");
         setLoading(false);
@@ -142,21 +198,34 @@ export function RecordMainScreen({
         </div>
       ) : null}
 
-      <RecordToolbar timeline={viewModel.timeline} />
+      <RecordToolbar
+        canGoNext={
+          viewModel.timeline.weekNavigation && activeWeekStartKey
+            ? activeWeekStartKey < viewModel.timeline.weekNavigation.maxWeekStartKey
+            : true
+        }
+        canGoPrevious={
+          viewModel.timeline.weekNavigation && activeWeekStartKey
+            ? activeWeekStartKey > viewModel.timeline.weekNavigation.minWeekStartKey
+            : true
+        }
+        onNavigateWeek={handleNavigateWeek}
+        timeline={timeline}
+      />
 
       <div
         className={cn(
-          "mt-4 grid grid-cols-[minmax(760px,1fr)_340px] gap-4 overflow-hidden",
+          "mt-4 grid min-h-0 grid-cols-[minmax(760px,1fr)_340px] gap-4 overflow-hidden",
           tallDetailState
             ? "h-[640px] min-h-[640px]"
-            : "h-[calc(100vh-192px)] min-h-[520px]",
+            : "h-[calc(100vh-196px)] min-h-[520px]",
         )}
       >
         <RecordTimelineGrid
-          blocks={viewModel.blocks}
-          onSelectState={setSelectedStateId}
-          selectedBlockId={selectedBlockId}
-          timeline={viewModel.timeline}
+          blocks={visibleBlocks}
+          onSelectBlock={handleSelectBlock}
+          selectedBlockId={selectedVisibleBlockId}
+          timeline={timeline}
         />
         <RecordDetailPanel
           state={selectedState}
@@ -167,17 +236,35 @@ export function RecordMainScreen({
   );
 }
 
-function RecordToolbar({ timeline }: { timeline: RecordTimelineFixture }) {
+function RecordToolbar({
+  canGoNext,
+  canGoPrevious,
+  onNavigateWeek,
+  timeline,
+}: {
+  canGoNext: boolean;
+  canGoPrevious: boolean;
+  onNavigateWeek: (direction: -1 | 1) => void;
+  timeline: RecordTimelineFixture;
+}) {
   const { filters } = timeline;
 
   return (
     <div className="flex h-9 items-center justify-between gap-4">
       <div className="flex shrink-0 items-center gap-3">
-        <RoundArrowButton direction="left" />
+        <RoundArrowButton
+          direction="left"
+          disabled={!canGoPrevious}
+          onClick={() => onNavigateWeek(-1)}
+        />
         <h2 className="text-h-20 tracking-normal text-gray-900">
           {timeline.weekLabel}
         </h2>
-        <RoundArrowButton direction="right" />
+        <RoundArrowButton
+          direction="right"
+          disabled={!canGoNext}
+          onClick={() => onNavigateWeek(1)}
+        />
       </div>
 
       <div className="flex min-w-0 items-center gap-3">
@@ -195,14 +282,29 @@ function RecordToolbar({ timeline }: { timeline: RecordTimelineFixture }) {
   );
 }
 
-function RoundArrowButton({ direction }: { direction: "left" | "right" }) {
+function RoundArrowButton({
+  direction,
+  disabled,
+  onClick,
+}: {
+  direction: "left" | "right";
+  disabled: boolean;
+  onClick: () => void;
+}) {
   const Icon = direction === "left" ? IconChevronLeft : IconChevronRight;
 
   return (
     <button
       type="button"
       aria-label={direction === "left" ? "이전 주" : "다음 주"}
-      className="flex size-5 items-center justify-center rounded-full bg-gray-600 text-white transition-colors duration-150 ease-out hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+      className={cn(
+        "flex size-5 items-center justify-center rounded-full text-white transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
+        disabled
+          ? "cursor-not-allowed bg-gray-200 text-gray-400"
+          : "bg-gray-600 hover:bg-gray-700",
+      )}
+      disabled={disabled}
+      onClick={onClick}
     >
       <Icon className="size-4" />
     </button>
@@ -271,12 +373,12 @@ function RecordTypeChips({
 
 function RecordTimelineGrid({
   blocks,
-  onSelectState,
+  onSelectBlock,
   selectedBlockId,
   timeline,
 }: {
   blocks: readonly RecordTimelineBlock[];
-  onSelectState: (stateId: RecordDetailStateId) => void;
+  onSelectBlock: (block: RecordTimelineBlock) => void;
   selectedBlockId?: string;
   timeline: RecordTimelineFixture;
 }) {
@@ -289,7 +391,10 @@ function RecordTimelineGrid({
   }));
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-[8px] border border-gray-200 bg-white">
+    <div
+      className="relative h-full min-h-0 min-w-0 overflow-auto overscroll-contain rounded-[8px] border border-gray-200 bg-white"
+      data-testid="record-timeline-scroll"
+    >
       <div
         aria-label="주간 근무기록"
         className="grid min-w-[860px] grid-cols-[46px_minmax(0,1fr)]"
@@ -297,11 +402,11 @@ function RecordTimelineGrid({
       >
         <div
           aria-hidden="true"
-          className="border-b border-r border-gray-200 bg-white"
+          className="sticky left-0 top-0 z-30 border-b border-r border-gray-200 bg-white"
           style={{ height: timelineHeaderHeight }}
         />
         <div
-          className="grid grid-cols-[repeat(17,minmax(0,1fr))] border-b border-gray-200"
+          className="sticky top-0 z-20 grid grid-cols-[repeat(17,minmax(0,1fr))] border-b border-gray-200 bg-white"
           style={{ height: timelineHeaderHeight }}
         >
           {timeline.hourLabels.map((slot, index) => (
@@ -325,7 +430,7 @@ function RecordTimelineGrid({
             <div className="contents" key={day.id}>
               <div
                 className={cn(
-                  "flex items-center justify-center border-r border-gray-200 bg-white px-1 text-h-18-semibold tracking-normal text-gray-800",
+                  "sticky left-0 z-10 flex items-center justify-center border-r border-gray-200 bg-white px-1 text-h-18-semibold tracking-normal text-gray-800",
                   !isLastDay && "border-b border-gray-100",
                 )}
                 role="rowheader"
@@ -360,7 +465,7 @@ function RecordTimelineGrid({
                 {positionedBlocks.map((positionedBlock) => (
                   <RecordTimelineBlockItem
                     key={positionedBlock.block.id}
-                    onSelectState={onSelectState}
+                    onSelectBlock={onSelectBlock}
                     positionedBlock={positionedBlock}
                     selected={selectedBlockIds.has(positionedBlock.block.id)}
                   />
@@ -375,11 +480,11 @@ function RecordTimelineGrid({
 }
 
 function RecordTimelineBlockItem({
-  onSelectState,
+  onSelectBlock,
   positionedBlock,
   selected,
 }: {
-  onSelectState: (stateId: RecordDetailStateId) => void;
+  onSelectBlock: (block: RecordTimelineBlock) => void;
   positionedBlock: PositionedRecordBlock;
   selected: boolean;
 }) {
@@ -430,7 +535,7 @@ function RecordTimelineBlockItem({
             ? "record-block-normal"
             : "record-block-anomaly"
         }
-        onClick={() => onSelectState(selectedStateId)}
+        onClick={() => onSelectBlock(block)}
         style={style}
       >
         {content}
@@ -461,7 +566,7 @@ function RecordDetailPanel({
 }) {
   return (
     <aside
-      className="flex min-h-0 min-w-0 flex-col rounded-[8px] border border-gray-200 bg-white px-4 py-4"
+      className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[8px] border border-gray-200 bg-white px-4 py-4"
       data-testid="record-detail-panel"
     >
       {state.id === "empty" ? (
@@ -475,7 +580,7 @@ function RecordDetailPanel({
 
 function EmptyDetail({ state }: { state: RecordDetailState }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center text-center text-h-18-regular tracking-normal text-gray-400">
+    <div className="flex h-full min-h-0 flex-1 flex-col items-center justify-center text-center text-h-18-regular tracking-normal text-gray-400">
       {(state.emptyText ?? []).map((line) => (
         <span key={line}>{line}</span>
       ))}
@@ -493,9 +598,9 @@ function SelectedDetail({
   const compactForm = state.id === "anomaly-step-3";
 
   return (
-    <>
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="min-h-0 overflow-y-auto pr-0.5">
+        <div className="min-h-0 flex-1 overflow-y-auto pr-0.5">
           {state.statusLabel && state.statusTone ? (
             <ToneBadge label={state.statusLabel} tone={state.statusTone} />
           ) : null}
@@ -621,7 +726,7 @@ function SelectedDetail({
       </div>
 
       {state.confirmLabel ? (
-        <div className="mt-5 flex justify-end">
+        <div className="mt-5 flex shrink-0 justify-end">
           <button
             type="button"
             className="flex h-11 min-w-[78px] items-center justify-center rounded-[10px] bg-green-400 px-4 text-h-18-semibold tracking-normal text-white transition-colors duration-150 ease-out hover:bg-green-450 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
@@ -630,7 +735,7 @@ function SelectedDetail({
           </button>
         </div>
       ) : null}
-    </>
+    </div>
   );
 }
 
@@ -685,22 +790,6 @@ function DetailActionButton({
   );
 }
 
-function findSelectedBlockId(
-  stateId: RecordDetailStateId,
-  blocks: readonly RecordTimelineBlock[],
-) {
-  if (stateId === "empty") {
-    return undefined;
-  }
-
-  const selectedStateId =
-    stateId === "normal-selected" ? "normal-selected" : "anomaly-step-1";
-
-  return blocks.find(
-    (block) => block.selectedStateId === selectedStateId,
-  )?.id;
-}
-
 function createEmptyRecordMainViewModel(
   emptyText: readonly string[],
 ): RecordMainViewModel {
@@ -714,12 +803,150 @@ function createEmptyRecordMainViewModel(
         emptyText,
       },
     },
+    detailStatesByBlockId: {},
+    initialBlockId: null,
+    initialWeekStartKey: null,
     initialDetailStateId: "empty",
     timeline: {
       ...recordMainFixtureViewModel.timeline,
       emptyDetailText: emptyText,
     },
   };
+}
+
+function createVisibleTimeline(
+  timeline: RecordTimelineFixture,
+  activeWeekStartKey: string | null,
+): RecordTimelineFixture {
+  if (!activeWeekStartKey || !timeline.weekNavigation) {
+    return timeline;
+  }
+
+  return {
+    ...timeline,
+    weekLabel: formatWeekLabelFromStartKey(activeWeekStartKey),
+  };
+}
+
+function getNavigatedWeekStartKey(
+  activeWeekStartKey: string | null,
+  navigation: RecordTimelineFixture["weekNavigation"],
+  direction: -1 | 1,
+) {
+  if (!activeWeekStartKey || !navigation) {
+    return null;
+  }
+
+  const nextWeekStartKey = addWeeksToDateKey(activeWeekStartKey, direction);
+
+  if (!nextWeekStartKey) {
+    return null;
+  }
+
+  if (
+    nextWeekStartKey < navigation.minWeekStartKey ||
+    nextWeekStartKey > navigation.maxWeekStartKey
+  ) {
+    return null;
+  }
+
+  return nextWeekStartKey;
+}
+
+function selectDefaultBlockForWeek(
+  blocks: readonly RecordTimelineBlock[],
+  weekStartKey: string,
+) {
+  const weekBlocks = blocks.filter((block) => isBlockInWeek(block, weekStartKey));
+
+  return (
+    weekBlocks.find((block) => block.selectedStateId === "anomaly-step-1") ??
+    weekBlocks.find((block) => block.selectedStateId) ??
+    null
+  );
+}
+
+function isBlockInWeek(block: RecordTimelineBlock, weekStartKey: string) {
+  const blockDate = block.dateKey ? parseDateKey(block.dateKey) : null;
+  const weekStart = parseDateKey(weekStartKey);
+
+  if (!blockDate || !weekStart) {
+    return false;
+  }
+
+  const nextWeekStart = addDays(weekStart, 7);
+
+  return blockDate >= weekStart && blockDate < nextWeekStart;
+}
+
+function getWeekStartKeyFromDateKey(dateKey: string) {
+  const date = parseDateKey(dateKey);
+
+  return date ? formatDateKey(startOfWeekSunday(date)) : null;
+}
+
+function addWeeksToDateKey(dateKey: string, weekOffset: number) {
+  const date = parseDateKey(dateKey);
+
+  if (!date) {
+    return null;
+  }
+
+  return formatDateKey(addDays(date, weekOffset * 7));
+}
+
+function formatWeekLabelFromStartKey(weekStartKey: string) {
+  const sunday = parseDateKey(weekStartKey);
+
+  if (!sunday) {
+    return weekStartKey || "-";
+  }
+
+  const saturday = addDays(sunday, 6);
+
+  return `${formatMonthDay(sunday)} (${weekDayLabels[sunday.getDay()]}) ~ ${formatMonthDay(
+    saturday,
+  )} (${weekDayLabels[saturday.getDay()]})`;
+}
+
+function parseDateKey(dateKey: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
+
+  if (!match) {
+    return null;
+  }
+
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+}
+
+function formatDateKey(date: Date) {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(
+    date.getDate(),
+  )}`;
+}
+
+function formatMonthDay(date: Date) {
+  return `${pad2(date.getMonth() + 1)}.${pad2(date.getDate())}`;
+}
+
+function startOfWeekSunday(date: Date) {
+  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  next.setDate(next.getDate() - next.getDay());
+
+  return next;
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  next.setDate(next.getDate() + days);
+
+  return next;
+}
+
+function pad2(value: number) {
+  return String(value).padStart(2, "0");
 }
 
 function layoutBlocks(
