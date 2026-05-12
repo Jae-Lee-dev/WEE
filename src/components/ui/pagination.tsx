@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { IconChevronLeft, IconChevronRight } from "@/components/icons";
+import { OptionSelect } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 export type PaginationProps = {
@@ -11,10 +12,13 @@ export type PaginationProps = {
   className?: string;
   itemLabel?: string;
   pageSize?: number;
+  pageSizeOptions?: readonly number[];
+  onPageSizeChange?: (pageSize: number) => void;
   siblingCount?: number;
   totalItems?: number;
 };
 
+const defaultPageSizeOptions = [20, 50, 100, 500] as const;
 const paginationWindowPadding = 2;
 
 export function Pagination({
@@ -24,6 +28,8 @@ export function Pagination({
   className,
   itemLabel = "항목",
   pageSize,
+  pageSizeOptions = defaultPageSizeOptions,
+  onPageSizeChange,
   siblingCount = 1,
   totalItems,
 }: PaginationProps) {
@@ -32,6 +38,7 @@ export function Pagination({
   const pages = createPageItems(safeCurrentPage, safeTotalPages, siblingCount);
   const hasPrevious = safeCurrentPage > 1;
   const hasNext = safeCurrentPage < safeTotalPages;
+  const canChangePageSize = pageSize !== undefined && onPageSizeChange;
 
   return (
     <nav
@@ -41,12 +48,22 @@ export function Pagination({
         className,
       )}
     >
-      <PaginationSummary
-        currentPage={safeCurrentPage}
-        itemLabel={itemLabel}
-        pageSize={pageSize}
-        totalItems={totalItems}
-      />
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <PaginationSummary
+          currentPage={safeCurrentPage}
+          itemLabel={itemLabel}
+          pageSize={pageSize}
+          totalItems={totalItems}
+        />
+
+        {canChangePageSize ? (
+          <PaginationPageSizeSelect
+            pageSize={pageSize}
+            pageSizeOptions={pageSizeOptions}
+            onPageSizeChange={onPageSizeChange}
+          />
+        ) : null}
+      </div>
 
       <div className="flex items-center gap-1.5">
         <PaginationIconButton
@@ -93,6 +110,37 @@ export function Pagination({
         </PaginationIconButton>
       </div>
     </nav>
+  );
+}
+
+function PaginationPageSizeSelect({
+  onPageSizeChange,
+  pageSize,
+  pageSizeOptions,
+}: {
+  onPageSizeChange: (pageSize: number) => void;
+  pageSize: number;
+  pageSizeOptions: readonly number[];
+}) {
+  const options = pageSizeOptions.map((size) => ({
+    label: `${size}개씩`,
+    value: String(size),
+  }));
+
+  return (
+    <div className="flex items-center gap-2 text-body-14-regular text-gray-500">
+      <span>페이지당</span>
+      <OptionSelect
+        contentClassName="z-[70]"
+        itemClassName="py-2 text-label-14-medium"
+        options={options}
+        size="sm"
+        triggerAriaLabel="페이지당 항목 수"
+        triggerClassName="min-w-[92px]"
+        value={String(pageSize)}
+        onValueChange={(value) => onPageSizeChange(Number(value))}
+      />
+    </div>
   );
 }
 

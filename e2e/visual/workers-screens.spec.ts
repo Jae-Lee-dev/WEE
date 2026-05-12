@@ -78,16 +78,68 @@ test(`WKR-02 pagination ${desktop}`, async ({ page }) => {
   await prepareVisualPage({ page, path: "/workers", viewport: desktop });
   await page.evaluate(() => document.fonts.ready);
 
-  await expect(page.getByText("1-10 / 15명")).toBeVisible();
-  await page.getByRole("button", { name: "다음 페이지" }).click();
-  await expect(page.getByText("11-15 / 15명")).toBeVisible();
-  await expect(page.getByText("김도윤")).toBeVisible();
+  await expect(page.getByText("1-15 / 15명")).toBeVisible();
+  const pageSizeSelect = page.getByRole("combobox", {
+    name: "페이지당 항목 수",
+  });
+  await expect(pageSizeSelect).toContainText("20개씩");
+  await pageSizeSelect.click();
+  await expect(page.getByRole("option", { name: "20개씩" })).toBeVisible();
+  await expect(page.getByRole("option", { name: "50개씩" })).toBeVisible();
+  await expect(page.getByRole("option", { name: "100개씩" })).toBeVisible();
+  await expect(page.getByRole("option", { name: "500개씩" })).toBeVisible();
+  await page.getByRole("option", { name: "50개씩" }).click();
+  await expect(pageSizeSelect).toContainText("50개씩");
+  await expect(page.getByText("1-15 / 15명")).toBeVisible();
 
   await captureActualScreenshot({
     page,
     screenId: "WKR-02",
     state: "pagination",
     viewport: desktop,
+  });
+});
+
+test(`WKR-02 list frame owns scroll ${desktop}`, async ({ page }) => {
+  await prepareVisualPage({ page, path: "/workers", viewport: desktop });
+  await page.evaluate(() => document.fonts.ready);
+
+  const metrics = await page.evaluate(() => {
+    const frame = document.querySelector('[data-testid="workers-list-frame"]');
+    const toolbar = document.querySelector(
+      '[data-testid="workers-list-toolbar"]',
+    );
+    const tableScroll = document.querySelector(
+      '[data-testid="workers-table-scroll"]',
+    );
+    const pagination = document.querySelector(
+      'nav[aria-label="페이지네이션"]',
+    );
+
+    if (!frame || !toolbar || !tableScroll || !pagination) {
+      return null;
+    }
+
+    const frameStyle = window.getComputedStyle(frame);
+    const toolbarStyle = window.getComputedStyle(toolbar);
+    const tableScrollStyle = window.getComputedStyle(tableScroll);
+    const paginationStyle = window.getComputedStyle(pagination);
+
+    return {
+      frameDirection: frameStyle.flexDirection,
+      frameDisplay: frameStyle.display,
+      paginationShrink: paginationStyle.flexShrink,
+      tableScrollOverflowY: tableScrollStyle.overflowY,
+      toolbarPosition: toolbarStyle.position,
+    };
+  });
+
+  expect(metrics).toEqual({
+    frameDirection: "column",
+    frameDisplay: "flex",
+    paginationShrink: "0",
+    tableScrollOverflowY: "auto",
+    toolbarPosition: "static",
   });
 });
 

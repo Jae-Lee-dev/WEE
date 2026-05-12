@@ -16,15 +16,19 @@ const meta = {
     siblingCount: {
       control: { type: "number", min: 0, max: 2 },
     },
+    pageSizeOptions: {
+      control: "object",
+    },
   },
   args: {
     currentPage: 1,
     itemLabel: "명",
     onPageChange: () => undefined,
-    pageSize: 10,
+    pageSize: 20,
+    pageSizeOptions: [20, 50, 100, 500],
     siblingCount: 1,
-    totalItems: 47,
-    totalPages: 5,
+    totalItems: 247,
+    totalPages: 13,
   },
 } satisfies Meta<typeof Pagination>;
 
@@ -35,13 +39,23 @@ type Story = StoryObj<typeof meta>;
 export const Playground: Story = {
   render: function Render(args) {
     const [page, setPage] = useState(args.currentPage);
+    const [pageSize, setPageSize] = useState(args.pageSize ?? 20);
+    const totalItems = args.totalItems ?? 0;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const currentPage = Math.min(page, totalPages);
 
     return (
       <div className="w-[720px] overflow-hidden rounded-[8px] border border-gray-200 bg-white">
         <Pagination
           {...args}
-          currentPage={page}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalPages={totalPages}
           onPageChange={setPage}
+          onPageSizeChange={(nextPageSize) => {
+            setPageSize(nextPageSize);
+            setPage(1);
+          }}
         />
       </div>
     );
@@ -51,16 +65,25 @@ export const Playground: Story = {
 export const ManyPages: Story = {
   render: function Render() {
     const [page, setPage] = useState(6);
+    const [pageSize, setPageSize] = useState(20);
+    const totalItems = 642;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const currentPage = Math.min(page, totalPages);
 
     return (
       <div className="w-[760px] overflow-hidden rounded-[8px] border border-gray-200 bg-white">
         <Pagination
-          currentPage={page}
+          currentPage={currentPage}
           itemLabel="명"
-          pageSize={10}
-          totalItems={128}
-          totalPages={13}
+          pageSize={pageSize}
+          pageSizeOptions={[20, 50, 100, 500]}
+          totalItems={totalItems}
+          totalPages={totalPages}
           onPageChange={setPage}
+          onPageSizeChange={(nextPageSize) => {
+            setPageSize(nextPageSize);
+            setPage(1);
+          }}
         />
       </div>
     );
@@ -73,17 +96,17 @@ export const FirstAndLastPage: Story = {
       <Pagination
         currentPage={1}
         itemLabel="명"
-        pageSize={10}
-        totalItems={17}
-        totalPages={2}
+        pageSize={20}
+        totalItems={43}
+        totalPages={3}
         onPageChange={() => undefined}
       />
       <Pagination
-        currentPage={2}
+        currentPage={3}
         itemLabel="명"
-        pageSize={10}
-        totalItems={17}
-        totalPages={2}
+        pageSize={20}
+        totalItems={43}
+        totalPages={3}
         onPageChange={() => undefined}
       />
     </div>
@@ -96,7 +119,7 @@ export const EmptyResult: Story = {
       <Pagination
         currentPage={1}
         itemLabel="명"
-        pageSize={10}
+        pageSize={20}
         totalItems={0}
         totalPages={1}
         onPageChange={() => undefined}

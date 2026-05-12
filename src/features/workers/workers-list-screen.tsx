@@ -42,68 +42,48 @@ const workerTagToneConfig: Record<WorkerTagTone, BadgeToneConfig> = {
 };
 
 const activeStatusStyle = { color: "var(--color-green-400)" };
-const workersPageSize = 10;
+const defaultWorkersPageSize = 20;
 
 export function WorkersListScreen() {
   const [status, setStatus] = useState<WorkerListStatus>("active");
   const [tagMenuOpen, setTagMenuOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(defaultWorkersPageSize);
   const rows = workerListRowsByStatus[status];
-  const totalPages = Math.max(1, Math.ceil(rows.length / workersPageSize));
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const pagedRows = rows.slice(
-    (safeCurrentPage - 1) * workersPageSize,
-    safeCurrentPage * workersPageSize,
+    (safeCurrentPage - 1) * pageSize,
+    safeCurrentPage * pageSize,
   );
+
+  function handleStatusChange(next: WorkerListStatus) {
+    setStatus(next);
+    setCurrentPage(1);
+    setTagMenuOpen(false);
+  }
 
   return (
     <section
       aria-label="조교 목록"
-      className="flex w-full flex-col gap-3"
+      className="flex h-[calc(100dvh-156px)] min-h-[520px] w-full flex-col"
       data-worker-list-state={status}
     >
-      <div
-        className="sticky top-0 z-40 -mx-4 border-b border-gray-200 bg-gray-100/95 px-4 py-2 backdrop-blur"
-        data-testid="workers-sticky-toolbar"
-      >
-        <div className="flex min-h-[43px] w-full items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <TagFilterTrigger
-              open={tagMenuOpen}
-              onClick={() => setTagMenuOpen((open) => !open)}
-            />
-            <FilterTabs
-              options={[...workerListStatusFilters]}
-              value={status}
-              onChange={(next) => {
-                setStatus(next);
-                setCurrentPage(1);
-                setTagMenuOpen(false);
-              }}
-            />
-          </div>
-
-          <SearchShell className="w-[280px] shrink-0">
-            <input
-              readOnly
-              type="search"
-              value=""
-              placeholder="이름 검색"
-              className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-gray-400"
-              aria-label="조교 이름 검색"
-            />
-            <IconSearch className="size-6 shrink-0 text-green-400" />
-          </SearchShell>
-        </div>
-      </div>
-
       <WorkerListTable
         rows={pagedRows}
         status={status}
+        tagMenuOpen={tagMenuOpen}
         currentPage={safeCurrentPage}
+        pageSize={pageSize}
         totalItems={rows.length}
         totalPages={totalPages}
         onPageChange={setCurrentPage}
+        onStatusChange={handleStatusChange}
+        onTagMenuToggle={() => setTagMenuOpen((open) => !open)}
+        onPageSizeChange={(nextPageSize) => {
+          setPageSize(nextPageSize);
+          setCurrentPage(1);
+        }}
       />
     </section>
   );
@@ -196,28 +176,66 @@ function SearchShell({
 function WorkerListTable({
   currentPage,
   onPageChange,
+  onPageSizeChange,
+  onStatusChange,
+  onTagMenuToggle,
+  pageSize,
   rows,
   status,
+  tagMenuOpen,
   totalItems,
   totalPages,
 }: {
   currentPage: number;
   onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+  onStatusChange: (status: WorkerListStatus) => void;
+  onTagMenuToggle: () => void;
+  pageSize: number;
   rows: readonly WorkerListRow[];
   status: WorkerListStatus;
+  tagMenuOpen: boolean;
   totalItems: number;
   totalPages: number;
 }) {
   return (
-    <div className="min-h-[560px] overflow-hidden rounded-[8px] bg-white">
-      <div className="flex h-[56px] items-center gap-3 px-4">
-        <h2 className="text-h-20 text-gray-900">조교 목록</h2>
-        <span className="rounded-[4px] bg-gray-100 px-1.5 py-0.5 text-detail-16-regular text-gray-600">
-          17/20명
-        </span>
+    <div
+      className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[8px] bg-white"
+      data-testid="workers-list-frame"
+    >
+      <div
+        className="flex min-h-[60px] shrink-0 items-center justify-between gap-4 border-b border-gray-100 px-4 py-2"
+        data-testid="workers-list-toolbar"
+      >
+        <div className="flex min-w-0 items-center gap-4">
+          <div className="flex shrink-0 items-center gap-3">
+            <h2 className="text-h-20 text-gray-900">조교 목록</h2>
+            <span className="rounded-[4px] bg-gray-100 px-1.5 py-0.5 text-detail-16-regular text-gray-600">
+              17/20명
+            </span>
+          </div>
+          <TagFilterTrigger open={tagMenuOpen} onClick={onTagMenuToggle} />
+          <FilterTabs
+            options={[...workerListStatusFilters]}
+            value={status}
+            onChange={onStatusChange}
+          />
+        </div>
+
+        <SearchShell className="w-[280px] shrink-0">
+          <input
+            readOnly
+            type="search"
+            value=""
+            placeholder="이름 검색"
+            className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-gray-400"
+            aria-label="조교 이름 검색"
+          />
+          <IconSearch className="size-6 shrink-0 text-green-400" />
+        </SearchShell>
       </div>
 
-      <div className="grid h-9 grid-cols-[15%_24%_19%_24%_1fr] items-center border-b border-gray-300 px-4 text-h-18-regular text-gray-500">
+      <div className="grid h-9 shrink-0 grid-cols-[15%_24%_19%_24%_1fr] items-center border-b border-gray-300 px-4 text-h-18-regular text-gray-500">
         <div>이름</div>
         <div>등록일</div>
         <div>근무자 태그</div>
@@ -225,19 +243,24 @@ function WorkerListTable({
         <div>소속 상태</div>
       </div>
 
-      <div>
+      <div
+        className="min-h-0 flex-1 overflow-y-auto"
+        data-testid="workers-table-scroll"
+      >
         {rows.map((row) => (
           <WorkerListRowItem key={row.id} row={row} status={status} />
         ))}
       </div>
 
       <Pagination
+        className="shrink-0"
         currentPage={currentPage}
         itemLabel="명"
-        pageSize={workersPageSize}
+        pageSize={pageSize}
         totalItems={totalItems}
         totalPages={totalPages}
         onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
       />
     </div>
   );
