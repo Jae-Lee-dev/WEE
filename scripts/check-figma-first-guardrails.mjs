@@ -35,16 +35,26 @@ const allowedFirebaseAuthTransitionFiles = new Set([
   "src/features/entry/signup-form.tsx",
   "src/features/entry/workspace-data-source.ts",
   "src/features/entry/workspace-setup-data-source.ts",
+  "src/features/handover/handover-data-source.ts",
+  "src/features/payroll/payroll-data-source.ts",
+  "src/features/records/records-data-source.ts",
   "src/features/schedule/duty-data-source.ts",
+  "src/features/settings/settings-support-data-source.ts",
   "src/features/settings/settings-locations-data-source.ts",
   "src/features/settings/settings-workspace-data-source.ts",
+  "src/features/workers/workers-list-data-source.ts",
   "src/lib/firebase/client.ts",
 ]);
 const allowedFirestoreTransitionFiles = new Set([
   "src/features/entry/workspace-data-source.ts",
+  "src/features/handover/handover-data-source.ts",
+  "src/features/payroll/payroll-data-source.ts",
+  "src/features/records/records-data-source.ts",
   "src/features/schedule/duty-data-source.ts",
   "src/features/settings/settings-locations-data-source.ts",
+  "src/features/settings/settings-support-data-source.ts",
   "src/features/settings/settings-workspace-data-source.ts",
+  "src/features/workers/workers-list-data-source.ts",
 ]);
 const allowedSubmitDrivenTransitionFiles = new Set([
   "src/features/entry/entry-screens.tsx",

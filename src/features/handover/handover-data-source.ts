@@ -83,15 +83,19 @@ function parseMarkdownBlocks(content: string): HandoverDocumentBlock[] {
     .split(/\r?\n/)
     .map((line) => line.trimEnd())
     .filter((line) => line.trim().length > 0);
-  const blocks: HandoverDocumentBlock[] = [];
+  let blocks: HandoverDocumentBlock[] = [];
   let listItems: string[] = [];
+
+  const appendBlock = (block: HandoverDocumentBlock) => {
+    blocks = [...blocks, block];
+  };
 
   const flushList = () => {
     if (!listItems.length) {
       return;
     }
 
-    blocks.push({
+    appendBlock({
       id: `list-${blocks.length}`,
       items: listItems.map((item, index) => ({
         id: `list-${blocks.length}-${index}`,
@@ -108,14 +112,14 @@ function parseMarkdownBlocks(content: string): HandoverDocumentBlock[] {
 
     if (trimmed === "---" || trimmed === "***") {
       flushList();
-      blocks.push({ id: `divider-${blocks.length}`, type: "divider" });
+      appendBlock({ id: `divider-${blocks.length}`, type: "divider" });
       continue;
     }
 
     const headingMatch = /^(#{1,3})\s+(.+)$/.exec(trimmed);
     if (headingMatch) {
       flushList();
-      blocks.push({
+      appendBlock({
         id: `heading-${blocks.length}`,
         level: headingMatch[1].length as 1 | 2 | 3,
         spacing: blocks.length === 0 ? "none" : "md",
@@ -127,12 +131,12 @@ function parseMarkdownBlocks(content: string): HandoverDocumentBlock[] {
 
     const listMatch = /^[-*]\s+(.+)$/.exec(trimmed);
     if (listMatch) {
-      listItems.push(listMatch[1]);
+      listItems = [...listItems, listMatch[1]];
       continue;
     }
 
     flushList();
-    blocks.push({
+    appendBlock({
       id: `paragraph-${blocks.length}`,
       lines: [trimmed],
       spacing: blocks.length === 0 ? "none" : "sm",
