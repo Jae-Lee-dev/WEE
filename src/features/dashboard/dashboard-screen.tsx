@@ -1,7 +1,8 @@
 "use client";
 
 import { Play, Printer } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TrendChartCard } from "@/components/ui/trend-chart";
@@ -12,9 +13,9 @@ import {
   IconSearch,
 } from "@/components/icons";
 import { cn } from "@/lib/utils";
+import { createDashboardInboxDataSource } from "./dashboard-data-source";
 import {
   dashboardFilterOptions,
-  dashboardInboxRows,
   dashboardAiAnalysisPeriodOptions,
   dashboardAiMonitoringFixture,
   dashboardLocationOptions,
@@ -117,8 +118,31 @@ export function DashboardScreen() {
     useState<DashboardInboxFilter>("all");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const dataSource = useMemo(() => createDashboardInboxDataSource(), []);
+  const [rowsByFilter, setRowsByFilter] = useState(dataSource.initialRows);
 
-  const rows = filterInboxRows(dashboardInboxRows[activeFilter], searchQuery);
+  useEffect(() => {
+    let active = true;
+
+    dataSource
+      .listInboxRows()
+      .then((nextRowsByFilter) => {
+        if (active) {
+          setRowsByFilter(nextRowsByFilter);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setRowsByFilter(dataSource.initialRows);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [dataSource]);
+
+  const rows = filterInboxRows(rowsByFilter[activeFilter], searchQuery);
   const triggerLabel = getFilterTriggerLabel(activeFilter);
   const countLabel = `${rows.length}건`;
 
@@ -291,31 +315,53 @@ function InboxTable({
             <div>일시</div>
             <div>상태</div>
           </div>
-          {rows.map((row) => (
-            <div
-              key={row.id}
-              data-action-type={row.action.actionType}
-              data-target-id={row.action.targetId}
-              data-record-type={row.action.recordType}
-              className="grid h-[42px] grid-cols-[260px_200px_260px_380px_200px_240px] items-center border-b border-gray-100 px-4 text-h-18-regular text-gray-900"
-            >
-              <div>
-                <InboxTypeBadge filter={row.filter}>{row.type}</InboxTypeBadge>
-              </div>
-              <div>{row.target}</div>
-              <div>{row.location}</div>
-              <div>{row.content}</div>
-              <div>{row.date}</div>
-              <div>
-                <Badge variant="grey" size="M">
-                  {row.status}
-                </Badge>
-              </div>
-            </div>
-          ))}
+          {rows.map((row) =>
+            row.href ? (
+              <Link
+                key={row.id}
+                href={row.href}
+                data-action-type={row.action.actionType}
+                data-target-id={row.action.targetId}
+                data-record-type={row.action.recordType}
+                className="grid h-[42px] grid-cols-[260px_200px_260px_380px_200px_240px] items-center border-b border-gray-100 px-4 text-left text-h-18-regular text-gray-900 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200"
+              >
+                <InboxRowCells row={row} />
+              </Link>
+            ) : (
+              <button
+                key={row.id}
+                type="button"
+                data-action-type={row.action.actionType}
+                data-target-id={row.action.targetId}
+                data-record-type={row.action.recordType}
+                className="grid h-[42px] w-full grid-cols-[260px_200px_260px_380px_200px_240px] items-center border-b border-gray-100 px-4 text-left text-h-18-regular text-gray-900 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200"
+              >
+                <InboxRowCells row={row} />
+              </button>
+            ),
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+function InboxRowCells({ row }: { row: DashboardInboxRow }) {
+  return (
+    <>
+      <div>
+        <InboxTypeBadge filter={row.filter}>{row.type}</InboxTypeBadge>
+      </div>
+      <div>{row.target}</div>
+      <div>{row.location}</div>
+      <div>{row.content}</div>
+      <div>{row.date}</div>
+      <div>
+        <Badge variant="grey" size="M">
+          {row.status}
+        </Badge>
+      </div>
+    </>
   );
 }
 
