@@ -1,12 +1,17 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
 import { IconChevronDown } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { createHandoverDataSource } from "./handover-data-source";
 import {
   handoverFixture,
   type HandoverBlockSpacing,
   type HandoverChatMessage,
   type HandoverDocumentBlock,
+  type HandoverFixture,
   type HandoverInlineSegment,
   type HandoverSuggestion,
 } from "./handover-fixtures";
@@ -20,6 +25,36 @@ const blockSpacingClassName: Record<HandoverBlockSpacing, string> = {
 };
 
 export function HandoverScreen() {
+  const dataSource = useMemo(() => createHandoverDataSource(), []);
+  const [fixture, setFixture] = useState<HandoverFixture>(handoverFixture);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    dataSource
+      .getHandover()
+      .then((nextFixture) => {
+        if (!cancelled) {
+          setFixture(nextFixture);
+          setErrorMessage("");
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : "인수인계 문서를 불러오지 못했습니다.",
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dataSource]);
+
   return (
     <section
       aria-label="인수인계 문서 편집"
@@ -27,16 +62,21 @@ export function HandoverScreen() {
       data-testid="handover-screen"
     >
       <div className="flex min-h-0 min-w-0 flex-col gap-4 overflow-hidden">
-        <HandoverToolbar />
-        <HandoverEditor />
+        {errorMessage ? (
+          <div className="rounded-[8px] border border-red-100 bg-red-50 px-4 py-3 text-body-14-regular text-red-500">
+            {errorMessage}
+          </div>
+        ) : null}
+        <HandoverToolbar fixture={fixture} />
+        <HandoverEditor fixture={fixture} />
       </div>
-      <HandoverChatPanel />
+      <HandoverChatPanel fixture={fixture} />
     </section>
   );
 }
 
-function HandoverToolbar() {
-  const { toolbar } = handoverFixture;
+function HandoverToolbar({ fixture }: { fixture: HandoverFixture }) {
+  const { toolbar } = fixture;
 
   return (
     <div className="flex h-14 shrink-0 items-center gap-3 rounded-[8px] bg-white px-4">
@@ -70,7 +110,7 @@ function HandoverToolbar() {
   );
 }
 
-function HandoverEditor() {
+function HandoverEditor({ fixture }: { fixture: HandoverFixture }) {
   return (
     <article
       aria-label="인수인계 문서 본문"
@@ -78,7 +118,7 @@ function HandoverEditor() {
       data-testid="handover-editor"
     >
       <div className="px-4 py-[21px] text-gray-900">
-        {handoverFixture.document.blocks.map((block) => (
+        {fixture.document.blocks.map((block) => (
           <HandoverDocumentBlockView key={block.id} block={block} />
         ))}
       </div>
@@ -218,8 +258,8 @@ function HandoverSuggestionBlock({
   );
 }
 
-function HandoverChatPanel() {
-  const { chat } = handoverFixture;
+function HandoverChatPanel({ fixture }: { fixture: HandoverFixture }) {
+  const { chat } = fixture;
 
   return (
     <aside

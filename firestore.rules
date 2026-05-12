@@ -230,6 +230,11 @@ service cloud.firestore {
         allow update: if false;
         allow delete: if false;
       }
+
+      match /{document=**} {
+        allow get, list: if isWorkspaceManager(workspaceId);
+        allow create, update, delete: if false;
+      }
     }
 
     match /workspaceCodes/{code} {

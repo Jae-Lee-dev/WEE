@@ -1,22 +1,64 @@
+"use client";
+
 import { Check, UserPlus, Users, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { createSettingsSupportDataSource } from "./settings-support-data-source";
 import {
   settingsBillingFixture,
   type BillingFeature,
   type BillingPlan,
+  type SettingsBillingFixture,
 } from "./settings-billing-fixtures";
 
 export function SettingsBillingScreen() {
+  const dataSource = useMemo(() => createSettingsSupportDataSource(), []);
+  const [fixture, setFixture] =
+    useState<SettingsBillingFixture>(settingsBillingFixture);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    dataSource
+      .getBilling()
+      .then((nextFixture) => {
+        if (!cancelled) {
+          setFixture(nextFixture);
+          setErrorMessage("");
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : "요금제 정보를 불러오지 못했습니다.",
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dataSource]);
+
   return (
     <section
       aria-label="요금제"
       className="mx-auto flex w-full max-w-[1480px] flex-col gap-4 tracking-normal"
       data-testid="settings-billing-screen"
     >
+      {errorMessage ? (
+        <div className="rounded-[8px] border border-red-100 bg-red-50 px-4 py-3 text-body-14-regular text-red-500">
+          {errorMessage}
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-2 gap-4">
-        {settingsBillingFixture.plans.map((plan) => (
+        {fixture.plans.map((plan) => (
           <BillingPlanCard key={plan.id} plan={plan} />
         ))}
       </div>
@@ -25,7 +67,7 @@ export function SettingsBillingScreen() {
           type="button"
           className="flex h-9 items-center justify-center rounded-full border border-red-100 bg-white px-4 text-h-18-regular font-medium text-red-500 transition-colors duration-150 ease-out hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-100"
         >
-          {settingsBillingFixture.cancelSubscriptionLabel}
+          {fixture.cancelSubscriptionLabel}
         </button>
       </div>
     </section>

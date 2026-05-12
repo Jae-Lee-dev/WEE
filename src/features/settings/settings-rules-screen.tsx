@@ -1,16 +1,48 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { createSettingsSupportDataSource } from "./settings-support-data-source";
 import {
   settingsRulesFixture,
+  type SettingsRulesFixture,
   type SettingsRuleField,
 } from "./settings-rules-fixtures";
 
 export function SettingsRulesScreen() {
+  const dataSource = useMemo(() => createSettingsSupportDataSource(), []);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [fixture, setFixture] =
+    useState<SettingsRulesFixture>(settingsRulesFixture);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    dataSource
+      .getRules()
+      .then((nextFixture) => {
+        if (!cancelled) {
+          setFixture(nextFixture);
+          setErrorMessage("");
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : "운영 설정을 불러오지 못했습니다.",
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dataSource]);
 
   return (
     <section
@@ -18,8 +50,14 @@ export function SettingsRulesScreen() {
       className="mx-auto flex h-[calc(100vh-144px)] min-h-[520px] w-full max-w-[1480px] flex-col items-end gap-4 overflow-hidden rounded-[10px] border border-gray-200 bg-white p-4 tracking-normal"
       data-testid="settings-rules-screen"
     >
+      {errorMessage ? (
+        <div className="w-full rounded-[8px] border border-red-100 bg-red-50 px-4 py-3 text-body-14-regular text-red-500">
+          {errorMessage}
+        </div>
+      ) : null}
+
       <div className="flex w-full flex-col gap-3">
-        {settingsRulesFixture.rules.map((rule) => (
+        {fixture.rules.map((rule) => (
           <div
             key={rule.id}
             className="flex h-[58px] items-center justify-between rounded-[10px] border border-gray-200 bg-white px-4 text-h-18-semibold text-gray-500"
@@ -38,19 +76,27 @@ export function SettingsRulesScreen() {
         data-testid="settings-rules-edit-trigger"
         onClick={() => setDialogOpen(true)}
       >
-        {settingsRulesFixture.editLabel}
+        {fixture.editLabel}
       </button>
 
       {dialogOpen ? (
-        <SettingsRulesDialog onClose={() => setDialogOpen(false)} />
+        <SettingsRulesDialog
+          fixture={fixture}
+          onClose={() => setDialogOpen(false)}
+        />
       ) : null}
     </section>
   );
 }
 
-function SettingsRulesDialog({ onClose }: { onClose: () => void }) {
-  const [firstField, secondField, selectField] =
-    settingsRulesFixture.dialog.fields;
+function SettingsRulesDialog({
+  fixture,
+  onClose,
+}: {
+  fixture: SettingsRulesFixture;
+  onClose: () => void;
+}) {
+  const [firstField, secondField, selectField] = fixture.dialog.fields;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#9a9a9a]/70 px-4 py-6">
@@ -65,7 +111,7 @@ function SettingsRulesDialog({ onClose }: { onClose: () => void }) {
           id="settings-rules-dialog-title"
           className="text-h-20 tracking-normal text-gray-900"
         >
-          {settingsRulesFixture.dialog.title}
+          {fixture.dialog.title}
         </h2>
 
         <div className="flex flex-col gap-6">
@@ -83,14 +129,14 @@ function SettingsRulesDialog({ onClose }: { onClose: () => void }) {
             onClick={onClose}
             className="h-11 rounded-[10px] px-6 text-h-18-semibold tracking-normal"
           >
-            {settingsRulesFixture.dialog.cancelLabel}
+            {fixture.dialog.cancelLabel}
           </Button>
           <Button
             type="button"
             onClick={onClose}
             className="h-11 rounded-[10px] px-6 text-h-18-semibold tracking-normal text-white"
           >
-            {settingsRulesFixture.dialog.saveLabel}
+            {fixture.dialog.saveLabel}
           </Button>
         </div>
       </section>
