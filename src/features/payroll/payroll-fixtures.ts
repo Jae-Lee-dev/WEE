@@ -8,9 +8,13 @@ export type PayrollAmountTone =
   | "negative"
   | "muted";
 
-export type PayrollCalculationStatus = "미확정" | "확정";
+export type PayrollCalculationStatus =
+  | "미확정"
+  | "확정"
+  | "재확정 필요"
+  | "지급 완료";
 
-export type PayrollStatementStatus = "처리중" | "처리 완료";
+export type PayrollStatementStatus = "처리중" | "처리 완료" | "지급 완료";
 
 export type PayrollDetailStateId = "detail" | "bonus-add" | "no-open-items";
 
@@ -83,7 +87,9 @@ export type PayrollAdjustmentForm = {
 export type PayrollOpenItemStatus =
   | "이상 플래그"
   | "추가근무"
-  | "이의신청";
+  | "이의신청"
+  | "보너스/차감"
+  | "재확정 필요";
 
 export type PayrollOpenItemState = "open" | "resolved";
 
@@ -152,6 +158,10 @@ export type PayrollCalculationFixture = {
   rows: readonly PayrollCalculationRow[];
   selectedRowId: string;
   defaultDetailId: PayrollDetailStateId;
+  detailByRowId?: Record<
+    string,
+    Record<PayrollDetailStateId, PayrollCalculationDetail>
+  >;
   details: Record<PayrollDetailStateId, PayrollCalculationDetail>;
 };
 
@@ -197,6 +207,7 @@ export type PayrollStatementFixture = {
   columns: readonly PayrollTableColumn[];
   rows: readonly PayrollStatementRow[];
   selectedRowId: string;
+  detailsByRowId?: Record<string, PayrollStatementDetail>;
   selectedDetail: PayrollStatementDetail;
 };
 
