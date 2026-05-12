@@ -14,6 +14,8 @@ import {
 } from "./payroll-data-source";
 import {
   payrollStatementFixture,
+  type PayrollStatementBodyLine,
+  type PayrollStatementBodySection,
   type PayrollStatementDetail,
   type PayrollStatementFixture,
   type PayrollStatementMetric,
@@ -41,6 +43,13 @@ const badgeToneConfig: Record<PayrollTone, BadgeToneConfig> = {
   orange: { variant: "orange", style: toneTextStyles.orange },
   pink: { variant: "red", style: toneTextStyles.pink },
   grey: { variant: "grey", style: toneTextStyles.grey },
+};
+
+const amountToneClassName = {
+  default: "text-gray-900",
+  positive: "text-green-400",
+  negative: "text-red-500",
+  muted: "text-gray-500",
 };
 
 type PayrollStatementsScreenProps = {
@@ -347,11 +356,15 @@ function PayrollStatementDetailState({
 
       <main className="min-h-0 flex-1 overflow-hidden px-4 py-7">
         <WorkerSummaryCard worker={detail.worker} />
-        <div
-          aria-hidden="true"
-          className="min-h-[calc(100vh-236px)]"
-          data-testid="payroll-statements-detail-empty"
-        />
+        {detail.bodySections.length > 0 ? (
+          <StatementBodySections sections={detail.bodySections} />
+        ) : (
+          <div
+            aria-hidden="true"
+            className="min-h-[calc(100vh-236px)]"
+            data-testid="payroll-statements-detail-empty"
+          />
+        )}
       </main>
     </section>
   );
@@ -396,6 +409,49 @@ function WorkerSummaryCard({
         </div>
       </div>
     </section>
+  );
+}
+
+function StatementBodySections({
+  sections,
+}: {
+  sections: readonly PayrollStatementBodySection[];
+}) {
+  return (
+    <div
+      className="mt-4 grid grid-cols-2 gap-4"
+      data-testid="payroll-statements-detail-body"
+    >
+      {sections.map((section) => (
+        <section
+          key={section.id}
+          className="rounded-[8px] border border-gray-200 bg-white px-4 py-4"
+        >
+          <h2 className="text-h-18-semibold text-gray-900">{section.title}</h2>
+          <dl className="mt-4 divide-y divide-gray-100">
+            {section.lines.map((line) => (
+              <StatementBodyLine key={line.id} line={line} />
+            ))}
+          </dl>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function StatementBodyLine({ line }: { line: PayrollStatementBodyLine }) {
+  return (
+    <div className="flex min-h-10 items-center justify-between gap-4 py-2 text-h-16-regular">
+      <dt className="text-gray-600">{line.label}</dt>
+      <dd
+        className={cn(
+          "text-right text-h-16-medium",
+          amountToneClassName[line.tone ?? "default"],
+        )}
+      >
+        {line.value}
+      </dd>
+    </div>
   );
 }
 

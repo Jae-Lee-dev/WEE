@@ -241,6 +241,7 @@ async function readWorkspaceCollection(
 
 function mapRecordMainView(collections: RecordsCollections): RecordMainViewModel {
   const records = collections.workRecords.map(mapWorkRecord).sort(compareRecords);
+  const latestWeekRecords = filterLatestWeekRecords(records);
   const attendanceById = toMap(
     collections.attendanceLogs.map(mapAttendanceLog),
     (log) => log.id,
@@ -262,15 +263,15 @@ function mapRecordMainView(collections: RecordsCollections): RecordMainViewModel
       .map((work) => work.workRecordId as string),
   );
   const selectedRecord =
-    records.find((record) => isUnresolvedAnomaly(record, flagsByRecordId)) ??
-    records[0] ??
+    latestWeekRecords.find((record) => isUnresolvedAnomaly(record, flagsByRecordId)) ??
+    latestWeekRecords[0] ??
     null;
   const initialDetailStateId = selectedRecord
     ? isUnresolvedAnomaly(selectedRecord, flagsByRecordId)
       ? "anomaly-step-1"
       : "normal-selected"
     : "empty";
-  const blocks = records.map((record) =>
+  const blocks = latestWeekRecords.map((record) =>
     mapTimelineBlock(record, {
       flag: flagsByRecordId.get(record.id),
       pendingCorrectionIds,
@@ -292,8 +293,8 @@ function mapRecordMainView(collections: RecordsCollections): RecordMainViewModel
     initialDetailStateId,
     timeline: {
       ...recordMainFixtureViewModel.timeline,
-      filters: createMainFilters(records),
-      weekLabel: createWeekLabel(records),
+      filters: createMainFilters(latestWeekRecords),
+      weekLabel: createWeekLabel(latestWeekRecords),
     },
   };
 }
@@ -880,7 +881,14 @@ function createCorrectionFilters(
   return {
     location: createWorkerFilterOptions(rows.map((row) => row.workerName)),
     payroll: correctionHistoryFixtureViewModel.filters.payroll,
-    status: correctionHistoryFixtureViewModel.filters.status,
+    status: correctionHistoryFixtureViewModel.filters.status.map((option) =>
+      option.id === "rejected"
+        ? {
+            ...option,
+            label: "반려/철회",
+          }
+        : option,
+    ),
   };
 }
 
@@ -924,7 +932,7 @@ function createCorrectionMetrics(
   const pendingCount = rows.filter((row) => row.status === "처리 대기").length;
   const approvedCount = rows.filter((row) => row.status === "승인").length;
   const rejectedOrWithdrawnCount = rows.filter(
-    (row) => row.status === "반려" || row.status === "탈퇴",
+    (row) => row.status === "반려" || row.status === "철회",
   ).length;
 
   return [
@@ -933,7 +941,7 @@ function createCorrectionMetrics(
     { id: "approved", label: "승인", value: `${approvedCount}건`, tone: "green" },
     {
       id: "rejected-or-withdrawn",
-      label: "반려/탈퇴",
+      label: "반려/철회",
       value: `${rejectedOrWithdrawnCount}건`,
       tone: "pink",
     },
@@ -1045,7 +1053,7 @@ function getCorrectionStatus(status: string): CorrectionStatus {
   }
 
   if (status === "withdrawn") {
-    return "탈퇴";
+    return "철회";
   }
 
   return "처리 대기";
@@ -1229,17 +1237,41 @@ function getRecordEndHour(record: WorkRecordModel) {
 }
 
 function createWeekLabel(records: readonly WorkRecordModel[]) {
-  const anchor =
-    records
-      .map((record) => parseDateKey(record.dateKey) ?? record.plannedStartAt)
-      .filter((date): date is Date => Boolean(date))
-      .sort((first, second) => second.getTime() - first.getTime())[0] ?? new Date();
+  const anchor = getLatestRecordDate(records) ?? new Date();
   const monday = startOfWeekMonday(anchor);
   const sunday = addDays(monday, 6);
 
   return `${formatMonthDay(monday)} (${weekDayLabels[monday.getDay()]}) ~ ${formatMonthDay(
     sunday,
   )} (${weekDayLabels[sunday.getDay()]})`;
+}
+
+function filterLatestWeekRecords(records: readonly WorkRecordModel[]) {
+  const anchor = getLatestRecordDate(records);
+
+  if (!anchor) {
+    return records;
+  }
+
+  const monday = startOfWeekMonday(anchor);
+  const nextMonday = addDays(monday, 7);
+
+  return records.filter((record) => {
+    const date = getRecordDate(record);
+
+    return date ? date >= monday && date < nextMonday : false;
+  });
+}
+
+function getLatestRecordDate(records: readonly WorkRecordModel[]) {
+  return records
+    .map(getRecordDate)
+    .filter((date): date is Date => Boolean(date))
+    .sort((first, second) => second.getTime() - first.getTime())[0] ?? null;
+}
+
+function getRecordDate(record: WorkRecordModel) {
+  return parseDateKey(record.dateKey) ?? record.plannedStartAt ?? record.effectiveStartAt;
 }
 
 function compareRecords(first: WorkRecordModel, second: WorkRecordModel) {

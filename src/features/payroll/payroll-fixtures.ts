@@ -183,6 +183,19 @@ export type PayrollStatementRow = {
   detailButtonLabel: string;
 };
 
+export type PayrollStatementBodyLine = {
+  id: string;
+  label: string;
+  value: string;
+  tone?: PayrollAmountTone;
+};
+
+export type PayrollStatementBodySection = {
+  id: string;
+  title: string;
+  lines: readonly PayrollStatementBodyLine[];
+};
+
 export type PayrollStatementDetail = {
   id: string;
   headerTitle: string;
@@ -192,8 +205,8 @@ export type PayrollStatementDetail = {
   statusTone: PayrollTone;
   confirmedAmount: string;
   confirmedDate: string;
-  bodyState: "blank";
-  bodySections: readonly never[];
+  bodyState: "blank" | "ready";
+  bodySections: readonly PayrollStatementBodySection[];
 };
 
 export type PayrollStatementFixture = {

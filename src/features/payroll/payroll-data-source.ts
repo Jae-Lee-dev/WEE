@@ -12,6 +12,7 @@ import {
   payrollStatementFixture,
   type PayrollCalculationFixture,
   type PayrollCalculationRow,
+  type PayrollStatementBodySection,
   type PayrollStatementDetail,
   type PayrollStatementFixture,
   type PayrollStatementMetric,
@@ -75,6 +76,7 @@ type BonusItem = {
 };
 
 type PayStatement = {
+  bonusItemCount: number;
   confirmedAt: Date | null;
   currentFinalAmount: number | null;
   finalAmount: number | null;
@@ -343,10 +345,12 @@ function buildStatementDetail({
   setting?: PayrollSetting;
   statement: PayStatement;
 }): PayrollStatementDetail {
+  const bodySections = buildStatementBodySections(statement, setting);
+
   return {
     id: statement.id,
-    bodySections: [],
-    bodyState: "blank",
+    bodySections,
+    bodyState: bodySections.length > 0 ? "ready" : "blank",
     confirmedAmount: formatWon(statement.finalAmount),
     confirmedDate:
       formatShortDate(statement.paidAt ?? statement.confirmedAt) ??
@@ -403,6 +407,75 @@ function buildStatementMetrics(
       tone: "green",
       unit: "건",
       value: String(paidCount),
+    },
+  ];
+}
+
+function buildStatementBodySections(
+  statement: PayStatement,
+  setting?: PayrollSetting,
+): readonly PayrollStatementBodySection[] {
+  const finalAmount = statement.finalAmount;
+  const taxAmount = statement.taxAmount;
+  const overtimePay = statement.overtimePay;
+  const basePay = estimateBasePay(finalAmount, overtimePay, 0, taxAmount, setting);
+  const paidOrScheduledDate =
+    formatShortDate(statement.paidAt) ??
+    formatShortDate(statement.scheduledPaymentDate) ??
+    "-";
+
+  return [
+    {
+      id: "snapshot-summary",
+      title: "명세 스냅샷",
+      lines: [
+        {
+          id: "final-amount",
+          label: "최종 지급액",
+          value: formatWon(finalAmount),
+        },
+        {
+          id: "payment-date",
+          label: statement.status === "paid" ? "지급일" : "지급 예정일",
+          value: paidOrScheduledDate,
+        },
+        {
+          id: "payroll-type",
+          label: "급여 유형",
+          value: getPayrollTypeLabel(statement.payrollType || setting?.payrollType),
+        },
+      ],
+    },
+    {
+      id: "amount-breakdown",
+      title: "금액 산정",
+      lines: [
+        {
+          id: "base-pay",
+          label: "기본급",
+          value: formatWon(basePay),
+        },
+        {
+          id: "overtime-pay",
+          label: "추가근무",
+          tone: overtimePay > 0 ? "positive" : "muted",
+          value: formatWon(overtimePay),
+        },
+        {
+          id: "bonus-count",
+          label: "보너스/차감 반영",
+          value:
+            statement.bonusItemCount > 0
+              ? `${statement.bonusItemCount.toLocaleString("ko-KR")}건`
+              : "-",
+        },
+        {
+          id: "tax",
+          label: "세금",
+          tone: taxAmount > 0 ? "negative" : "muted",
+          value: formatWon(taxAmount),
+        },
+      ],
     },
   ];
 }
@@ -491,6 +564,7 @@ function mapPayStatement(document: PayrollDocument): PayStatement | null {
   }
 
   return {
+    bonusItemCount: readStringArray(snapshot.bonusItemIds).length,
     confirmedAt: readTimestamp(data.confirmedAt),
     currentFinalAmount: readNullableNumber(currentCalculationSummary.finalAmount),
     finalAmount: readNullableNumber(snapshot.finalAmount),
@@ -656,6 +730,10 @@ function formatPayrollBasis(setting?: PayrollSetting) {
   return `시급 ${formatWon(setting.hourlyRate)}`;
 }
 
+function getPayrollTypeLabel(type: string | null | undefined) {
+  return type === "monthly" ? "월급제" : "시급제";
+}
+
 function formatWon(value: number | null | undefined) {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return "-";
@@ -764,6 +842,12 @@ function readNumber(value: unknown, fallback: number) {
 
 function readNullableNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function readStringArray(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
 }
 
 function readBoolean(value: unknown, fallback: boolean) {
