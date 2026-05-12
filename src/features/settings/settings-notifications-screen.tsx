@@ -15,6 +15,7 @@ export function SettingsNotificationsScreen() {
   const [fixture, setFixture] = useState<SettingsNotificationsFixture>(
     settingsNotificationsFixture,
   );
+  const [loading, setLoading] = useState(dataSource.mode !== "fixture");
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
@@ -26,6 +27,7 @@ export function SettingsNotificationsScreen() {
         if (!cancelled) {
           setFixture(nextFixture);
           setErrorMessage("");
+          setLoading(false);
         }
       })
       .catch((error: unknown) => {
@@ -35,6 +37,7 @@ export function SettingsNotificationsScreen() {
               ? error.message
               : "알림 설정을 불러오지 못했습니다.",
           );
+          setLoading(false);
         }
       });
 
@@ -49,33 +52,53 @@ export function SettingsNotificationsScreen() {
       className="mx-auto w-full max-w-[1480px] overflow-hidden rounded-[10px] border border-gray-100 bg-white py-4 tracking-normal"
       data-testid="settings-notifications-screen"
     >
-      {errorMessage ? (
-        <div className="mx-4 mb-3 rounded-[8px] border border-red-100 bg-red-50 px-4 py-3 text-body-14-regular text-red-500">
-          {errorMessage}
-        </div>
-      ) : null}
-
-      <div
-        className="grid h-[36px] grid-cols-[1fr_200px_200px] items-start border-b border-gray-300 px-4 text-h-18-regular font-medium text-gray-500"
-        role="row"
-      >
-        {fixture.columns.map((column) => (
-          <div key={column.id} role="columnheader">
-            {column.label}
+      {loading || errorMessage ? (
+        <SettingsNotificationsState
+          label={errorMessage || "알림 설정을 불러오는 중입니다."}
+          role={errorMessage ? "alert" : "status"}
+        />
+      ) : (
+        <>
+          <div
+            className="grid h-[36px] grid-cols-[1fr_200px_200px] items-start border-b border-gray-300 px-4 text-h-18-regular font-medium text-gray-500"
+            role="row"
+          >
+            {fixture.columns.map((column) => (
+              <div key={column.id} role="columnheader">
+                {column.label}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      <div role="rowgroup">
-        {fixture.rows.map((row, index) => (
-          <SettingsNotificationTableRow
-            key={row.id}
-            row={row}
-            last={index === fixture.rows.length - 1}
-          />
-        ))}
-      </div>
+          <div role="rowgroup">
+            {fixture.rows.map((row, index) => (
+              <SettingsNotificationTableRow
+                key={row.id}
+                row={row}
+                last={index === fixture.rows.length - 1}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </section>
+  );
+}
+
+function SettingsNotificationsState({
+  label,
+  role,
+}: {
+  label: string;
+  role: "alert" | "status";
+}) {
+  return (
+    <div
+      className="flex min-h-[300px] items-center justify-center px-4 text-center text-h-18-regular text-gray-500"
+      role={role}
+    >
+      {label}
+    </div>
   );
 }
 

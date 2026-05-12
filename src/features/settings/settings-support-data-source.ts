@@ -19,6 +19,7 @@ export type SettingsSupportDataSource = {
   getBilling: () => Promise<SettingsBillingFixture>;
   getNotifications: () => Promise<SettingsNotificationsFixture>;
   getRules: () => Promise<SettingsRulesFixture>;
+  mode: "fixture" | "firestore";
 };
 
 export function createSettingsSupportDataSource(): SettingsSupportDataSource {
@@ -31,6 +32,7 @@ export function createSettingsSupportDataSource(): SettingsSupportDataSource {
 
 function createMockSettingsSupportDataSource(): SettingsSupportDataSource {
   return {
+    mode: "fixture",
     async getBilling() {
       return settingsBillingFixture;
     },
@@ -45,6 +47,7 @@ function createMockSettingsSupportDataSource(): SettingsSupportDataSource {
 
 function createFirestoreSettingsSupportDataSource(): SettingsSupportDataSource {
   return {
+    mode: "firestore",
     async getBilling() {
       const workspaceId = await requireActiveWorkspaceId();
       const [workspaceSnapshot, subscriptionSnapshot, billingSnapshot] =

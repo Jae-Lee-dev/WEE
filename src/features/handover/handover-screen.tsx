@@ -27,6 +27,7 @@ const blockSpacingClassName: Record<HandoverBlockSpacing, string> = {
 export function HandoverScreen() {
   const dataSource = useMemo(() => createHandoverDataSource(), []);
   const [fixture, setFixture] = useState<HandoverFixture>(handoverFixture);
+  const [loading, setLoading] = useState(dataSource.mode !== "fixture");
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export function HandoverScreen() {
         if (!cancelled) {
           setFixture(nextFixture);
           setErrorMessage("");
+          setLoading(false);
         }
       })
       .catch((error: unknown) => {
@@ -47,6 +49,7 @@ export function HandoverScreen() {
               ? error.message
               : "인수인계 문서를 불러오지 못했습니다.",
           );
+          setLoading(false);
         }
       });
 
@@ -61,17 +64,40 @@ export function HandoverScreen() {
       className="mx-auto grid h-[calc(100vh-144px)] w-full max-w-[1480px] grid-cols-[minmax(0,1fr)_minmax(320px,380px)] gap-4 overflow-hidden tracking-normal"
       data-testid="handover-screen"
     >
-      <div className="flex min-h-0 min-w-0 flex-col gap-4 overflow-hidden">
-        {errorMessage ? (
-          <div className="rounded-[8px] border border-red-100 bg-red-50 px-4 py-3 text-body-14-regular text-red-500">
-            {errorMessage}
+      {loading || errorMessage ? (
+        <HandoverState
+          label={
+            errorMessage || "게시된 인수인계 문서를 불러오는 중입니다."
+          }
+          role={errorMessage ? "alert" : "status"}
+        />
+      ) : (
+        <>
+          <div className="flex min-h-0 min-w-0 flex-col gap-4 overflow-hidden">
+            <HandoverToolbar fixture={fixture} />
+            <HandoverEditor fixture={fixture} />
           </div>
-        ) : null}
-        <HandoverToolbar fixture={fixture} />
-        <HandoverEditor fixture={fixture} />
-      </div>
-      <HandoverChatPanel fixture={fixture} />
+          <HandoverChatPanel fixture={fixture} />
+        </>
+      )}
     </section>
+  );
+}
+
+function HandoverState({
+  label,
+  role,
+}: {
+  label: string;
+  role: "alert" | "status";
+}) {
+  return (
+    <div
+      className="col-span-2 flex min-h-[360px] items-center justify-center rounded-[8px] bg-white px-4 text-center text-h-18-regular tracking-normal text-gray-500"
+      role={role}
+    >
+      {label}
+    </div>
   );
 }
 

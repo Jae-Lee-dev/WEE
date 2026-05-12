@@ -17,6 +17,7 @@ export function SettingsBillingScreen() {
   const dataSource = useMemo(() => createSettingsSupportDataSource(), []);
   const [fixture, setFixture] =
     useState<SettingsBillingFixture>(settingsBillingFixture);
+  const [loading, setLoading] = useState(dataSource.mode !== "fixture");
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
@@ -28,6 +29,7 @@ export function SettingsBillingScreen() {
         if (!cancelled) {
           setFixture(nextFixture);
           setErrorMessage("");
+          setLoading(false);
         }
       })
       .catch((error: unknown) => {
@@ -37,6 +39,7 @@ export function SettingsBillingScreen() {
               ? error.message
               : "요금제 정보를 불러오지 못했습니다.",
           );
+          setLoading(false);
         }
       });
 
@@ -51,26 +54,46 @@ export function SettingsBillingScreen() {
       className="mx-auto flex w-full max-w-[1480px] flex-col gap-4 tracking-normal"
       data-testid="settings-billing-screen"
     >
-      {errorMessage ? (
-        <div className="rounded-[8px] border border-red-100 bg-red-50 px-4 py-3 text-body-14-regular text-red-500">
-          {errorMessage}
-        </div>
-      ) : null}
-
-      <div className="grid grid-cols-2 gap-4">
-        {fixture.plans.map((plan) => (
-          <BillingPlanCard key={plan.id} plan={plan} />
-        ))}
-      </div>
-      <div className="flex justify-end">
-        <button
-          type="button"
-          className="flex h-9 items-center justify-center rounded-full border border-red-100 bg-white px-4 text-h-18-regular font-medium text-red-500 transition-colors duration-150 ease-out hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-100"
-        >
-          {fixture.cancelSubscriptionLabel}
-        </button>
-      </div>
+      {loading || errorMessage ? (
+        <SettingsBillingState
+          label={errorMessage || "요금제 정보를 불러오는 중입니다."}
+          role={errorMessage ? "alert" : "status"}
+        />
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            {fixture.plans.map((plan) => (
+              <BillingPlanCard key={plan.id} plan={plan} />
+            ))}
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              className="flex h-9 items-center justify-center rounded-full border border-red-100 bg-white px-4 text-h-18-regular font-medium text-red-500 transition-colors duration-150 ease-out hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-100"
+            >
+              {fixture.cancelSubscriptionLabel}
+            </button>
+          </div>
+        </>
+      )}
     </section>
+  );
+}
+
+function SettingsBillingState({
+  label,
+  role,
+}: {
+  label: string;
+  role: "alert" | "status";
+}) {
+  return (
+    <div
+      className="flex min-h-[420px] items-center justify-center rounded-[8px] bg-white px-4 text-center text-h-18-regular text-gray-500"
+      role={role}
+    >
+      {label}
+    </div>
   );
 }
 

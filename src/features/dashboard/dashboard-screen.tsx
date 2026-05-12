@@ -129,6 +129,8 @@ export function DashboardScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const dataSource = useMemo(() => createDashboardInboxDataSource(), []);
   const [rowsByFilter, setRowsByFilter] = useState(dataSource.initialRows);
+  const [loading, setLoading] = useState(dataSource.mode !== "fixture");
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -138,11 +140,23 @@ export function DashboardScreen() {
       .then((nextRowsByFilter) => {
         if (active) {
           setRowsByFilter(nextRowsByFilter);
+          setErrorMessage("");
+          setLoading(false);
         }
       })
       .catch(() => {
         if (active) {
-          setRowsByFilter(dataSource.initialRows);
+          setErrorMessage("운영 인박스를 불러오지 못했습니다.");
+          setRowsByFilter(dataSource.mode === "fixture" ? dataSource.initialRows : {
+            all: [],
+            affiliation: [],
+            schedule: [],
+            overtime: [],
+            correction: [],
+            anomaly: [],
+            payroll: [],
+          });
+          setLoading(false);
         }
       });
 
@@ -151,7 +165,9 @@ export function DashboardScreen() {
     };
   }, [dataSource]);
 
-  const rows = filterInboxRows(rowsByFilter[activeFilter], searchQuery);
+  const rows = loading
+    ? []
+    : filterInboxRows(rowsByFilter[activeFilter], searchQuery);
   const triggerLabel = getFilterTriggerLabel(activeFilter);
   const countLabel = `${rows.length}건`;
 
@@ -193,7 +209,12 @@ export function DashboardScreen() {
         />
       </div>
 
-      <InboxTable countLabel={countLabel} rows={rows} />
+      <InboxTable
+        countLabel={countLabel}
+        errorMessage={errorMessage}
+        loading={loading}
+        rows={rows}
+      />
     </section>
   );
 }
@@ -301,9 +322,13 @@ function SearchBox({
 
 function InboxTable({
   countLabel,
+  errorMessage,
+  loading,
   rows,
 }: {
   countLabel: string;
+  errorMessage: string;
+  loading: boolean;
   rows: readonly DashboardInboxRow[];
 }) {
   return (
@@ -324,33 +349,58 @@ function InboxTable({
             <div>일시</div>
             <div>상태</div>
           </div>
-          {rows.map((row) =>
-            row.href ? (
-              <Link
-                key={row.id}
-                href={row.href}
-                data-action-type={row.action.actionType}
-                data-target-id={row.action.targetId}
-                data-record-type={row.action.recordType}
-                className="grid h-[42px] grid-cols-[260px_200px_260px_380px_200px_240px] items-center border-b border-gray-100 px-4 text-left text-h-18-regular text-gray-900 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200"
-              >
-                <InboxRowCells row={row} />
-              </Link>
-            ) : (
-              <button
-                key={row.id}
-                type="button"
-                data-action-type={row.action.actionType}
-                data-target-id={row.action.targetId}
-                data-record-type={row.action.recordType}
-                className="grid h-[42px] w-full grid-cols-[260px_200px_260px_380px_200px_240px] items-center border-b border-gray-100 px-4 text-left text-h-18-regular text-gray-900 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200"
-              >
-                <InboxRowCells row={row} />
-              </button>
-            ),
+          {loading ? (
+            <DashboardTableState label="운영 인박스를 불러오는 중입니다." />
+          ) : errorMessage ? (
+            <DashboardTableState label={errorMessage} role="alert" />
+          ) : rows.length > 0 ? (
+            rows.map((row) =>
+              row.href ? (
+                <Link
+                  key={row.id}
+                  href={row.href}
+                  data-action-type={row.action.actionType}
+                  data-target-id={row.action.targetId}
+                  data-record-type={row.action.recordType}
+                  className="grid h-[42px] grid-cols-[260px_200px_260px_380px_200px_240px] items-center border-b border-gray-100 px-4 text-left text-h-18-regular text-gray-900 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200"
+                >
+                  <InboxRowCells row={row} />
+                </Link>
+              ) : (
+                <button
+                  key={row.id}
+                  type="button"
+                  data-action-type={row.action.actionType}
+                  data-target-id={row.action.targetId}
+                  data-record-type={row.action.recordType}
+                  className="grid h-[42px] w-full grid-cols-[260px_200px_260px_380px_200px_240px] items-center border-b border-gray-100 px-4 text-left text-h-18-regular text-gray-900 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200"
+                >
+                  <InboxRowCells row={row} />
+                </button>
+              ),
+            )
+          ) : (
+            <DashboardTableState label="확인할 운영 항목이 없습니다." />
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function DashboardTableState({
+  label,
+  role = "status",
+}: {
+  label: string;
+  role?: "alert" | "status";
+}) {
+  return (
+    <div
+      className="flex h-40 items-center justify-center px-4 text-center text-h-18-regular text-gray-500"
+      role={role}
+    >
+      {label}
     </div>
   );
 }
@@ -384,6 +434,8 @@ export function DashboardLocationsScreen() {
   );
   const [periodId, setPeriodId] =
     useState<DashboardLocationPeriodId>(dataSource.initialData.defaultPeriodId);
+  const [loading, setLoading] = useState(dataSource.mode !== "fixture");
+  const [errorMessage, setErrorMessage] = useState("");
   const summary =
     viewModel.summaries[locationId]?.[periodId] ?? emptyLocationSummary;
   const rows = viewModel.rowsByLocationPeriod[locationId]?.[periodId] ?? [];
@@ -400,6 +452,8 @@ export function DashboardLocationsScreen() {
         }
 
         setViewModel(nextViewModel);
+        setErrorMessage("");
+        setLoading(false);
         setLocationId((current) =>
           nextViewModel.locationOptions.some((option) => option.id === current)
             ? current
@@ -411,7 +465,14 @@ export function DashboardLocationsScreen() {
             : nextViewModel.defaultPeriodId,
         );
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setErrorMessage("근무지별 대시보드를 불러오지 못했습니다.");
+        setLoading(false);
+      });
 
     return () => {
       active = false;
@@ -467,6 +528,7 @@ export function DashboardLocationsScreen() {
             options={viewModel.locationOptions}
             testId="dashboard-location-select"
             value={locationId}
+            disabled={loading}
             onChange={setLocationId}
           />
           <DashboardSelectField
@@ -474,6 +536,7 @@ export function DashboardLocationsScreen() {
             options={viewModel.periodOptions}
             testId="dashboard-location-period-select"
             value={periodId}
+            disabled={loading}
             onChange={setPeriodId}
           />
         </div>
@@ -481,6 +544,7 @@ export function DashboardLocationsScreen() {
           type="button"
           variant="outline"
           size="sm"
+          disabled={loading || !!errorMessage}
           className="h-10 rounded-full px-4 text-h-18-regular font-normal tracking-normal"
         >
           <Printer className="size-5 text-green-400" />
@@ -488,8 +552,16 @@ export function DashboardLocationsScreen() {
         </Button>
       </ToolbarShell>
 
-      <OperationalMetricGrid metrics={metrics} />
-      <LocationWorkerTable rows={rows} />
+      {loading ? (
+        <DashboardSectionState label="근무지별 대시보드를 불러오는 중입니다." />
+      ) : errorMessage ? (
+        <DashboardSectionState label={errorMessage} role="alert" />
+      ) : (
+        <>
+          <OperationalMetricGrid metrics={metrics} />
+          <LocationWorkerTable rows={rows} />
+        </>
+      )}
     </section>
   );
 }
@@ -505,6 +577,8 @@ export function DashboardWorkersScreen() {
   const [selectedWorkerId, setSelectedWorkerId] = useState<string>(
     dataSource.initialData.summaries[0]?.id ?? "",
   );
+  const [loading, setLoading] = useState(dataSource.mode !== "fixture");
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -517,6 +591,8 @@ export function DashboardWorkersScreen() {
         }
 
         setViewModel(nextViewModel);
+        setErrorMessage("");
+        setLoading(false);
         setSelectedWorkerId((current) =>
           nextViewModel.summaries.some((worker) => worker.id === current)
             ? current
@@ -528,7 +604,14 @@ export function DashboardWorkersScreen() {
             : "all",
         );
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setErrorMessage("근무자별 대시보드를 불러오지 못했습니다.");
+        setLoading(false);
+      });
 
     return () => {
       active = false;
@@ -569,12 +652,14 @@ export function DashboardWorkersScreen() {
             options={dashboardWorkerPeriodOptions}
             testId="dashboard-worker-period-select"
             value={periodId}
+            disabled={loading}
             onChange={setPeriodId}
           />
           <Button
             type="button"
             variant="outline"
             size="sm"
+            disabled={loading || !!errorMessage}
             className="h-10 rounded-full px-4 text-h-18-regular font-normal tracking-normal"
           >
             <Printer className="size-5 text-green-400" />
@@ -586,28 +671,34 @@ export function DashboardWorkersScreen() {
         </p>
       </ToolbarShell>
 
-      <div className="grid min-h-[520px] grid-cols-[232px_minmax(0,1fr)] gap-4">
-        <WorkerSelectorPanel
-          filteredWorkers={filteredWorkers}
-          searchQuery={searchQuery}
-          selectedWorkerId={activeWorkerId}
-          tagOptions={viewModel.tagOptions}
-          tagId={tagId}
-          totalWorkerCount={viewModel.summaries.length}
-          onSearchChange={setSearchQuery}
-          onSelectWorker={setSelectedWorkerId}
-          onTagChange={setTagId}
-        />
-        {selectedWorker ? (
-          <WorkerDashboardPanel
-            periodId={periodId}
+      {loading ? (
+        <DashboardSectionState label="근무자별 대시보드를 불러오는 중입니다." />
+      ) : errorMessage ? (
+        <DashboardSectionState label={errorMessage} role="alert" />
+      ) : (
+        <div className="grid min-h-[520px] grid-cols-[232px_minmax(0,1fr)] gap-4">
+          <WorkerSelectorPanel
+            filteredWorkers={filteredWorkers}
+            searchQuery={searchQuery}
+            selectedWorkerId={activeWorkerId}
             tagOptions={viewModel.tagOptions}
-            worker={selectedWorker}
+            tagId={tagId}
+            totalWorkerCount={viewModel.summaries.length}
+            onSearchChange={setSearchQuery}
+            onSelectWorker={setSelectedWorkerId}
+            onTagChange={setTagId}
           />
-        ) : (
-          <EmptyPanel>선택 가능한 조교가 없습니다.</EmptyPanel>
-        )}
-      </div>
+          {selectedWorker ? (
+            <WorkerDashboardPanel
+              periodId={periodId}
+              tagOptions={viewModel.tagOptions}
+              worker={selectedWorker}
+            />
+          ) : (
+            <EmptyPanel>선택 가능한 조교가 없습니다.</EmptyPanel>
+          )}
+        </div>
+      )}
     </section>
   );
 }
@@ -629,6 +720,8 @@ export function DashboardAiMonitoringScreen({
     useState<DashboardAiAnalysisPeriodId>(
       dashboardAiMonitoringFixture.defaultPeriodId,
     );
+  const [loading, setLoading] = useState(dataSource.mode !== "fixture");
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -638,9 +731,18 @@ export function DashboardAiMonitoringScreen({
       .then((nextViewModel) => {
         if (active) {
           setViewModel(nextViewModel);
+          setErrorMessage("");
+          setLoading(false);
         }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setErrorMessage("AI 모니터링 데이터를 불러오지 못했습니다.");
+        setLoading(false);
+      });
 
     return () => {
       active = false;
@@ -658,7 +760,13 @@ export function DashboardAiMonitoringScreen({
       data-dashboard-ai-state={`${plan}:${lastRunPeriodId}`}
       data-testid="dashboard-ai-monitoring-screen"
     >
-      <OperationalMetricGrid metrics={viewModel.metrics} />
+      {loading ? (
+        <DashboardSectionState label="AI 모니터링 데이터를 불러오는 중입니다." />
+      ) : errorMessage ? (
+        <DashboardSectionState label={errorMessage} role="alert" />
+      ) : (
+        <OperationalMetricGrid metrics={viewModel.metrics} />
+      )}
 
       <div className="rounded-[8px] border border-gray-200 bg-white p-4">
         <div className="flex items-start justify-between gap-6">
@@ -674,11 +782,13 @@ export function DashboardAiMonitoringScreen({
               options={dashboardAiAnalysisPeriodOptions}
               testId="dashboard-ai-period-select"
               value={analysisPeriodId}
+              disabled={loading}
               onChange={setAnalysisPeriodId}
             />
             <Button
               type="button"
               size="sm"
+              disabled={loading || !!errorMessage}
               onClick={() => setLastRunPeriodId(analysisPeriodId)}
               className="h-10 rounded-full px-4 text-h-18-regular font-normal tracking-normal text-white"
               data-testid="dashboard-ai-run-analysis"
@@ -699,7 +809,9 @@ export function DashboardAiMonitoringScreen({
         </div>
       </div>
 
-      <AiPatternTable rows={viewModel.patternRows} />
+      {loading ? null : errorMessage ? null : (
+        <AiPatternTable rows={viewModel.patternRows} />
+      )}
     </section>
   );
 }
@@ -714,12 +826,14 @@ function ToolbarShell({ children }: { children: ReactNode }) {
 
 function DashboardSelectField<T extends string>({
   ariaLabel,
+  disabled = false,
   onChange,
   options,
   testId,
   value,
 }: {
   ariaLabel: string;
+  disabled?: boolean;
   onChange: (value: T) => void;
   options: readonly DashboardSelectOption<T>[];
   testId?: string;
@@ -731,18 +845,40 @@ function DashboardSelectField<T extends string>({
       <select
         aria-label={ariaLabel}
         data-testid={testId}
+        disabled={disabled}
         value={value}
         onChange={(event) => onChange(event.target.value as T)}
-        className="h-10 min-w-[150px] appearance-none rounded-[6px] border border-gray-200 bg-white py-0 pl-3 pr-9 text-h-18-regular text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] outline-none transition-colors duration-150 ease-out hover:border-gray-300 focus-visible:ring-2 focus-visible:ring-green-200"
+        className="h-10 min-w-[150px] appearance-none rounded-[6px] border border-gray-200 bg-white py-0 pl-3 pr-9 text-h-18-regular text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] outline-none transition-colors duration-150 ease-out hover:border-gray-300 focus-visible:ring-2 focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {options.map((option) => (
-          <option key={option.id} value={option.id}>
-            {option.label}
-          </option>
-        ))}
+        {options.length === 0 ? (
+          <option value={value}>선택 가능한 항목 없음</option>
+        ) : (
+          options.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))
+        )}
       </select>
       <IconChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-5 -translate-y-1/2 text-gray-600" />
     </label>
+  );
+}
+
+function DashboardSectionState({
+  label,
+  role = "status",
+}: {
+  label: string;
+  role?: "alert" | "status";
+}) {
+  return (
+    <div
+      className="flex min-h-[360px] items-center justify-center rounded-[8px] bg-white px-4 text-center text-h-18-regular text-gray-500"
+      role={role}
+    >
+      {label}
+    </div>
   );
 }
 

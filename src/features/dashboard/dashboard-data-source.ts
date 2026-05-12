@@ -23,9 +23,12 @@ type DashboardInboxRowsByFilter = Record<
   readonly DashboardInboxRow[]
 >;
 
+export type DashboardInboxDataSourceMode = "fixture" | "firestore";
+
 export type DashboardInboxDataSource = {
   initialRows: DashboardInboxRowsByFilter;
   listInboxRows: () => Promise<DashboardInboxRowsByFilter>;
+  mode: DashboardInboxDataSourceMode;
 };
 
 type OperationalInboxItem = {
@@ -82,6 +85,7 @@ export function createDashboardInboxDataSource(): DashboardInboxDataSource {
 function createFixtureDashboardInboxDataSource(): DashboardInboxDataSource {
   return {
     initialRows: dashboardInboxRows,
+    mode: "fixture",
 
     async listInboxRows() {
       return dashboardInboxRows;
@@ -91,7 +95,8 @@ function createFixtureDashboardInboxDataSource(): DashboardInboxDataSource {
 
 function createFirestoreDashboardInboxDataSource(): DashboardInboxDataSource {
   return {
-    initialRows: dashboardInboxRows,
+    initialRows: createEmptyInboxRows(),
+    mode: "firestore",
 
     async listInboxRows() {
       const workspaceId = await requireActiveWorkspaceId();
@@ -114,6 +119,10 @@ function createFirestoreDashboardInboxDataSource(): DashboardInboxDataSource {
       return groupInboxRows(rows);
     },
   };
+}
+
+function createEmptyInboxRows(): DashboardInboxRowsByFilter {
+  return groupInboxRows([]);
 }
 
 function groupInboxRows(

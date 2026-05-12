@@ -16,6 +16,7 @@ import {
 
 export type HandoverDataSource = {
   getHandover: () => Promise<HandoverFixture>;
+  mode: "fixture" | "firestore";
 };
 
 export function createHandoverDataSource(): HandoverDataSource {
@@ -28,6 +29,7 @@ export function createHandoverDataSource(): HandoverDataSource {
 
 function createMockHandoverDataSource(): HandoverDataSource {
   return {
+    mode: "fixture",
     async getHandover() {
       return handoverFixture;
     },
@@ -36,6 +38,7 @@ function createMockHandoverDataSource(): HandoverDataSource {
 
 function createFirestoreHandoverDataSource(): HandoverDataSource {
   return {
+    mode: "firestore",
     async getHandover() {
       const workspaceId = await requireActiveWorkspaceId();
       const snapshot = await getDocs(

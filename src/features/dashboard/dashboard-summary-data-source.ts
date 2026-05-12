@@ -57,19 +57,24 @@ export type DashboardAiMonitoringViewModel = {
   patternRows: readonly DashboardAiPatternRow[];
 };
 
+export type DashboardSummaryDataSourceMode = "fixture" | "firestore";
+
 export type DashboardLocationsDataSource = {
   initialData: DashboardLocationsViewModel;
   load: () => Promise<DashboardLocationsViewModel>;
+  mode: DashboardSummaryDataSourceMode;
 };
 
 export type DashboardWorkersDataSource = {
   initialData: DashboardWorkersViewModel;
   load: () => Promise<DashboardWorkersViewModel>;
+  mode: DashboardSummaryDataSourceMode;
 };
 
 export type DashboardAiMonitoringDataSource = {
   initialData: DashboardAiMonitoringViewModel;
   load: () => Promise<DashboardAiMonitoringViewModel>;
+  mode: DashboardSummaryDataSourceMode;
 };
 
 type LocationModel = {
@@ -171,6 +176,7 @@ export function createDashboardLocationsDataSource(): DashboardLocationsDataSour
   if (shouldUseFixtureDataSource()) {
     return {
       initialData,
+      mode: "fixture",
       async load() {
         return initialData;
       },
@@ -178,7 +184,8 @@ export function createDashboardLocationsDataSource(): DashboardLocationsDataSour
   }
 
   return {
-    initialData,
+    initialData: getEmptyLocationsViewModel(),
+    mode: "firestore",
     async load() {
       return mapLocationsViewModel(await readDashboardCollections());
     },
@@ -191,6 +198,7 @@ export function createDashboardWorkersDataSource(): DashboardWorkersDataSource {
   if (shouldUseFixtureDataSource()) {
     return {
       initialData,
+      mode: "fixture",
       async load() {
         return initialData;
       },
@@ -198,7 +206,8 @@ export function createDashboardWorkersDataSource(): DashboardWorkersDataSource {
   }
 
   return {
-    initialData,
+    initialData: getEmptyWorkersViewModel(),
+    mode: "firestore",
     async load() {
       return mapWorkersViewModel(await readDashboardCollections());
     },
@@ -211,6 +220,7 @@ export function createDashboardAiMonitoringDataSource(): DashboardAiMonitoringDa
   if (shouldUseFixtureDataSource()) {
     return {
       initialData,
+      mode: "fixture",
       async load() {
         return initialData;
       },
@@ -218,7 +228,8 @@ export function createDashboardAiMonitoringDataSource(): DashboardAiMonitoringDa
   }
 
   return {
-    initialData,
+    initialData: getEmptyAiMonitoringViewModel(),
+    mode: "firestore",
     async load() {
       return mapAiMonitoringViewModel(await readDashboardCollections());
     },
@@ -260,6 +271,32 @@ function getFixtureAiMonitoringViewModel(): DashboardAiMonitoringViewModel {
     lastRunAt: dashboardAiMonitoringFixture.lastRunAt,
     metrics: dashboardAiMonitoringFixture.metrics,
     patternRows: dashboardAiMonitoringFixture.patternRows,
+  };
+}
+
+function getEmptyLocationsViewModel(): DashboardLocationsViewModel {
+  return {
+    defaultLocationId: "" as DashboardLocationId,
+    defaultPeriodId: "" as DashboardLocationPeriodId,
+    locationOptions: [],
+    periodOptions: [],
+    rowsByLocationPeriod: {},
+    summaries: {},
+  };
+}
+
+function getEmptyWorkersViewModel(): DashboardWorkersViewModel {
+  return {
+    summaries: [],
+    tagOptions: [],
+  };
+}
+
+function getEmptyAiMonitoringViewModel(): DashboardAiMonitoringViewModel {
+  return {
+    lastRunAt: "",
+    metrics: [],
+    patternRows: [],
   };
 }
 

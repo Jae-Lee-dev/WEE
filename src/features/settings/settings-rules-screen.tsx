@@ -16,6 +16,7 @@ export function SettingsRulesScreen() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [fixture, setFixture] =
     useState<SettingsRulesFixture>(settingsRulesFixture);
+  const [loading, setLoading] = useState(dataSource.mode !== "fixture");
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
@@ -27,6 +28,7 @@ export function SettingsRulesScreen() {
         if (!cancelled) {
           setFixture(nextFixture);
           setErrorMessage("");
+          setLoading(false);
         }
       })
       .catch((error: unknown) => {
@@ -36,6 +38,7 @@ export function SettingsRulesScreen() {
               ? error.message
               : "운영 설정을 불러오지 못했습니다.",
           );
+          setLoading(false);
         }
       });
 
@@ -50,30 +53,32 @@ export function SettingsRulesScreen() {
       className="mx-auto flex h-[calc(100vh-144px)] min-h-[520px] w-full max-w-[1480px] flex-col items-end gap-4 overflow-hidden rounded-[10px] border border-gray-200 bg-white p-4 tracking-normal"
       data-testid="settings-rules-screen"
     >
-      {errorMessage ? (
-        <div className="w-full rounded-[8px] border border-red-100 bg-red-50 px-4 py-3 text-body-14-regular text-red-500">
-          {errorMessage}
+      {loading || errorMessage ? (
+        <SettingsRulesState
+          label={errorMessage || "운영 설정을 불러오는 중입니다."}
+          role={errorMessage ? "alert" : "status"}
+        />
+      ) : (
+        <div className="flex w-full flex-col gap-3">
+          {fixture.rules.map((rule) => (
+            <div
+              key={rule.id}
+              className="flex h-[58px] items-center justify-between rounded-[10px] border border-gray-200 bg-white px-4 text-h-18-semibold text-gray-500"
+            >
+              <span>{rule.label}</span>
+              <span className="text-h-18-regular font-medium text-gray-900">
+                {rule.value}
+              </span>
+            </div>
+          ))}
         </div>
-      ) : null}
-
-      <div className="flex w-full flex-col gap-3">
-        {fixture.rules.map((rule) => (
-          <div
-            key={rule.id}
-            className="flex h-[58px] items-center justify-between rounded-[10px] border border-gray-200 bg-white px-4 text-h-18-semibold text-gray-500"
-          >
-            <span>{rule.label}</span>
-            <span className="text-h-18-regular font-medium text-gray-900">
-              {rule.value}
-            </span>
-          </div>
-        ))}
-      </div>
+      )}
 
       <button
         type="button"
         className="flex h-9 items-center justify-center rounded-full bg-green-400 px-4 text-h-18-regular font-medium text-white transition-colors duration-150 ease-out hover:bg-green-450 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
         data-testid="settings-rules-edit-trigger"
+        disabled={loading || !!errorMessage}
         onClick={() => setDialogOpen(true)}
       >
         {fixture.editLabel}
@@ -86,6 +91,23 @@ export function SettingsRulesScreen() {
         />
       ) : null}
     </section>
+  );
+}
+
+function SettingsRulesState({
+  label,
+  role,
+}: {
+  label: string;
+  role: "alert" | "status";
+}) {
+  return (
+    <div
+      className="flex min-h-[300px] w-full items-center justify-center rounded-[8px] border border-gray-100 px-4 text-center text-h-18-regular text-gray-500"
+      role={role}
+    >
+      {label}
+    </div>
   );
 }
 
