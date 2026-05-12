@@ -55,6 +55,7 @@ export type DashboardInboxRow = {
   content: string;
   date: string;
   status: string;
+  href?: string;
   action: DashboardActionMeta;
 };
 
