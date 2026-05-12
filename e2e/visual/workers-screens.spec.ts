@@ -106,8 +106,8 @@ test(`WKR-02 list frame owns scroll ${desktop}`, async ({ page }) => {
 
   const metrics = await page.evaluate(() => {
     const frame = document.querySelector('[data-testid="workers-list-frame"]');
-    const toolbar = document.querySelector(
-      '[data-testid="workers-list-toolbar"]',
+    const filterToolbar = document.querySelector(
+      '[data-testid="workers-filter-toolbar"]',
     );
     const tableScroll = document.querySelector(
       '[data-testid="workers-table-scroll"]',
@@ -116,30 +116,32 @@ test(`WKR-02 list frame owns scroll ${desktop}`, async ({ page }) => {
       'nav[aria-label="페이지네이션"]',
     );
 
-    if (!frame || !toolbar || !tableScroll || !pagination) {
+    if (!frame || !filterToolbar || !tableScroll || !pagination) {
       return null;
     }
 
     const frameStyle = window.getComputedStyle(frame);
-    const toolbarStyle = window.getComputedStyle(toolbar);
+    const filterToolbarStyle = window.getComputedStyle(filterToolbar);
     const tableScrollStyle = window.getComputedStyle(tableScroll);
     const paginationStyle = window.getComputedStyle(pagination);
 
     return {
+      filterToolbarInFrame: frame.contains(filterToolbar),
+      filterToolbarPosition: filterToolbarStyle.position,
       frameDirection: frameStyle.flexDirection,
       frameDisplay: frameStyle.display,
       paginationShrink: paginationStyle.flexShrink,
       tableScrollOverflowY: tableScrollStyle.overflowY,
-      toolbarPosition: toolbarStyle.position,
     };
   });
 
   expect(metrics).toEqual({
+    filterToolbarInFrame: false,
+    filterToolbarPosition: "static",
     frameDirection: "column",
     frameDisplay: "flex",
     paginationShrink: "0",
     tableScrollOverflowY: "auto",
-    toolbarPosition: "static",
   });
 });
 

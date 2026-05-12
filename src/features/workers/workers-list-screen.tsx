@@ -66,20 +66,46 @@ export function WorkersListScreen() {
   return (
     <section
       aria-label="조교 목록"
-      className="flex h-[calc(100dvh-156px)] min-h-[520px] w-full flex-col"
+      className="flex h-[calc(100dvh-156px)] min-h-[520px] w-full flex-col gap-3"
       data-worker-list-state={status}
     >
+      <div
+        className="flex min-h-[43px] w-full shrink-0 items-center justify-between gap-4"
+        data-testid="workers-filter-toolbar"
+      >
+        <div className="flex items-center gap-4">
+          <TagFilterTrigger
+            open={tagMenuOpen}
+            onClick={() => setTagMenuOpen((open) => !open)}
+          />
+          <FilterTabs
+            options={[...workerListStatusFilters]}
+            value={status}
+            onChange={handleStatusChange}
+          />
+        </div>
+
+        <SearchShell className="w-[280px] shrink-0">
+          <input
+            readOnly
+            type="search"
+            value=""
+            placeholder="이름 검색"
+            className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-gray-400"
+            aria-label="조교 이름 검색"
+          />
+          <IconSearch className="size-6 shrink-0 text-green-400" />
+        </SearchShell>
+      </div>
+
       <WorkerListTable
         rows={pagedRows}
         status={status}
-        tagMenuOpen={tagMenuOpen}
         currentPage={safeCurrentPage}
         pageSize={pageSize}
         totalItems={rows.length}
         totalPages={totalPages}
         onPageChange={setCurrentPage}
-        onStatusChange={handleStatusChange}
-        onTagMenuToggle={() => setTagMenuOpen((open) => !open)}
         onPageSizeChange={(nextPageSize) => {
           setPageSize(nextPageSize);
           setCurrentPage(1);
@@ -177,24 +203,18 @@ function WorkerListTable({
   currentPage,
   onPageChange,
   onPageSizeChange,
-  onStatusChange,
-  onTagMenuToggle,
   pageSize,
   rows,
   status,
-  tagMenuOpen,
   totalItems,
   totalPages,
 }: {
   currentPage: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
-  onStatusChange: (status: WorkerListStatus) => void;
-  onTagMenuToggle: () => void;
   pageSize: number;
   rows: readonly WorkerListRow[];
   status: WorkerListStatus;
-  tagMenuOpen: boolean;
   totalItems: number;
   totalPages: number;
 }) {
@@ -204,35 +224,12 @@ function WorkerListTable({
       data-testid="workers-list-frame"
     >
       <div
-        className="flex min-h-[60px] shrink-0 items-center justify-between gap-4 border-b border-gray-100 px-4 py-2"
-        data-testid="workers-list-toolbar"
+        className="flex h-[56px] shrink-0 items-center gap-3 px-4"
       >
-        <div className="flex min-w-0 items-center gap-4">
-          <div className="flex shrink-0 items-center gap-3">
-            <h2 className="text-h-20 text-gray-900">조교 목록</h2>
-            <span className="rounded-[4px] bg-gray-100 px-1.5 py-0.5 text-detail-16-regular text-gray-600">
-              17/20명
-            </span>
-          </div>
-          <TagFilterTrigger open={tagMenuOpen} onClick={onTagMenuToggle} />
-          <FilterTabs
-            options={[...workerListStatusFilters]}
-            value={status}
-            onChange={onStatusChange}
-          />
-        </div>
-
-        <SearchShell className="w-[280px] shrink-0">
-          <input
-            readOnly
-            type="search"
-            value=""
-            placeholder="이름 검색"
-            className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-gray-400"
-            aria-label="조교 이름 검색"
-          />
-          <IconSearch className="size-6 shrink-0 text-green-400" />
-        </SearchShell>
+        <h2 className="text-h-20 text-gray-900">조교 목록</h2>
+        <span className="rounded-[4px] bg-gray-100 px-1.5 py-0.5 text-detail-16-regular text-gray-600">
+          17/20명
+        </span>
       </div>
 
       <div className="grid h-9 shrink-0 grid-cols-[15%_24%_19%_24%_1fr] items-center border-b border-gray-300 px-4 text-h-18-regular text-gray-500">
