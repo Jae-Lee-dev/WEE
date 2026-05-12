@@ -1,9 +1,16 @@
 import { WorkerDetailPayrollScreen } from "@/features/workers/worker-detail-payroll-screen";
+import { defaultWorkerDetailRouteId } from "@/features/workers/worker-detail-common-fixtures";
+
+type WorkerDetailPayrollPageProps = {
+  params: Promise<{ workerId: string }>;
+};
 
 export function generateStaticParams() {
-  return [{ workerId: "worker_kim_seoyeon" }];
+  return [{ workerId: defaultWorkerDetailRouteId }];
 }
 
-export default function Page() {
-  return <WorkerDetailPayrollScreen />;
+export default async function Page({ params }: WorkerDetailPayrollPageProps) {
+  const { workerId } = await params;
+
+  return <WorkerDetailPayrollScreen workerId={workerId} />;
 }

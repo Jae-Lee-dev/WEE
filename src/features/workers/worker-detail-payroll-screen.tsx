@@ -5,6 +5,7 @@ import {
   WorkerDetailSubsection,
   WorkerDetailSubsectionHeader,
 } from "./worker-detail-shell";
+import { defaultWorkerDetailRouteId } from "./worker-detail-common-fixtures";
 import {
   workerDetailPayrollIssues,
   workerDetailPayrollStatements,
@@ -44,9 +45,13 @@ const payrollToneConfig = {
   }
 >;
 
-export function WorkerDetailPayrollScreen() {
+export function WorkerDetailPayrollScreen({
+  workerId = defaultWorkerDetailRouteId,
+}: {
+  workerId?: string;
+}) {
   return (
-    <WorkerDetailShell activeTab="payroll">
+    <WorkerDetailShell activeTab="payroll" workerId={workerId}>
       <div
         className="grid grid-cols-[minmax(0,1fr)_minmax(480px,1fr)] gap-4"
         data-testid="worker-detail-payroll-screen"

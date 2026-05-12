@@ -7,6 +7,7 @@ import {
   WorkerDetailSubsection,
   WorkerDetailSubsectionHeader,
 } from "./worker-detail-shell";
+import { defaultWorkerDetailRouteId } from "./worker-detail-common-fixtures";
 import {
   workerDetailRecentWorkRecords,
   workerDetailScheduleBlocks,
@@ -43,9 +44,13 @@ const flagBadgeTone = {
   },
 } as const;
 
-export function WorkerDetailScheduleScreen() {
+export function WorkerDetailScheduleScreen({
+  workerId = defaultWorkerDetailRouteId,
+}: {
+  workerId?: string;
+}) {
   return (
-    <WorkerDetailShell activeTab="schedule">
+    <WorkerDetailShell activeTab="schedule" workerId={workerId}>
       <div
         className="grid grid-cols-[minmax(0,1fr)_360px] gap-4"
         data-testid="worker-detail-schedule-screen"

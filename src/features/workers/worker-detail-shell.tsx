@@ -3,8 +3,10 @@ import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
+  createWorkerDetailTabs,
+  defaultWorkerDetailRouteId,
   workerDetailProfile,
-  workerDetailTabs,
+  type WorkerDetailProfile,
   type WorkerDetailTabId,
 } from "./worker-detail-common-fixtures";
 
@@ -25,10 +27,14 @@ export function WorkerDetailShell({
   activeTab,
   children,
   className,
+  profile = workerDetailProfile,
+  workerId = defaultWorkerDetailRouteId,
 }: {
   activeTab: WorkerDetailTabId;
   children: ReactNode;
   className?: string;
+  profile?: WorkerDetailProfile;
+  workerId?: string;
 }) {
   return (
     <section
@@ -39,8 +45,8 @@ export function WorkerDetailShell({
       )}
       data-testid="worker-detail-shell"
     >
-      <WorkerProfileCard />
-      <WorkerDetailTabs activeTab={activeTab} />
+      <WorkerProfileCard profile={profile} />
+      <WorkerDetailTabs activeTab={activeTab} workerId={workerId} />
       {children}
     </section>
   );
@@ -86,44 +92,50 @@ export function WorkerDetailSubsectionHeader({
   );
 }
 
-function WorkerProfileCard() {
+function WorkerProfileCard({ profile }: { profile: WorkerDetailProfile }) {
   return (
     <section className="flex min-h-[68px] items-center justify-between gap-4 rounded-[8px] border border-gray-100 bg-white px-4 py-4">
       <div className="min-w-0">
         <div className="flex items-center gap-3">
-          <h2 className="text-h-20 text-gray-900">
-            {workerDetailProfile.name}
-          </h2>
+          <h2 className="text-h-20 text-gray-900">{profile.name}</h2>
           <Badge variant="grey" size="M">
-            {workerDetailProfile.tag}
+            {profile.tag}
           </Badge>
           <Badge
             variant="green"
             size="M"
             style={{ color: "var(--color-green-400)" }}
           >
-            {workerDetailProfile.status}
+            {profile.status}
           </Badge>
         </div>
         <div className="mt-3 flex items-center gap-4 text-h-18-regular text-gray-700">
-          <span>{workerDetailProfile.paySummary}</span>
+          <span>{profile.paySummary}</span>
           <span className="h-5 w-px bg-gray-200" />
-          <span>{workerDetailProfile.registeredSummary}</span>
+          <span>{profile.registeredSummary}</span>
           <span className="h-5 w-px bg-gray-200" />
-          <span>{workerDetailProfile.monthlySummary}</span>
+          <span>{profile.monthlySummary}</span>
         </div>
       </div>
       <button
         type="button"
         className="flex h-9 items-center justify-center rounded-full border border-red-100 bg-white px-4 text-h-18-regular font-medium text-red-500 transition-colors duration-150 ease-out hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-100"
       >
-        {workerDetailProfile.deleteLabel}
+        {profile.deleteLabel}
       </button>
     </section>
   );
 }
 
-function WorkerDetailTabs({ activeTab }: { activeTab: WorkerDetailTabId }) {
+function WorkerDetailTabs({
+  activeTab,
+  workerId,
+}: {
+  activeTab: WorkerDetailTabId;
+  workerId: string;
+}) {
+  const workerDetailTabs = createWorkerDetailTabs(workerId);
+
   return (
     <nav
       aria-label="조교 상세 탭"

@@ -42,6 +42,33 @@ export type DeleteBlocker = {
   tone: DeleteBlockerTone;
 };
 
+export type WorkerDetailBasicFixture = {
+  personalTitle: string;
+  bankCopyLabel: string;
+  editLabel: string;
+  personalRows: readonly BasicInfoRow[];
+  payrollTitle: string;
+  payrollRows: readonly PayrollSettingRow[];
+  editDialog: {
+    title: string;
+    fields: readonly EditInfoField[];
+    tagLabel: string;
+    tagValue: string;
+    addTagLabel: string;
+    payTypeLabel: string;
+    payTypeOptions: readonly [string, string];
+    payTypeNote: string;
+    cancelLabel: string;
+    saveLabel: string;
+  };
+  deleteBlockedDialog: {
+    title: string;
+    description: readonly string[];
+    blockers: readonly DeleteBlocker[];
+    confirmLabel: string;
+  };
+};
+
 export const workerDetailBasicFixture = {
   personalTitle: "인적사항 · 계좌",
   bankCopyLabel: "통장 사본 다운로드",
@@ -105,29 +132,4 @@ export const workerDetailBasicFixture = {
     ],
     confirmLabel: "확인",
   },
-} as const satisfies {
-  personalTitle: string;
-  bankCopyLabel: string;
-  editLabel: string;
-  personalRows: readonly BasicInfoRow[];
-  payrollTitle: string;
-  payrollRows: readonly PayrollSettingRow[];
-  editDialog: {
-    title: string;
-    fields: readonly EditInfoField[];
-    tagLabel: string;
-    tagValue: string;
-    addTagLabel: string;
-    payTypeLabel: string;
-    payTypeOptions: readonly [string, string];
-    payTypeNote: string;
-    cancelLabel: string;
-    saveLabel: string;
-  };
-  deleteBlockedDialog: {
-    title: string;
-    description: readonly string[];
-    blockers: readonly DeleteBlocker[];
-    confirmLabel: string;
-  };
-};
+} as const satisfies WorkerDetailBasicFixture;

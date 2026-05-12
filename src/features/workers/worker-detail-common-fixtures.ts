@@ -6,6 +6,18 @@ export type WorkerDetailTab = {
   href: string;
 };
 
+export type WorkerDetailProfile = {
+  name: string;
+  tag: string;
+  status: string;
+  paySummary: string;
+  registeredSummary: string;
+  monthlySummary: string;
+  deleteLabel: string;
+};
+
+export const defaultWorkerDetailRouteId = "worker_kim";
+
 export const workerDetailProfile = {
   name: "김서연",
   tag: "베테랑",
@@ -14,22 +26,32 @@ export const workerDetailProfile = {
   registeredSummary: "2025.07.05 등록",
   monthlySummary: "당월 48시간 근무",
   deleteLabel: "조교 삭제",
-} as const;
+} as const satisfies WorkerDetailProfile;
 
-export const workerDetailTabs = [
-  {
-    id: "basic",
-    label: "기본 정보",
-    href: "/workers/worker_kim_seoyeon",
-  },
-  {
-    id: "schedule",
-    label: "시간표",
-    href: "/workers/worker_kim_seoyeon/schedule",
-  },
-  {
-    id: "payroll",
-    label: "급여 현황",
-    href: "/workers/worker_kim_seoyeon/payroll",
-  },
-] as const satisfies readonly WorkerDetailTab[];
+export function createWorkerDetailTabs(
+  workerId: string,
+): readonly WorkerDetailTab[] {
+  const encodedWorkerId = encodeURIComponent(
+    workerId || defaultWorkerDetailRouteId,
+  );
+
+  return [
+    {
+      id: "basic",
+      label: "기본 정보",
+      href: `/workers/${encodedWorkerId}`,
+    },
+    {
+      id: "schedule",
+      label: "시간표",
+      href: `/workers/${encodedWorkerId}/schedule`,
+    },
+    {
+      id: "payroll",
+      label: "급여 현황",
+      href: `/workers/${encodedWorkerId}/payroll`,
+    },
+  ] as const satisfies readonly WorkerDetailTab[];
+}
+
+export const workerDetailTabs = createWorkerDetailTabs(defaultWorkerDetailRouteId);

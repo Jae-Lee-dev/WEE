@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,11 @@ import {
   type EditInfoField,
   type PayrollSettingRow,
 } from "./worker-detail-basic-fixtures";
+import {
+  createWorkerDetailBasicDataSource,
+  type WorkerDetailBasicData,
+} from "./worker-detail-basic-data-source";
+import { defaultWorkerDetailRouteId } from "./worker-detail-common-fixtures";
 
 type DialogState = "edit-info" | "delete-blocked" | null;
 
@@ -26,8 +31,56 @@ const blockerToneClassName: Record<DeleteBlockerTone, string> = {
   blue: "bg-blue-50 text-blue-500",
 };
 
-export function WorkerDetailBasicScreen() {
+export function WorkerDetailBasicScreen({
+  workerId = defaultWorkerDetailRouteId,
+}: {
+  workerId?: string;
+}) {
   const [dialog, setDialog] = useState<DialogState>(null);
+  const dataSource = useMemo(() => createWorkerDetailBasicDataSource(), []);
+  const [detailData, setDetailData] = useState<WorkerDetailBasicData>(
+    dataSource.initialData ?? {
+      fixture: workerDetailBasicFixture,
+      profile: {
+        name: "조교",
+        tag: "미지정",
+        status: "불러오는 중",
+        paySummary: "급여 확인 중",
+        registeredSummary: "등록일 확인 중",
+        monthlySummary: "당월 근무시간 확인 중",
+        deleteLabel: "조교 삭제",
+      },
+    },
+  );
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let ignore = false;
+
+    dataSource
+      .getWorkerDetail(workerId)
+      .then((nextData) => {
+        if (!ignore) {
+          setDetailData(nextData);
+          setLoadError(null);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!ignore) {
+          setLoadError(
+            error instanceof Error
+              ? error.message
+              : "조교 상세 정보를 불러오지 못했습니다.",
+          );
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [dataSource, workerId]);
+
+  const fixture = detailData.fixture;
 
   return (
     <div
@@ -42,26 +95,45 @@ export function WorkerDetailBasicScreen() {
       }}
       data-testid="worker-detail-basic-screen"
     >
-      <WorkerDetailShell activeTab="basic">
+      <WorkerDetailShell
+        activeTab="basic"
+        profile={detailData.profile}
+        workerId={workerId}
+      >
+        {loadError ? (
+          <div
+            className="rounded-[8px] border border-red-100 bg-red-50 px-4 py-3 text-h-18-semibold text-red-500"
+            role="status"
+          >
+            {loadError}
+          </div>
+        ) : null}
         <div className="grid grid-cols-2 gap-4">
-          <PersonalAccountCard onEdit={() => setDialog("edit-info")} />
-          <PayrollSettingsCard />
+          <PersonalAccountCard
+            fixture={fixture}
+            onEdit={() => setDialog("edit-info")}
+          />
+          <PayrollSettingsCard fixture={fixture} />
         </div>
       </WorkerDetailShell>
 
       {dialog === "edit-info" ? (
-        <EditInfoDialog onClose={() => setDialog(null)} />
+        <EditInfoDialog fixture={fixture} onClose={() => setDialog(null)} />
       ) : null}
       {dialog === "delete-blocked" ? (
-        <DeleteBlockedDialog onClose={() => setDialog(null)} />
+        <DeleteBlockedDialog fixture={fixture} onClose={() => setDialog(null)} />
       ) : null}
     </div>
   );
 }
 
-function PersonalAccountCard({ onEdit }: { onEdit: () => void }) {
-  const fixture = workerDetailBasicFixture;
-
+function PersonalAccountCard({
+  fixture,
+  onEdit,
+}: {
+  fixture: WorkerDetailBasicData["fixture"];
+  onEdit: () => void;
+}) {
   return (
     <WorkerDetailSubsection className="min-h-[360px] overflow-hidden">
       <WorkerDetailSubsectionHeader
@@ -90,9 +162,11 @@ function PersonalAccountCard({ onEdit }: { onEdit: () => void }) {
   );
 }
 
-function PayrollSettingsCard() {
-  const fixture = workerDetailBasicFixture;
-
+function PayrollSettingsCard({
+  fixture,
+}: {
+  fixture: WorkerDetailBasicData["fixture"];
+}) {
   return (
     <WorkerDetailSubsection className="min-h-[360px] overflow-hidden">
       <WorkerDetailSubsectionHeader>
@@ -175,8 +249,14 @@ function PayrollRow({ row, last }: { row: PayrollSettingRow; last: boolean }) {
   );
 }
 
-function EditInfoDialog({ onClose }: { onClose: () => void }) {
-  const dialog = workerDetailBasicFixture.editDialog;
+function EditInfoDialog({
+  fixture,
+  onClose,
+}: {
+  fixture: WorkerDetailBasicData["fixture"];
+  onClose: () => void;
+}) {
+  const dialog = fixture.editDialog;
 
   return (
     <DialogBackdrop>
@@ -272,8 +352,14 @@ function DialogField({ field }: { field: EditInfoField }) {
   );
 }
 
-function DeleteBlockedDialog({ onClose }: { onClose: () => void }) {
-  const dialog = workerDetailBasicFixture.deleteBlockedDialog;
+function DeleteBlockedDialog({
+  fixture,
+  onClose,
+}: {
+  fixture: WorkerDetailBasicData["fixture"];
+  onClose: () => void;
+}) {
+  const dialog = fixture.deleteBlockedDialog;
 
   return (
     <DialogBackdrop>
