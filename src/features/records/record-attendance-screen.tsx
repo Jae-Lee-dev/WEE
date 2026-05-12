@@ -1,11 +1,19 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
-  attendanceLogColumns,
-  attendanceLogFilters,
-  attendanceLogRows,
+  createRecordsDataSource,
+  shouldUseRecordsFixtureDataSource,
+  type RecordsDataSource,
+} from "./records-data-source";
+import {
+  attendanceLogFixtureViewModel,
   type AttendanceLogRow,
   type AttendanceLogStatus,
+  type AttendanceLogViewModel,
+  type RecordsFilterOption,
 } from "./records-fixtures";
 
 const statusBadgeConfig: Record<
@@ -25,27 +33,89 @@ const statusBadgeConfig: Record<
   },
 };
 
-export function RecordAttendanceScreen() {
+export function RecordAttendanceScreen({
+  dataSource: dataSourceProp,
+}: {
+  dataSource?: RecordsDataSource;
+} = {}) {
+  const fixtureMode = shouldUseRecordsFixtureDataSource();
+  const fallbackDataSource = useMemo(() => createRecordsDataSource(), []);
+  const dataSource = dataSourceProp ?? fallbackDataSource;
+  const [viewModel, setViewModel] = useState<AttendanceLogViewModel>(
+    fixtureMode ? attendanceLogFixtureViewModel : createEmptyAttendanceLogs(),
+  );
+  const [loading, setLoading] = useState(!fixtureMode);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    void dataSource
+      .getAttendanceLogs()
+      .then((nextViewModel) => {
+        if (!active) {
+          return;
+        }
+
+        setViewModel(nextViewModel);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setViewModel(createEmptyAttendanceLogs());
+        setErrorMessage("출퇴근 이력을 불러오지 못했습니다.");
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [dataSource]);
+
   return (
     <section
       aria-label="출퇴근 이력"
       className="mx-auto flex w-full max-w-[1480px] flex-col tracking-normal"
       data-testid="record-attendance-screen"
     >
-      <AttendanceFilters />
-      <AttendanceTable />
+      <AttendanceFilters filters={viewModel.filters} />
+      {loading || errorMessage ? (
+        <div
+          className={cn(
+            "mt-3 flex min-h-9 items-center rounded-[8px] border px-4 py-2.5 text-body-14-medium tracking-normal",
+            errorMessage
+              ? "border-red-100 bg-red-50 text-red-500"
+              : "border-green-100 bg-green-50 text-green-500",
+          )}
+          role={errorMessage ? "alert" : "status"}
+        >
+          {errorMessage || "출퇴근 이력을 불러오는 중입니다."}
+        </div>
+      ) : null}
+      <AttendanceTable
+        columns={viewModel.columns}
+        loading={loading}
+        rows={viewModel.rows}
+      />
     </section>
   );
 }
 
-function AttendanceFilters() {
+function AttendanceFilters({
+  filters,
+}: {
+  filters: readonly RecordsFilterOption[];
+}) {
   return (
     <div
       aria-label="출퇴근 이력 필터"
       className="flex h-10 items-center gap-3"
       role="group"
     >
-      {attendanceLogFilters.map((filter) => (
+      {filters.map((filter) => (
         <AttendanceFilterButton filter={filter} key={filter.id} />
       ))}
     </div>
@@ -55,7 +125,7 @@ function AttendanceFilters() {
 function AttendanceFilterButton({
   filter,
 }: {
-  filter: (typeof attendanceLogFilters)[number];
+  filter: RecordsFilterOption;
 }) {
   const selected = "selected" in filter && filter.selected;
 
@@ -76,7 +146,15 @@ function AttendanceFilterButton({
   );
 }
 
-function AttendanceTable() {
+function AttendanceTable({
+  columns,
+  loading,
+  rows,
+}: {
+  columns: AttendanceLogViewModel["columns"];
+  loading: boolean;
+  rows: readonly AttendanceLogRow[];
+}) {
   return (
     <div
       aria-label="출퇴근 이력 표"
@@ -88,7 +166,7 @@ function AttendanceTable() {
         className="grid h-[48px] grid-cols-6 items-end border-b border-gray-200 px-[18px] pb-3 text-h-18-regular text-gray-500"
         role="row"
       >
-        {attendanceLogColumns.map((column) => (
+        {columns.map((column) => (
           <div key={column.id} role="columnheader">
             {column.label}
           </div>
@@ -96,9 +174,13 @@ function AttendanceTable() {
       </div>
 
       <div role="rowgroup">
-        {attendanceLogRows.map((row) => (
-          <AttendanceTableRow key={row.id} row={row} />
-        ))}
+        {rows.length > 0 ? (
+          rows.map((row) => <AttendanceTableRow key={row.id} row={row} />)
+        ) : (
+          <div className="flex h-40 items-center justify-center text-h-18-regular tracking-normal text-gray-400">
+            {loading ? "출퇴근 이력을 불러오는 중입니다." : "표시할 출퇴근 이력이 없습니다."}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -121,6 +203,17 @@ function AttendanceTableRow({ row }: { row: AttendanceLogRow }) {
       </div>
     </div>
   );
+}
+
+function createEmptyAttendanceLogs(): AttendanceLogViewModel {
+  return {
+    ...attendanceLogFixtureViewModel,
+    filters: [
+      { id: "all", label: "전체 로그 (0)", selected: true },
+      { id: "anomaly", label: "이상 표시 (0)" },
+    ],
+    rows: [],
+  };
 }
 
 function AttendanceStatusBadge({ status }: { status: AttendanceLogStatus }) {

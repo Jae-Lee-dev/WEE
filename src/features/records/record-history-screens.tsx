@@ -1,23 +1,30 @@
 "use client";
 
-import { useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { Badge } from "@/components/ui/badge";
 import { IconChevronDown } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import {
+  createRecordsDataSource,
+  shouldUseRecordsFixtureDataSource,
+  type RecordsDataSource,
+} from "./records-data-source";
+import {
   anomalyHistoryColumns,
-  anomalyHistoryFilters,
-  anomalyHistoryMetrics,
-  anomalyHistoryRows,
+  anomalyHistoryFixtureViewModel,
   correctionColumns,
-  correctionFilters,
-  correctionMetrics,
-  correctionRows,
-  selectedAnomalyHistoryDetail,
-  selectedCorrectionDetail,
+  correctionHistoryFixtureViewModel,
   type AnomalyHistoryDetail,
   type AnomalyHistoryRow,
+  type AnomalyHistoryViewModel,
   type CorrectionDetail,
+  type CorrectionHistoryViewModel,
   type CorrectionRow,
   type RecordsFilterOption,
   type RecordsMetricCard,
@@ -46,50 +53,148 @@ const badgeToneConfig = {
   grey: { variant: "grey", style: toneStyles.grey },
 } satisfies Record<RecordsTone, BadgeToneConfig>;
 
-export function RecordAnomalyHistoryScreen() {
-  const [selected, setSelected] = useState(false);
+export function RecordAnomalyHistoryScreen({
+  dataSource: dataSourceProp,
+}: {
+  dataSource?: RecordsDataSource;
+} = {}) {
+  const fixtureMode = shouldUseRecordsFixtureDataSource();
+  const fallbackDataSource = useMemo(() => createRecordsDataSource(), []);
+  const dataSource = dataSourceProp ?? fallbackDataSource;
+  const [viewModel, setViewModel] = useState<AnomalyHistoryViewModel>(
+    fixtureMode ? anomalyHistoryFixtureViewModel : createEmptyAnomalyHistory(),
+  );
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(!fixtureMode);
+  const [errorMessage, setErrorMessage] = useState("");
+  const selectedDetail = selectedId ? viewModel.details[selectedId] : undefined;
+
+  useEffect(() => {
+    let active = true;
+
+    void dataSource
+      .getAnomalyHistory()
+      .then((nextViewModel) => {
+        if (!active) {
+          return;
+        }
+
+        setViewModel(nextViewModel);
+        setSelectedId(null);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setViewModel(createEmptyAnomalyHistory());
+        setSelectedId(null);
+        setErrorMessage("이상감지처리 이력을 불러오지 못했습니다.");
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [dataSource]);
 
   return (
     <HistoryScreenShell
       screenTestId="record-anomaly-history-screen"
-      filters={anomalyHistoryFilters}
-      metrics={anomalyHistoryMetrics}
+      errorMessage={errorMessage}
+      filters={viewModel.filters}
+      loading={loading}
+      loadingMessage="이상감지처리 이력을 불러오는 중입니다."
+      metrics={viewModel.metrics}
       left={
         <AnomalyHistoryTable
-          selected={selected}
-          onToggleSelected={() => setSelected((current) => !current)}
+          rows={viewModel.rows}
+          selectedId={selectedId}
+          onToggleSelected={(rowId) =>
+            setSelectedId((current) => (current === rowId ? null : rowId))
+          }
         />
       }
       right={
-        selected ? (
-          <AnomalyHistoryDetailPanel detail={selectedAnomalyHistoryDetail} />
+        selectedDetail ? (
+          <AnomalyHistoryDetailPanel detail={selectedDetail} />
         ) : (
-          <EmptyDetailPanel />
+          <EmptyDetailPanel lines={viewModel.emptyDetailText} />
         )
       }
     />
   );
 }
 
-export function RecordCorrectionsScreen() {
-  const [selected, setSelected] = useState(false);
+export function RecordCorrectionsScreen({
+  dataSource: dataSourceProp,
+}: {
+  dataSource?: RecordsDataSource;
+} = {}) {
+  const fixtureMode = shouldUseRecordsFixtureDataSource();
+  const fallbackDataSource = useMemo(() => createRecordsDataSource(), []);
+  const dataSource = dataSourceProp ?? fallbackDataSource;
+  const [viewModel, setViewModel] = useState<CorrectionHistoryViewModel>(
+    fixtureMode ? correctionHistoryFixtureViewModel : createEmptyCorrections(),
+  );
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(!fixtureMode);
+  const [errorMessage, setErrorMessage] = useState("");
+  const selectedDetail = selectedId ? viewModel.details[selectedId] : undefined;
+
+  useEffect(() => {
+    let active = true;
+
+    void dataSource
+      .getCorrections()
+      .then((nextViewModel) => {
+        if (!active) {
+          return;
+        }
+
+        setViewModel(nextViewModel);
+        setSelectedId(null);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setViewModel(createEmptyCorrections());
+        setSelectedId(null);
+        setErrorMessage("이의신청 이력을 불러오지 못했습니다.");
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [dataSource]);
 
   return (
     <HistoryScreenShell
       screenTestId="record-corrections-screen"
-      filters={correctionFilters}
-      metrics={correctionMetrics}
+      errorMessage={errorMessage}
+      filters={viewModel.filters}
+      loading={loading}
+      loadingMessage="이의신청 이력을 불러오는 중입니다."
+      metrics={viewModel.metrics}
       left={
         <CorrectionTable
-          selected={selected}
-          onToggleSelected={() => setSelected((current) => !current)}
+          rows={viewModel.rows}
+          selectedId={selectedId}
+          onToggleSelected={(rowId) =>
+            setSelectedId((current) => (current === rowId ? null : rowId))
+          }
         />
       }
       right={
-        selected ? (
-          <CorrectionDetailPanel detail={selectedCorrectionDetail} />
+        selectedDetail ? (
+          <CorrectionDetailPanel detail={selectedDetail} />
         ) : (
-          <EmptyDetailPanel />
+          <EmptyDetailPanel lines={viewModel.emptyDetailText} />
         )
       }
     />
@@ -97,14 +202,20 @@ export function RecordCorrectionsScreen() {
 }
 
 function HistoryScreenShell({
+  errorMessage,
   screenTestId,
   filters,
+  loading,
+  loadingMessage,
   metrics,
   left,
   right,
 }: {
+  errorMessage: string;
   screenTestId: string;
   filters: Record<string, readonly RecordsFilterOption[]>;
+  loading: boolean;
+  loadingMessage: string;
   metrics: readonly RecordsMetricCard[];
   left: ReactNode;
   right: ReactNode;
@@ -116,6 +227,20 @@ function HistoryScreenShell({
       data-testid={screenTestId}
     >
       <FilterBar filters={filters} />
+
+      {loading || errorMessage ? (
+        <div
+          className={cn(
+            "flex min-h-9 items-center rounded-[8px] border px-4 py-2.5 text-body-14-medium tracking-normal",
+            errorMessage
+              ? "border-red-100 bg-red-50 text-red-500"
+              : "border-green-100 bg-green-50 text-green-500",
+          )}
+          role={errorMessage ? "alert" : "status"}
+        >
+          {errorMessage || loadingMessage}
+        </div>
+      ) : null}
 
       <div className="grid min-h-[680px] grid-cols-[minmax(0,1fr)_320px] gap-4">
         <section className="min-w-0 overflow-hidden rounded-[8px] bg-white px-4 py-4">
@@ -184,23 +309,27 @@ function MetricCards({ metrics }: { metrics: readonly RecordsMetricCard[] }) {
 }
 
 function AnomalyHistoryTable({
-  selected,
   onToggleSelected,
+  rows,
+  selectedId,
 }: {
-  selected: boolean;
-  onToggleSelected: () => void;
+  onToggleSelected: (rowId: string) => void;
+  rows: readonly AnomalyHistoryRow[];
+  selectedId: string | null;
 }) {
   return (
     <HistoryTableFrame
       columns={anomalyHistoryColumns}
+      empty={rows.length === 0}
       headerGrid="grid-cols-[13%_13%_13%_13%_13%_13%_13%_1fr]"
     >
-      {anomalyHistoryRows.map((row, index) => (
+      {rows.map((row, index) => (
         <AnomalyHistoryTableRow
           key={row.id}
           row={row}
-          selected={selected && index === 0}
-          onToggleSelected={index === 0 ? onToggleSelected : undefined}
+          selected={selectedId === row.id}
+          onToggleSelected={() => onToggleSelected(row.id)}
+          testId={index === 0 ? "record-anomaly-history-first-detail" : undefined}
         />
       ))}
     </HistoryTableFrame>
@@ -211,10 +340,12 @@ function AnomalyHistoryTableRow({
   row,
   selected,
   onToggleSelected,
+  testId,
 }: {
   row: AnomalyHistoryRow;
   selected: boolean;
-  onToggleSelected?: () => void;
+  onToggleSelected: () => void;
+  testId?: string;
 }) {
   return (
     <div
@@ -240,9 +371,7 @@ function AnomalyHistoryTableRow({
       <div className="flex justify-end">
         <DetailToggleButton
           selected={selected}
-          testId={
-            onToggleSelected ? "record-anomaly-history-first-detail" : undefined
-          }
+          testId={testId}
           onClick={onToggleSelected}
           label={row.detailButtonLabel}
         />
@@ -252,23 +381,27 @@ function AnomalyHistoryTableRow({
 }
 
 function CorrectionTable({
-  selected,
   onToggleSelected,
+  rows,
+  selectedId,
 }: {
-  selected: boolean;
-  onToggleSelected: () => void;
+  onToggleSelected: (rowId: string) => void;
+  rows: readonly CorrectionRow[];
+  selectedId: string | null;
 }) {
   return (
     <HistoryTableFrame
       columns={correctionColumns}
+      empty={rows.length === 0}
       headerGrid="grid-cols-[13%_13%_15%_13%_24%_10%_1fr]"
     >
-      {correctionRows.map((row, index) => (
+      {rows.map((row, index) => (
         <CorrectionTableRow
           key={row.id}
           row={row}
-          selected={selected && index === 0}
-          onToggleSelected={index === 0 ? onToggleSelected : undefined}
+          selected={selectedId === row.id}
+          onToggleSelected={() => onToggleSelected(row.id)}
+          testId={index === 0 ? "record-corrections-first-detail" : undefined}
         />
       ))}
     </HistoryTableFrame>
@@ -279,10 +412,12 @@ function CorrectionTableRow({
   row,
   selected,
   onToggleSelected,
+  testId,
 }: {
   row: CorrectionRow;
   selected: boolean;
-  onToggleSelected?: () => void;
+  onToggleSelected: () => void;
+  testId?: string;
 }) {
   return (
     <div
@@ -313,7 +448,7 @@ function CorrectionTableRow({
       <div className="flex justify-end">
         <DetailToggleButton
           selected={selected}
-          testId={onToggleSelected ? "record-corrections-first-detail" : undefined}
+          testId={testId}
           onClick={onToggleSelected}
           label={row.detailButtonLabel}
         />
@@ -324,10 +459,12 @@ function CorrectionTableRow({
 
 function HistoryTableFrame({
   columns,
+  empty,
   headerGrid,
   children,
 }: {
   columns: readonly RecordsTableColumn[];
+  empty: boolean;
   headerGrid: string;
   children: ReactNode;
 }) {
@@ -343,7 +480,15 @@ function HistoryTableFrame({
           <TableCell key={column.id}>{column.label}</TableCell>
         ))}
       </div>
-      <div>{children}</div>
+      <div>
+        {empty ? (
+          <div className="flex h-40 items-center justify-center text-h-18-regular tracking-normal text-gray-400">
+            표시할 이력이 없습니다.
+          </div>
+        ) : (
+          children
+        )}
+      </div>
     </div>
   );
 }
@@ -390,19 +535,49 @@ function TableCell({ children }: { children: ReactNode }) {
   return <div className="min-w-0 truncate">{children}</div>;
 }
 
-function EmptyDetailPanel() {
+function EmptyDetailPanel({ lines }: { lines: readonly string[] }) {
   return (
     <div
       className="flex h-full min-h-[560px] items-center justify-center text-center text-h-18-regular leading-[24px] tracking-normal text-gray-400"
       data-testid="record-history-empty-detail"
     >
       <p>
-        왼쪽 리스트에서
-        <br />
-        이상감지처리 이력을 선택하세요.
+        {lines.map((line, index) => (
+          <span key={line}>
+            {index > 0 ? <br /> : null}
+            {line}
+          </span>
+        ))}
       </p>
     </div>
   );
+}
+
+function createEmptyAnomalyHistory(): AnomalyHistoryViewModel {
+  return {
+    ...anomalyHistoryFixtureViewModel,
+    details: {},
+    metrics: [
+      { id: "submitted", label: "제출 유형", value: "0건", tone: "green" },
+      { id: "pending", label: "처리 대기", value: "0건", tone: "orange" },
+      { id: "edited-or-deleted", label: "수정/삭제", value: "0건", tone: "pink" },
+    ],
+    rows: [],
+  };
+}
+
+function createEmptyCorrections(): CorrectionHistoryViewModel {
+  return {
+    ...correctionHistoryFixtureViewModel,
+    details: {},
+    metrics: [
+      { id: "submitted", label: "제출 유형", value: "0건", tone: "green" },
+      { id: "pending", label: "처리 대기", value: "0건", tone: "orange" },
+      { id: "approved", label: "승인", value: "0건", tone: "green" },
+      { id: "rejected-or-withdrawn", label: "반려/탈퇴", value: "0건", tone: "pink" },
+    ],
+    rows: [],
+  };
 }
 
 function AnomalyHistoryDetailPanel({

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   IconChevronDown,
   IconChevronLeft,
@@ -8,13 +8,18 @@ import {
 } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import {
-  recordDetailStates,
-  recordTimelineBlocks,
-  recordTimelineFixture,
+  createRecordsDataSource,
+  shouldUseRecordsFixtureDataSource,
+  type RecordsDataSource,
+} from "./records-data-source";
+import {
+  recordMainFixtureViewModel,
   type RecordDetailAction,
   type RecordDetailState,
   type RecordDetailStateId,
+  type RecordMainViewModel,
   type RecordTimelineBlock,
+  type RecordTimelineFixture,
   type RecordsFilterOption,
   type RecordsTone,
 } from "./records-fixtures";
@@ -27,8 +32,10 @@ type PositionedRecordBlock = {
   endColumn: number;
 };
 
-const timelineStartHour = Number(recordTimelineFixture.hourLabels[0]);
-const timelineColumnCount = recordTimelineFixture.hourLabels.length;
+const timelineStartHour = Number(
+  recordMainFixtureViewModel.timeline.hourLabels[0],
+);
+const timelineColumnCount = recordMainFixtureViewModel.timeline.hourLabels.length;
 const timelineHeaderHeight = 45;
 const timelineRowHeight = 110;
 const timelineLaneHeight = 54;
@@ -58,12 +65,61 @@ const toneTextStyles: Record<RecordsTone, CSSProperties> = {
   grey: { color: "var(--color-gray-600)" },
 };
 
-export function RecordMainScreen() {
+export function RecordMainScreen({
+  dataSource: dataSourceProp,
+}: {
+  dataSource?: RecordsDataSource;
+} = {}) {
+  const fixtureMode = shouldUseRecordsFixtureDataSource();
+  const fallbackDataSource = useMemo(() => createRecordsDataSource(), []);
+  const dataSource = dataSourceProp ?? fallbackDataSource;
+  const [viewModel, setViewModel] = useState<RecordMainViewModel>(
+    fixtureMode
+      ? recordMainFixtureViewModel
+      : createEmptyRecordMainViewModel(["근무 기록을 불러오는 중입니다."]),
+  );
   const [selectedStateId, setSelectedStateId] =
-    useState<RecordDetailStateId>("empty");
-  const selectedState = recordDetailStates[selectedStateId];
-  const selectedBlockId = findSelectedBlockId(selectedStateId);
+    useState<RecordDetailStateId>(
+      fixtureMode ? recordMainFixtureViewModel.initialDetailStateId : "empty",
+    );
+  const [loading, setLoading] = useState(!fixtureMode);
+  const [errorMessage, setErrorMessage] = useState("");
+  const selectedState =
+    viewModel.detailStates[selectedStateId] ?? viewModel.detailStates.empty;
+  const selectedBlockId = findSelectedBlockId(selectedStateId, viewModel.blocks);
   const tallDetailState = selectedStateId === "anomaly-step-3";
+
+  useEffect(() => {
+    let active = true;
+
+    void dataSource
+      .getMainRecords()
+      .then((nextViewModel) => {
+        if (!active) {
+          return;
+        }
+
+        setViewModel(nextViewModel);
+        setSelectedStateId(nextViewModel.initialDetailStateId);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setViewModel(
+          createEmptyRecordMainViewModel(["표시할 근무 기록이 없습니다."]),
+        );
+        setSelectedStateId("empty");
+        setErrorMessage("근무 기록을 불러오지 못했습니다.");
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [dataSource]);
 
   return (
     <section
@@ -72,7 +128,21 @@ export function RecordMainScreen() {
       data-record-main-state={selectedStateId}
       data-testid="record-main-screen"
     >
-      <RecordToolbar />
+      {loading || errorMessage ? (
+        <div
+          className={cn(
+            "mb-3 flex min-h-9 items-center rounded-[8px] border px-4 py-2.5 text-body-14-medium tracking-normal",
+            errorMessage
+              ? "border-red-100 bg-red-50 text-red-500"
+              : "border-green-100 bg-green-50 text-green-500",
+          )}
+          role={errorMessage ? "alert" : "status"}
+        >
+          {errorMessage || "근무 기록을 불러오는 중입니다."}
+        </div>
+      ) : null}
+
+      <RecordToolbar timeline={viewModel.timeline} />
 
       <div
         className={cn(
@@ -83,8 +153,10 @@ export function RecordMainScreen() {
         )}
       >
         <RecordTimelineGrid
+          blocks={viewModel.blocks}
           onSelectState={setSelectedStateId}
           selectedBlockId={selectedBlockId}
+          timeline={viewModel.timeline}
         />
         <RecordDetailPanel
           state={selectedState}
@@ -95,15 +167,15 @@ export function RecordMainScreen() {
   );
 }
 
-function RecordToolbar() {
-  const { filters } = recordTimelineFixture;
+function RecordToolbar({ timeline }: { timeline: RecordTimelineFixture }) {
+  const { filters } = timeline;
 
   return (
     <div className="flex h-9 items-center justify-between gap-4">
       <div className="flex shrink-0 items-center gap-3">
         <RoundArrowButton direction="left" />
         <h2 className="text-h-20 tracking-normal text-gray-900">
-          {recordTimelineFixture.weekLabel}
+          {timeline.weekLabel}
         </h2>
         <RoundArrowButton direction="right" />
       </div>
@@ -198,17 +270,21 @@ function RecordTypeChips({
 }
 
 function RecordTimelineGrid({
+  blocks,
   onSelectState,
   selectedBlockId,
+  timeline,
 }: {
+  blocks: readonly RecordTimelineBlock[];
   onSelectState: (stateId: RecordDetailStateId) => void;
   selectedBlockId?: string;
+  timeline: RecordTimelineFixture;
 }) {
   const selectedBlockIds = selectedBlockId ? new Set([selectedBlockId]) : new Set();
-  const dayLayouts = recordTimelineFixture.dayLabels.map((day) => ({
+  const dayLayouts = timeline.dayLabels.map((day) => ({
     day,
     positionedBlocks: layoutBlocks(
-      recordTimelineBlocks.filter((block) => block.dayId === day.id),
+      blocks.filter((block) => block.dayId === day.id),
     ),
   }));
 
@@ -228,12 +304,11 @@ function RecordTimelineGrid({
           className="grid grid-cols-[repeat(17,minmax(0,1fr))] border-b border-gray-200"
           style={{ height: timelineHeaderHeight }}
         >
-          {recordTimelineFixture.hourLabels.map((slot, index) => (
+          {timeline.hourLabels.map((slot, index) => (
             <div
               className={cn(
                 "flex min-w-0 items-center justify-center border-r border-gray-100 px-1 text-detail-16-regular tracking-normal text-gray-500",
-                index === recordTimelineFixture.hourLabels.length - 1 &&
-                  "border-r-0",
+                index === timeline.hourLabels.length - 1 && "border-r-0",
               )}
               key={slot}
               role="columnheader"
@@ -270,11 +345,11 @@ function RecordTimelineGrid({
                   aria-hidden="true"
                   className="absolute inset-0 grid grid-cols-[repeat(17,minmax(0,1fr))]"
                 >
-                  {recordTimelineFixture.hourLabels.map((slot, index) => (
+                  {timeline.hourLabels.map((slot, index) => (
                     <div
                       className={cn(
                         "border-r border-gray-100",
-                        index === recordTimelineFixture.hourLabels.length - 1 &&
+                        index === timeline.hourLabels.length - 1 &&
                           "border-r-0",
                       )}
                       key={`${day.id}-${slot}`}
@@ -610,7 +685,10 @@ function DetailActionButton({
   );
 }
 
-function findSelectedBlockId(stateId: RecordDetailStateId) {
+function findSelectedBlockId(
+  stateId: RecordDetailStateId,
+  blocks: readonly RecordTimelineBlock[],
+) {
   if (stateId === "empty") {
     return undefined;
   }
@@ -618,9 +696,30 @@ function findSelectedBlockId(stateId: RecordDetailStateId) {
   const selectedStateId =
     stateId === "normal-selected" ? "normal-selected" : "anomaly-step-1";
 
-  return recordTimelineBlocks.find(
+  return blocks.find(
     (block) => block.selectedStateId === selectedStateId,
   )?.id;
+}
+
+function createEmptyRecordMainViewModel(
+  emptyText: readonly string[],
+): RecordMainViewModel {
+  return {
+    ...recordMainFixtureViewModel,
+    blocks: [],
+    detailStates: {
+      ...recordMainFixtureViewModel.detailStates,
+      empty: {
+        id: "empty",
+        emptyText,
+      },
+    },
+    initialDetailStateId: "empty",
+    timeline: {
+      ...recordMainFixtureViewModel.timeline,
+      emptyDetailText: emptyText,
+    },
+  };
 }
 
 function layoutBlocks(
