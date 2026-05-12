@@ -10,6 +10,7 @@ import {
   IconSearch,
 } from "@/components/icons";
 import { FilterTabs } from "@/components/ui/filter-tabs";
+import { Pagination } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 import {
   workerListRowsByStatus,
@@ -41,48 +42,69 @@ const workerTagToneConfig: Record<WorkerTagTone, BadgeToneConfig> = {
 };
 
 const activeStatusStyle = { color: "var(--color-green-400)" };
+const workersPageSize = 10;
 
 export function WorkersListScreen() {
   const [status, setStatus] = useState<WorkerListStatus>("active");
   const [tagMenuOpen, setTagMenuOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const rows = workerListRowsByStatus[status];
+  const totalPages = Math.max(1, Math.ceil(rows.length / workersPageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const pagedRows = rows.slice(
+    (safeCurrentPage - 1) * workersPageSize,
+    safeCurrentPage * workersPageSize,
+  );
 
   return (
     <section
       aria-label="조교 목록"
-      className="flex w-full flex-col gap-4"
+      className="flex w-full flex-col gap-3"
       data-worker-list-state={status}
     >
-      <div className="flex min-h-[38px] items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <TagFilterTrigger
-            open={tagMenuOpen}
-            onClick={() => setTagMenuOpen((open) => !open)}
-          />
-          <FilterTabs
-            options={[...workerListStatusFilters]}
-            value={status}
-            onChange={(next) => {
-              setStatus(next);
-              setTagMenuOpen(false);
-            }}
-          />
-        </div>
+      <div
+        className="sticky top-0 z-40 -mx-4 border-b border-gray-200 bg-gray-100/95 px-4 py-2 backdrop-blur"
+        data-testid="workers-sticky-toolbar"
+      >
+        <div className="flex min-h-[43px] w-full items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <TagFilterTrigger
+              open={tagMenuOpen}
+              onClick={() => setTagMenuOpen((open) => !open)}
+            />
+            <FilterTabs
+              options={[...workerListStatusFilters]}
+              value={status}
+              onChange={(next) => {
+                setStatus(next);
+                setCurrentPage(1);
+                setTagMenuOpen(false);
+              }}
+            />
+          </div>
 
-        <SearchShell className="w-[280px] shrink-0">
-          <input
-            readOnly
-            type="search"
-            value=""
-            placeholder="이름 검색"
-            className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-gray-400"
-            aria-label="조교 이름 검색"
-          />
-          <IconSearch className="size-6 shrink-0 text-green-400" />
-        </SearchShell>
+          <SearchShell className="w-[280px] shrink-0">
+            <input
+              readOnly
+              type="search"
+              value=""
+              placeholder="이름 검색"
+              className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-gray-400"
+              aria-label="조교 이름 검색"
+            />
+            <IconSearch className="size-6 shrink-0 text-green-400" />
+          </SearchShell>
+        </div>
       </div>
 
-      <WorkerListTable rows={rows} status={status} />
+      <WorkerListTable
+        rows={pagedRows}
+        status={status}
+        currentPage={safeCurrentPage}
+        totalItems={rows.length}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+      />
     </section>
   );
 }
@@ -172,11 +194,19 @@ function SearchShell({
 }
 
 function WorkerListTable({
+  currentPage,
+  onPageChange,
   rows,
   status,
+  totalItems,
+  totalPages,
 }: {
+  currentPage: number;
+  onPageChange: (page: number) => void;
   rows: readonly WorkerListRow[];
   status: WorkerListStatus;
+  totalItems: number;
+  totalPages: number;
 }) {
   return (
     <div className="min-h-[560px] overflow-hidden rounded-[8px] bg-white">
@@ -200,6 +230,15 @@ function WorkerListTable({
           <WorkerListRowItem key={row.id} row={row} status={status} />
         ))}
       </div>
+
+      <Pagination
+        currentPage={currentPage}
+        itemLabel="명"
+        pageSize={workersPageSize}
+        totalItems={totalItems}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+      />
     </div>
   );
 }

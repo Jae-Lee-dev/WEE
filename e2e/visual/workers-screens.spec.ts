@@ -74,6 +74,23 @@ test(`WKR-02 filtering ${desktop}`, async ({ page }) => {
   });
 });
 
+test(`WKR-02 pagination ${desktop}`, async ({ page }) => {
+  await prepareVisualPage({ page, path: "/workers", viewport: desktop });
+  await page.evaluate(() => document.fonts.ready);
+
+  await expect(page.getByText("1-10 / 15명")).toBeVisible();
+  await page.getByRole("button", { name: "다음 페이지" }).click();
+  await expect(page.getByText("11-15 / 15명")).toBeVisible();
+  await expect(page.getByText("김도윤")).toBeVisible();
+
+  await captureActualScreenshot({
+    page,
+    screenId: "WKR-02",
+    state: "pagination",
+    viewport: desktop,
+  });
+});
+
 test("WKR-02 opens worker detail from linked row", async ({ page }) => {
   await prepareVisualPage({ page, path: "/workers", viewport: desktop });
   await page.getByRole("link", { name: "김서연 조교 상세 보기" }).click();
