@@ -1,16 +1,21 @@
 "use client";
 
 import { ChevronDown, ChevronLeft, Plus, Printer } from "lucide-react";
-import { useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconNotice } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import {
+  createPayrollDataSource,
+  type PayrollDataSource,
+} from "./payroll-data-source";
+import {
   payrollCalculationFixture,
   type PayrollAdjustmentItem,
   type PayrollAmountTone,
   type PayrollCalculationDetail,
+  type PayrollCalculationFixture,
   type PayrollCalculationLine,
   type PayrollCalculationRow,
   type PayrollDetailStateId,
@@ -18,8 +23,6 @@ import {
   type PayrollOpenItemLine,
   type PayrollTone,
 } from "./payroll-fixtures";
-
-type PayrollViewState = "list" | PayrollDetailStateId;
 
 type BadgeConfig = {
   variant: "green" | "orange" | "red" | "grey" | "outline";
@@ -56,16 +59,70 @@ const openItemsPanelHeight: Record<PayrollDetailStateId, string> = {
   "no-open-items": "max-h-[855px]",
 };
 
-export function PayrollCalculationScreen() {
-  const [view, setView] = useState<PayrollViewState>("list");
+type PayrollCalculationScreenProps = {
+  dataSource?: PayrollDataSource;
+};
 
-  if (view !== "list") {
+export function PayrollCalculationScreen({
+  dataSource: dataSourceProp,
+}: PayrollCalculationScreenProps = {}) {
+  const fallbackDataSource = useMemo(() => createPayrollDataSource(), []);
+  const dataSource = dataSourceProp ?? fallbackDataSource;
+  const fixtureMode = dataSource.mode === "fixture";
+  const [viewModel, setViewModel] = useState<PayrollCalculationFixture>(
+    fixtureMode
+      ? payrollCalculationFixture
+      : createEmptyPayrollCalculationViewModel(),
+  );
+  const [detailState, setDetailState] = useState<PayrollDetailStateId | null>(
+    null,
+  );
+  const [selectedRowId, setSelectedRowId] = useState(viewModel.selectedRowId);
+  const [loading, setLoading] = useState(!fixtureMode);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    if (fixtureMode) {
+      return;
+    }
+
+    let active = true;
+
+    void dataSource
+      .loadCalculation()
+      .then((nextViewModel) => {
+        if (!active) {
+          return;
+        }
+
+        setViewModel(nextViewModel);
+        setSelectedRowId(nextViewModel.selectedRowId);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setErrorMessage("급여 산정 목록을 불러오지 못했습니다.");
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [dataSource, fixtureMode]);
+
+  if (detailState) {
+    const detailSet =
+      viewModel.detailByRowId?.[selectedRowId] ?? viewModel.details;
+
     return (
       <PayrollDetailScreen
-        detail={payrollCalculationFixture.details[view]}
-        onBack={() => setView("list")}
-        onShowBonusForm={() => setView("bonus-add")}
-        onShowNoOpenItems={() => setView("no-open-items")}
+        detail={detailSet[detailState] ?? detailSet.detail}
+        onBack={() => setDetailState(null)}
+        onShowBonusForm={() => setDetailState("bonus-add")}
+        onShowNoOpenItems={() => setDetailState("no-open-items")}
       />
     );
   }
@@ -77,16 +134,33 @@ export function PayrollCalculationScreen() {
       data-testid="payroll-calculation-screen"
       data-payroll-calculation-state="default"
     >
-      <PayrollListToolbar />
+      {errorMessage ? (
+        <div
+          className="min-h-9 rounded-[8px] border border-red-100 bg-red-50 px-4 py-2.5 text-body-14-medium tracking-normal text-red-500"
+          role="alert"
+        >
+          {errorMessage}
+        </div>
+      ) : null}
+      <PayrollListToolbar viewModel={viewModel} />
       <PayrollListTable
-        rows={payrollCalculationFixture.rows}
-        onShowDetail={() => setView("detail")}
+        loading={loading}
+        onShowDetail={(rowId) => {
+          setSelectedRowId(rowId);
+          setDetailState("detail");
+        }}
+        rows={viewModel.rows}
+        viewModel={viewModel}
       />
     </section>
   );
 }
 
-function PayrollListToolbar() {
+function PayrollListToolbar({
+  viewModel,
+}: {
+  viewModel: PayrollCalculationFixture;
+}) {
   return (
     <div
       className="flex min-h-9 items-center justify-between gap-4"
@@ -96,7 +170,7 @@ function PayrollListToolbar() {
         type="button"
         className="flex h-10 w-[113px] items-center justify-between rounded-[6px] border border-gray-200 bg-white px-2.5 text-h-18-regular tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
       >
-        <span>{payrollCalculationFixture.selectedMonthLabel}</span>
+        <span>{viewModel.selectedMonthLabel}</span>
         <ChevronDown className="size-5 shrink-0 text-gray-600" />
       </button>
 
@@ -107,61 +181,70 @@ function PayrollListToolbar() {
         className="h-10 rounded-full px-4 text-h-18-regular font-normal tracking-normal"
       >
         <Printer className="size-5 text-green-400" />
-        {payrollCalculationFixture.exportLabel}
+        {viewModel.exportLabel}
       </Button>
     </div>
   );
 }
 
 function PayrollListTable({
+  loading,
   rows,
   onShowDetail,
+  viewModel,
 }: {
+  loading: boolean;
   rows: readonly PayrollCalculationRow[];
-  onShowDetail: () => void;
+  onShowDetail: (rowId: string) => void;
+  viewModel: PayrollCalculationFixture;
 }) {
   return (
     <section className="h-[calc(100vh-144px)] min-h-[520px] overflow-hidden rounded-[8px] bg-white">
       <div className="flex h-[56px] items-center gap-3 px-4">
         <h2 className="text-h-20 tracking-normal text-gray-900">
-          {payrollCalculationFixture.listTitle}
+          {viewModel.listTitle}
         </h2>
         <span className="rounded-[4px] bg-gray-100 px-1.5 py-0.5 text-detail-16-regular tracking-normal text-gray-600">
-          {payrollCalculationFixture.listCountText}
+          {viewModel.listCountText}
         </span>
       </div>
 
       <div className="grid h-9 grid-cols-[0.9fr_1.2fr_1.2fr_1.25fr_0.95fr_1.25fr_0.95fr_1.05fr_96px] items-center border-b border-gray-300 px-4 text-h-18-regular tracking-normal text-gray-500">
-        {payrollCalculationFixture.columns.map((column) => (
+        {viewModel.columns.map((column) => (
           <div key={column.id} className="min-w-0 truncate">
             {column.label}
           </div>
         ))}
       </div>
 
-      <div>
-        {rows.map((row) => (
-          <PayrollListRow
-            key={row.id}
-            row={row}
-            onShowDetail={
-              row.id === payrollCalculationFixture.selectedRowId
-                ? onShowDetail
-                : undefined
-            }
-          />
-        ))}
-      </div>
+      {loading ? (
+        <PayrollTableState>급여 산정 목록을 불러오는 중입니다.</PayrollTableState>
+      ) : rows.length > 0 ? (
+        <div>
+          {rows.map((row) => (
+            <PayrollListRow
+              key={row.id}
+              first={row.id === viewModel.selectedRowId}
+              row={row}
+              onShowDetail={() => onShowDetail(row.id)}
+            />
+          ))}
+        </div>
+      ) : (
+        <PayrollTableState>표시할 급여 산정 항목이 없습니다.</PayrollTableState>
+      )}
     </section>
   );
 }
 
 function PayrollListRow({
+  first,
   row,
   onShowDetail,
 }: {
+  first: boolean;
   row: PayrollCalculationRow;
-  onShowDetail?: () => void;
+  onShowDetail: () => void;
 }) {
   return (
     <div className="grid min-h-11 grid-cols-[0.9fr_1.2fr_1.2fr_1.25fr_0.95fr_1.25fr_0.95fr_1.05fr_96px] items-center border-b border-gray-100 px-4 text-h-18-regular tracking-normal text-gray-900 last:border-b-0">
@@ -187,9 +270,7 @@ function PayrollListRow({
         <button
           type="button"
           data-testid={
-            row.id === payrollCalculationFixture.selectedRowId
-              ? "payroll-calculation-first-detail"
-              : undefined
+            first ? "payroll-calculation-first-detail" : undefined
           }
           onClick={onShowDetail}
           className="flex h-9 items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-16-medium tracking-normal text-gray-800 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
@@ -197,6 +278,14 @@ function PayrollListRow({
           {row.detailButtonLabel}
         </button>
       </div>
+    </div>
+  );
+}
+
+function PayrollTableState({ children }: { children: string }) {
+  return (
+    <div className="flex min-h-[360px] items-center justify-center px-4 text-center text-h-18-regular tracking-normal text-gray-500">
+      {children}
     </div>
   );
 }
@@ -605,4 +694,14 @@ function PayrollBadge({
 
 function Divider() {
   return <span aria-hidden="true" className="h-4 w-px bg-gray-300" />;
+}
+
+function createEmptyPayrollCalculationViewModel(): PayrollCalculationFixture {
+  return {
+    ...payrollCalculationFixture,
+    detailByRowId: {},
+    listCountText: "0명",
+    rows: [],
+    selectedRowId: "",
+  };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   IconChevronDown,
@@ -9,7 +9,13 @@ import {
 } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import {
+  createPayrollDataSource,
+  type PayrollDataSource,
+} from "./payroll-data-source";
+import {
   payrollStatementFixture,
+  type PayrollStatementDetail,
+  type PayrollStatementFixture,
   type PayrollStatementMetric,
   type PayrollStatementRow,
   type PayrollTone,
@@ -37,12 +43,63 @@ const badgeToneConfig: Record<PayrollTone, BadgeToneConfig> = {
   grey: { variant: "grey", style: toneTextStyles.grey },
 };
 
-export function PayrollStatementsScreen() {
+type PayrollStatementsScreenProps = {
+  dataSource?: PayrollDataSource;
+};
+
+export function PayrollStatementsScreen({
+  dataSource: dataSourceProp,
+}: PayrollStatementsScreenProps = {}) {
+  const fallbackDataSource = useMemo(() => createPayrollDataSource(), []);
+  const dataSource = dataSourceProp ?? fallbackDataSource;
+  const fixtureMode = dataSource.mode === "fixture";
+  const [viewModel, setViewModel] = useState<PayrollStatementFixture>(
+    fixtureMode ? payrollStatementFixture : createEmptyPayrollStatementViewModel(),
+  );
   const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedRowId, setSelectedRowId] = useState(viewModel.selectedRowId);
+  const [loading, setLoading] = useState(!fixtureMode);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    if (fixtureMode) {
+      return;
+    }
+
+    let active = true;
+
+    void dataSource
+      .loadStatements()
+      .then((nextViewModel) => {
+        if (!active) {
+          return;
+        }
+
+        setViewModel(nextViewModel);
+        setSelectedRowId(nextViewModel.selectedRowId);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setErrorMessage("급여 명세 목록을 불러오지 못했습니다.");
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [dataSource, fixtureMode]);
 
   if (detailOpen) {
+    const detail =
+      viewModel.detailsByRowId?.[selectedRowId] ?? viewModel.selectedDetail;
+
     return (
       <PayrollStatementDetailState
+        detail={detail}
         onBack={() => setDetailOpen(false)}
       />
     );
@@ -54,21 +111,41 @@ export function PayrollStatementsScreen() {
       className="mx-auto flex w-full max-w-[1480px] flex-col gap-4 tracking-normal"
       data-testid="payroll-statements-screen"
     >
-      <MonthSelect />
-      <StatementSummaryCards metrics={payrollStatementFixture.summaryCards} />
-      <StatementTable onOpenDetail={() => setDetailOpen(true)} />
+      {errorMessage ? (
+        <div
+          className="min-h-9 rounded-[8px] border border-red-100 bg-red-50 px-4 py-2.5 text-body-14-medium tracking-normal text-red-500"
+          role="alert"
+        >
+          {errorMessage}
+        </div>
+      ) : null}
+      <MonthSelect viewModel={viewModel} />
+      <StatementSummaryCards metrics={viewModel.summaryCards} />
+      <StatementTable
+        loading={loading}
+        onOpenDetail={(rowId) => {
+          setSelectedRowId(rowId);
+          setDetailOpen(true);
+        }}
+        rows={viewModel.rows}
+        viewModel={viewModel}
+      />
     </section>
   );
 }
 
-function MonthSelect() {
+function MonthSelect({
+  viewModel,
+}: {
+  viewModel: PayrollStatementFixture;
+}) {
   return (
     <button
       type="button"
       className="flex h-9 w-fit items-center gap-2 rounded-[6px] border border-gray-200 bg-white px-2.5 text-h-18-regular text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
       data-testid="payroll-statements-month-select"
     >
-      <span>{payrollStatementFixture.selectedMonthLabel}</span>
+      <span>{viewModel.selectedMonthLabel}</span>
       <IconChevronDown className="size-5 shrink-0 text-gray-600" />
     </button>
   );
@@ -109,9 +186,15 @@ function StatementSummaryCards({
 }
 
 function StatementTable({
+  loading,
+  rows,
   onOpenDetail,
+  viewModel,
 }: {
-  onOpenDetail: () => void;
+  loading: boolean;
+  rows: readonly PayrollStatementRow[];
+  onOpenDetail: (rowId: string) => void;
+  viewModel: PayrollStatementFixture;
 }) {
   return (
     <section
@@ -121,10 +204,10 @@ function StatementTable({
     >
       <div className="flex h-[56px] items-center gap-3 px-4">
         <h2 className="text-h-20 text-gray-900">
-          {payrollStatementFixture.listTitle}
+          {viewModel.listTitle}
         </h2>
         <Badge variant="grey" size="M">
-          {payrollStatementFixture.listCountText}
+          {viewModel.listCountText}
         </Badge>
       </div>
 
@@ -132,7 +215,7 @@ function StatementTable({
         className="grid h-9 grid-cols-[22.5%_22.5%_22.5%_22.5%_1fr] items-center border-b border-gray-300 px-4 text-h-18-regular text-gray-500"
         role="row"
       >
-        {payrollStatementFixture.columns.map((column) => (
+        {viewModel.columns.map((column) => (
           <div
             key={column.id}
             className={column.id === "actions" ? "sr-only" : undefined}
@@ -143,16 +226,22 @@ function StatementTable({
         ))}
       </div>
 
-      <div role="rowgroup">
-        {payrollStatementFixture.rows.map((row, index) => (
-          <StatementTableRow
-            key={row.id}
-            row={row}
-            first={index === 0}
-            onOpenDetail={onOpenDetail}
-          />
-        ))}
-      </div>
+      {loading ? (
+        <StatementTableState>급여 명세 목록을 불러오는 중입니다.</StatementTableState>
+      ) : rows.length > 0 ? (
+        <div role="rowgroup">
+          {rows.map((row) => (
+            <StatementTableRow
+              key={row.id}
+              row={row}
+              first={row.id === viewModel.selectedRowId}
+              onOpenDetail={() => onOpenDetail(row.id)}
+            />
+          ))}
+        </div>
+      ) : (
+        <StatementTableState>표시할 급여 명세가 없습니다.</StatementTableState>
+      )}
     </section>
   );
 }
@@ -218,12 +307,12 @@ function PayrollStatusBadge({
 }
 
 function PayrollStatementDetailState({
+  detail,
   onBack,
 }: {
+  detail: PayrollStatementDetail;
   onBack: () => void;
 }) {
-  const detail = payrollStatementFixture.selectedDetail;
-
   return (
     <section
       aria-label="급여 명세 상세"
@@ -268,6 +357,14 @@ function PayrollStatementDetailState({
   );
 }
 
+function StatementTableState({ children }: { children: string }) {
+  return (
+    <div className="flex min-h-[260px] items-center justify-center px-4 text-center text-h-18-regular text-gray-500">
+      {children}
+    </div>
+  );
+}
+
 function WorkerSummaryCard({
   worker,
 }: {
@@ -300,4 +397,18 @@ function WorkerSummaryCard({
       </div>
     </section>
   );
+}
+
+function createEmptyPayrollStatementViewModel(): PayrollStatementFixture {
+  return {
+    ...payrollStatementFixture,
+    detailsByRowId: {},
+    listCountText: "0명",
+    rows: [],
+    selectedRowId: "",
+    summaryCards: payrollStatementFixture.summaryCards.map((metric) => ({
+      ...metric,
+      value: "0",
+    })),
+  };
 }
