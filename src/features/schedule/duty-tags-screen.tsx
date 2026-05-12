@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconCheck, IconSearch } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import {
+  createDutyTagsDataSource,
+  type DutyTagsDataSource,
+} from "./duty-tags-data-source";
+import {
   dutyTagEditDialog,
-  dutyTagRows,
   type DutyTagRow,
   type DutyTone,
 } from "./duty-fixtures";
@@ -39,8 +42,46 @@ const dutyTagToneConfig: Record<DutyTone, BadgeToneConfig> = {
   },
 };
 
-export function DutyTagsScreen() {
-  const [editOpen, setEditOpen] = useState(false);
+export function DutyTagsScreen({
+  dataSource: dataSourceProp,
+}: {
+  dataSource?: DutyTagsDataSource;
+} = {}) {
+  const fallbackDataSource = useMemo(() => createDutyTagsDataSource(), []);
+  const dataSource = dataSourceProp ?? fallbackDataSource;
+  const [tags, setTags] = useState<readonly DutyTagRow[]>(
+    dataSource.initialRows ?? [],
+  );
+  const [loading, setLoading] = useState(!dataSource.initialRows);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [editingTag, setEditingTag] = useState<DutyTagRow | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    void dataSource
+      .listDutyTags()
+      .then((nextTags) => {
+        if (!active) {
+          return;
+        }
+
+        setTags(nextTags);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setErrorMessage("근무 태그를 불러오지 못했습니다.");
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [dataSource]);
 
   return (
     <section className="h-[calc(100vh-144px)] min-h-[520px] rounded-[8px] bg-white p-4">
@@ -56,18 +97,29 @@ export function DutyTagsScreen() {
       </div>
 
       <div className="mt-5 flex flex-col gap-4">
-        {dutyTagRows.map((tag, index) => (
-          <DutyTagCard
-            key={tag.id}
-            tag={tag}
-            first={index === 0}
-            onEdit={() => setEditOpen(true)}
-          />
-        ))}
+        {loading ? (
+          <DutyTagState label="근무 태그를 불러오는 중입니다." />
+        ) : errorMessage ? (
+          <DutyTagState label={errorMessage} role="alert" />
+        ) : tags.length > 0 ? (
+          tags.map((tag, index) => (
+            <DutyTagCard
+              key={tag.id}
+              tag={tag}
+              first={index === 0}
+              onEdit={() => setEditingTag(tag)}
+            />
+          ))
+        ) : (
+          <DutyTagState label="표시할 근무 태그가 없습니다." />
+        )}
       </div>
 
-      {editOpen ? (
-        <DutyTagEditDialog onClose={() => setEditOpen(false)} />
+      {editingTag ? (
+        <DutyTagEditDialog
+          tag={editingTag}
+          onClose={() => setEditingTag(null)}
+        />
       ) : null}
     </section>
   );
@@ -89,6 +141,7 @@ function DutyTagCard({
         <span className="text-h-18-semibold text-gray-900">{tag.countText}</span>
       </div>
       <div className="flex items-center gap-3">
+        {tag.statusText ? <DutyTagStatusBadge tag={tag} /> : null}
         <Button
           type="button"
           variant="danger"
@@ -110,6 +163,23 @@ function DutyTagCard({
   );
 }
 
+function DutyTagState({
+  label,
+  role = "status",
+}: {
+  label: string;
+  role?: "alert" | "status";
+}) {
+  return (
+    <div
+      className="flex min-h-[180px] items-center justify-center rounded-[8px] border border-gray-100 px-4 text-center text-h-18-regular text-gray-500"
+      role={role}
+    >
+      {label}
+    </div>
+  );
+}
+
 function DutyTagBadge({ tag }: { tag: DutyTagRow }) {
   const tone = dutyTagToneConfig[tag.tone];
 
@@ -120,7 +190,25 @@ function DutyTagBadge({ tag }: { tag: DutyTagRow }) {
   );
 }
 
-function DutyTagEditDialog({ onClose }: { onClose: () => void }) {
+function DutyTagStatusBadge({ tag }: { tag: DutyTagRow }) {
+  const tone = dutyTagToneConfig[tag.statusTone ?? "grey"];
+
+  return (
+    <Badge variant={tone.variant} size="M" style={tone.style}>
+      {tag.statusText}
+    </Badge>
+  );
+}
+
+function DutyTagEditDialog({
+  onClose,
+  tag,
+}: {
+  onClose: () => void;
+  tag: DutyTagRow;
+}) {
+  const currentCountText = tag.countText.replace(/^사용 근무\s*/, "");
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
       <section
@@ -138,7 +226,7 @@ function DutyTagEditDialog({ onClose }: { onClose: () => void }) {
           <span className="text-h-18-semibold text-gray-900">태그명</span>
           <input
             readOnly
-            value={dutyTagEditDialog.selectedTag.label}
+            value={tag.label}
             className="mt-3 h-11 w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular text-gray-500 outline-none"
           />
         </label>
@@ -149,7 +237,7 @@ function DutyTagEditDialog({ onClose }: { onClose: () => void }) {
               현재 사용 중인 근무
             </h3>
             <Badge variant="grey" size="M">
-              {dutyTagEditDialog.currentCountText}
+              {currentCountText}
             </Badge>
           </div>
           <label className="mt-3 flex h-11 items-center gap-3 rounded-[8px] border border-gray-200 bg-white px-4">

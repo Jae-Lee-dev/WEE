@@ -182,7 +182,7 @@ export function DutyListScreen({
   const fallbackDataSource = useMemo(() => createDutyDataSource(), []);
   const dataSource = dataSourceProp ?? fallbackDataSource;
   const initialSelectedDuty =
-    fixtureMode ? selectedFixtureDutyId : undefined;
+    fixtureMode ? selectedFixtureDutyId : initialSelectedDutyId;
   const [selectedDutyId, setSelectedDutyId] = useState<string | undefined>(
     initialSelectedDuty,
   );
@@ -617,6 +617,11 @@ function DutyDetailPanel({
     );
   }
 
+  const assignedWorkers = selectedDuty.assignedWorkers ?? [];
+  const assignedWorkerCount = Math.max(
+    selectedDuty.appliedWorkerCount,
+    assignedWorkers.length,
+  );
   const detail =
     selectedDuty.id === selectedFixtureDutyId
       ? selectedDutyDetail
@@ -629,8 +634,8 @@ function DutyDetailPanel({
             weekday: selectedDuty.weekday,
             time: selectedDuty.time,
           },
-          assignedWorkersTitle: "할당된 조교 (0명)",
-          assignedWorkers: [],
+          assignedWorkersTitle: `할당된 조교 (${assignedWorkerCount}명)`,
+          assignedWorkers,
           editBasicButtonLabel: selectedDutyDetail.editBasicButtonLabel,
           editTimeButtonLabel: selectedDutyDetail.editTimeButtonLabel,
         };
