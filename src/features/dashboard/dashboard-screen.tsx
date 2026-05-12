@@ -15,18 +15,20 @@ import {
 import { cn } from "@/lib/utils";
 import { createDashboardInboxDataSource } from "./dashboard-data-source";
 import {
+  createDashboardAiMonitoringDataSource,
+  createDashboardLocationsDataSource,
+  createDashboardWorkersDataSource,
+  type DashboardAiMonitoringViewModel,
+  type DashboardLocationsViewModel,
+  type DashboardWorkersViewModel,
+} from "./dashboard-summary-data-source";
+import {
   dashboardFilterOptions,
   dashboardAiAnalysisPeriodOptions,
   dashboardAiMonitoringFixture,
-  dashboardLocationOptions,
-  dashboardLocationPeriodOptions,
-  dashboardLocationSummaries,
-  dashboardLocationWorkerRows,
   dashboardMetrics,
   dashboardWorkerPeriodOptions,
   dashboardWorkerPeriodProfiles,
-  dashboardWorkerSummaries,
-  dashboardWorkerTagOptions,
   type DashboardAiAnalysisPeriodId,
   type DashboardAiPlan,
   type DashboardAiPatternRow,
@@ -111,6 +113,13 @@ const metricToneClassNames: Record<
     border: "border-gray-200",
     background: "bg-gray-100",
   },
+};
+
+const emptyLocationSummary = {
+  activeWorkers: 0,
+  lateRate: 0,
+  totalHours: 0,
+  unresolvedFlags: 0,
 };
 
 export function DashboardScreen() {
@@ -366,12 +375,48 @@ function InboxRowCells({ row }: { row: DashboardInboxRow }) {
 }
 
 export function DashboardLocationsScreen() {
-  const [locationId, setLocationId] = useState<DashboardLocationId>("daechi");
+  const dataSource = useMemo(() => createDashboardLocationsDataSource(), []);
+  const [viewModel, setViewModel] = useState<DashboardLocationsViewModel>(
+    dataSource.initialData,
+  );
+  const [locationId, setLocationId] = useState<DashboardLocationId>(
+    dataSource.initialData.defaultLocationId,
+  );
   const [periodId, setPeriodId] =
-    useState<DashboardLocationPeriodId>("2026-04");
-  const summary = dashboardLocationSummaries[locationId][periodId];
-  const rows = dashboardLocationWorkerRows[locationId];
-  const periodLabel = getOptionLabel(dashboardLocationPeriodOptions, periodId);
+    useState<DashboardLocationPeriodId>(dataSource.initialData.defaultPeriodId);
+  const summary =
+    viewModel.summaries[locationId]?.[periodId] ?? emptyLocationSummary;
+  const rows = viewModel.rowsByLocationPeriod[locationId]?.[periodId] ?? [];
+  const periodLabel = getOptionLabel(viewModel.periodOptions, periodId);
+
+  useEffect(() => {
+    let active = true;
+
+    void dataSource
+      .load()
+      .then((nextViewModel) => {
+        if (!active) {
+          return;
+        }
+
+        setViewModel(nextViewModel);
+        setLocationId((current) =>
+          nextViewModel.locationOptions.some((option) => option.id === current)
+            ? current
+            : nextViewModel.defaultLocationId,
+        );
+        setPeriodId((current) =>
+          nextViewModel.periodOptions.some((option) => option.id === current)
+            ? current
+            : nextViewModel.defaultPeriodId,
+        );
+      })
+      .catch(() => undefined);
+
+    return () => {
+      active = false;
+    };
+  }, [dataSource]);
 
   const metrics = [
     {
@@ -387,7 +432,7 @@ export function DashboardLocationsScreen() {
       label: "활성 조교",
       value: String(summary.activeWorkers),
       unit: "명",
-      subLabel: getOptionLabel(dashboardLocationOptions, locationId),
+      subLabel: getOptionLabel(viewModel.locationOptions, locationId),
       tone: "blue",
     },
     {
@@ -419,14 +464,14 @@ export function DashboardLocationsScreen() {
         <div className="flex flex-wrap items-center gap-2.5">
           <DashboardSelectField
             ariaLabel="근무지 선택"
-            options={dashboardLocationOptions}
+            options={viewModel.locationOptions}
             testId="dashboard-location-select"
             value={locationId}
             onChange={setLocationId}
           />
           <DashboardSelectField
             ariaLabel="기간 선택"
-            options={dashboardLocationPeriodOptions}
+            options={viewModel.periodOptions}
             testId="dashboard-location-period-select"
             value={periodId}
             onChange={setPeriodId}
@@ -450,16 +495,49 @@ export function DashboardLocationsScreen() {
 }
 
 export function DashboardWorkersScreen() {
+  const dataSource = useMemo(() => createDashboardWorkersDataSource(), []);
+  const [viewModel, setViewModel] = useState<DashboardWorkersViewModel>(
+    dataSource.initialData,
+  );
   const [periodId, setPeriodId] = useState<DashboardWorkerPeriodId>("month");
   const [searchQuery, setSearchQuery] = useState("");
   const [tagId, setTagId] = useState<DashboardWorkerTagId>("all");
   const [selectedWorkerId, setSelectedWorkerId] = useState<string>(
-    dashboardWorkerSummaries[0]?.id ?? "",
+    dataSource.initialData.summaries[0]?.id ?? "",
   );
+
+  useEffect(() => {
+    let active = true;
+
+    void dataSource
+      .load()
+      .then((nextViewModel) => {
+        if (!active) {
+          return;
+        }
+
+        setViewModel(nextViewModel);
+        setSelectedWorkerId((current) =>
+          nextViewModel.summaries.some((worker) => worker.id === current)
+            ? current
+            : nextViewModel.summaries[0]?.id ?? "",
+        );
+        setTagId((current) =>
+          nextViewModel.tagOptions.some((option) => option.id === current)
+            ? current
+            : "all",
+        );
+      })
+      .catch(() => undefined);
+
+    return () => {
+      active = false;
+    };
+  }, [dataSource]);
 
   const filteredWorkers = useMemo(
     () =>
-      dashboardWorkerSummaries.filter((worker) => {
+      viewModel.summaries.filter((worker) => {
         const trimmedQuery = searchQuery.trim().toLowerCase();
         const matchesQuery =
           trimmedQuery.length === 0 ||
@@ -469,7 +547,7 @@ export function DashboardWorkersScreen() {
 
         return matchesQuery && matchesTag;
       }),
-    [searchQuery, tagId],
+    [searchQuery, tagId, viewModel.summaries],
   );
 
   const selectedWorker =
@@ -513,13 +591,19 @@ export function DashboardWorkersScreen() {
           filteredWorkers={filteredWorkers}
           searchQuery={searchQuery}
           selectedWorkerId={activeWorkerId}
+          tagOptions={viewModel.tagOptions}
           tagId={tagId}
+          totalWorkerCount={viewModel.summaries.length}
           onSearchChange={setSearchQuery}
           onSelectWorker={setSelectedWorkerId}
           onTagChange={setTagId}
         />
         {selectedWorker ? (
-          <WorkerDashboardPanel periodId={periodId} worker={selectedWorker} />
+          <WorkerDashboardPanel
+            periodId={periodId}
+            tagOptions={viewModel.tagOptions}
+            worker={selectedWorker}
+          />
         ) : (
           <EmptyPanel>선택 가능한 조교가 없습니다.</EmptyPanel>
         )}
@@ -533,6 +617,10 @@ export function DashboardAiMonitoringScreen({
 }: {
   plan?: DashboardAiPlan;
 }) {
+  const dataSource = useMemo(() => createDashboardAiMonitoringDataSource(), []);
+  const [viewModel, setViewModel] = useState<DashboardAiMonitoringViewModel>(
+    dataSource.initialData,
+  );
   const [analysisPeriodId, setAnalysisPeriodId] =
     useState<DashboardAiAnalysisPeriodId>(
       dashboardAiMonitoringFixture.defaultPeriodId,
@@ -541,6 +629,23 @@ export function DashboardAiMonitoringScreen({
     useState<DashboardAiAnalysisPeriodId>(
       dashboardAiMonitoringFixture.defaultPeriodId,
     );
+
+  useEffect(() => {
+    let active = true;
+
+    void dataSource
+      .load()
+      .then((nextViewModel) => {
+        if (active) {
+          setViewModel(nextViewModel);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      active = false;
+    };
+  }, [dataSource]);
 
   if (plan === "starter") {
     return <DashboardAiLockedState />;
@@ -553,7 +658,7 @@ export function DashboardAiMonitoringScreen({
       data-dashboard-ai-state={`${plan}:${lastRunPeriodId}`}
       data-testid="dashboard-ai-monitoring-screen"
     >
-      <OperationalMetricGrid metrics={dashboardAiMonitoringFixture.metrics} />
+      <OperationalMetricGrid metrics={viewModel.metrics} />
 
       <div className="rounded-[8px] border border-gray-200 bg-white p-4">
         <div className="flex items-start justify-between gap-6">
@@ -585,7 +690,7 @@ export function DashboardAiMonitoringScreen({
         </div>
 
         <div className="mt-5 grid grid-cols-3 gap-3">
-          <AiRunInfoCard label="최근 실행" value={dashboardAiMonitoringFixture.lastRunAt} />
+          <AiRunInfoCard label="최근 실행" value={viewModel.lastRunAt} />
           <AiRunInfoCard
             label="분석 범위"
             value={getOptionLabel(dashboardAiAnalysisPeriodOptions, lastRunPeriodId)}
@@ -594,7 +699,7 @@ export function DashboardAiMonitoringScreen({
         </div>
       </div>
 
-      <AiPatternTable rows={dashboardAiMonitoringFixture.patternRows} />
+      <AiPatternTable rows={viewModel.patternRows} />
     </section>
   );
 }
@@ -765,7 +870,9 @@ function WorkerSelectorPanel({
   onTagChange,
   searchQuery,
   selectedWorkerId,
+  tagOptions,
   tagId,
+  totalWorkerCount,
 }: {
   filteredWorkers: readonly DashboardWorkerSummary[];
   onSearchChange: (value: string) => void;
@@ -773,13 +880,15 @@ function WorkerSelectorPanel({
   onTagChange: (value: DashboardWorkerTagId) => void;
   searchQuery: string;
   selectedWorkerId: string;
+  tagOptions: readonly DashboardSelectOption<DashboardWorkerTagId>[];
   tagId: DashboardWorkerTagId;
+  totalWorkerCount: number;
 }) {
   return (
     <div className="min-h-0 overflow-hidden rounded-[8px] bg-white">
       <div className="sticky top-0 z-10 border-b border-gray-200 bg-white px-4 py-3">
         <div className="mb-3 text-label-12-medium text-gray-500">
-          조교 목록 ({filteredWorkers.length}/{dashboardWorkerSummaries.length}명)
+          조교 목록 ({filteredWorkers.length}/{totalWorkerCount}명)
         </div>
         <label className="flex h-10 items-center gap-2 rounded-[6px] border border-gray-200 bg-white px-3 text-h-16-medium text-gray-900">
           <span className="sr-only">조교 이름 검색</span>
@@ -796,7 +905,7 @@ function WorkerSelectorPanel({
         <div className="mt-2">
           <DashboardSelectField
             ariaLabel="근무자 태그 필터"
-            options={dashboardWorkerTagOptions}
+            options={tagOptions}
             testId="dashboard-worker-tag-select"
             value={tagId}
             onChange={onTagChange}
@@ -843,7 +952,7 @@ function WorkerSelectorPanel({
                 <div className="mt-2 flex flex-wrap gap-1.5 pl-9">
                   {worker.tags.map((tag) => (
                     <Badge key={tag} variant="grey" size="M">
-                      {getOptionLabel(dashboardWorkerTagOptions, tag)}
+                      {getOptionLabel(tagOptions, tag)}
                     </Badge>
                   ))}
                 </div>
@@ -858,9 +967,11 @@ function WorkerSelectorPanel({
 
 function WorkerDashboardPanel({
   periodId,
+  tagOptions,
   worker,
 }: {
   periodId: DashboardWorkerPeriodId;
+  tagOptions: readonly DashboardSelectOption<DashboardWorkerTagId>[];
   worker: DashboardWorkerSummary;
 }) {
   const profile = dashboardWorkerPeriodProfiles[periodId];
@@ -930,7 +1041,7 @@ function WorkerDashboardPanel({
 
         <div className="grid grid-cols-2 gap-4">
           <FlagDistributionCard worker={worker} />
-          <WorkerMemoCard worker={worker} />
+          <WorkerMemoCard tagOptions={tagOptions} worker={worker} />
         </div>
 
         <WorkerPayrollHistoryTable worker={worker} />
@@ -996,14 +1107,20 @@ function FlagDistributionCard({ worker }: { worker: DashboardWorkerSummary }) {
   );
 }
 
-function WorkerMemoCard({ worker }: { worker: DashboardWorkerSummary }) {
+function WorkerMemoCard({
+  tagOptions,
+  worker,
+}: {
+  tagOptions: readonly DashboardSelectOption<DashboardWorkerTagId>[];
+  worker: DashboardWorkerSummary;
+}) {
   return (
     <div className="rounded-[8px] border border-gray-200 bg-white p-4">
       <h2 className="text-h-20 text-gray-900">운영 메모</h2>
       <div className="mt-3 flex flex-wrap gap-1.5">
         {worker.tags.map((tag) => (
           <Badge key={tag} variant="grey" size="M">
-            {getOptionLabel(dashboardWorkerTagOptions, tag)}
+            {getOptionLabel(tagOptions, tag)}
           </Badge>
         ))}
       </div>

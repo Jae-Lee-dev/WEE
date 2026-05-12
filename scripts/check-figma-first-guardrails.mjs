@@ -32,6 +32,7 @@ const allowedEntryRoutePageDeferredHrefs = [
 const allowedFirebaseAuthTransitionFiles = new Set([
   "src/app/_components/AdminShell.tsx",
   "src/features/dashboard/dashboard-data-source.ts",
+  "src/features/dashboard/dashboard-summary-data-source.ts",
   "src/features/entry/login-form.tsx",
   "src/features/entry/signup-form.tsx",
   "src/features/entry/workspace-data-source.ts",
@@ -50,6 +51,7 @@ const allowedFirebaseAuthTransitionFiles = new Set([
 ]);
 const allowedFirestoreTransitionFiles = new Set([
   "src/features/dashboard/dashboard-data-source.ts",
+  "src/features/dashboard/dashboard-summary-data-source.ts",
   "src/features/entry/workspace-data-source.ts",
   "src/features/handover/handover-data-source.ts",
   "src/features/payroll/payroll-data-source.ts",
