@@ -1,33 +1,77 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconCheck, IconSearch } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import {
+  createWorkerApplicationsDataSource,
+  emptyWorkerApplicationsData,
+  type WorkerApplicationsDataSource,
+} from "./worker-applications-data-source";
+import {
   workerApplicationInfo,
   workerApplicationPaySettings,
-  workerApplicationRows,
-  workerApplicationTags,
+  type WorkerApplicationsData,
   type WorkerApplicationPayKind,
   type WorkerApplicationRow,
   type WorkerApplicationTag,
 } from "./worker-applications-fixtures";
 
-const selectedTag = workerApplicationTags[0];
-
-export function WorkerApplicationsScreen() {
+export function WorkerApplicationsScreen({
+  dataSource: dataSourceProp,
+}: {
+  dataSource?: WorkerApplicationsDataSource;
+} = {}) {
+  const fallbackDataSource = useMemo(
+    () => createWorkerApplicationsDataSource(),
+    [],
+  );
+  const dataSource = dataSourceProp ?? fallbackDataSource;
+  const [applicationData, setApplicationData] = useState<WorkerApplicationsData>(
+    dataSource.initialData ?? emptyWorkerApplicationsData,
+  );
   const [selectedApplicationId, setSelectedApplicationId] = useState<
     string | undefined
   >();
   const [tagMenuOpen, setTagMenuOpen] = useState(false);
   const [tagAdded, setTagAdded] = useState(false);
   const [payKind, setPayKind] = useState<WorkerApplicationPayKind>("hourly");
+  const [loading, setLoading] = useState(!dataSource.initialData);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const selectedApplication = workerApplicationRows.find(
+  const selectedApplication = applicationData.rows.find(
     (row) => row.id === selectedApplicationId,
   );
+
+  useEffect(() => {
+    let active = true;
+
+    void dataSource
+      .listApplications()
+      .then((nextData) => {
+        if (!active) {
+          return;
+        }
+
+        setApplicationData(nextData);
+        setErrorMessage("");
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setErrorMessage("소속 신청 목록을 불러오지 못했습니다.");
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [dataSource]);
 
   const selectApplication = (applicationId: string) => {
     setSelectedApplicationId((current) =>
@@ -48,14 +92,17 @@ export function WorkerApplicationsScreen() {
       }
     >
       <ApplicationList
-        rows={workerApplicationRows}
+        errorMessage={errorMessage}
+        loading={loading}
+        rows={applicationData.rows}
         selectedApplicationId={selectedApplicationId}
         onSelect={selectApplication}
       />
       <ApplicationDecisionPanel
-        selected={Boolean(selectedApplication)}
+        selectedApplication={selectedApplication}
         tagAdded={tagAdded}
         tagMenuOpen={tagMenuOpen}
+        tags={applicationData.tags}
         payKind={payKind}
         onOpenTagMenu={() => setTagMenuOpen((open) => !open)}
         onAddTag={() => {
@@ -69,10 +116,14 @@ export function WorkerApplicationsScreen() {
 }
 
 function ApplicationList({
+  errorMessage,
+  loading,
   rows,
   selectedApplicationId,
   onSelect,
 }: {
+  errorMessage: string;
+  loading: boolean;
   rows: readonly WorkerApplicationRow[];
   selectedApplicationId?: string;
   onSelect: (applicationId: string) => void;
@@ -93,52 +144,82 @@ function ApplicationList({
       </div>
 
       <div>
-        {rows.map((row, index) => {
-          const selected = row.id === selectedApplicationId;
+        {loading ? (
+          <ApplicationListState label="소속 신청 목록을 불러오는 중입니다." />
+        ) : errorMessage ? (
+          <ApplicationListState label={errorMessage} role="alert" />
+        ) : rows.length > 0 ? (
+          rows.map((row, index) => {
+            const selected = row.id === selectedApplicationId;
 
-          return (
-            <button
-              type="button"
-              key={row.id}
-              data-testid={`worker-application-row-${index + 1}`}
-              data-selected={selected ? "true" : undefined}
-              aria-pressed={selected}
-              aria-label={`${row.name} 소속 신청 ${selected ? "선택 취소" : "선택"}`}
-              onClick={() => onSelect(row.id)}
-              className={cn(
-                "grid h-11 w-full grid-cols-[28%_28%_1fr] items-center border-b border-gray-100 px-4 text-left text-h-18-regular text-gray-900 transition-colors duration-150 ease-out last:border-b-0 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-green-400",
-                selected && "bg-green-50 ring-2 ring-inset ring-green-400 hover:bg-green-50",
-              )}
-            >
-              <div className="min-w-0 truncate">{row.name}</div>
-              <div className="min-w-0 truncate">{row.phone}</div>
-              <div className="min-w-0 truncate">{row.appliedAt}</div>
-            </button>
-          );
-        })}
+            return (
+              <button
+                type="button"
+                key={row.id}
+                data-testid={`worker-application-row-${index + 1}`}
+                data-selected={selected ? "true" : undefined}
+                aria-pressed={selected}
+                aria-label={`${row.name} 소속 신청 ${selected ? "선택 취소" : "선택"}`}
+                onClick={() => onSelect(row.id)}
+                className={cn(
+                  "grid h-11 w-full grid-cols-[28%_28%_1fr] items-center border-b border-gray-100 px-4 text-left text-h-18-regular text-gray-900 transition-colors duration-150 ease-out last:border-b-0 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-green-400",
+                  selected &&
+                    "bg-green-50 ring-2 ring-inset ring-green-400 hover:bg-green-50",
+                )}
+              >
+                <div className="min-w-0 truncate">{row.name}</div>
+                <div className="min-w-0 truncate">{row.phone}</div>
+                <div className="min-w-0 truncate">{row.appliedAt}</div>
+              </button>
+            );
+          })
+        ) : (
+          <ApplicationListState label="표시할 소속 신청이 없습니다." />
+        )}
       </div>
     </div>
   );
 }
 
+function ApplicationListState({
+  label,
+  role = "status",
+}: {
+  label: string;
+  role?: "alert" | "status";
+}) {
+  return (
+    <div
+      className="flex min-h-[220px] items-center justify-center px-4 text-center text-h-18-regular text-gray-500"
+      role={role}
+    >
+      {label}
+    </div>
+  );
+}
+
 function ApplicationDecisionPanel({
-  selected,
+  selectedApplication,
   tagAdded,
   tagMenuOpen,
+  tags,
   payKind,
   onOpenTagMenu,
   onAddTag,
   onSelectPayKind,
 }: {
-  selected: boolean;
+  selectedApplication: WorkerApplicationRow | undefined;
   tagAdded: boolean;
   tagMenuOpen: boolean;
+  tags: readonly WorkerApplicationTag[];
   payKind: WorkerApplicationPayKind;
   onOpenTagMenu: () => void;
   onAddTag: () => void;
   onSelectPayKind: (payKind: WorkerApplicationPayKind) => void;
 }) {
-  if (!selected) {
+  const selectedTag = tags[0];
+
+  if (!selectedApplication) {
     return (
       <aside className="flex min-w-0 items-center justify-center rounded-[8px] border border-gray-300 bg-white px-6 text-center">
         <p className="text-h-18-regular text-gray-400">
@@ -155,10 +236,12 @@ function ApplicationDecisionPanel({
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4">
         <h2 className="text-h-20 text-gray-900">소속 승인</h2>
         <div className="mt-5 flex flex-col gap-4">
-          <ApplicationInfoCard />
+          <ApplicationInfoCard info={selectedApplication.info} />
           <WorkerTagCard
+            selectedTag={selectedTag}
             tagAdded={tagAdded}
             tagMenuOpen={tagMenuOpen}
+            tags={tags}
             onOpenTagMenu={onOpenTagMenu}
             onAddTag={onAddTag}
           />
@@ -188,14 +271,24 @@ function ApplicationDecisionPanel({
   );
 }
 
-function ApplicationInfoCard() {
+function ApplicationInfoCard({
+  info = workerApplicationInfo,
+}: {
+  info?: WorkerApplicationRow["info"];
+}) {
   return (
     <section className="rounded-[8px] border border-gray-100 px-4 py-4">
       <h3 className="text-h-18-semibold text-gray-900">신청 정보</h3>
       <dl className="mt-4 space-y-3 text-h-18-regular text-gray-900">
-        <InfoRow label="신청일" value={workerApplicationInfo.appliedAt} />
-        <InfoRow label="통장 사본" value={workerApplicationInfo.bankbookStatus} />
-        <InfoRow label="희망 급여" value={workerApplicationInfo.requestedPay} />
+        <InfoRow label="신청일" value={info.appliedAt} />
+        <InfoRow label="통장 사본" value={info.bankbookStatus} />
+        <InfoRow label="희망 급여" value={info.requestedPay} />
+        {info.statusText ? (
+          <InfoRow label="처리 상태" value={info.statusText} />
+        ) : null}
+        {info.rejectionReason ? (
+          <InfoRow label="반려 사유" value={info.rejectionReason} />
+        ) : null}
       </dl>
       <div className="mt-5 flex justify-end">
         <button
@@ -219,13 +312,17 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 function WorkerTagCard({
+  selectedTag,
   tagAdded,
   tagMenuOpen,
+  tags,
   onOpenTagMenu,
   onAddTag,
 }: {
+  selectedTag?: WorkerApplicationTag;
   tagAdded: boolean;
   tagMenuOpen: boolean;
+  tags: readonly WorkerApplicationTag[];
   onOpenTagMenu: () => void;
   onAddTag: () => void;
 }) {
@@ -265,13 +362,13 @@ function WorkerTagCard({
             </span>
             <IconSearch className="size-6 shrink-0 text-green-400" />
           </button>
-          {tagMenuOpen ? <TagMenu onAddTag={onAddTag} /> : null}
+          {tagMenuOpen ? <TagMenu tags={tags} onAddTag={onAddTag} /> : null}
         </div>
       )}
 
       {tagAdded && tagMenuOpen ? (
         <div className="relative mt-3">
-          <TagMenu onAddTag={onAddTag} />
+          <TagMenu tags={tags} onAddTag={onAddTag} />
         </div>
       ) : null}
     </section>
@@ -286,7 +383,13 @@ function TagPill({ tag }: { tag?: WorkerApplicationTag }) {
   );
 }
 
-function TagMenu({ onAddTag }: { onAddTag: () => void }) {
+function TagMenu({
+  tags,
+  onAddTag,
+}: {
+  tags: readonly WorkerApplicationTag[];
+  onAddTag: () => void;
+}) {
   return (
     <div
       role="listbox"
@@ -294,24 +397,30 @@ function TagMenu({ onAddTag }: { onAddTag: () => void }) {
       data-testid="worker-application-tag-menu"
       className="absolute left-0 top-[53px] z-30 w-full overflow-hidden rounded-[4px] border border-gray-100 bg-white px-3 shadow-[0px_8px_20px_rgba(17,24,39,0.12)]"
     >
-      {workerApplicationTags.map((tag, index) => (
-        <button
-          key={tag.id}
-          type="button"
-          role="option"
-          aria-selected={index === 0}
-          data-testid={
-            index === 0 ? "worker-application-tag-option-first" : undefined
-          }
-          onClick={index === 0 ? onAddTag : undefined}
-          className="flex h-11 w-full items-center justify-between gap-2 border-b border-gray-200 text-left text-h-18-regular text-gray-900 last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200"
-        >
-          <span className="min-w-0 truncate">{tag.label}</span>
-          {index === 0 ? (
-            <IconCheck className="size-5 shrink-0 text-green-400" />
-          ) : null}
-        </button>
-      ))}
+      {tags.length > 0 ? (
+        tags.map((tag, index) => (
+          <button
+            key={tag.id}
+            type="button"
+            role="option"
+            aria-selected={index === 0}
+            data-testid={
+              index === 0 ? "worker-application-tag-option-first" : undefined
+            }
+            onClick={index === 0 ? onAddTag : undefined}
+            className="flex h-11 w-full items-center justify-between gap-2 border-b border-gray-200 text-left text-h-18-regular text-gray-900 last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200"
+          >
+            <span className="min-w-0 truncate">{tag.label}</span>
+            {index === 0 ? (
+              <IconCheck className="size-5 shrink-0 text-green-400" />
+            ) : null}
+          </button>
+        ))
+      ) : (
+        <div className="flex h-11 items-center text-h-18-regular text-gray-500">
+          사용 가능한 태그가 없습니다.
+        </div>
+      )}
     </div>
   );
 }

@@ -3,11 +3,26 @@ export type WorkerApplicationRow = {
   name: string;
   phone: string;
   appliedAt: string;
+  info?: WorkerApplicationInfo;
+  statusText?: string;
 };
 
 export type WorkerApplicationTag = {
   id: string;
   label: string;
+};
+
+export type WorkerApplicationInfo = {
+  appliedAt: string;
+  bankbookStatus: string;
+  requestedPay: string;
+  rejectionReason?: string;
+  statusText?: string;
+};
+
+export type WorkerApplicationsData = {
+  rows: readonly WorkerApplicationRow[];
+  tags: readonly WorkerApplicationTag[];
 };
 
 export type WorkerApplicationPayKind = "hourly" | "monthly";
@@ -29,7 +44,7 @@ export const workerApplicationInfo = {
   appliedAt: "2026.04.15",
   bankbookStatus: "업로드 완료",
   requestedPay: "시급 ₩12,000",
-} as const;
+} as const satisfies WorkerApplicationInfo;
 
 export const workerApplicationTags = [
   { id: "veteran", label: "베테랑" },
@@ -55,3 +70,8 @@ export const workerApplicationPaySettings = {
   WorkerApplicationPayKind,
   WorkerApplicationPaySetting
 >;
+
+export const workerApplicationsFixtureData = {
+  rows: workerApplicationRows,
+  tags: workerApplicationTags,
+} as const satisfies WorkerApplicationsData;
