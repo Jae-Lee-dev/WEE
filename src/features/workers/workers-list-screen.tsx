@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, type CSSProperties, type ReactNode } from "react";
+import { RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   IconCheck,
@@ -43,12 +44,14 @@ const workerTagToneConfig: Record<WorkerTagTone, BadgeToneConfig> = {
 
 const activeStatusStyle = { color: "var(--color-green-400)" };
 const defaultWorkersPageSize = 20;
+const initialWorkerListUpdatedAt = "2026.05.13 10:30";
 
 export function WorkersListScreen() {
   const [status, setStatus] = useState<WorkerListStatus>("active");
   const [tagMenuOpen, setTagMenuOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultWorkersPageSize);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(initialWorkerListUpdatedAt);
   const rows = workerListRowsByStatus[status];
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
@@ -102,10 +105,12 @@ export function WorkersListScreen() {
         rows={pagedRows}
         status={status}
         currentPage={safeCurrentPage}
+        lastUpdatedAt={lastUpdatedAt}
         pageSize={pageSize}
         totalItems={rows.length}
         totalPages={totalPages}
         onPageChange={setCurrentPage}
+        onRefresh={() => setLastUpdatedAt(formatWorkerListUpdatedAt(new Date()))}
         onPageSizeChange={(nextPageSize) => {
           setPageSize(nextPageSize);
           setCurrentPage(1);
@@ -199,10 +204,26 @@ function SearchShell({
   );
 }
 
+function formatWorkerListUpdatedAt(date: Date) {
+  const year = date.getFullYear();
+  const month = padDatePart(date.getMonth() + 1);
+  const day = padDatePart(date.getDate());
+  const hours = padDatePart(date.getHours());
+  const minutes = padDatePart(date.getMinutes());
+
+  return `${year}.${month}.${day} ${hours}:${minutes}`;
+}
+
+function padDatePart(value: number) {
+  return String(value).padStart(2, "0");
+}
+
 function WorkerListTable({
   currentPage,
+  lastUpdatedAt,
   onPageChange,
   onPageSizeChange,
+  onRefresh,
   pageSize,
   rows,
   status,
@@ -210,8 +231,10 @@ function WorkerListTable({
   totalPages,
 }: {
   currentPage: number;
+  lastUpdatedAt: string;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
+  onRefresh: () => void;
   pageSize: number;
   rows: readonly WorkerListRow[];
   status: WorkerListStatus;
@@ -224,12 +247,21 @@ function WorkerListTable({
       data-testid="workers-list-frame"
     >
       <div
-        className="flex h-[56px] shrink-0 items-center gap-3 px-4"
+        className="flex h-[56px] shrink-0 items-center justify-between gap-4 px-4"
       >
         <h2 className="text-h-20 text-gray-900">조교 목록</h2>
-        <span className="rounded-[4px] bg-gray-100 px-1.5 py-0.5 text-detail-16-regular text-gray-600">
-          17/20명
-        </span>
+        <div className="flex items-center gap-2 text-body-14-regular text-gray-500">
+          <span>마지막 업데이트: {lastUpdatedAt}</span>
+          <button
+            type="button"
+            aria-label="조교 목록 새로고침"
+            title="새로고침"
+            onClick={onRefresh}
+            className="flex size-8 items-center justify-center rounded-[8px] text-gray-600 transition-colors duration-150 ease-out hover:bg-gray-50 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+          >
+            <RefreshCw className="size-4" />
+          </button>
+        </div>
       </div>
 
       <div className="grid h-9 shrink-0 grid-cols-[15%_24%_19%_24%_1fr] items-center border-b border-gray-300 px-4 text-h-18-regular text-gray-500">

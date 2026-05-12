@@ -15,7 +15,12 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await expect(
       page.getByRole("heading", { name: "조교 목록" }),
     ).toBeVisible();
-    await expect(page.getByText("17/20명")).toBeVisible();
+    await expect(
+      page.getByText("마지막 업데이트: 2026.05.13 10:30"),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "조교 목록 새로고침" }),
+    ).toBeVisible();
 
     await captureActualScreenshot({
       page,
