@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronDown, ChevronLeft, Plus, Printer } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -151,7 +152,7 @@ export function PayrollCalculationScreen({
 
   return (
     <section
-      aria-label="급여 신청"
+      aria-label="급여 산정"
       className="flex w-full flex-col gap-4"
       data-testid="payroll-calculation-screen"
       data-payroll-calculation-state="default"
@@ -674,17 +675,48 @@ function OpenItemCard({ card }: { card: PayrollOpenItemCard }) {
       {card.actions.length > 0 ? (
         <div className="mt-4 flex flex-wrap gap-3">
           {card.actions.map((action) => (
-            <button
-              key={action.id}
-              type="button"
-              className="flex h-10 items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-16-medium tracking-normal text-gray-800 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
-            >
-              {action.label}
-            </button>
+            <OpenItemActionControl action={action} key={action.id} />
           ))}
         </div>
       ) : null}
     </article>
+  );
+}
+
+function OpenItemActionControl({
+  action,
+}: {
+  action: PayrollOpenItemCard["actions"][number];
+}) {
+  const className =
+    "flex h-10 items-center justify-center rounded-full border px-4 text-h-16-medium tracking-normal transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200";
+
+  if (action.href) {
+    return (
+      <Link
+        href={action.href}
+        className={cn(
+          className,
+          "border-gray-200 bg-white text-gray-800 hover:border-gray-300 hover:bg-gray-50",
+        )}
+      >
+        {action.label}
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label={`${action.label} - 이동할 대상 없음`}
+      className={cn(
+        className,
+        "cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400",
+      )}
+      disabled
+    >
+      {action.unavailableLabel ?? `${action.label} 불가`}
+    </button>
   );
 }
 

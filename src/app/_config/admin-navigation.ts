@@ -128,7 +128,7 @@ export const adminSections: AdminSection[] = [
     href: "/payroll",
     icon: "payroll",
     tabs: [
-      { label: "급여 신청", href: "/payroll", screenId: "PAY-01" },
+      { label: "급여 산정", href: "/payroll", screenId: "PAY-01" },
       { label: "급여 명세", href: "/payroll/statements", screenId: "PAY-02" },
     ],
   },
@@ -345,7 +345,7 @@ export const adminRouteRegistry: AdminRouteMeta[] = [
   {
     screenId: "PAY-01",
     href: "/payroll",
-    title: "급여 신청",
+    title: "급여 산정",
     figmaBacked: true,
     status: "figma-backed",
     authoritativeFrameId: "15:4706",

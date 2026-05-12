@@ -245,22 +245,23 @@ function mapRecordMainView(collections: RecordsCollections): RecordMainViewModel
     collections.attendanceLogs.map(mapAttendanceLog),
     (log) => log.id,
   );
+  const anomalyFlags = collections.anomalyFlags.map(mapAnomalyFlag);
+  const correctionRequests = collections.correctionRequests.map(
+    mapCorrectionRequest,
+  );
+  const overtimeWorks = collections.overtimeWorks.map(mapOvertimeWork);
   const flagsByRecordId = toMap(
-    collections.anomalyFlags.map(mapAnomalyFlag).filter(hasWorkRecordId),
+    anomalyFlags.filter(hasWorkRecordId),
     (flag) => flag.workRecordId,
   );
-  const pendingCorrectionIds = new Set(
-    collections.correctionRequests
-      .map(mapCorrectionRequest)
-      .filter((request) => request.status === "submitted" && request.workRecordId)
-      .map((request) => request.workRecordId as string),
+  const correctionIdsByRecordId = groupIdsByWorkRecordId(
+    correctionRequests.filter((request) => request.status === "submitted"),
   );
-  const pendingOvertimeIds = new Set(
-    collections.overtimeWorks
-      .map(mapOvertimeWork)
-      .filter((work) => work.status === "submitted" && work.workRecordId)
-      .map((work) => work.workRecordId as string),
+  const overtimeIdsByRecordId = groupIdsByWorkRecordId(
+    overtimeWorks.filter((work) => work.status === "submitted"),
   );
+  const pendingCorrectionIds = new Set(correctionIdsByRecordId.keys());
+  const pendingOvertimeIds = new Set(overtimeIdsByRecordId.keys());
   const weekNavigation = createWeekNavigation(records);
   const initialWeekStartKey = weekNavigation.initialWeekStartKey;
   const selectedRecord = selectInitialRecord(records, {
@@ -274,7 +275,9 @@ function mapRecordMainView(collections: RecordsCollections): RecordMainViewModel
     : "empty";
   const blocks = records.map((record) =>
     mapTimelineBlock(record, {
+      correctionIdsByRecordId,
       flag: flagsByRecordId.get(record.id),
+      overtimeIdsByRecordId,
       pendingCorrectionIds,
       pendingOvertimeIds,
     }),
@@ -522,7 +525,9 @@ function mapAttendanceLog(document: FirestoreDocument): AttendanceLogModel {
 function mapTimelineBlock(
   record: WorkRecordModel,
   options: {
+    correctionIdsByRecordId: ReadonlyMap<string, readonly string[]>;
     flag?: AnomalyFlagModel;
+    overtimeIdsByRecordId: ReadonlyMap<string, readonly string[]>;
     pendingCorrectionIds: ReadonlySet<string>;
     pendingOvertimeIds: ReadonlySet<string>;
   },
@@ -541,6 +546,12 @@ function mapTimelineBlock(
     dutyName: record.dutyName,
     endHour: getRecordEndHour(record),
     endTime: formatTime(record.effectiveEndAt ?? record.plannedEndAt),
+    focusIds: [
+      record.attendanceLogId,
+      options.flag?.id,
+      ...(options.correctionIdsByRecordId.get(record.id) ?? []),
+      ...(options.overtimeIdsByRecordId.get(record.id) ?? []),
+    ].filter((id): id is string => Boolean(id)),
     kind,
     locationName: record.locationName,
     selectedStateId: hasUnresolvedFlag ? "anomaly-step-1" : "normal-selected",
@@ -549,6 +560,27 @@ function mapTimelineBlock(
     tone: getTimelineBlockTone(kind),
     workerName: record.workerName,
   };
+}
+
+function groupIdsByWorkRecordId<
+  T extends { id: string; workRecordId: string | null },
+>(
+  items: readonly T[],
+) {
+  const idsByRecordId = new Map<string, string[]>();
+
+  for (const item of items) {
+    if (!item.workRecordId) {
+      continue;
+    }
+
+    idsByRecordId.set(item.workRecordId, [
+      ...(idsByRecordId.get(item.workRecordId) ?? []),
+      item.id,
+    ]);
+  }
+
+  return idsByRecordId;
 }
 
 function createDetailStatesByBlockId(

@@ -106,8 +106,10 @@ export type PayrollOpenItemLine = {
 };
 
 export type PayrollOpenItemAction = {
+  href?: string;
   id: string;
   label: string;
+  unavailableLabel?: string;
 };
 
 export type PayrollOpenItemCard = {
@@ -180,7 +182,9 @@ export type PayrollStatementMetric = {
 
 export type PayrollStatementRow = {
   id: string;
+  monthKey?: string;
   workerName: string;
+  workerId?: string;
   status: PayrollStatementStatus;
   statusTone: PayrollTone;
   confirmedAmount: string;
@@ -232,7 +236,7 @@ export type PayrollStatementFixture = {
 const payrollTabs = [
   {
     id: "calculation",
-    label: "급여 신청",
+    label: "급여 산정",
     href: "/payroll",
   },
   {
@@ -513,7 +517,7 @@ export const payrollCalculationFixture = {
   details: {
     detail: {
       id: "detail",
-      headerTitle: "급여 신청 목록",
+      headerTitle: "급여 산정 목록",
       worker: kimSeoyeonPayrollSummary,
       calculationTitle: "현재 급여 계산",
       calculationRows: payrollCalculationLines,
@@ -537,7 +541,7 @@ export const payrollCalculationFixture = {
     },
     "bonus-add": {
       id: "bonus-add",
-      headerTitle: "급여 신청 목록",
+      headerTitle: "급여 산정 목록",
       worker: kimSeoyeonPayrollSummary,
       calculationTitle: "현재 급여 계산",
       calculationRows: payrollCalculationLines,
@@ -562,7 +566,7 @@ export const payrollCalculationFixture = {
     },
     "no-open-items": {
       id: "no-open-items",
-      headerTitle: "급여 신청 목록",
+      headerTitle: "급여 산정 목록",
       worker: kimSeoyeonPayrollSummary,
       calculationTitle: "현재 급여 계산",
       calculationRows: payrollCalculationLines,

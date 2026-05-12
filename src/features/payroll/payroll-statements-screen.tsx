@@ -54,19 +54,34 @@ const amountToneClassName = {
 
 type PayrollStatementsScreenProps = {
   dataSource?: PayrollDataSource;
+  initialFocusId?: string;
+  initialMonthKey?: string;
+  initialWorkerId?: string;
 };
 
 export function PayrollStatementsScreen({
   dataSource: dataSourceProp,
+  initialFocusId,
+  initialMonthKey,
+  initialWorkerId,
 }: PayrollStatementsScreenProps = {}) {
   const fallbackDataSource = useMemo(() => createPayrollDataSource(), []);
   const dataSource = dataSourceProp ?? fallbackDataSource;
   const fixtureMode = dataSource.mode === "fixture";
-  const [viewModel, setViewModel] = useState<PayrollStatementFixture>(
-    fixtureMode ? payrollStatementFixture : createEmptyPayrollStatementViewModel(),
+  const initialViewModel = fixtureMode
+    ? payrollStatementFixture
+    : createEmptyPayrollStatementViewModel();
+  const initialDetailTarget = resolveStatementDetailTarget(initialViewModel, {
+    focusId: initialFocusId,
+    monthKey: initialMonthKey,
+    workerId: initialWorkerId,
+  });
+  const [viewModel, setViewModel] =
+    useState<PayrollStatementFixture>(initialViewModel);
+  const [detailOpen, setDetailOpen] = useState(
+    fixtureMode && initialDetailTarget.matched,
   );
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [selectedRowId, setSelectedRowId] = useState(viewModel.selectedRowId);
+  const [selectedRowId, setSelectedRowId] = useState(initialDetailTarget.rowId);
   const [loading, setLoading] = useState(!fixtureMode);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -78,14 +93,27 @@ export function PayrollStatementsScreen({
     let active = true;
 
     void dataSource
-      .loadStatements()
+      .loadStatements({
+        focusId: initialFocusId,
+        monthKey: initialMonthKey,
+        workerId: initialWorkerId,
+      })
       .then((nextViewModel) => {
         if (!active) {
           return;
         }
 
+        const nextDetailTarget = resolveStatementDetailTarget(nextViewModel, {
+          focusId: initialFocusId,
+          monthKey: initialMonthKey,
+          workerId: initialWorkerId,
+        });
+
         setViewModel(nextViewModel);
-        setSelectedRowId(nextViewModel.selectedRowId);
+        setSelectedRowId(nextDetailTarget.rowId);
+        if (nextDetailTarget.matched) {
+          setDetailOpen(true);
+        }
         setLoading(false);
       })
       .catch(() => {
@@ -100,7 +128,7 @@ export function PayrollStatementsScreen({
     return () => {
       active = false;
     };
-  }, [dataSource, fixtureMode]);
+  }, [dataSource, fixtureMode, initialFocusId, initialMonthKey, initialWorkerId]);
 
   if (detailOpen) {
     const detail =
@@ -141,6 +169,32 @@ export function PayrollStatementsScreen({
       />
     </section>
   );
+}
+
+function resolveStatementDetailTarget(
+  viewModel: PayrollStatementFixture,
+  target: {
+    focusId?: string;
+    monthKey?: string;
+    workerId?: string;
+  },
+) {
+  const hasSpecificTarget = Boolean(target.focusId || target.workerId);
+  const matchedRow = hasSpecificTarget
+    ? viewModel.rows.find((row) => {
+        const focusMatches = !target.focusId || row.id === target.focusId;
+        const workerMatches =
+          !target.workerId || row.workerId === target.workerId;
+        const monthMatches = !target.monthKey || row.monthKey === target.monthKey;
+
+        return focusMatches && workerMatches && monthMatches;
+      })
+    : undefined;
+
+  return {
+    matched: Boolean(matchedRow),
+    rowId: matchedRow?.id ?? viewModel.selectedRowId ?? viewModel.rows[0]?.id ?? "",
+  };
 }
 
 function MonthSelect({

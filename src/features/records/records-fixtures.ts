@@ -45,6 +45,7 @@ export type RecordTimelineBlock = {
   id: string;
   dateKey?: string;
   dayId: RecordTimelineDayId;
+  focusIds?: readonly string[];
   workerName: string;
   dutyName: string;
   locationName: string;

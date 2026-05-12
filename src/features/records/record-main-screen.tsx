@@ -32,6 +32,17 @@ type PositionedRecordBlock = {
   endColumn: number;
 };
 
+type RecordMainScreenProps = {
+  dataSource?: RecordsDataSource;
+  initialFocusId?: string;
+};
+
+type RecordFilterState = {
+  statusFilterId: string;
+  typeFilterId: string;
+  workerFilterId: string;
+};
+
 const timelineStartHour = Number(
   recordMainFixtureViewModel.timeline.hourLabels[0],
 );
@@ -41,6 +52,7 @@ const timelineRowHeight = 110;
 const timelineLaneHeight = 54;
 const timelineLaneStride = 56;
 const weekDayLabels = ["일", "월", "화", "수", "목", "금", "토"] as const;
+const emptyFilterOptions: readonly RecordsFilterOption[] = [];
 
 const blockToneClassNames: Record<RecordsTone, string> = {
   green: "border-green-400 bg-green-100 text-gray-900",
@@ -68,9 +80,8 @@ const toneTextStyles: Record<RecordsTone, CSSProperties> = {
 
 export function RecordMainScreen({
   dataSource: dataSourceProp,
-}: {
-  dataSource?: RecordsDataSource;
-} = {}) {
+  initialFocusId,
+}: RecordMainScreenProps = {}) {
   const fixtureMode = shouldUseRecordsFixtureDataSource();
   const fallbackDataSource = useMemo(() => createRecordsDataSource(), []);
   const dataSource = dataSourceProp ?? fallbackDataSource;
@@ -91,32 +102,111 @@ export function RecordMainScreen({
       ? (recordMainFixtureViewModel.initialWeekStartKey ?? null)
       : null,
   );
+  const [selectedWorkerFilterId, setSelectedWorkerFilterId] = useState("all");
+  const [selectedStatusFilterId, setSelectedStatusFilterId] = useState("all");
+  const [selectedTypeFilterId, setSelectedTypeFilterId] = useState("all");
   const [loading, setLoading] = useState(!fixtureMode);
   const [errorMessage, setErrorMessage] = useState("");
-  const selectedDetailStates = selectedBlockId
-    ? viewModel.detailStatesByBlockId[selectedBlockId] ?? viewModel.detailStates
-    : viewModel.detailStates;
-  const selectedState =
-    selectedDetailStates[selectedStateId] ?? selectedDetailStates.empty;
   const activeWeekStartKey =
     selectedWeekStartKey ??
     viewModel.initialWeekStartKey ??
     viewModel.timeline.weekNavigation?.initialWeekStartKey ??
     null;
-  const visibleBlocks =
-    activeWeekStartKey && viewModel.timeline.weekNavigation
-      ? viewModel.blocks.filter((block) => isBlockInWeek(block, activeWeekStartKey))
-      : viewModel.blocks;
+  const workerFilterOptions =
+    viewModel.timeline.filters.location ?? emptyFilterOptions;
+  const weekScopedBlocks = useMemo(
+    () =>
+      activeWeekStartKey && viewModel.timeline.weekNavigation
+        ? viewModel.blocks.filter((block) =>
+            isBlockInWeek(block, activeWeekStartKey),
+          )
+        : viewModel.blocks,
+    [activeWeekStartKey, viewModel.blocks, viewModel.timeline.weekNavigation],
+  );
+  const visibleBlocks = useMemo(
+    () =>
+      getFilteredBlocks(
+        weekScopedBlocks,
+        {
+          statusFilterId: selectedStatusFilterId,
+          typeFilterId: selectedTypeFilterId,
+          workerFilterId: selectedWorkerFilterId,
+        },
+        workerFilterOptions,
+      ),
+    [
+      selectedStatusFilterId,
+      selectedTypeFilterId,
+      selectedWorkerFilterId,
+      workerFilterOptions,
+      weekScopedBlocks,
+    ],
+  );
   const timeline = createVisibleTimeline(viewModel.timeline, activeWeekStartKey);
   const selectedVisibleBlockId =
     selectedBlockId && visibleBlocks.some((block) => block.id === selectedBlockId)
       ? selectedBlockId
       : undefined;
-  const tallDetailState = selectedStateId === "anomaly-step-3";
+  const selectedDetailStates = selectedVisibleBlockId
+    ? viewModel.detailStatesByBlockId[selectedVisibleBlockId] ?? viewModel.detailStates
+    : viewModel.detailStates;
+  const selectedState = selectedVisibleBlockId
+    ? selectedDetailStates[selectedStateId] ?? selectedDetailStates.empty
+    : viewModel.detailStates.empty;
+  const tallDetailState =
+    Boolean(selectedVisibleBlockId) && selectedStateId === "anomaly-step-3";
+
+  function syncSelectionForFilters(nextFilters: RecordFilterState) {
+    if (!selectedBlockId) {
+      return;
+    }
+
+    const nextVisibleBlocks = getFilteredBlocks(
+      weekScopedBlocks,
+      nextFilters,
+      workerFilterOptions,
+    );
+
+    if (nextVisibleBlocks.some((block) => block.id === selectedBlockId)) {
+      return;
+    }
+
+    const nextBlock = selectDefaultBlockFromBlocks(nextVisibleBlocks);
+
+    setSelectedBlockId(nextBlock?.id ?? null);
+    setSelectedStateId(resolveBlockStateId(nextBlock));
+  }
+
+  function handleWorkerFilterChange(workerFilterId: string) {
+    setSelectedWorkerFilterId(workerFilterId);
+    syncSelectionForFilters({
+      statusFilterId: selectedStatusFilterId,
+      typeFilterId: selectedTypeFilterId,
+      workerFilterId,
+    });
+  }
+
+  function handleStatusFilterChange(statusFilterId: string) {
+    setSelectedStatusFilterId(statusFilterId);
+    syncSelectionForFilters({
+      statusFilterId,
+      typeFilterId: selectedTypeFilterId,
+      workerFilterId: selectedWorkerFilterId,
+    });
+  }
+
+  function handleTypeFilterChange(typeFilterId: string) {
+    setSelectedTypeFilterId(typeFilterId);
+    syncSelectionForFilters({
+      statusFilterId: selectedStatusFilterId,
+      typeFilterId,
+      workerFilterId: selectedWorkerFilterId,
+    });
+  }
 
   function handleSelectBlock(block: RecordTimelineBlock) {
     setSelectedBlockId(block.id);
-    setSelectedStateId(block.selectedStateId ?? "normal-selected");
+    setSelectedStateId(resolveBlockStateId(block));
 
     if (block.dateKey) {
       setSelectedWeekStartKey(getWeekStartKeyFromDateKey(block.dateKey));
@@ -134,11 +224,25 @@ export function RecordMainScreen({
       return;
     }
 
-    const nextBlock = selectDefaultBlockForWeek(viewModel.blocks, nextWeekStartKey);
+    const nextBlock = selectDefaultBlockFromBlocks(
+      viewModel.blocks.filter(
+        (block) =>
+          isBlockInWeek(block, nextWeekStartKey) &&
+          matchesRecordFilters(
+            block,
+            {
+              statusFilterId: selectedStatusFilterId,
+              typeFilterId: selectedTypeFilterId,
+              workerFilterId: selectedWorkerFilterId,
+            },
+            workerFilterOptions,
+          ),
+      ),
+    );
 
     setSelectedWeekStartKey(nextWeekStartKey);
     setSelectedBlockId(nextBlock?.id ?? null);
-    setSelectedStateId(nextBlock?.selectedStateId ?? "empty");
+    setSelectedStateId(resolveBlockStateId(nextBlock));
   }
 
   useEffect(() => {
@@ -151,10 +255,15 @@ export function RecordMainScreen({
           return;
         }
 
+        const selection = resolveInitialRecordSelection(
+          nextViewModel,
+          initialFocusId,
+        );
+
         setViewModel(nextViewModel);
-        setSelectedBlockId(nextViewModel.initialBlockId ?? null);
-        setSelectedWeekStartKey(nextViewModel.initialWeekStartKey ?? null);
-        setSelectedStateId(nextViewModel.initialDetailStateId);
+        setSelectedBlockId(selection.block?.id ?? null);
+        setSelectedWeekStartKey(selection.weekStartKey);
+        setSelectedStateId(selection.stateId);
         setLoading(false);
       })
       .catch(() => {
@@ -175,13 +284,13 @@ export function RecordMainScreen({
     return () => {
       active = false;
     };
-  }, [dataSource]);
+  }, [dataSource, initialFocusId]);
 
   return (
     <section
       aria-label="근무기록"
       className="w-full tracking-normal"
-      data-record-main-state={selectedStateId}
+      data-record-main-state={selectedState.id}
       data-testid="record-main-screen"
     >
       {loading || errorMessage ? (
@@ -209,7 +318,13 @@ export function RecordMainScreen({
             ? activeWeekStartKey > viewModel.timeline.weekNavigation.minWeekStartKey
             : true
         }
+        onStatusFilterChange={handleStatusFilterChange}
+        onTypeFilterChange={handleTypeFilterChange}
+        onWorkerFilterChange={handleWorkerFilterChange}
         onNavigateWeek={handleNavigateWeek}
+        selectedStatusFilterId={selectedStatusFilterId}
+        selectedTypeFilterId={selectedTypeFilterId}
+        selectedWorkerFilterId={selectedWorkerFilterId}
         timeline={timeline}
       />
 
@@ -239,12 +354,24 @@ export function RecordMainScreen({
 function RecordToolbar({
   canGoNext,
   canGoPrevious,
+  onStatusFilterChange,
+  onTypeFilterChange,
+  onWorkerFilterChange,
   onNavigateWeek,
+  selectedStatusFilterId,
+  selectedTypeFilterId,
+  selectedWorkerFilterId,
   timeline,
 }: {
   canGoNext: boolean;
   canGoPrevious: boolean;
+  onStatusFilterChange: (filterId: string) => void;
+  onTypeFilterChange: (filterId: string) => void;
+  onWorkerFilterChange: (filterId: string) => void;
   onNavigateWeek: (direction: -1 | 1) => void;
+  selectedStatusFilterId: string;
+  selectedTypeFilterId: string;
+  selectedWorkerFilterId: string;
   timeline: RecordTimelineFixture;
 }) {
   const { filters } = timeline;
@@ -269,14 +396,24 @@ function RecordToolbar({
 
       <div className="flex min-w-0 items-center gap-3">
         <FilterSelect
-          label={filters.location[0]?.label ?? "조교 (전체)"}
+          ariaLabel="조교 필터"
+          options={filters.location ?? []}
+          value={selectedWorkerFilterId}
+          onChange={onWorkerFilterChange}
           widthClassName="w-[128px]"
         />
         <FilterSelect
-          label={filters.status[0]?.label ?? "상태 (전체)"}
+          ariaLabel="상태 필터"
+          options={filters.status ?? []}
+          value={selectedStatusFilterId}
+          onChange={onStatusFilterChange}
           widthClassName="w-[128px]"
         />
-        <RecordTypeChips options={filters.type} />
+        <RecordTypeChips
+          onSelect={onTypeFilterChange}
+          options={filters.type ?? []}
+          selectedId={selectedTypeFilterId}
+        />
       </div>
     </div>
   );
@@ -312,35 +449,62 @@ function RoundArrowButton({
 }
 
 function FilterSelect({
-  label,
+  ariaLabel,
+  onChange,
+  options,
+  value,
   widthClassName,
 }: {
-  label: string;
+  ariaLabel: string;
+  onChange: (value: string) => void;
+  options: readonly RecordsFilterOption[];
+  value: string;
   widthClassName: string;
 }) {
+  const selectedValue = options.some((option) => option.id === value)
+    ? value
+    : options[0]?.id ?? "all";
+
   return (
-    <button
-      type="button"
+    <div
       className={cn(
-        "flex h-10 items-center justify-between gap-2 rounded-[6px] border border-gray-200 bg-white px-3 text-h-18-regular tracking-normal text-gray-800 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
+        "relative flex h-10 items-center rounded-[6px] border border-gray-200 bg-white text-h-18-regular tracking-normal text-gray-800 transition-colors duration-150 ease-out hover:border-gray-300",
         widthClassName,
       )}
     >
-      <span className="min-w-0 truncate">{label}</span>
-      <IconChevronDown className="size-5 shrink-0 text-gray-700" />
-    </button>
+      <select
+        aria-label={ariaLabel}
+        className="h-full w-full appearance-none rounded-[6px] bg-transparent pl-3 pr-8 outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+        value={selectedValue}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {options.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <IconChevronDown
+        aria-hidden="true"
+        className="pointer-events-none absolute right-3 size-5 text-gray-700"
+      />
+    </div>
   );
 }
 
 function RecordTypeChips({
+  onSelect,
   options,
+  selectedId,
 }: {
+  onSelect: (optionId: string) => void;
   options: readonly RecordsFilterOption[];
+  selectedId: string;
 }) {
   return (
     <div className="flex items-center gap-3">
       {options.map((option) => {
-        const selected = option.selected;
+        const selected = option.id === selectedId;
         const tone =
           option.id === "anomaly"
             ? "pink"
@@ -355,6 +519,7 @@ function RecordTypeChips({
             key={option.id}
             type="button"
             aria-pressed={selected}
+            onClick={() => onSelect(option.id)}
             className={cn(
               "flex h-9 items-center justify-center rounded-full border px-4 text-h-18-semibold tracking-normal transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
               selected
@@ -493,7 +658,7 @@ function RecordTimelineBlockItem({
   const selectable = Boolean(selectedStateId);
   const style = getBlockStyle(positionedBlock);
   const selectedClassName =
-    block.selectedStateId === "normal-selected"
+    block.selectedStateId === "normal-selected" || block.kind === "normal"
       ? "border-green-400 bg-green-400 text-white"
       : "border-red-500 bg-red-500 text-white";
   const blockClassName = cn(
@@ -853,17 +1018,128 @@ function getNavigatedWeekStartKey(
   return nextWeekStartKey;
 }
 
-function selectDefaultBlockForWeek(
-  blocks: readonly RecordTimelineBlock[],
-  weekStartKey: string,
+function resolveInitialRecordSelection(
+  viewModel: RecordMainViewModel,
+  focusId: string | undefined,
 ) {
-  const weekBlocks = blocks.filter((block) => isBlockInWeek(block, weekStartKey));
+  const focusedBlock = focusId
+    ? selectBlockByFocusId(viewModel.blocks, focusId)
+    : null;
+  const initialBlock =
+    focusedBlock ??
+    (viewModel.initialBlockId
+      ? viewModel.blocks.find((block) => block.id === viewModel.initialBlockId) ??
+        null
+      : null);
+  const weekStartKey = initialBlock?.dateKey
+    ? getWeekStartKeyFromDateKey(initialBlock.dateKey)
+    : viewModel.initialWeekStartKey ??
+      viewModel.timeline.weekNavigation?.initialWeekStartKey ??
+      null;
+
+  return {
+    block: initialBlock,
+    stateId: initialBlock
+      ? resolveBlockStateId(initialBlock)
+      : viewModel.initialDetailStateId,
+    weekStartKey,
+  };
+}
+
+function selectBlockByFocusId(
+  blocks: readonly RecordTimelineBlock[],
+  focusId: string,
+) {
+  const normalizedFocusId = focusId.trim();
+
+  if (!normalizedFocusId) {
+    return null;
+  }
 
   return (
-    weekBlocks.find((block) => block.selectedStateId === "anomaly-step-1") ??
-    weekBlocks.find((block) => block.selectedStateId) ??
+    blocks.find(
+      (block) =>
+        block.id === normalizedFocusId ||
+        (block.focusIds ?? []).includes(normalizedFocusId),
+    ) ?? null
+  );
+}
+
+function selectDefaultBlockFromBlocks(blocks: readonly RecordTimelineBlock[]) {
+  return (
+    blocks.find((block) => block.selectedStateId === "anomaly-step-1") ??
+    blocks.find((block) => block.selectedStateId) ??
+    blocks[0] ??
     null
   );
+}
+
+function resolveBlockStateId(
+  block: RecordTimelineBlock | null | undefined,
+): RecordDetailStateId {
+  return block ? block.selectedStateId ?? "normal-selected" : "empty";
+}
+
+function getFilteredBlocks(
+  blocks: readonly RecordTimelineBlock[],
+  filters: RecordFilterState,
+  workerOptions: readonly RecordsFilterOption[],
+) {
+  return blocks.filter((block) =>
+    matchesRecordFilters(block, filters, workerOptions),
+  );
+}
+
+function matchesRecordFilters(
+  block: RecordTimelineBlock,
+  filters: RecordFilterState,
+  workerOptions: readonly RecordsFilterOption[],
+) {
+  return (
+    matchesWorkerFilter(block, filters.workerFilterId, workerOptions) &&
+    matchesBlockKindFilter(block, filters.statusFilterId) &&
+    matchesBlockKindFilter(block, filters.typeFilterId)
+  );
+}
+
+function matchesWorkerFilter(
+  block: RecordTimelineBlock,
+  workerFilterId: string,
+  workerOptions: readonly RecordsFilterOption[],
+) {
+  if (workerFilterId === "all") {
+    return true;
+  }
+
+  const option = workerOptions.find((candidate) => candidate.id === workerFilterId);
+
+  return (
+    option?.label === block.workerName ||
+    workerFilterId === createStableFilterId(block.workerName)
+  );
+}
+
+function matchesBlockKindFilter(
+  block: RecordTimelineBlock,
+  filterId: string,
+) {
+  if (filterId === "all") {
+    return true;
+  }
+
+  return getBlockFilterKind(block) === filterId;
+}
+
+function getBlockFilterKind(block: RecordTimelineBlock) {
+  return block.kind === "location-anomaly" ? "anomaly" : block.kind;
+}
+
+function createStableFilterId(value: string) {
+  return value
+    .trim()
+    .toLocaleLowerCase("ko-KR")
+    .replace(/[^0-9a-z가-힣]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function isBlockInWeek(block: RecordTimelineBlock, weekStartKey: string) {

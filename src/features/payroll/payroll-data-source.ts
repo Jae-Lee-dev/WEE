@@ -17,6 +17,7 @@ import {
   type PayrollCalculationLine,
   type PayrollDetailStateId,
   type PayrollOpenItemCard,
+  type PayrollOpenItemAction,
   type PayrollCalculationRow,
   type PayrollStatementBodySection,
   type PayrollStatementDetail,
@@ -35,12 +36,20 @@ export type PayrollCalculationTarget = {
   workerId?: string;
 };
 
+export type PayrollStatementTarget = {
+  focusId?: string;
+  monthKey?: string;
+  workerId?: string;
+};
+
 export type PayrollDataSource = {
   mode: PayrollDataSourceMode;
   loadCalculation: (
     target?: PayrollCalculationTarget,
   ) => Promise<PayrollCalculationFixture>;
-  loadStatements: () => Promise<PayrollStatementFixture>;
+  loadStatements: (
+    target?: PayrollStatementTarget,
+  ) => Promise<PayrollStatementFixture>;
 };
 
 type PayrollDocument = {
@@ -208,8 +217,8 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
       return buildCalculationViewModel(await loadPayrollCollections(), target);
     },
 
-    async loadStatements() {
-      return buildStatementViewModel(await loadPayrollCollections());
+    async loadStatements(target) {
+      return buildStatementViewModel(await loadPayrollCollections(), target);
     },
   };
 }
@@ -543,7 +552,7 @@ function buildCalculationDetail({
     expectedPay: formatWon(amounts.finalAmount),
     expectedPayLabel: "지급 예상액",
     footer,
-    headerTitle: "급여 신청 목록",
+    headerTitle: "급여 산정 목록",
     worker: buildWorkerSummary({
       finalAmount: amounts.finalAmount,
       monthKey: projection.monthKey,
@@ -712,9 +721,10 @@ function buildOpenItemCards({
       const record = flag.workRecordId
         ? recordById.get(flag.workRecordId)
         : undefined;
+      const action = createRecordsOpenItemAction(flag.workRecordId);
 
       return {
-        actions: [{ id: "record", label: "REC-01에서 처리" }],
+        actions: [action],
         dateLabel: formatDateKeyDisplay(flag.dateKey),
         id: flag.id,
         lines: [
@@ -745,9 +755,10 @@ function buildOpenItemCards({
       const record = work.workRecordId
         ? recordById.get(work.workRecordId)
         : undefined;
+      const action = createRecordsOpenItemAction(work.workRecordId);
 
       return {
-        actions: [{ id: "record", label: "REC-01에서 처리" }],
+        actions: [action],
         dateLabel: formatDateKeyDisplay(record?.dateKey ?? ""),
         id: work.id,
         lines: [
@@ -775,9 +786,10 @@ function buildOpenItemCards({
       const record = request.workRecordId
         ? recordById.get(request.workRecordId)
         : undefined;
+      const action = createRecordsOpenItemAction(request.workRecordId);
 
       return {
-        actions: [{ id: "record", label: "REC-01에서 처리" }],
+        actions: [action],
         dateLabel: formatDateKeyDisplay(record?.dateKey ?? ""),
         id: request.id,
         lines: [
@@ -802,7 +814,13 @@ function buildOpenItemCards({
     .map(
       (bonus) =>
         ({
-          actions: [{ id: "payroll", label: "반영 여부 결정" }],
+          actions: [
+            {
+              id: "payroll",
+              label: "반영 여부 결정",
+              unavailableLabel: "산정 화면에서 확인",
+            },
+          ],
           dateLabel: formatShortDate(bonus.createdAt) ?? "-",
           id: bonus.id,
           lines: [
@@ -832,7 +850,21 @@ function buildOpenItemCards({
   )
     ? [
         {
-          actions: [{ id: "reconfirm", label: "재확정" }],
+          actions: statement
+            ? [
+                {
+                  href: createPayrollStatementHref(statement),
+                  id: "statement",
+                  label: "명세 확인",
+                },
+              ]
+            : [
+                {
+                  id: "reconfirm",
+                  label: "재확정",
+                  unavailableLabel: "재확정 대상 없음",
+                },
+              ],
           dateLabel: formatMonthKorean(statement?.monthKey ?? ""),
           id: `${statement?.id ?? "statement"}-reconfirmation`,
           lines: [
@@ -865,6 +897,34 @@ function buildOpenItemCards({
     ...bonusCards,
     ...reconfirmationCards,
   ];
+}
+
+function createRecordsOpenItemAction(
+  workRecordId: string | null,
+): PayrollOpenItemAction {
+  if (!workRecordId) {
+    return {
+      id: "record",
+      label: "REC-01에서 처리",
+      unavailableLabel: "대상 기록 없음",
+    };
+  }
+
+  return {
+    href: `/records?focus=${encodeURIComponent(workRecordId)}`,
+    id: "record",
+    label: "REC-01에서 처리",
+  };
+}
+
+function createPayrollStatementHref(statement: PayStatement) {
+  const params = new URLSearchParams({
+    focus: statement.id,
+    month: statement.monthKey,
+    workerId: statement.workerId,
+  });
+
+  return `/payroll/statements?${params.toString()}`;
 }
 
 function buildResolvedWorkRecordCards(
@@ -1088,6 +1148,7 @@ function formatDateKeyDisplay(value: string) {
 
 function buildStatementViewModel(
   collections: PayrollCollections,
+  target: PayrollStatementTarget = {},
 ): PayrollStatementFixture {
   const managerStatements = collections.payStatements
     .map(mapPayStatement)
@@ -1101,7 +1162,7 @@ function buildStatementViewModel(
     mapPayrollWorkerMonthProjection,
   );
   const settings = collections.payrollSettings.map(mapPayrollSetting);
-  const monthKey = selectStatementMonthKey(statements, projections);
+  const monthKey = selectStatementMonthKey(statements, projections, target);
   const projectionByWorkerMonth = indexBy(projections, (row) =>
     getWorkerMonthKey(row.workerId, row.monthKey),
   );
@@ -1131,6 +1192,7 @@ function buildStatementViewModel(
       }),
     ]),
   );
+  const selectedRowId = resolveStatementSelectedRowId(rows, target);
 
   return {
     ...payrollStatementFixture,
@@ -1138,9 +1200,11 @@ function buildStatementViewModel(
     listCountText: `${rows.length}명`,
     rows,
     selectedDetail:
-      detailsByRowId[rows[0]?.id ?? ""] ?? payrollStatementFixture.selectedDetail,
+      detailsByRowId[selectedRowId] ??
+      detailsByRowId[rows[0]?.id ?? ""] ??
+      payrollStatementFixture.selectedDetail,
     selectedMonthLabel: formatMonthKorean(monthKey),
-    selectedRowId: rows[0]?.id ?? "",
+    selectedRowId,
     summaryCards: buildStatementMetrics(rowsForMonth),
   };
 }
@@ -1160,8 +1224,10 @@ function buildStatementRow({
       formatShortDate(statement.scheduledPaymentDate) ??
       "-",
     detailButtonLabel: "상세보기",
+    monthKey: statement.monthKey,
     status: statement.status === "paid" ? "지급 완료" : "처리중",
     statusTone: statement.status === "paid" ? "green" : "pink",
+    workerId: statement.workerId,
     workerName: statement.workerName || projection?.workerName || "이름 없는 조교",
   };
 }
@@ -1528,7 +1594,32 @@ function selectCalculationMonthKey(
 function selectStatementMonthKey(
   statements: readonly PayStatement[],
   projections: readonly PayrollWorkerMonthProjection[],
+  target: PayrollStatementTarget,
 ) {
+  const monthKeys = unique([
+    ...statements.map((statement) => statement.monthKey),
+    ...projections.map((row) => row.monthKey),
+  ]).sort(compareMonthKeyDesc);
+  const focusMonth = statements.find(
+    (statement) => statement.id === target.focusId,
+  )?.monthKey;
+  const workerMonth =
+    target.workerId && target.monthKey
+      ? statements.find(
+          (statement) =>
+            statement.workerId === target.workerId &&
+            statement.monthKey === target.monthKey,
+        )?.monthKey
+      : undefined;
+  const requestedMonth =
+    target.monthKey && monthKeys.includes(target.monthKey)
+      ? target.monthKey
+      : focusMonth ?? workerMonth;
+
+  if (requestedMonth) {
+    return requestedMonth;
+  }
+
   const statementMonth = unique(statements.map((statement) => statement.monthKey))
     .sort(compareMonthKeyDesc)
     .at(0);
@@ -1540,6 +1631,23 @@ function selectStatementMonthKey(
   return (
     unique(projections.map((row) => row.monthKey)).sort(compareMonthKeyDesc).at(0) ??
     "2026-04"
+  );
+}
+
+function resolveStatementSelectedRowId(
+  rows: readonly PayrollStatementRow[],
+  target: PayrollStatementTarget,
+) {
+  return (
+    rows.find((row) => {
+      const focusMatches = !target.focusId || row.id === target.focusId;
+      const workerMatches = !target.workerId || row.workerId === target.workerId;
+      const monthMatches = !target.monthKey || row.monthKey === target.monthKey;
+
+      return focusMatches && workerMatches && monthMatches;
+    })?.id ??
+    rows[0]?.id ??
+    ""
   );
 }
 
