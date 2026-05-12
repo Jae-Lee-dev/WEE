@@ -1,10 +1,11 @@
-export type WorkerTagTone = "green" | "red" | "grey";
+export type WorkerTagTone = "green" | "red" | "grey" | "blue" | "orange";
 
 export type WorkerTagRow = {
   id: string;
   label: string;
   countText: string;
   tone: WorkerTagTone;
+  statusText?: string;
 };
 
 export type WorkerTagDialogWorker = {

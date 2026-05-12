@@ -44,7 +44,9 @@ const allowedFirebaseAuthTransitionFiles = new Set([
   "src/features/settings/settings-support-data-source.ts",
   "src/features/settings/settings-locations-data-source.ts",
   "src/features/settings/settings-workspace-data-source.ts",
+  "src/features/workers/worker-applications-data-source.ts",
   "src/features/workers/worker-detail-basic-data-source.ts",
+  "src/features/workers/worker-tags-data-source.ts",
   "src/features/workers/workers-list-data-source.ts",
   "src/lib/firebase/client.ts",
 ]);
@@ -59,7 +61,9 @@ const allowedFirestoreTransitionFiles = new Set([
   "src/features/settings/settings-locations-data-source.ts",
   "src/features/settings/settings-support-data-source.ts",
   "src/features/settings/settings-workspace-data-source.ts",
+  "src/features/workers/worker-applications-data-source.ts",
   "src/features/workers/worker-detail-basic-data-source.ts",
+  "src/features/workers/worker-tags-data-source.ts",
   "src/features/workers/workers-list-data-source.ts",
 ]);
 const allowedSubmitDrivenTransitionFiles = new Set([

@@ -1,19 +1,23 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconCheck, IconSearch } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import {
+  createWorkerTagsDataSource,
+  emptyWorkerTagRows,
+  type WorkerTagsDataSource,
+} from "./worker-tags-data-source";
+import {
   workerTagEditDialog,
-  workerTagRows,
   type WorkerTagRow,
   type WorkerTagTone,
 } from "./worker-tags-fixtures";
 
 type BadgeToneConfig = {
-  variant: "green" | "red" | "grey";
+  variant: "green" | "red" | "grey" | "blue" | "orange";
   style?: CSSProperties;
 };
 
@@ -29,10 +33,55 @@ const tagToneConfig: Record<WorkerTagTone, BadgeToneConfig> = {
   grey: {
     variant: "grey",
   },
+  blue: {
+    variant: "blue",
+  },
+  orange: {
+    variant: "orange",
+  },
 };
 
-export function WorkerTagsScreen() {
+export function WorkerTagsScreen({
+  dataSource: dataSourceProp,
+}: {
+  dataSource?: WorkerTagsDataSource;
+} = {}) {
+  const fallbackDataSource = useMemo(() => createWorkerTagsDataSource(), []);
+  const dataSource = dataSourceProp ?? fallbackDataSource;
+  const [rows, setRows] = useState<readonly WorkerTagRow[]>(
+    dataSource.initialRows ?? emptyWorkerTagRows,
+  );
   const [editOpen, setEditOpen] = useState(false);
+  const [loading, setLoading] = useState(!dataSource.initialRows);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    void dataSource
+      .listWorkerTags()
+      .then((nextRows) => {
+        if (!active) {
+          return;
+        }
+
+        setRows(nextRows);
+        setErrorMessage("");
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setErrorMessage("근무자 태그를 불러오지 못했습니다.");
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [dataSource]);
 
   return (
     <section className="min-h-[560px] rounded-[8px] bg-white p-4">
@@ -44,18 +93,43 @@ export function WorkerTagsScreen() {
       </div>
 
       <div className="mt-5 flex flex-col gap-4">
-        {workerTagRows.map((tag, index) => (
-          <WorkerTagCard
-            key={tag.id}
-            tag={tag}
-            first={index === 0}
-            onEdit={() => setEditOpen(true)}
-          />
-        ))}
+        {loading ? (
+          <WorkerTagListState label="근무자 태그를 불러오는 중입니다." />
+        ) : errorMessage ? (
+          <WorkerTagListState label={errorMessage} role="alert" />
+        ) : rows.length > 0 ? (
+          rows.map((tag, index) => (
+            <WorkerTagCard
+              key={tag.id}
+              tag={tag}
+              first={index === 0}
+              onEdit={() => setEditOpen(true)}
+            />
+          ))
+        ) : (
+          <WorkerTagListState label="표시할 근무자 태그가 없습니다." />
+        )}
       </div>
 
       {editOpen ? <WorkerTagEditDialog onClose={() => setEditOpen(false)} /> : null}
     </section>
+  );
+}
+
+function WorkerTagListState({
+  label,
+  role = "status",
+}: {
+  label: string;
+  role?: "alert" | "status";
+}) {
+  return (
+    <div
+      className="flex min-h-[220px] items-center justify-center rounded-[8px] border border-gray-100 px-4 text-center text-h-18-regular text-gray-500"
+      role={role}
+    >
+      {label}
+    </div>
   );
 }
 
@@ -73,6 +147,7 @@ function WorkerTagCard({
       <div className="flex items-center gap-3">
         <WorkerTagBadge tag={tag} />
         <span className="text-h-18-semibold text-gray-900">{tag.countText}</span>
+        {tag.statusText ? <WorkerTagStatusBadge label={tag.statusText} /> : null}
       </div>
       <div className="flex items-center gap-3">
         <Button
@@ -93,6 +168,20 @@ function WorkerTagCard({
         </Button>
       </div>
     </div>
+  );
+}
+
+function WorkerTagStatusBadge({ label }: { label: string }) {
+  const active = label === "활성";
+
+  return (
+    <Badge
+      variant={active ? "green" : "grey"}
+      size="M"
+      style={active ? { color: "var(--color-green-400)" } : undefined}
+    >
+      {label}
+    </Badge>
   );
 }
 
