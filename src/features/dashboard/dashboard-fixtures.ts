@@ -528,14 +528,9 @@ export type DashboardSelectOption<T extends string> = {
   label: string;
 };
 
-export type DashboardLocationId =
-  | "daechi"
-  | "seocho"
-  | "jamsil"
-  | "gangnam"
-  | "songpa";
+export type DashboardLocationId = string;
 
-export type DashboardLocationPeriodId = "2026-04" | "2026-03" | "2026-02";
+export type DashboardLocationPeriodId = string;
 
 export type DashboardLocationSummary = {
   totalHours: number;
@@ -830,13 +825,7 @@ export const dashboardLocationWorkerRows = {
 } as const satisfies Record<DashboardLocationId, readonly DashboardLocationWorkerRow[]>;
 
 export type DashboardWorkerPeriodId = "week" | "month" | "quarter";
-export type DashboardWorkerTagId =
-  | "all"
-  | "closing"
-  | "question"
-  | "admin"
-  | "weekend"
-  | "science";
+export type DashboardWorkerTagId = string;
 
 export type DashboardWorkerTrendProfile = {
   labels: readonly string[];
