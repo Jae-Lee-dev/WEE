@@ -66,6 +66,44 @@ for (const viewport of viewports) {
       ),
     ).toBeLessThanOrEqual(1);
 
+    const scrollMetrics = await page.evaluate(() => {
+      const contentScroller = document.querySelector(
+        '[data-testid="admin-shell-content-scroll"]',
+      );
+      const adminHeader = document.querySelector("header");
+
+      if (
+        !(contentScroller instanceof HTMLElement) ||
+        !(adminHeader instanceof HTMLElement)
+      ) {
+        throw new Error("Admin shell scroll measurement target not found");
+      }
+
+      const beforeHeaderTop = adminHeader.getBoundingClientRect().top;
+      contentScroller.scrollTop = 180;
+      window.scrollTo(0, 180);
+      const afterHeaderTop = adminHeader.getBoundingClientRect().top;
+      const result = {
+        contentOverflowY:
+          contentScroller.scrollHeight - contentScroller.clientHeight,
+        contentScrollTop: contentScroller.scrollTop,
+        documentOverflowY:
+          document.documentElement.scrollHeight -
+          document.documentElement.clientHeight,
+        headerTopDelta: afterHeaderTop - beforeHeaderTop,
+        windowScrollY: window.scrollY,
+      };
+      contentScroller.scrollTop = 0;
+
+      return result;
+    });
+
+    expect(scrollMetrics.contentOverflowY).toBeGreaterThan(0);
+    expect(scrollMetrics.contentScrollTop).toBeGreaterThan(0);
+    expect(scrollMetrics.documentOverflowY).toBeLessThanOrEqual(1);
+    expect(Math.abs(scrollMetrics.headerTopDelta)).toBeLessThanOrEqual(1);
+    expect(scrollMetrics.windowScrollY).toBe(0);
+
     await captureActualScreenshot({
       page,
       screenId: "SHELL-01",

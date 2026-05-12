@@ -65,20 +65,21 @@ export function AdminShell({ children }: { children: ReactNode }) {
       data-admin-shell="compact"
     >
       <AdminSidebar currentSection={currentSection} />
-      <div className="min-h-0 min-w-0 flex-1 bg-gray-100">
-        <div className="h-full overflow-y-auto overscroll-contain">
-          <AdminHeader
-            title={workerDetail ? "조교 상세" : currentSection.label}
-            backHref={workerDetail ? "/workers" : undefined}
-            showInviteCodeAction={currentSection.key === "workers"}
-          />
-          {workerDetail ? null : (
-            <SectionTabs pathname={pathname} tabs={currentSection.tabs} />
-          )}
-          <main className="px-4 pb-3 pt-3">
-            {children}
-          </main>
-        </div>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-gray-100">
+        <AdminHeader
+          title={workerDetail ? "조교 상세" : currentSection.label}
+          backHref={workerDetail ? "/workers" : undefined}
+          showInviteCodeAction={currentSection.key === "workers"}
+        />
+        {workerDetail ? null : (
+          <SectionTabs pathname={pathname} tabs={currentSection.tabs} />
+        )}
+        <main
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-3 pt-3"
+          data-testid="admin-shell-content-scroll"
+        >
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -157,9 +157,8 @@ export async function expectTimelineFrameOwnsStickyScroll({
       ?.querySelector('[role="columnheader"]')
       ?.parentElement;
     const rowHeader = grid?.querySelector('[role="rowheader"]');
-    const shellScroller = Array.from(document.querySelectorAll("div")).find(
-      (element) =>
-        element.className === "h-full overflow-y-auto overscroll-contain",
+    const shellScroller = document.querySelector(
+      '[data-testid="admin-shell-content-scroll"]',
     );
 
     if (
