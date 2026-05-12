@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconChevronLeft, IconNotice } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import {
-  scheduleApprovalRequests,
+  createScheduleApprovalDataSource,
+  type ScheduleApprovalDataSource,
+  type ScheduleApprovalViewModel,
+} from "./schedule-approval-data-source";
+import {
   scheduleApprovalSummary,
   scheduleTimelineDays,
   scheduleTimelineTimeSlots,
@@ -21,18 +25,65 @@ const timelineStartHour = Number(scheduleTimelineTimeSlots[0]);
 const timelineColumnCount = scheduleTimelineTimeSlots.length;
 const activeBadgeStyle = { color: "var(--color-green-400)" };
 
-export function ScheduleApprovalScreen() {
+export function ScheduleApprovalScreen({
+  dataSource: dataSourceProp,
+}: {
+  dataSource?: ScheduleApprovalDataSource;
+} = {}) {
+  const fallbackDataSource = useMemo(() => createScheduleApprovalDataSource(), []);
+  const dataSource = dataSourceProp ?? fallbackDataSource;
+  const [viewModel, setViewModel] = useState<ScheduleApprovalViewModel>(
+    dataSource.initialData ?? {
+      approveLabel: scheduleApprovalSummary.approveLabel,
+      listCountText: "0",
+      rejectLabel: scheduleApprovalSummary.rejectLabel,
+      rows: [],
+      selectedRequestId: "",
+    },
+  );
   const [selectedRequestId, setSelectedRequestId] = useState<string>();
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
-  const selectedRequest = scheduleApprovalRequests.find(
+  const [loading, setLoading] = useState(!dataSource.initialData);
+  const [errorMessage, setErrorMessage] = useState("");
+  const selectedRequest = viewModel.rows.find(
     (request) => request.id === selectedRequestId,
   );
+
+  useEffect(() => {
+    let active = true;
+
+    void dataSource
+      .listApprovalRequests()
+      .then((nextViewModel) => {
+        if (!active) {
+          return;
+        }
+
+        setViewModel(nextViewModel);
+        setErrorMessage("");
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setErrorMessage("시간표 승인 대기를 불러오지 못했습니다.");
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [dataSource]);
 
   if (selectedRequest) {
     return (
       <SelectedApprovalState
+        approveLabel={viewModel.approveLabel}
         request={selectedRequest}
         rejectDialogOpen={rejectDialogOpen}
+        rejectLabel={viewModel.rejectLabel}
         onBack={() => {
           setSelectedRequestId(undefined);
           setRejectDialogOpen(false);
@@ -45,20 +96,27 @@ export function ScheduleApprovalScreen() {
 
   return (
     <ApprovalWaitingList
-      rows={scheduleApprovalRequests}
-      onSelectRegisteredRequest={() =>
-        setSelectedRequestId(scheduleApprovalSummary.selectedRequestId)
-      }
+      errorMessage={errorMessage}
+      loading={loading}
+      rows={viewModel.rows}
+      summary={viewModel}
+      onSelectRequest={setSelectedRequestId}
     />
   );
 }
 
 function ApprovalWaitingList({
+  errorMessage,
+  loading,
   rows,
-  onSelectRegisteredRequest,
+  summary,
+  onSelectRequest,
 }: {
+  errorMessage: string;
+  loading: boolean;
   rows: readonly ScheduleApprovalRequestRow[];
-  onSelectRegisteredRequest: () => void;
+  summary: ScheduleApprovalViewModel;
+  onSelectRequest: (requestId: string) => void;
 }) {
   return (
     <section
@@ -71,7 +129,7 @@ function ApprovalWaitingList({
           승인 대기 목록
         </h2>
         <Badge variant="grey" size="M">
-          {scheduleApprovalSummary.listCountText}
+          {summary.listCountText}
         </Badge>
       </div>
 
@@ -84,28 +142,35 @@ function ApprovalWaitingList({
       </div>
 
       <div>
-        {rows.map((row) => (
-          <ApprovalWaitingRow
-            key={row.id}
-            row={row}
-            onSelect={
-              row.id === scheduleApprovalSummary.selectedRequestId
-                ? onSelectRegisteredRequest
-                : undefined
-            }
-          />
-        ))}
+        {loading ? (
+          <ApprovalWaitingState label="시간표 승인 대기를 불러오는 중입니다." />
+        ) : errorMessage ? (
+          <ApprovalWaitingState label={errorMessage} role="alert" />
+        ) : rows.length > 0 ? (
+          rows.map((row, index) => (
+            <ApprovalWaitingRow
+              key={row.id}
+              first={index === 0}
+              row={row}
+              onSelect={() => onSelectRequest(row.id)}
+            />
+          ))
+        ) : (
+          <ApprovalWaitingState label="승인 대기 중인 시간표 요청이 없습니다." />
+        )}
       </div>
     </section>
   );
 }
 
 function ApprovalWaitingRow({
+  first,
   row,
   onSelect,
 }: {
+  first: boolean;
   row: ScheduleApprovalRequestRow;
-  onSelect?: () => void;
+  onSelect: () => void;
 }) {
   return (
     <div className="grid min-h-11 grid-cols-[22%_22%_22%_1fr_114px] items-center border-b border-gray-100 px-4 text-h-18-regular tracking-normal text-gray-900 last:border-b-0">
@@ -118,21 +183,30 @@ function ApprovalWaitingRow({
       <div className="flex justify-end">
         <button
           type="button"
-          data-testid={
-            row.id === scheduleApprovalSummary.selectedRequestId
-              ? "schedule-approval-first-detail"
-              : undefined
-          }
-          onClick={
-            row.id === scheduleApprovalSummary.selectedRequestId
-              ? onSelect
-              : undefined
-          }
+          data-testid={first ? "schedule-approval-first-detail" : undefined}
+          onClick={onSelect}
           className="flex h-9 items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-16-medium tracking-normal text-gray-800 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
         >
           상세보기
         </button>
       </div>
+    </div>
+  );
+}
+
+function ApprovalWaitingState({
+  label,
+  role = "status",
+}: {
+  label: string;
+  role?: "alert" | "status";
+}) {
+  return (
+    <div
+      className="flex h-40 items-center justify-center px-4 text-center text-h-18-regular tracking-normal text-gray-500"
+      role={role}
+    >
+      {label}
     </div>
   );
 }
@@ -152,14 +226,18 @@ function RequestKindBadge({ row }: { row: ScheduleApprovalRequestRow }) {
 }
 
 function SelectedApprovalState({
+  approveLabel,
   request,
   rejectDialogOpen,
+  rejectLabel,
   onBack,
   onCloseRejectDialog,
   onOpenRejectDialog,
 }: {
+  approveLabel: string;
   request: ScheduleApprovalRequestRow;
   rejectDialogOpen: boolean;
+  rejectLabel: string;
   onBack: () => void;
   onCloseRejectDialog: () => void;
   onOpenRejectDialog: () => void;
@@ -193,7 +271,9 @@ function SelectedApprovalState({
       <main className="min-h-0 flex-1 overflow-hidden px-4 py-7">
         <div className="flex h-full min-h-0 flex-col gap-7">
           <SelectedProfileHeader
+            approveLabel={approveLabel}
             request={request}
+            rejectLabel={rejectLabel}
             onOpenRejectDialog={onOpenRejectDialog}
           />
 
@@ -219,10 +299,14 @@ function SelectedApprovalState({
 }
 
 function SelectedProfileHeader({
+  approveLabel,
   request,
+  rejectLabel,
   onOpenRejectDialog,
 }: {
+  approveLabel: string;
   request: ScheduleApprovalRequestRow;
+  rejectLabel: string;
   onOpenRejectDialog: () => void;
 }) {
   const detail = request.selectedDetail;
@@ -254,14 +338,14 @@ function SelectedProfileHeader({
           onClick={onOpenRejectDialog}
           className="h-9 rounded-full px-4 tracking-normal"
         >
-          {scheduleApprovalSummary.rejectLabel}
+          {rejectLabel}
         </Button>
         <Button
           type="button"
           variant="secondary"
           className="h-9 rounded-full px-4 tracking-normal"
         >
-          {scheduleApprovalSummary.approveLabel}
+          {approveLabel}
         </Button>
       </div>
     </section>
