@@ -56,6 +56,17 @@ export type RecordTimelineBlock = {
   selectedStateId?: RecordDetailStateId;
 };
 
+export type RecordTimelineFixture = {
+  weekLabel: string;
+  dayLabels: readonly {
+    id: RecordTimelineDayId;
+    label: string;
+  }[];
+  hourLabels: readonly string[];
+  filters: Record<string, readonly RecordsFilterOption[]>;
+  emptyDetailText: readonly string[];
+};
+
 export type RecordDetailStateId =
   | "empty"
   | "normal-selected"
@@ -180,6 +191,35 @@ export type AttendanceLogRow = {
   locationStatus: AttendanceLogStatus;
 };
 
+export type RecordMainViewModel = {
+  blocks: readonly RecordTimelineBlock[];
+  detailStates: Record<RecordDetailStateId, RecordDetailState>;
+  initialDetailStateId: RecordDetailStateId;
+  timeline: RecordTimelineFixture;
+};
+
+export type AnomalyHistoryViewModel = {
+  details: Record<string, AnomalyHistoryDetail>;
+  emptyDetailText: readonly string[];
+  filters: Record<string, readonly RecordsFilterOption[]>;
+  metrics: readonly RecordsMetricCard[];
+  rows: readonly AnomalyHistoryRow[];
+};
+
+export type CorrectionHistoryViewModel = {
+  details: Record<string, CorrectionDetail>;
+  emptyDetailText: readonly string[];
+  filters: Record<string, readonly RecordsFilterOption[]>;
+  metrics: readonly RecordsMetricCard[];
+  rows: readonly CorrectionRow[];
+};
+
+export type AttendanceLogViewModel = {
+  columns: readonly RecordsTableColumn[];
+  filters: readonly RecordsFilterOption[];
+  rows: readonly AttendanceLogRow[];
+};
+
 export const recordsTabs = [
   {
     id: "records",
@@ -256,16 +296,7 @@ export const recordTimelineFixture = {
     ],
   },
   emptyDetailText: ["왼쪽 리스트에서", "근무 기록을 선택하세요."],
-} as const satisfies {
-  weekLabel: string;
-  dayLabels: readonly {
-    id: RecordTimelineDayId;
-    label: string;
-  }[];
-  hourLabels: readonly string[];
-  filters: Record<string, readonly RecordsFilterOption[]>;
-  emptyDetailText: readonly string[];
-};
+} as const satisfies RecordTimelineFixture;
 
 export const recordTimelineBlocks = [
   timelineBlock(
@@ -474,6 +505,13 @@ export const recordDetailStates = {
   },
 } as const satisfies Record<RecordDetailStateId, RecordDetailState>;
 
+export const recordMainFixtureViewModel = {
+  blocks: recordTimelineBlocks,
+  detailStates: recordDetailStates,
+  initialDetailStateId: "empty",
+  timeline: recordTimelineFixture,
+} as const satisfies RecordMainViewModel;
+
 export const anomalyHistoryFilters = {
   location: [
     { id: "all", label: "조교 (전체)", selected: true },
@@ -554,6 +592,16 @@ export const selectedAnomalyHistoryDetail = {
   ],
 } as const satisfies AnomalyHistoryDetail;
 
+export const anomalyHistoryFixtureViewModel = {
+  details: {
+    [selectedAnomalyHistoryDetail.id]: selectedAnomalyHistoryDetail,
+  },
+  emptyDetailText: ["왼쪽 리스트에서", "이상감지처리 이력을 선택하세요."],
+  filters: anomalyHistoryFilters,
+  metrics: anomalyHistoryMetrics,
+  rows: anomalyHistoryRows,
+} as const satisfies AnomalyHistoryViewModel;
+
 export const correctionFilters = {
   location: [
     { id: "all", label: "조교 (전체)", selected: true },
@@ -627,6 +675,16 @@ export const selectedCorrectionDetail = {
   noteText: "CCTV 확인 결과 16:10 이전 강의실 입실이 확인되어 승인했습니다.",
 } as const satisfies CorrectionDetail;
 
+export const correctionHistoryFixtureViewModel = {
+  details: {
+    [selectedCorrectionDetail.id]: selectedCorrectionDetail,
+  },
+  emptyDetailText: ["왼쪽 리스트에서", "이상감지처리 이력을 선택하세요."],
+  filters: correctionFilters,
+  metrics: correctionMetrics,
+  rows: correctionRows,
+} as const satisfies CorrectionHistoryViewModel;
+
 export const attendanceLogFilters = [
   { id: "all", label: "전체 로그 (20)", selected: true },
   { id: "anomaly", label: "이상 표시 (4)" },
@@ -659,6 +717,12 @@ export const attendanceLogRows = [
   attendanceLogRow("attendance-kim-seoyeon-0418-15", "정상"),
   attendanceLogRow("attendance-kim-seoyeon-0418-16", "정상"),
 ] as const satisfies readonly AttendanceLogRow[];
+
+export const attendanceLogFixtureViewModel = {
+  columns: attendanceLogColumns,
+  filters: attendanceLogFilters,
+  rows: attendanceLogRows,
+} as const satisfies AttendanceLogViewModel;
 
 function timelineBlock(
   id: string,
