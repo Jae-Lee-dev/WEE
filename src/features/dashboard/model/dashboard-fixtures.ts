@@ -39,9 +39,6 @@ export type DashboardActionMeta = {
 export type DashboardMetric = {
   id: Exclude<DashboardInboxFilter, "all">;
   title: string;
-  value: string;
-  unit: string;
-  badge: string;
   tone: DashboardTone;
   inboxType: string;
 };
@@ -70,54 +67,36 @@ export const dashboardMetrics = [
   {
     id: "affiliation",
     title: "소속 신청",
-    value: "4",
-    unit: "개",
-    badge: "승인 대기",
     tone: "green",
     inboxType: "소속 신청 대기",
   },
   {
     id: "schedule",
     title: "시간표 승인",
-    value: "4",
-    unit: "개",
-    badge: "검토 필요",
     tone: "green",
     inboxType: "시간표 승인 대기",
   },
   {
     id: "overtime",
     title: "추가근무",
-    value: "4",
-    unit: "개",
-    badge: "승인 대기",
     tone: "blue",
     inboxType: "추가근무 승인 대기",
   },
   {
     id: "correction",
     title: "이의신청",
-    value: "4",
-    unit: "개",
-    badge: "처리 대기",
     tone: "orange",
     inboxType: "이의신청 처리 대기",
   },
   {
     id: "anomaly",
     title: "이상 플래그",
-    value: "4",
-    unit: "개",
-    badge: "미처리",
     tone: "red",
     inboxType: "이상 플래그 미처리",
   },
   {
     id: "payroll",
     title: "급여 재확정",
-    value: "4",
-    unit: "개",
-    badge: "신청 확인",
     tone: "orange",
     inboxType: "급여 재확정 필요",
   },

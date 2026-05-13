@@ -28,7 +28,9 @@ export type WorkerApplicationsDataSource = {
   approveApplication: (
     input: ApproveWorkerApplicationInput,
   ) => Promise<WorkerApplicationsData>;
+  countPendingApplications: () => Promise<number>;
   initialData?: WorkerApplicationsData;
+  initialPendingApplicationCount?: number;
   listApplications: () => Promise<WorkerApplicationsData>;
   rejectApplication: (
     input: RejectWorkerApplicationInput,
@@ -69,15 +71,29 @@ type WorkerApplicationModel = {
   workerId: string;
 };
 
+type WorkerApplicationStatusModel = {
+  status: WorkerApplicationStatus;
+  workerId: string;
+};
+
 type WorkerTagModel = WorkerApplicationTag & {
   createdAt: Date | null;
   status: string;
 };
 
+export const workerApplicationsPendingCountChangedEvent =
+  "wee:worker-applications:pending-count-changed";
+
 export const emptyWorkerApplicationsData = {
   rows: [],
   tags: [],
 } as const satisfies WorkerApplicationsData;
+
+export function countPendingWorkerApplicationRows(
+  rows: readonly WorkerApplicationRow[],
+) {
+  return rows.filter(isPendingWorkerApplicationRow).length;
+}
 
 export function createWorkerApplicationsDataSource(): WorkerApplicationsDataSource {
   if (shouldUseFixtureDataSource()) {
@@ -91,6 +107,7 @@ function createFixtureWorkerApplicationsDataSource(): WorkerApplicationsDataSour
   let data: WorkerApplicationsData = workerApplicationsFixtureData;
 
   return {
+    initialPendingApplicationCount: countPendingWorkerApplicationRows(data.rows),
     initialData: workerApplicationsFixtureData,
     async approveApplication(input) {
       data = {
@@ -99,6 +116,9 @@ function createFixtureWorkerApplicationsDataSource(): WorkerApplicationsDataSour
       };
 
       return data;
+    },
+    async countPendingApplications() {
+      return countPendingWorkerApplicationRows(data.rows);
     },
     async listApplications() {
       return data;
@@ -269,6 +289,45 @@ function createFirestoreWorkerApplicationsDataSource(): WorkerApplicationsDataSo
       await batch.commit();
 
       return listApplications();
+    },
+    async countPendingApplications() {
+      const workspaceId = await requireActiveWorkspaceId();
+      const [membershipsSnapshot, workersSnapshot] = await Promise.all([
+        getDocs(getWorkspaceCollection(workspaceId, "memberships")),
+        getDocs(getWorkspaceCollection(workspaceId, "workers")),
+      ]);
+      const workers = workersSnapshot.docs.map(mapDocument);
+      const workerById = new Map(workers.map((worker) => [worker.id, worker]));
+      const applicationsByWorkerId = new Map<string, WorkerApplicationStatusModel>();
+
+      for (const membership of membershipsSnapshot.docs.map(mapDocument)) {
+        const workerId = readString(membership.data.workerId, "");
+        const worker = workerById.get(workerId);
+        const status = readApplicationStatus(membership.data, worker?.data);
+
+        if (status) {
+          applicationsByWorkerId.set(workerId, { status, workerId });
+        }
+      }
+
+      for (const worker of workers) {
+        if (applicationsByWorkerId.has(worker.id)) {
+          continue;
+        }
+
+        const status = readApplicationStatus(worker.data);
+
+        if (status) {
+          applicationsByWorkerId.set(worker.id, {
+            status,
+            workerId: worker.id,
+          });
+        }
+      }
+
+      return [...applicationsByWorkerId.values()].filter(
+        (application) => application.status === "pending",
+      ).length;
     },
     listApplications,
     async rejectApplication(input) {
@@ -491,6 +550,12 @@ function readApplicationStatus(
 
 function readApplicationStatusLabel(status: WorkerApplicationStatus) {
   return status === "pending" ? "승인 대기" : "반려";
+}
+
+function isPendingWorkerApplicationRow(row: WorkerApplicationRow) {
+  const statusText = row.statusText ?? row.info?.statusText ?? "";
+
+  return statusText !== readApplicationStatusLabel("rejected");
 }
 
 function readPhoneLabel(

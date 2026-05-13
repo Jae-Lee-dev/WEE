@@ -91,12 +91,6 @@ const emptyAdminShellBadgeCounts = {
   workerApplications: 0,
 } as const satisfies AdminShellBadgeCounts;
 
-const visualAdminShellBadgeCounts = {
-  recordPendingItems: 3,
-  scheduleApprovals: 1,
-  workerApplications: 6,
-} as const satisfies AdminShellBadgeCounts;
-
 const closedAdminShellBadgeStatuses = new Set([
   "approved",
   "cancelled",
@@ -137,10 +131,12 @@ function createFixtureDashboardInboxDataSource(): DashboardInboxDataSource {
 }
 
 function createVisualAdminShellBadgeDataSource(): AdminShellBadgeDataSource {
+  const initialCounts = createAdminShellBadgeCountsFromInboxRows(dashboardInboxRows);
+
   return {
-    initialCounts: visualAdminShellBadgeCounts,
+    initialCounts,
     async listBadgeCounts() {
-      return visualAdminShellBadgeCounts;
+      return initialCounts;
     },
   };
 }
@@ -197,13 +193,6 @@ function createFirestoreAdminShellBadgeDataSource(): AdminShellBadgeDataSource {
 
         const filter = readInboxFilter(item);
 
-        if (filter === "affiliation") {
-          return {
-            ...counts,
-            workerApplications: counts.workerApplications + 1,
-          };
-        }
-
         if (filter === "schedule") {
           return {
             ...counts,
@@ -225,6 +214,19 @@ function createFirestoreAdminShellBadgeDataSource(): AdminShellBadgeDataSource {
         return counts;
       }, emptyAdminShellBadgeCounts);
     },
+  };
+}
+
+function createAdminShellBadgeCountsFromInboxRows(
+  rowsByFilter: DashboardInboxRowsByFilter,
+): AdminShellBadgeCounts {
+  return {
+    recordPendingItems:
+      rowsByFilter.overtime.length +
+      rowsByFilter.correction.length +
+      rowsByFilter.anomaly.length,
+    scheduleApprovals: rowsByFilter.schedule.length,
+    workerApplications: 0,
   };
 }
 

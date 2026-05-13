@@ -1,4 +1,4 @@
-import { expect, test } from "playwright/test";
+import { expect, test, type Page } from "playwright/test";
 import {
   captureActualScreenshot,
   prepareVisualPage,
@@ -16,6 +16,7 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await expect(
       page.getByText("신청 건을 선택하면").first(),
     ).toBeVisible();
+    await expectWorkerApplicationIndicatorToMatchList(page);
 
     await captureActualScreenshot({
       page,
@@ -131,3 +132,19 @@ test("WKR-01 row click toggles application selection", async ({ page }) => {
   await expect(firstRow).toHaveAttribute("aria-pressed", "false");
   await expect(page.getByText("신청 건을 선택하면").first()).toBeVisible();
 });
+
+async function expectWorkerApplicationIndicatorToMatchList(page: Page) {
+  const listCount = page.getByTestId("worker-application-list-count");
+
+  await expect(listCount).toHaveText(/\d+건/);
+
+  const listCountText = await listCount.textContent();
+  const pendingCount = listCountText?.replace(/\D/g, "") ?? "";
+
+  await expect(
+    page
+      .getByRole("link", { name: /소속 신청/ })
+      .locator('[data-slot="badge"]')
+      .first(),
+  ).toHaveText(pendingCount);
+}

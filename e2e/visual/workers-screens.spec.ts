@@ -22,8 +22,11 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
       page.getByRole("button", { name: "조교 목록 새로고침" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("link", { name: /소속 신청/ }).getByText("6"),
-    ).toBeVisible();
+      page
+        .getByRole("link", { name: /소속 신청/ })
+        .locator('[data-slot="badge"]')
+        .first(),
+    ).toHaveText(/\d+/);
 
     await captureActualScreenshot({
       page,

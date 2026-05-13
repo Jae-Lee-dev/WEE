@@ -20,8 +20,10 @@ import {
 import { Textarea } from "@/shared/ui/textarea";
 import { cn } from "@/shared/lib/utils";
 import {
+  countPendingWorkerApplicationRows,
   createWorkerApplicationsDataSource,
   emptyWorkerApplicationsData,
+  workerApplicationsPendingCountChangedEvent,
   type ApproveWorkerApplicationInput,
   type RejectWorkerApplicationInput,
   type WorkerApplicationsDataSource,
@@ -75,6 +77,7 @@ export function WorkerApplicationsScreen({
         }
 
         setApplicationData(nextData);
+        publishPendingApplicationCount(nextData.rows);
         setErrorMessage("");
         setLoading(false);
       })
@@ -116,6 +119,7 @@ export function WorkerApplicationsScreen({
 
       setApplicationData(nextData);
       setSelectedApplicationId(undefined);
+      publishPendingApplicationCount(nextData.rows);
       setStatusMessage(`${input.workerName} 조교의 소속 신청을 승인했습니다.`);
     } catch {
       setErrorMessage("소속 신청을 승인하지 못했습니다.");
@@ -133,6 +137,7 @@ export function WorkerApplicationsScreen({
       const nextData = await dataSource.rejectApplication(input);
 
       setApplicationData(nextData);
+      publishPendingApplicationCount(nextData.rows);
       setStatusMessage("소속 신청을 반려했습니다.");
     } catch {
       setErrorMessage("소속 신청을 반려하지 못했습니다.");
@@ -201,7 +206,7 @@ function ApplicationList({
     <div className="min-w-0 overflow-hidden rounded-[8px] bg-white">
       <div className="flex h-[56px] items-center gap-3 px-4">
         <h2 className="text-h-20 text-gray-900">신청 목록</h2>
-        <Badge variant="grey" size="M">
+        <Badge variant="grey" size="M" data-testid="worker-application-list-count">
           {rows.length}건
         </Badge>
       </div>
@@ -264,6 +269,16 @@ function ApplicationListState({
     >
       {label}
     </div>
+  );
+}
+
+function publishPendingApplicationCount(rows: readonly WorkerApplicationRow[]) {
+  window.dispatchEvent(
+    new CustomEvent(workerApplicationsPendingCountChangedEvent, {
+      detail: {
+        pendingCount: countPendingWorkerApplicationRows(rows),
+      },
+    }),
   );
 }
 

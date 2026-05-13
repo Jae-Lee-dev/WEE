@@ -17,6 +17,10 @@ import {
   createAdminShellBadgeDataSource,
   type AdminShellBadgeCounts,
 } from "@/features/dashboard";
+import {
+  createWorkerApplicationsDataSource,
+  workerApplicationsPendingCountChangedEvent,
+} from "@/features/workers";
 import { HeaderNotificationSlot } from "./header-notification-slot";
 import { IconChevronLeft } from "@/shared/ui/icons";
 import { Badge } from "@/shared/ui/badge";
@@ -49,6 +53,11 @@ const loadingWorkspaceName = "소속 확인 중";
 const loadingManagerName = "계정 확인 중";
 const fallbackWorkspaceName = "소속 확인 필요";
 const fallbackManagerName = "관리자";
+const emptyAdminShellBadgeCounts = {
+  recordPendingItems: 0,
+  scheduleApprovals: 0,
+  workerApplications: 0,
+} as const satisfies AdminShellBadgeCounts;
 
 type AdminShellAccount = {
   isLoading: boolean;
@@ -337,38 +346,79 @@ function useAdminShellAccount() {
 
 function useAdminShellBadgeCounts() {
   const dataSource = useMemo(() => createAdminShellBadgeDataSource(), []);
+  const workerApplicationsDataSource = useMemo(
+    () => createWorkerApplicationsDataSource(),
+    [],
+  );
   const [counts, setCounts] = useState<AdminShellBadgeCounts>(
-    dataSource.initialCounts ?? {
-      recordPendingItems: 0,
-      scheduleApprovals: 0,
-      workerApplications: 0,
+    {
+      ...(dataSource.initialCounts ?? emptyAdminShellBadgeCounts),
+      workerApplications:
+        workerApplicationsDataSource.initialPendingApplicationCount ?? 0,
     },
   );
 
   useEffect(() => {
     let active = true;
 
-    void dataSource
-      .listBadgeCounts()
-      .then((nextCounts) => {
-        if (active) {
-          setCounts(nextCounts);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setCounts({
-            recordPendingItems: 0,
-            scheduleApprovals: 0,
-            workerApplications: 0,
-          });
-        }
+    void Promise.allSettled([
+      dataSource.listBadgeCounts(),
+      workerApplicationsDataSource.countPendingApplications(),
+    ]).then(([badgeCountsResult, workerApplicationsResult]) => {
+      if (!active) {
+        return;
+      }
+
+      const nextBadgeCounts =
+        badgeCountsResult.status === "fulfilled"
+          ? badgeCountsResult.value
+          : emptyAdminShellBadgeCounts;
+      const workerApplications =
+        workerApplicationsResult.status === "fulfilled"
+          ? workerApplicationsResult.value
+          : 0;
+
+      setCounts({
+        ...nextBadgeCounts,
+        workerApplications,
       });
+    });
 
     return () => {
       active = false;
     };
-  }, [dataSource]);
+  }, [dataSource, workerApplicationsDataSource]);
+
+  useEffect(() => {
+    function handlePendingCountChanged(event: Event) {
+      if (!(event instanceof CustomEvent)) {
+        return;
+      }
+
+      const pendingCount = event.detail?.pendingCount;
+
+      if (typeof pendingCount !== "number") {
+        return;
+      }
+
+      setCounts((current) => ({
+        ...current,
+        workerApplications: pendingCount,
+      }));
+    }
+
+    window.addEventListener(
+      workerApplicationsPendingCountChangedEvent,
+      handlePendingCountChanged,
+    );
+
+    return () => {
+      window.removeEventListener(
+        workerApplicationsPendingCountChangedEvent,
+        handlePendingCountChanged,
+      );
+    };
+  }, []);
 
   return counts;
 }
