@@ -50,6 +50,32 @@ test("WKR-06 detail panel uses clicked tag", async ({ page }) => {
   await expect(panel.getByText("3명")).toBeVisible();
 });
 
+test("WKR-06 creates worker tags in dialog", async ({ page }) => {
+  await prepareVisualPage({ page, path: "/workers/tags", viewport: desktop });
+
+  await page.getByRole("button", { name: "태그 추가" }).click();
+
+  const dialog = page.getByTestId("worker-tags-create-dialog");
+
+  await expect(dialog).toBeVisible();
+  await expect(page.getByTestId("worker-tags-detail-panel")).toHaveAttribute(
+    "data-worker-tags-panel-mode",
+    "view",
+  );
+
+  await dialog.getByLabel("태그명").fill("테스트 태그");
+  await expect(dialog.getByRole("button", { name: "저장" })).toBeEnabled();
+  await dialog.getByRole("button", { name: "저장" }).click();
+
+  await expect(
+    page.getByText("테스트 태그 근무자 태그를 추가했습니다."),
+  ).toBeVisible();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page.getByTestId("worker-tags-row-first").getByText("테스트 태그"),
+  ).toBeVisible();
+});
+
 test("WKR-06 edits and deletes worker tags", async ({ page }) => {
   await prepareVisualPage({ page, path: "/workers/tags", viewport: desktop });
 
