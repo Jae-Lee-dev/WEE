@@ -1,4 +1,14 @@
-import type { ReactNode } from "react";
+"use client";
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { Badge } from "@/shared/ui/badge";
 import { cn } from "@/shared/lib/utils";
 import {
@@ -6,9 +16,11 @@ import {
   defaultWorkerDetailRouteId,
   workerDetailProfile,
   type WorkerDetailProfile,
-  type WorkerDetailTabId,
 } from "../model/worker-detail-common-fixtures";
-import { WorkerDetailTabs } from "./worker-detail-tabs";
+import {
+  WorkerDetailTabs,
+  useWorkerDetailActiveTab,
+} from "./worker-detail-tabs";
 
 type WorkerDetailSubsectionProps = {
   ariaLabel?: string;
@@ -23,35 +35,83 @@ type WorkerDetailSubsectionHeaderProps = {
   className?: string;
 };
 
+type WorkerDetailDeleteHandler = () => void;
+
+type WorkerDetailShellContextValue = {
+  setDeleteHandler: (handler: WorkerDetailDeleteHandler | null) => void;
+  setProfile: (profile: WorkerDetailProfile) => void;
+};
+
+const WorkerDetailShellContext =
+  createContext<WorkerDetailShellContextValue | null>(null);
+
 export function WorkerDetailShell({
-  activeTab,
   children,
-  className,
-  profile = workerDetailProfile,
+  initialProfile = workerDetailProfile,
   workerId = defaultWorkerDetailRouteId,
 }: {
-  activeTab: WorkerDetailTabId;
   children: ReactNode;
-  className?: string;
-  profile?: WorkerDetailProfile;
+  initialProfile?: WorkerDetailProfile;
   workerId?: string;
 }) {
-  const workerDetailTabs = createWorkerDetailTabs(workerId);
-
-  return (
-    <section
-      aria-label="조교 상세"
-      className={cn(
-        "mx-auto flex w-full max-w-[1480px] flex-col gap-4 tracking-normal",
-        className,
-      )}
-      data-testid="worker-detail-shell"
-    >
-      <WorkerProfileCard profile={profile} />
-      <WorkerDetailTabs activeTab={activeTab} tabs={workerDetailTabs} />
-      {children}
-    </section>
+  const activeTab = useWorkerDetailActiveTab();
+  const [deleteHandler, setDeleteHandlerState] =
+    useState<WorkerDetailDeleteHandler | null>(null);
+  const [profile, setProfile] = useState<WorkerDetailProfile>(initialProfile);
+  const workerDetailTabs = useMemo(
+    () => createWorkerDetailTabs(workerId),
+    [workerId],
   );
+  const shellMaxWidthClassName =
+    activeTab === "payroll" ? "max-w-[1580px]" : "max-w-[1480px]";
+  const setDeleteHandler = useCallback(
+    (handler: WorkerDetailDeleteHandler | null) => {
+      setDeleteHandlerState(() => handler);
+    },
+    [],
+  );
+  const contextValue = useMemo(
+    () => ({ setDeleteHandler, setProfile }),
+    [setDeleteHandler],
+  );
+  return (
+    <WorkerDetailShellContext.Provider value={contextValue}>
+      <section
+        aria-label="조교 상세"
+        className={cn(
+          "mx-auto flex w-full flex-col gap-4 tracking-normal",
+          shellMaxWidthClassName,
+        )}
+        data-testid="worker-detail-shell"
+      >
+        <WorkerProfileCard profile={profile} onDelete={deleteHandler} />
+        <WorkerDetailTabs tabs={workerDetailTabs} />
+        {children}
+      </section>
+    </WorkerDetailShellContext.Provider>
+  );
+}
+
+export function useWorkerDetailProfileSync(profile: WorkerDetailProfile) {
+  const context = useContext(WorkerDetailShellContext);
+
+  useEffect(() => {
+    context?.setProfile(profile);
+  }, [context, profile]);
+}
+
+export function useWorkerDetailDeleteAction(
+  handler: WorkerDetailDeleteHandler | null,
+) {
+  const context = useContext(WorkerDetailShellContext);
+
+  useEffect(() => {
+    context?.setDeleteHandler(handler);
+
+    return () => {
+      context?.setDeleteHandler(null);
+    };
+  }, [context, handler]);
 }
 
 export function WorkerDetailSubsection({
@@ -94,7 +154,13 @@ export function WorkerDetailSubsectionHeader({
   );
 }
 
-function WorkerProfileCard({ profile }: { profile: WorkerDetailProfile }) {
+function WorkerProfileCard({
+  onDelete,
+  profile,
+}: {
+  onDelete: WorkerDetailDeleteHandler | null;
+  profile: WorkerDetailProfile;
+}) {
   return (
     <section className="flex min-h-[68px] items-center justify-between gap-4 rounded-[8px] border border-gray-100 bg-white px-4 py-4">
       <div className="min-w-0">
@@ -121,6 +187,7 @@ function WorkerProfileCard({ profile }: { profile: WorkerDetailProfile }) {
       </div>
       <button
         type="button"
+        onClick={onDelete ?? undefined}
         className="flex h-9 items-center justify-center rounded-full border border-red-100 bg-white px-4 text-h-18-regular font-medium text-red-500 transition-colors duration-150 ease-out hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-100"
       >
         {profile.deleteLabel}

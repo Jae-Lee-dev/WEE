@@ -1,3 +1,6 @@
+"use client";
+
+import { useSelectedLayoutSegment } from "next/navigation";
 import { LineTabs } from "@/shared/ui/line-tabs";
 import type {
   WorkerDetailTab,
@@ -5,11 +8,22 @@ import type {
 } from "../model/worker-detail-common-fixtures";
 
 type WorkerDetailTabsProps = {
-  activeTab: WorkerDetailTabId;
   tabs: readonly WorkerDetailTab[];
 };
 
-function WorkerDetailTabs({ activeTab, tabs }: WorkerDetailTabsProps) {
+function useWorkerDetailActiveTab(): WorkerDetailTabId {
+  const segment = useSelectedLayoutSegment();
+
+  if (segment === "schedule" || segment === "payroll") {
+    return segment;
+  }
+
+  return "basic";
+}
+
+function WorkerDetailTabs({ tabs }: WorkerDetailTabsProps) {
+  const activeTab = useWorkerDetailActiveTab();
+
   return (
     <nav aria-label="조교 상세 탭" className="h-9 px-4">
       <LineTabs
@@ -25,4 +39,4 @@ function WorkerDetailTabs({ activeTab, tabs }: WorkerDetailTabsProps) {
   );
 }
 
-export { WorkerDetailTabs };
+export { WorkerDetailTabs, useWorkerDetailActiveTab };

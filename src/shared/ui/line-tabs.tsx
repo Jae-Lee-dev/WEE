@@ -37,6 +37,7 @@ function LineTabs<T extends string>({
         <span
           aria-hidden="true"
           className="pointer-events-none absolute bottom-0 left-0 z-0 h-0.5 rounded-full bg-green-400 transition-opacity duration-150 ease-out"
+          data-testid="line-tabs-indicator"
           style={{
             opacity: indicatorStyle ? 1 : 0,
             width: indicatorStyle?.width ?? 0,

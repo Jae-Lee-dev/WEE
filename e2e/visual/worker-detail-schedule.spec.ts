@@ -63,6 +63,51 @@ test("WKR-04 detail tabs route with shared tab semantics", async ({ page }) => {
   await expect(page).toHaveURL(/\/workers\/worker_kim_seoyeon\/payroll$/);
 });
 
+test("WKR-04 detail tabs animate between routes", async ({ page }) => {
+  await prepareVisualPage({ page, path: routePath, viewport: "desktop-1920" });
+
+  const samples = await page.evaluate(async () => {
+    const nav = document.querySelector('[aria-label="조교 상세 탭"]');
+    const indicator = nav?.querySelector('[data-testid="line-tabs-indicator"]');
+    const payrollTab = Array.from(nav?.querySelectorAll('[role="tab"]') ?? [])
+      .find((tab) => tab.textContent?.includes("급여 현황"));
+
+    if (!(indicator instanceof HTMLElement) || !(payrollTab instanceof HTMLElement)) {
+      throw new Error("Worker detail tabs animation target not found");
+    }
+
+    const readX = () => {
+      const transform = getComputedStyle(indicator).transform;
+
+      if (transform === "none") {
+        return 0;
+      }
+
+      return new DOMMatrixReadOnly(transform).m41;
+    };
+    const beforeX = readX();
+    const xValues: number[] = [];
+
+    payrollTab.click();
+
+    for (let index = 0; index < 40; index += 1) {
+      await new Promise<void>((resolve) => {
+        window.requestAnimationFrame(() => resolve());
+      });
+      xValues.push(readX());
+    }
+
+    return { beforeX, xValues };
+  });
+
+  const changedValues = samples.xValues
+    .map((value) => Math.round(value))
+    .filter((value) => value !== Math.round(samples.beforeX));
+
+  expect(new Set(changedValues).size).toBeGreaterThan(2);
+  await expect(page).toHaveURL(/\/workers\/worker_kim_seoyeon\/payroll$/);
+});
+
 test("WKR-04 full-page desktop-1920", async ({ page }) => {
   const viewport: VisualViewportName = "desktop-1920";
 

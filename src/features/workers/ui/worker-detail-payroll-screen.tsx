@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/shared/ui/badge";
 import {
-  WorkerDetailShell,
   WorkerDetailSubsection,
   WorkerDetailSubsectionHeader,
+  useWorkerDetailProfileSync,
 } from "./worker-detail-shell";
 import { defaultWorkerDetailRouteId } from "../model/worker-detail-common-fixtures";
 import {
@@ -111,13 +111,10 @@ export function WorkerDetailPayrollScreen({
     };
   }, [dataSource, workerId]);
 
+  useWorkerDetailProfileSync(viewModel.profile);
+
   return (
-    <WorkerDetailShell
-      activeTab="payroll"
-      className="max-w-[1580px]"
-      profile={viewModel.profile}
-      workerId={workerId}
-    >
+    <>
       {errorMessage ? (
         <div
           className="rounded-[8px] border border-red-100 bg-red-50 px-4 py-2.5 text-body-14-medium tracking-normal text-red-500"
@@ -148,7 +145,7 @@ export function WorkerDetailPayrollScreen({
           workerId={workerId}
         />
       </div>
-    </WorkerDetailShell>
+    </>
   );
 }
 

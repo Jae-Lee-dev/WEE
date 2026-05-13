@@ -15,9 +15,10 @@ import { Segment } from "@/shared/ui/segment";
 import { OptionSelect, type SelectOption } from "@/shared/ui/select";
 import { cn } from "@/shared/lib/utils";
 import {
-  WorkerDetailShell,
   WorkerDetailSubsection,
   WorkerDetailSubsectionHeader,
+  useWorkerDetailDeleteAction,
+  useWorkerDetailProfileSync,
 } from "./worker-detail-shell";
 import {
   workerDetailBasicFixture,
@@ -150,6 +151,12 @@ export function WorkerDetailBasicScreen({
     setStatusMessage("");
     setDialog("edit-info");
   };
+  const openDeleteBlockedDialog = useCallback(() => {
+    setDialog("delete-blocked");
+  }, []);
+
+  useWorkerDetailProfileSync(detailData.profile);
+  useWorkerDetailDeleteAction(openDeleteBlockedDialog);
 
   const handleSaveWorker = async (input: WorkerDetailBasicSaveInput) => {
     setSaving(true);
@@ -170,23 +177,8 @@ export function WorkerDetailBasicScreen({
   };
 
   return (
-    <div
-      onClick={(event) => {
-        const target = event.target;
-        if (
-          target instanceof HTMLElement &&
-          target.closest("button")?.textContent?.trim() === "조교 삭제"
-        ) {
-          setDialog("delete-blocked");
-        }
-      }}
-      data-testid="worker-detail-basic-screen"
-    >
-      <WorkerDetailShell
-        activeTab="basic"
-        profile={detailData.profile}
-        workerId={workerId}
-      >
+    <>
+      <div data-testid="worker-detail-basic-screen">
         {loadError ? (
           <div
             className="rounded-[8px] border border-red-100 bg-red-50 px-4 py-3 text-h-18-semibold text-red-500"
@@ -217,7 +209,7 @@ export function WorkerDetailBasicScreen({
             loadError={loadError}
           />
         </div>
-      </WorkerDetailShell>
+      </div>
 
       {dialog === "edit-info" ? (
         <EditInfoDialog
@@ -237,7 +229,7 @@ export function WorkerDetailBasicScreen({
       {dialog === "delete-blocked" ? (
         <DeleteBlockedDialog fixture={fixture} onClose={() => setDialog(null)} />
       ) : null}
-    </div>
+    </>
   );
 }
 

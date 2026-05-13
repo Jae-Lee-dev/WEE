@@ -7,9 +7,9 @@ import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 import {
-  WorkerDetailShell,
   WorkerDetailSubsection,
   WorkerDetailSubsectionHeader,
+  useWorkerDetailProfileSync,
 } from "./worker-detail-shell";
 import { defaultWorkerDetailRouteId } from "../model/worker-detail-common-fixtures";
 import {
@@ -105,12 +105,10 @@ export function WorkerDetailScheduleScreen({
     };
   }, [dataSource, workerId]);
 
+  useWorkerDetailProfileSync(viewModel.profile);
+
   return (
-    <WorkerDetailShell
-      activeTab="schedule"
-      profile={viewModel.profile}
-      workerId={workerId}
-    >
+    <>
       {errorMessage ? (
         <div
           className="rounded-[8px] border border-red-100 bg-red-50 px-4 py-2.5 text-body-14-medium tracking-normal text-red-500"
@@ -132,7 +130,7 @@ export function WorkerDetailScheduleScreen({
         records={viewModel.recentRecords}
         workerId={workerId}
       />
-    </WorkerDetailShell>
+    </>
   );
 }
 
