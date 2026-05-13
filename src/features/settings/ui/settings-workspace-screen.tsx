@@ -8,6 +8,12 @@ import {
   type FormEvent,
 } from "react";
 import { Button } from "@/shared/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogTitle,
+} from "@/shared/ui/dialog";
 import { Input } from "@/shared/ui/input";
 import {
   createSettingsWorkspaceDataSource,
@@ -210,51 +216,53 @@ function WorkspaceEditDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <form
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="settings-workspace-dialog-title"
-        onSubmit={handleSubmit}
-        className="flex max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] max-w-[620px] flex-col rounded-[8px] bg-white p-8 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        showCloseButton={false}
         data-testid="settings-workspace-dialog"
+        className="flex max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] max-w-[620px] flex-col rounded-[8px] bg-white p-8 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0 sm:max-w-[620px]"
       >
-        <h2 id="settings-workspace-dialog-title" className="text-h-20 text-gray-900">
-          {dialog.title}
-        </h2>
-
-        <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-4 overflow-y-auto pr-1">
-          {workspaceDialogFields.map((field) => (
-            <WorkspaceDialogField
-              key={field.id}
-              error={errors[field.id]}
-              field={field}
-              value={form[field.id]}
-              onChange={handleFieldChange(field.id)}
-            />
-          ))}
-        </div>
-
-        <div className="mt-auto flex justify-end gap-3">
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={saving}
-            onClick={onClose}
-            className="h-11 rounded-[8px] px-6 text-h-18-semibold tracking-normal"
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <DialogTitle
+            id="settings-workspace-dialog-title"
+            className="text-h-20 text-gray-900"
           >
-            {dialog.cancelLabel}
-          </Button>
-          <Button
-            type="submit"
-            disabled={saving}
-            className="h-11 rounded-[8px] px-6 text-h-18-semibold tracking-normal text-white"
-          >
-            {saving ? "저장 중" : dialog.saveLabel}
-          </Button>
-        </div>
-      </form>
-    </div>
+            {dialog.title}
+          </DialogTitle>
+
+          <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-4 overflow-y-auto pr-1">
+            {workspaceDialogFields.map((field) => (
+              <WorkspaceDialogField
+                key={field.id}
+                error={errors[field.id]}
+                field={field}
+                value={form[field.id]}
+                onChange={handleFieldChange(field.id)}
+              />
+            ))}
+          </div>
+
+          <DialogFooter className="-mx-0 -mb-0 mt-auto flex-row justify-end gap-3 rounded-none border-0 bg-transparent p-0">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={saving}
+              onClick={onClose}
+              className="h-11 rounded-[8px] px-6 text-h-18-semibold tracking-normal"
+            >
+              {dialog.cancelLabel}
+            </Button>
+            <Button
+              type="submit"
+              disabled={saving}
+              className="h-11 rounded-[8px] px-6 text-h-18-semibold tracking-normal text-white"
+            >
+              {saving ? "저장 중" : dialog.saveLabel}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

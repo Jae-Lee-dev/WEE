@@ -3,6 +3,13 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogTitle,
+} from "@/shared/ui/dialog";
+import { Input } from "@/shared/ui/input";
 import { OptionSelect, type SelectOption } from "@/shared/ui/select";
 import { IconCheck } from "@/shared/ui/icons";
 import { SearchField } from "@/shared/ui/search-field";
@@ -414,27 +421,25 @@ function DutyTagEditDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="duty-tags-dialog-title"
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        showCloseButton={false}
         data-testid="duty-tags-edit-dialog"
-        className="flex max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] max-w-[620px] flex-col rounded-[8px] bg-white p-8 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
+        className="flex max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] max-w-[620px] flex-col rounded-[8px] bg-white p-8 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0"
       >
-        <h2 id="duty-tags-dialog-title" className="text-h-20 text-gray-900">
+        <DialogTitle className="text-h-20 text-gray-900">
           {title}
-        </h2>
+        </DialogTitle>
 
         <div className="mt-8 grid grid-cols-[1fr_140px_140px] gap-3">
           <label className="block">
             <span className="text-h-18-semibold text-gray-900">태그명</span>
-            <input
+            <Input
               aria-label="태그명"
               disabled={saving}
               value={label}
               onChange={(event) => setLabel(event.target.value)}
-              className="mt-3 h-11 w-full rounded-[8px] border border-gray-200 bg-white px-4 text-h-18-regular text-gray-900 outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:bg-gray-50 disabled:text-gray-500"
+              className="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-white px-4 text-h-18-regular text-gray-900 disabled:bg-gray-50 disabled:text-gray-500"
             />
           </label>
           <label className="block">
@@ -535,7 +540,7 @@ function DutyTagEditDialog({
           )}
         </div>
 
-        <div className="mt-auto flex justify-end gap-3">
+        <DialogFooter className="-mx-0 -mb-0 mt-auto flex-row justify-end gap-3 rounded-none border-0 bg-transparent p-0">
           <Button
             type="button"
             variant="secondary"
@@ -553,9 +558,9 @@ function DutyTagEditDialog({
           >
             {saving ? "저장 중" : dutyTagEditDialog.saveLabel}
           </Button>
-        </div>
-      </section>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -571,20 +576,18 @@ function DutyTagDeleteDialog({
   tag: DutyTagRow;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="duty-tags-delete-dialog-title"
-        className="w-[calc(100vw-32px)] max-w-[420px] rounded-[8px] bg-white p-6 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        showCloseButton={false}
+        className="w-[calc(100vw-32px)] max-w-[420px] rounded-[8px] bg-white p-6 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0"
       >
-        <h2 id="duty-tags-delete-dialog-title" className="text-h-20 text-gray-900">
+        <DialogTitle className="text-h-20 text-gray-900">
           근무 태그 삭제
-        </h2>
+        </DialogTitle>
         <p className="mt-4 text-h-18-regular leading-[1.5] text-gray-700">
           {tag.label} 태그를 삭제하고 사용 중인 근무에서 이 태그를 제거합니다.
         </p>
-        <div className="mt-6 flex justify-end gap-3">
+        <DialogFooter className="-mx-0 -mb-0 mt-6 flex-row justify-end gap-3 rounded-none border-0 bg-transparent p-0">
           <Button
             type="button"
             variant="secondary"
@@ -605,8 +608,8 @@ function DutyTagDeleteDialog({
           >
             {deleting ? "삭제 중" : "삭제"}
           </Button>
-        </div>
-      </section>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

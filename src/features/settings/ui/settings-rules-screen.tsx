@@ -2,7 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/shared/ui/button";
-import { cn } from "@/shared/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/ui/dialog";
+import { Input } from "@/shared/ui/input";
+import { OptionSelect } from "@/shared/ui/select";
 import {
   createSettingsSupportDataSource,
   type SettingsRulesInput,
@@ -188,20 +196,17 @@ function SettingsRulesDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#9a9a9a]/70 px-4 py-6">
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="settings-rules-dialog-title"
-        className="flex w-[calc(100vw-32px)] max-w-[640px] flex-col gap-8 rounded-[10px] bg-white p-8 shadow-[0px_16px_44px_rgba(17,24,39,0.16)]"
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        showCloseButton={false}
+        className="flex w-[calc(100vw-32px)] max-w-[640px] flex-col gap-8 rounded-[10px] bg-white p-8 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.16)] ring-0"
         data-testid="settings-rules-dialog"
       >
-        <h2
-          id="settings-rules-dialog-title"
-          className="text-h-20 tracking-normal text-gray-900"
-        >
-          {fixture.dialog.title}
-        </h2>
+        <DialogHeader className="gap-0">
+          <DialogTitle className="text-h-20 tracking-normal text-gray-900">
+            {fixture.dialog.title}
+          </DialogTitle>
+        </DialogHeader>
 
         <div className="flex flex-col gap-6">
           <div className="grid grid-cols-2 gap-6">
@@ -259,7 +264,7 @@ function SettingsRulesDialog({
           ) : null}
         </div>
 
-        <div className="flex justify-end gap-3">
+        <DialogFooter className="-mx-0 -mb-0 flex-row justify-end gap-3 rounded-none border-0 bg-transparent p-0">
           <Button
             type="button"
             variant="secondary"
@@ -277,9 +282,9 @@ function SettingsRulesDialog({
           >
             {saving ? "저장 중" : fixture.dialog.saveLabel}
           </Button>
-        </div>
-      </section>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -300,42 +305,31 @@ function SettingsRuleInputField({
         {field.label}
       </span>
       <span className="mt-2 flex items-center gap-2">
-        <span
-          className={cn(
-            "flex h-11 w-[260px] items-center rounded-[8px] border px-3 text-h-18-regular tracking-normal text-gray-900",
-            field.kind === "select"
-              ? "justify-between border-gray-400 bg-white"
-              : "justify-end border-gray-200 bg-gray-50",
-          )}
-        >
-          {field.kind === "select" ? (
-            <select
-              aria-label={field.label}
-              className="min-w-0 flex-1 appearance-none bg-transparent text-left outline-none disabled:cursor-not-allowed"
-              disabled={disabled}
-              value={value}
-              onChange={(event) => onChange(event.target.value)}
-            >
-              {(field.options ?? []).map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <input
-              aria-label={field.label}
-              disabled={disabled}
-              inputMode="numeric"
-              min={field.id === "regular-payment-day" ? 1 : 0}
-              max={field.id === "regular-payment-day" ? 31 : 120}
-              type="number"
-              value={value}
-              onChange={(event) => onChange(event.target.value)}
-              className="min-w-0 flex-1 bg-transparent text-right outline-none disabled:cursor-not-allowed"
-            />
-          )}
-        </span>
+        {field.kind === "select" ? (
+          <OptionSelect
+            disabled={disabled}
+            onValueChange={onChange}
+            options={(field.options ?? []).map((option) => ({
+              label: option.label,
+              value: option.value,
+            }))}
+            triggerAriaLabel={field.label}
+            triggerClassName="h-11 w-[260px] justify-between rounded-[8px] border-gray-400 px-3 text-h-18-regular font-normal tracking-normal text-gray-900 focus-visible:ring-green-200"
+            value={value}
+          />
+        ) : (
+          <Input
+            aria-label={field.label}
+            disabled={disabled}
+            inputMode="numeric"
+            min={field.id === "regular-payment-day" ? 1 : 0}
+            max={field.id === "regular-payment-day" ? 31 : 120}
+            type="number"
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            className="h-11 w-[260px] rounded-[8px] border-gray-200 bg-gray-50 text-right text-h-18-regular tracking-normal text-gray-900"
+          />
+        )}
         {field.suffix ? (
           <span className="text-h-18-semibold tracking-normal text-gray-900">
             {field.suffix}

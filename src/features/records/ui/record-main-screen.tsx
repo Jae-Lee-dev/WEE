@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { IconChevronLeft, IconChevronRight } from "@/shared/ui/icons";
+import { Input } from "@/shared/ui/input";
 import { OptionSelect, type SelectOption } from "@/shared/ui/select";
+import { Textarea } from "@/shared/ui/textarea";
 import { cn } from "@/shared/lib/utils";
 import {
   createRecordsDataSource,
@@ -904,10 +906,10 @@ function SelectedDetail({
               <span className="text-h-18-semibold tracking-normal text-gray-900">
                 {state.reasonField.label}
               </span>
-              <textarea
+              <Textarea
                 aria-label={state.reasonField.label}
                 className={cn(
-                  "mt-3 w-full resize-none rounded-[8px] border border-gray-200 bg-white px-4 py-4 text-h-18-regular tracking-normal text-gray-800 outline-none focus-visible:ring-2 focus-visible:ring-green-200",
+                  "mt-3 w-full rounded-[8px] border-gray-200 bg-white py-4 text-h-18-regular tracking-normal text-gray-800",
                   compactForm ? "h-[76px]" : "h-[84px]",
                 )}
                 placeholder={state.reasonField.placeholder}
@@ -924,7 +926,7 @@ function SelectedDetail({
                   <span className="text-h-18-semibold tracking-normal text-gray-900">
                     {field.label}
                   </span>
-                  <input
+                  <Input
                     type="time"
                     aria-label={field.label}
                     value={timeValues[field.id] ?? toTimeInputValue(field.value)}
@@ -934,7 +936,7 @@ function SelectedDetail({
                         [field.id]: event.target.value,
                       }))
                     }
-                    className="mt-3 flex h-11 w-full items-center rounded-[8px] border border-gray-200 bg-white px-4 text-h-18-regular tracking-normal text-gray-800 outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+                    className="mt-3 flex h-11 w-full items-center rounded-[8px] border-gray-200 bg-white text-h-18-regular tracking-normal text-gray-800"
                   />
                 </label>
               ))}

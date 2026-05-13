@@ -5,7 +5,16 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/ui/dialog";
 import { IconNotice } from "@/shared/ui/icons";
+import { Input } from "@/shared/ui/input";
 import { cn } from "@/shared/lib/utils";
 import {
   createPayrollDataSource,
@@ -789,9 +798,9 @@ function AdjustmentForm({
         <span>반영 기준</span>
       </div>
       <div className="mt-2 grid grid-cols-[minmax(180px,1fr)_90px_minmax(150px,0.7fr)_140px] gap-4">
-        <input
+        <Input
           aria-label={form.itemLabel}
-          className="h-11 min-w-0 rounded-[8px] border border-gray-200 bg-white px-4 text-h-18-regular tracking-normal text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-green-400 focus:ring-2 focus:ring-green-100"
+          className="h-11 min-w-0 rounded-[8px] border-gray-200 bg-white text-h-18-regular tracking-normal text-gray-900"
           placeholder={form.itemPlaceholder}
           value={label}
           onChange={(event) => setLabel(event.target.value)}
@@ -813,10 +822,10 @@ function AdjustmentForm({
             </button>
           ))}
         </div>
-        <input
+        <Input
           aria-label={form.amountLabel}
           inputMode="numeric"
-          className="h-11 min-w-0 rounded-[8px] border border-gray-200 bg-white px-4 text-h-18-regular tracking-normal text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-green-400 focus:ring-2 focus:ring-green-100"
+          className="h-11 min-w-0 rounded-[8px] border-gray-200 bg-white text-h-18-regular tracking-normal text-gray-900"
           placeholder={form.amountPlaceholder}
           value={amountText}
           onChange={(event) => setAmountText(event.target.value)}
@@ -1107,28 +1116,25 @@ function PayrollDecisionDialog({
   const confirmLabel = getPayrollDecisionDialogConfirmLabel(action);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="payroll-decision-title"
-        className="w-full max-w-[440px] rounded-[12px] bg-white px-6 py-6 shadow-[0px_24px_60px_rgba(15,23,42,0.24)]"
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        showCloseButton={false}
+        className="w-full max-w-[440px] rounded-[12px] bg-white px-6 py-6 text-gray-900 shadow-[0px_24px_60px_rgba(15,23,42,0.24)] ring-0"
       >
-        <h2
-          id="payroll-decision-title"
-          className="text-h-20 tracking-normal text-gray-900"
-        >
-          {title}
-        </h2>
-        <p className="mt-3 text-body-16-regular leading-[24px] tracking-normal text-gray-600">
-          {workerName}님의 현재 급여 산정 결과를 기준으로 처리합니다.
-        </p>
+        <DialogHeader className="gap-3">
+          <DialogTitle className="text-h-20 tracking-normal text-gray-900">
+            {title}
+          </DialogTitle>
+          <DialogDescription className="text-body-16-regular leading-[24px] tracking-normal text-gray-600">
+            {workerName}님의 현재 급여 산정 결과를 기준으로 처리합니다.
+          </DialogDescription>
+        </DialogHeader>
         {needsPaymentDate ? (
           <label className="mt-5 block text-h-16-semibold tracking-normal text-gray-900">
             지급 예정일
-            <input
+            <Input
               type="date"
-              className="mt-2 h-11 w-full rounded-[8px] border border-gray-200 px-4 text-h-18-regular tracking-normal text-gray-900 outline-none transition-colors focus:border-green-400 focus:ring-2 focus:ring-green-100"
+              className="mt-2 h-11 w-full rounded-[8px] border-gray-200 px-4 text-h-18-regular tracking-normal text-gray-900"
               value={scheduledPaymentDate}
               onChange={(event) => setScheduledPaymentDate(event.target.value)}
             />
@@ -1139,7 +1145,7 @@ function PayrollDecisionDialog({
             지급 예정일은 오늘 이후 날짜로 입력해야 합니다.
           </p>
         ) : null}
-        <div className="mt-6 flex justify-end gap-3">
+        <DialogFooter className="-mx-0 -mb-0 mt-6 flex-row justify-end gap-3 rounded-none border-0 bg-transparent p-0">
           <Button
             type="button"
             variant="outline"
@@ -1163,9 +1169,9 @@ function PayrollDecisionDialog({
           >
             {saving ? "처리 중" : confirmLabel}
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

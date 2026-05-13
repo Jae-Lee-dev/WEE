@@ -3,7 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/ui/dialog";
 import { IconCheck, IconSearch } from "@/shared/ui/icons";
+import { Input } from "@/shared/ui/input";
+import { Textarea } from "@/shared/ui/textarea";
 import { cn } from "@/shared/lib/utils";
 import {
   createWorkerApplicationsDataSource,
@@ -612,13 +622,13 @@ function TagSearchInput({
 }) {
   return (
     <div className="flex h-11 w-full items-center gap-3 rounded-[8px] border border-gray-200 bg-white px-4 transition-colors duration-150 ease-out focus-within:ring-2 focus-within:ring-green-200">
-      <input
+      <Input
         data-testid="worker-application-tag-search-trigger"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onFocus={onFocus}
         placeholder="태그를 검색하거나 새 태그를 입력하세요"
-        className="min-w-0 flex-1 bg-transparent text-h-18-regular text-gray-900 outline-none placeholder:text-gray-400"
+        className="h-auto min-w-0 flex-1 border-0 bg-transparent p-0 text-h-18-regular text-gray-900 shadow-none hover:border-0 focus-visible:border-0 focus-visible:ring-0"
       />
       {value.trim() ? (
         <button
@@ -748,15 +758,13 @@ function PaySettingCard({
       </div>
 
       <div className="mt-4 flex items-center gap-3">
-        <input
+        <Input
           inputMode="numeric"
           value={amount}
           onChange={(event) => onAmountChange(event.target.value)}
           placeholder={setting.placeholder}
-          className={cn(
-            "h-11 min-w-0 flex-1 rounded-[8px] border bg-gray-50 px-4 text-h-18-regular text-gray-900 outline-none placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-green-200",
-            amountError ? "border-red-500" : "border-gray-200",
-          )}
+          aria-invalid={amountError}
+          className="h-11 min-w-0 flex-1 rounded-[8px] border-gray-200 bg-gray-50 text-h-18-regular text-gray-900"
           aria-label="급여 입력"
         />
         <span className="w-[52px] shrink-0 text-right text-h-18-regular text-gray-900">
@@ -781,15 +789,13 @@ function PaySettingCard({
         >
           직접 입력 (%)
         </button>
-        <input
+        <Input
           aria-label="세율 직접 입력"
           inputMode="decimal"
           value={taxRateText}
           onChange={(event) => onTaxRateChange(event.target.value)}
-          className={cn(
-            "h-9 w-20 rounded-full border bg-white px-3 text-center text-h-16-medium text-gray-900 outline-none focus-visible:ring-2 focus-visible:ring-green-200",
-            taxError ? "border-red-500" : "border-gray-200",
-          )}
+          aria-invalid={taxError}
+          className="h-9 w-20 rounded-full border-gray-200 bg-white px-3 text-center text-h-16-medium text-gray-900"
         />
       </div>
       {amountError || taxError ? (
@@ -817,29 +823,26 @@ function ApplicationRejectDialog({
   workerName: string;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="worker-application-reject-title"
-        className="flex w-[calc(100vw-32px)] max-w-[520px] flex-col rounded-[8px] bg-white p-8 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        showCloseButton={false}
+        className="flex w-[calc(100vw-32px)] max-w-[520px] flex-col rounded-[8px] bg-white p-8 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0"
       >
-        <h2
-          id="worker-application-reject-title"
-          className="text-h-20 text-gray-900"
-        >
-          소속 신청 반려
-        </h2>
-        <p className="mt-3 text-h-18-regular text-gray-600">
-          {workerName} 조교에게 전달할 반려 사유를 입력합니다.
-        </p>
-        <textarea
+        <DialogHeader className="gap-3">
+          <DialogTitle className="text-h-20 text-gray-900">
+            소속 신청 반려
+          </DialogTitle>
+          <DialogDescription className="text-h-18-regular text-gray-600">
+            {workerName} 조교에게 전달할 반려 사유를 입력합니다.
+          </DialogDescription>
+        </DialogHeader>
+        <Textarea
           value={reason}
           onChange={(event) => onChangeReason(event.target.value)}
           placeholder="반려 사유를 입력해 주세요"
-          className="mt-5 h-[120px] w-full resize-none rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3 text-h-18-regular text-gray-900 outline-none placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-green-200"
+          className="mt-5 h-[120px] min-h-0 w-full rounded-[8px] border-gray-200 bg-gray-50 text-h-18-regular text-gray-900"
         />
-        <div className="mt-6 flex justify-end gap-3">
+        <DialogFooter className="-mx-0 -mb-0 mt-6 flex-row justify-end gap-3 rounded-none border-0 bg-transparent p-0">
           <Button
             type="button"
             variant="secondary"
@@ -858,9 +861,9 @@ function ApplicationRejectDialog({
           >
             {saving ? "처리 중" : "반려 확정"}
           </Button>
-        </div>
-      </section>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

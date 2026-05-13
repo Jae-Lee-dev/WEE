@@ -25,6 +25,7 @@ type OptionSelectProps = Omit<
   triggerAriaInvalid?: boolean
   triggerAriaLabel?: string
   triggerClassName?: string
+  triggerDataTestId?: string
 }
 
 function Select({
@@ -43,6 +44,7 @@ function OptionSelect({
   triggerAriaInvalid,
   triggerAriaLabel,
   triggerClassName,
+  triggerDataTestId,
   ...props
 }: OptionSelectProps) {
   return (
@@ -52,6 +54,7 @@ function OptionSelect({
         aria-invalid={triggerAriaInvalid}
         aria-label={triggerAriaLabel}
         className={triggerClassName}
+        data-testid={triggerDataTestId}
         size={size}
       >
         <SelectValue placeholder={placeholder} />

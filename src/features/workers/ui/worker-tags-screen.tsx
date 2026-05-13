@@ -6,6 +6,15 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/ui/dialog";
+import { Input } from "@/shared/ui/input";
 import { OptionSelect, type SelectOption } from "@/shared/ui/select";
 import { IconCheck } from "@/shared/ui/icons";
 import { SearchField } from "@/shared/ui/search-field";
@@ -492,33 +501,31 @@ function WorkerTagCreateDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-80 flex items-center justify-center bg-black/40 px-4 py-6">
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="worker-tags-create-title"
-        className="flex max-h-[calc(100vh-48px)] w-full max-w-160 flex-col overflow-hidden rounded-[8px] bg-white shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
+    <Dialog open onOpenChange={(open) => !open && onCancel()}>
+      <DialogContent
+        showCloseButton={false}
+        className="z-80 flex max-h-[calc(100vh-48px)] w-full max-w-160 flex-col overflow-hidden rounded-[8px] bg-white p-0 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0"
         data-testid="worker-tags-create-dialog"
       >
-        <div className="shrink-0 px-6 pt-6">
-          <h2 id="worker-tags-create-title" className="text-h-20 text-gray-900">
+        <DialogHeader className="shrink-0 gap-1 px-6 pt-6">
+          <DialogTitle className="text-h-20 text-gray-900">
             근무자 태그 추가
-          </h2>
-          <p className="mt-1 text-h-16-medium tracking-normal text-gray-500">
+          </DialogTitle>
+          <DialogDescription className="text-h-16-medium tracking-normal text-gray-500">
             태그 정보와 적용 조교를 저장합니다.
-          </p>
-        </div>
+          </DialogDescription>
+        </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-5 pt-5">
           <div className="grid grid-cols-[minmax(0,1fr)_124px_124px] gap-3">
             <label className="block">
               <span className="text-h-18-semibold text-gray-900">태그명</span>
-              <input
+              <Input
                 aria-label="태그명"
                 disabled={saving}
                 value={label}
                 onChange={(event) => setLabel(event.target.value)}
-                className="mt-3 h-11 w-full rounded-[8px] border border-gray-200 bg-white px-4 text-h-18-regular text-gray-900 outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:bg-gray-50 disabled:text-gray-700"
+                className="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-white px-4 text-h-18-regular text-gray-900 disabled:bg-gray-50 disabled:text-gray-700"
               />
             </label>
             <label className="block">
@@ -596,7 +603,7 @@ function WorkerTagCreateDialog({
           </div>
         </div>
 
-        <div className="flex h-16 shrink-0 items-center justify-end gap-3 px-6 pb-4 pt-4">
+        <DialogFooter className="-mx-0 -mb-0 flex h-16 shrink-0 flex-row items-center justify-end gap-3 rounded-none border-0 bg-transparent px-6 pb-4 pt-4">
           <Button
             type="button"
             variant="secondary"
@@ -614,9 +621,9 @@ function WorkerTagCreateDialog({
           >
             {saving ? "저장 중" : "저장"}
           </Button>
-        </div>
-      </section>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -791,12 +798,12 @@ function WorkerTagDetailPanel({
         <div className="mt-5 grid grid-cols-[minmax(0,1fr)_124px_124px] gap-3">
           <label className="block">
             <span className="text-h-18-semibold text-gray-900">태그명</span>
-            <input
+            <Input
               aria-label="태그명"
               disabled={!editable || saving}
               value={label}
               onChange={(event) => setLabel(event.target.value)}
-              className="mt-3 h-11 w-full rounded-[8px] border border-gray-200 bg-white px-4 text-h-18-regular text-gray-900 outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:bg-gray-50 disabled:text-gray-700"
+              className="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-white text-h-18-regular text-gray-900 disabled:text-gray-700"
             />
           </label>
           <label className="block">

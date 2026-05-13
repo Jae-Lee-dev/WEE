@@ -4,6 +4,16 @@ import { useEffect, useMemo, useState } from "react";
 import { IconChevronDown } from "@/shared/ui/icons";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
+import { Checkbox } from "@/shared/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/ui/dialog";
+import { Input } from "@/shared/ui/input";
 import { cn } from "@/shared/lib/utils";
 import { createHandoverDataSource } from "../api/handover-data-source";
 import {
@@ -451,12 +461,12 @@ function HandoverChatPanel({
         ))}
       </div>
       <div className="flex h-14 shrink-0 items-center gap-3 border-t border-gray-200 px-4">
-        <input
+        <Input
           aria-label="수정할 내용"
           value={inputValue}
           onChange={(event) => onChangeInput(event.target.value)}
           placeholder={chat.inputPlaceholder}
-          className="h-11 min-w-0 flex-1 rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-900 outline-none placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-green-200"
+          className="h-11 min-w-0 flex-1 rounded-[8px] border-gray-200 bg-gray-50 text-h-18-regular tracking-normal text-gray-900"
         />
         <Button
           type="button"
@@ -503,29 +513,28 @@ function PublishDialog({
   const [notifyWorkers, setNotifyWorkers] = useState(false);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="handover-publish-title"
-        className="flex w-[calc(100vw-32px)] max-w-[520px] flex-col rounded-[8px] bg-white p-8 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        showCloseButton={false}
+        className="flex w-[calc(100vw-32px)] max-w-[520px] flex-col rounded-[8px] bg-white p-8 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0"
       >
-        <h2 id="handover-publish-title" className="text-h-20 text-gray-900">
-          인수인계 문서 게시
-        </h2>
-        <p className="mt-3 text-h-18-regular text-gray-600">
-          현재 초안을 게시된 문서로 저장합니다.
-        </p>
+        <DialogHeader className="gap-3">
+          <DialogTitle className="text-h-20 text-gray-900">
+            인수인계 문서 게시
+          </DialogTitle>
+          <DialogDescription className="text-h-18-regular text-gray-600">
+            현재 초안을 게시된 문서로 저장합니다.
+          </DialogDescription>
+        </DialogHeader>
         <label className="mt-6 flex items-center gap-3 text-h-18-regular text-gray-900">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={notifyWorkers}
-            onChange={(event) => setNotifyWorkers(event.target.checked)}
-            className="size-5 accent-green-400"
+            onCheckedChange={(value) => setNotifyWorkers(value === true)}
+            className="size-5"
           />
           조교에게 게시 알림 발송
         </label>
-        <div className="mt-7 flex justify-end gap-3">
+        <DialogFooter className="-mx-0 -mb-0 mt-7 flex-row justify-end gap-3 rounded-none border-0 bg-transparent p-0">
           <Button
             type="button"
             variant="secondary"
@@ -543,9 +552,9 @@ function PublishDialog({
           >
             {saving ? "게시 중" : "게시 확정"}
           </Button>
-        </div>
-      </section>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

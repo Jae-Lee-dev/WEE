@@ -3,7 +3,16 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/ui/dialog";
 import { IconChevronLeft, IconNotice } from "@/shared/ui/icons";
+import { Input } from "@/shared/ui/input";
+import { Textarea } from "@/shared/ui/textarea";
 import { cn } from "@/shared/lib/utils";
 import {
   createScheduleApprovalDataSource,
@@ -622,12 +631,12 @@ function TimeAdjustmentPanel({
         <span className="text-h-18-semibold tracking-normal text-gray-900">
           시작 시간
         </span>
-        <input
+        <Input
           type="time"
           value={startTime}
           disabled={saving}
           onChange={(event) => onUpdateStartTime(event.target.value)}
-          className="mt-3 h-11 w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-900 outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:text-gray-400"
+          className="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-900 disabled:text-gray-400"
         />
       </label>
 
@@ -635,12 +644,12 @@ function TimeAdjustmentPanel({
         <span className="text-h-18-semibold tracking-normal text-gray-900">
           종료 시간
         </span>
-        <input
+        <Input
           type="time"
           value={endTime}
           disabled={saving}
           onChange={(event) => onUpdateEndTime(event.target.value)}
-          className="mt-3 h-11 w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-900 outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:text-gray-400"
+          className="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-900 disabled:text-gray-400"
         />
       </label>
 
@@ -696,35 +705,32 @@ function RejectDialog({
   const [reason, setReason] = useState("");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="schedule-approval-reject-title"
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        showCloseButton={false}
         data-testid="schedule-approval-reject-dialog"
-        className="flex w-[calc(100vw-32px)] max-w-[620px] flex-col rounded-[8px] bg-white p-8 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
+        className="flex w-[calc(100vw-32px)] max-w-[620px] flex-col rounded-[8px] bg-white p-8 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0"
       >
-        <h2
-          id="schedule-approval-reject-title"
-          className="text-h-20 tracking-normal text-gray-900"
-        >
-          {detail.rejectDialog.title}
-        </h2>
+        <DialogHeader className="gap-0">
+          <DialogTitle className="text-h-20 tracking-normal text-gray-900">
+            {detail.rejectDialog.title}
+          </DialogTitle>
+        </DialogHeader>
 
         <label className="mt-8 block">
           <span className="text-h-18-semibold tracking-normal text-gray-900">
             {detail.rejectDialog.reasonLabel}
           </span>
-          <textarea
+          <Textarea
             value={reason}
             disabled={saving}
             onChange={(event) => setReason(event.target.value)}
             placeholder={detail.rejectDialog.reasonPlaceholder}
-            className="mt-3 h-[100px] w-full resize-none rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3 text-h-18-regular tracking-normal text-gray-900 outline-none placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-green-200 disabled:text-gray-500"
+            className="mt-3 h-[100px] min-h-0 w-full rounded-[8px] border-gray-200 bg-gray-50 text-h-18-regular tracking-normal text-gray-900 disabled:text-gray-500"
           />
         </label>
 
-        <div className="mt-auto flex justify-end gap-3">
+        <DialogFooter className="-mx-0 -mb-0 mt-auto flex-row justify-end gap-3 rounded-none border-0 bg-transparent p-0">
           <Button
             type="button"
             variant="secondary"
@@ -742,9 +748,9 @@ function RejectDialog({
           >
             {saving ? "처리 중" : detail.rejectDialog.confirmLabel}
           </Button>
-        </div>
-      </section>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

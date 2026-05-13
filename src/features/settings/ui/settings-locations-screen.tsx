@@ -9,6 +9,14 @@ import {
   type FormEvent,
 } from "react";
 import { Button } from "@/shared/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/ui/dialog";
 import { Input } from "@/shared/ui/input";
 import {
   createSettingsLocationsDataSource,
@@ -387,83 +395,85 @@ function LocationDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-      <form
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="settings-location-dialog-title"
-        className="flex max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] max-w-[620px] flex-col overflow-hidden rounded-[8px] bg-white p-8 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        showCloseButton={false}
         data-testid="settings-location-dialog"
-        noValidate
-        onSubmit={handleSave}
+        className="flex max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] max-w-[620px] flex-col overflow-hidden rounded-[8px] bg-white p-8 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0 sm:max-w-[620px]"
       >
-        <div>
-          <h2
-            id="settings-location-dialog-title"
-            className="text-h-20 text-gray-900"
-          >
-            {location ? dialog.editTitle : dialog.createTitle}
-          </h2>
-          <p className="mt-2 text-body-14-regular tracking-normal text-gray-500">
-            {dialog.description}
-          </p>
-        </div>
+        <form
+          noValidate
+          onSubmit={handleSave}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <DialogHeader className="gap-0">
+            <DialogTitle
+              id="settings-location-dialog-title"
+              className="text-h-20 text-gray-900"
+            >
+              {location ? dialog.editTitle : dialog.createTitle}
+            </DialogTitle>
+            <DialogDescription className="mt-2 text-body-14-regular tracking-normal text-gray-500">
+              {dialog.description}
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-          <LocationDialogField
-            error={submitted ? errors.name : undefined}
-            label={dialog.nameLabel}
-            name="name"
-            onChange={handleFieldChange("name")}
-            placeholder={dialog.namePlaceholder}
-            value={form.name}
-            disabled={saving}
-          />
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <LocationDialogField
+              error={submitted ? errors.name : undefined}
+              label={dialog.nameLabel}
+              name="name"
+              onChange={handleFieldChange("name")}
+              placeholder={dialog.namePlaceholder}
+              value={form.name}
+              disabled={saving}
+            />
 
-          <LocationDialogField
-            error={submitted ? errors.roadAddress : undefined}
-            label={dialog.roadAddressLabel}
-            name="roadAddress"
-            onChange={handleFieldChange("roadAddress")}
-            placeholder={dialog.roadAddressPlaceholder}
-            value={form.roadAddress}
-            disabled={saving}
-          />
+            <LocationDialogField
+              error={submitted ? errors.roadAddress : undefined}
+              label={dialog.roadAddressLabel}
+              name="roadAddress"
+              onChange={handleFieldChange("roadAddress")}
+              placeholder={dialog.roadAddressPlaceholder}
+              value={form.roadAddress}
+              disabled={saving}
+            />
 
-          <LocationRadiusField
-            error={submitted ? errors.radiusMeters : undefined}
-            onChange={handleFieldChange("radiusMeters")}
-            saving={saving}
-            value={form.radiusMeters}
-          />
+            <LocationRadiusField
+              error={submitted ? errors.radiusMeters : undefined}
+              onChange={handleFieldChange("radiusMeters")}
+              saving={saving}
+              value={form.radiusMeters}
+            />
 
-          <StaticRadiusMap />
-        </div>
+            <StaticRadiusMap />
+          </div>
 
-        <div className="mt-6 flex shrink-0 justify-end gap-2.5 border-t border-gray-100 pt-4">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={onClose}
-            disabled={saving}
-            className="h-10 rounded-[8px] px-4 text-h-16-semibold tracking-normal"
-          >
-            {dialog.cancelLabel}
-          </Button>
-          <Button
-            type="submit"
-            disabled={saving}
-            className="h-10 rounded-[8px] px-4 text-h-16-semibold tracking-normal text-white"
-          >
-            {saving
-              ? "저장 중"
-              : location
-                ? dialog.saveLabel
-                : dialog.addLabel}
-          </Button>
-        </div>
-      </form>
-    </div>
+          <DialogFooter className="-mx-0 -mb-0 mt-6 flex-row justify-end gap-2.5 rounded-none border-t border-gray-100 bg-transparent p-0 pt-4">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onClose}
+              disabled={saving}
+              className="h-10 rounded-[8px] px-4 text-h-16-semibold tracking-normal"
+            >
+              {dialog.cancelLabel}
+            </Button>
+            <Button
+              type="submit"
+              disabled={saving}
+              className="h-10 rounded-[8px] px-4 text-h-16-semibold tracking-normal text-white"
+            >
+              {saving
+                ? "저장 중"
+                : location
+                  ? dialog.saveLabel
+                  : dialog.addLabel}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -482,25 +492,24 @@ function DeleteLocationDialog({
   const blocked = location.dutyCount > 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <section
-        role="dialog"
-        aria-modal="true"
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        showCloseButton={false}
         aria-labelledby="settings-location-delete-dialog-title"
-        className="w-[calc(100vw-32px)] max-w-[480px] rounded-[8px] bg-white px-6 py-6 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
+        className="w-[calc(100vw-32px)] max-w-[480px] rounded-[8px] bg-white px-6 py-6 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0 sm:max-w-[480px]"
       >
-        <h2
+        <DialogTitle
           id="settings-location-delete-dialog-title"
           className="text-h-20 text-gray-900"
         >
           {blocked ? deleteDialog.blockedTitle : deleteDialog.title}
-        </h2>
+        </DialogTitle>
         <p className="mt-3 text-body-14-regular tracking-normal text-gray-500">
           {blocked
             ? `${deleteDialog.blockedDescription} 현재 사용 근무 ${location.dutyCount}건`
             : deleteDialog.description}
         </p>
-        <div className="mt-8 flex justify-end gap-3">
+        <DialogFooter className="-mx-0 -mb-0 mt-8 flex-row justify-end gap-3 rounded-none border-0 bg-transparent p-0">
           {blocked ? (
             <Button
               type="button"
@@ -534,9 +543,9 @@ function DeleteLocationDialog({
               </Button>
             </>
           )}
-        </div>
-      </section>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

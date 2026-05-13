@@ -2,7 +2,7 @@
 
 import { type ReactNode } from "react";
 import { Badge } from "@/shared/ui/badge";
-import { IconChevronDown } from "@/shared/ui/icons";
+import { OptionSelect } from "@/shared/ui/select";
 import { cn } from "@/shared/lib/utils";
 import {
   type DashboardMetricTone,
@@ -104,29 +104,24 @@ export function DashboardSelectField<T extends string>({
   testId?: string;
   value: T;
 }) {
+  const hasOptions = options.length > 0;
+  const selectOptions = hasOptions
+    ? options.map((option) => ({
+        label: option.label,
+        value: option.id,
+      }))
+    : [{ disabled: true, label: "선택 가능한 항목 없음", value: "__empty__" }];
+
   return (
-    <label className="relative block">
-      <span className="sr-only">{ariaLabel}</span>
-      <select
-        aria-label={ariaLabel}
-        data-testid={testId}
-        disabled={disabled}
-        value={value}
-        onChange={(event) => onChange(event.target.value as T)}
-        className="h-10 min-w-[150px] appearance-none rounded-[6px] border border-gray-200 bg-white py-0 pl-3 pr-9 text-h-18-regular text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] outline-none transition-colors duration-150 ease-out hover:border-gray-300 focus-visible:ring-2 focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {options.length === 0 ? (
-          <option value={value}>선택 가능한 항목 없음</option>
-        ) : (
-          options.map((option) => (
-            <option key={option.id} value={option.id}>
-              {option.label}
-            </option>
-          ))
-        )}
-      </select>
-      <IconChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-5 -translate-y-1/2 text-gray-600" />
-    </label>
+    <OptionSelect
+      disabled={disabled || !hasOptions}
+      onValueChange={(nextValue) => onChange(nextValue as T)}
+      options={selectOptions}
+      triggerAriaLabel={ariaLabel}
+      triggerClassName="h-10 min-w-[150px] rounded-[6px] border-gray-200 px-3 text-h-18-regular font-normal tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] focus-visible:ring-green-200"
+      triggerDataTestId={testId}
+      value={hasOptions ? value : "__empty__"}
+    />
   );
 }
 

@@ -21,6 +21,7 @@ export * from "./sliding-tab-text-mask";
 export * from "./sonner";
 export * from "./table";
 export * from "./tabs";
+export * from "./textarea";
 export * from "./tooltip";
 export * from "./trend-chart";
 export * from "./use-sliding-tab-indicator";

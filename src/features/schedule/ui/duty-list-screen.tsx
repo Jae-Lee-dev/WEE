@@ -1135,14 +1135,15 @@ function EditBasicDialog({
       labelledBy="duty-list-edit-basic-dialog-title"
       testId="duty-list-edit-basic-dialog"
       className="max-w-[620px] p-8"
+      onClose={onClose}
     >
       <form noValidate onSubmit={handleSave}>
-        <h2
+        <DialogTitle
           id="duty-list-edit-basic-dialog-title"
           className="text-h-20 tracking-normal text-gray-900"
         >
           {fixture.title}
-        </h2>
+        </DialogTitle>
 
         <div className="mt-8 flex flex-col gap-6">
           <CreateDutyTextField
@@ -1240,14 +1241,15 @@ function EditTimeDialog({
       labelledBy="duty-list-edit-time-dialog-title"
       testId="duty-list-edit-time-dialog"
       className="max-w-[620px] p-8"
+      onClose={onClose}
     >
       <form noValidate onSubmit={handleSave}>
-        <h2
+        <DialogTitle
           id="duty-list-edit-time-dialog-title"
           className="text-h-20 tracking-normal text-gray-900"
         >
           {fixture.title}
-        </h2>
+        </DialogTitle>
 
         <div className="mt-8 grid grid-cols-2 gap-4">
           <TimeField
@@ -1300,28 +1302,29 @@ function DialogShell({
   children,
   className,
   labelledBy,
+  onClose,
   testId,
 }: {
   children: ReactNode;
   className?: string;
   labelledBy: string;
+  onClose: () => void;
   testId: string;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-      <section
-        role="dialog"
-        aria-modal="true"
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        showCloseButton={false}
         aria-labelledby={labelledBy}
         data-testid={testId}
         className={cn(
-          "flex max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] flex-col overflow-hidden rounded-[8px] bg-white shadow-[0px_16px_44px_rgba(17,24,39,0.18)]",
+          "flex max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] flex-col overflow-hidden rounded-[8px] bg-white text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0",
           className,
         )}
       >
         {children}
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

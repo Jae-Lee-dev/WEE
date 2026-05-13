@@ -1,4 +1,4 @@
-import { expect, test } from "playwright/test";
+import { expect, test, type Page } from "playwright/test";
 import {
   captureActualScreenshot,
   prepareVisualPage,
@@ -182,7 +182,7 @@ test(`DSH-02 location-jamsil ${desktop}`, async ({ page }) => {
     viewport: desktop,
   });
   await page.evaluate(() => document.fonts.ready);
-  await page.getByTestId("dashboard-location-select").selectOption("jamsil");
+  await selectOption(page, "dashboard-location-select", "잠실 C학원");
   await expect(page.getByText("240h")).toBeVisible();
 
   await captureActualScreenshot({
@@ -219,7 +219,7 @@ test(`DSH-03 tag-science ${desktop}`, async ({ page }) => {
     viewport: desktop,
   });
   await page.evaluate(() => document.fonts.ready);
-  await page.getByTestId("dashboard-worker-tag-select").selectOption("science");
+  await selectOption(page, "dashboard-worker-tag-select", "과학");
   await expect(page.getByText("조교 목록 (2/6명)")).toBeVisible();
 
   await captureActualScreenshot({
@@ -237,7 +237,7 @@ test(`DSH-04 analysis-last-month ${desktop}`, async ({ page }) => {
     viewport: desktop,
   });
   await page.evaluate(() => document.fonts.ready);
-  await page.getByTestId("dashboard-ai-period-select").selectOption("last-month");
+  await selectOption(page, "dashboard-ai-period-select", "지난 달");
   await page.getByTestId("dashboard-ai-run-analysis").click();
   await expect(
     page.locator("div").filter({ hasText: /^지난 달$/ }).last(),
@@ -250,3 +250,12 @@ test(`DSH-04 analysis-last-month ${desktop}`, async ({ page }) => {
     viewport: desktop,
   });
 });
+
+async function selectOption(
+  page: Page,
+  testId: string,
+  label: string,
+) {
+  await page.getByTestId(testId).click();
+  await page.getByRole("option", { name: label }).click();
+}

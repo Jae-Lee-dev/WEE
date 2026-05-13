@@ -6,10 +6,15 @@ import {
   useMemo,
   useState,
   type ChangeEvent,
-  type ReactNode,
 } from "react";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogTitle,
+} from "@/shared/ui/dialog";
 import { Input } from "@/shared/ui/input";
 import { Segment } from "@/shared/ui/segment";
 import { OptionSelect, type SelectOption } from "@/shared/ui/select";
@@ -534,17 +539,15 @@ function EditInfoDialog({
   };
 
   return (
-    <DialogBackdrop>
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="worker-edit-info-dialog-title"
-        className="flex max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] max-w-[680px] flex-col rounded-[8px] bg-white p-8 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
+    <Dialog open onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent
+        showCloseButton={false}
+        className="flex max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] max-w-[680px] flex-col rounded-[8px] bg-white p-8 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0"
         data-testid="worker-edit-info-dialog"
       >
-        <h2 id="worker-edit-info-dialog-title" className="text-h-20 text-gray-900">
+        <DialogTitle className="text-h-20 text-gray-900">
           {dialog.title}
-        </h2>
+        </DialogTitle>
 
         <div className="mt-6 min-h-0 overflow-y-auto pr-1">
           <div className="grid grid-cols-2 gap-x-4 gap-y-4">
@@ -694,7 +697,7 @@ function EditInfoDialog({
           ) : null}
         </div>
 
-        <div className="mt-8 flex justify-end gap-3">
+        <DialogFooter className="-mx-0 -mb-0 mt-8 flex-row justify-end gap-3 rounded-none border-0 bg-transparent p-0">
           <Button
             type="button"
             variant="secondary"
@@ -712,9 +715,9 @@ function EditInfoDialog({
           >
             {saving ? "저장 중" : dialog.saveLabel}
           </Button>
-        </div>
-      </section>
-    </DialogBackdrop>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -776,20 +779,15 @@ function DeleteBlockedDialog({
   const dialog = fixture.deleteBlockedDialog;
 
   return (
-    <DialogBackdrop>
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="worker-delete-blocked-dialog-title"
-        className="flex w-[calc(100vw-32px)] max-w-[520px] flex-col gap-8 rounded-[8px] bg-white p-8 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        showCloseButton={false}
+        className="flex w-[calc(100vw-32px)] max-w-[520px] flex-col gap-8 rounded-[8px] bg-white p-8 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0"
         data-testid="worker-delete-blocked-dialog"
       >
-        <h2
-          id="worker-delete-blocked-dialog-title"
-          className="text-h-20 text-gray-900"
-        >
+        <DialogTitle className="text-h-20 text-gray-900">
           {dialog.title}
-        </h2>
+        </DialogTitle>
 
         <div className="text-detail-16-regular text-gray-600">
           {dialog.description.map((line) => (
@@ -803,7 +801,7 @@ function DeleteBlockedDialog({
           ))}
         </div>
 
-        <div className="flex justify-end">
+        <DialogFooter className="-mx-0 -mb-0 flex-row justify-end rounded-none border-0 bg-transparent p-0">
           <Button
             type="button"
             onClick={onClose}
@@ -811,9 +809,9 @@ function DeleteBlockedDialog({
           >
             {dialog.confirmLabel}
           </Button>
-        </div>
-      </section>
-    </DialogBackdrop>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -829,14 +827,6 @@ function BlockerRow({ blocker }: { blocker: DeleteBlocker }) {
         {blocker.label}
       </span>
       <span className="text-h-18-semibold text-gray-900">{blocker.value}</span>
-    </div>
-  );
-}
-
-function DialogBackdrop({ children }: { children: ReactNode }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#9a9a9a]/80">
-      {children}
     </div>
   );
 }
