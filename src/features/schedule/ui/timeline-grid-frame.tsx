@@ -45,12 +45,14 @@ export function TimelineGridFrame({
   dayColumnWidth = 46,
   days,
   headerHeight = 45,
-  minWidthClassName = "min-w-[964px]",
+  minWidthClassName = "min-w-[1072px]",
   renderBlocks,
   rowHeight = 110,
   testId,
   timeSlots,
 }: TimelineGridFrameProps) {
+  const timelineStartHour = Number(timeSlots[0]);
+
   return (
     <div
       className={cn(
@@ -76,18 +78,35 @@ export function TimelineGridFrame({
               height: headerHeight,
             }}
           >
-            {timeSlots.map((slot, index) => (
-              <div
-                className={cn(
-                  "flex min-w-0 items-center justify-center border-r border-gray-100 px-1 text-h-14-regular tracking-normal text-gray-500",
-                  index === timeSlots.length - 1 && "border-r-0",
-                )}
-                key={slot}
-                role="columnheader"
-              >
-                <span className="truncate">{slot}</span>
-              </div>
-            ))}
+            {timeSlots.map((slot, index) => {
+              const slotHour = Number(slot);
+              const isNextDaySlot =
+                Number.isFinite(timelineStartHour) &&
+                Number.isFinite(slotHour) &&
+                slotHour < timelineStartHour;
+
+              return (
+                <div
+                  className={cn(
+                    "flex min-w-0 items-center justify-center border-r border-gray-100 px-1 text-h-14-regular tracking-normal text-gray-500",
+                    index === timeSlots.length - 1 && "border-r-0",
+                  )}
+                  key={slot}
+                  role="columnheader"
+                >
+                  {isNextDaySlot ? (
+                    <span className="flex min-w-0 flex-col items-center justify-center leading-none tracking-normal">
+                      <span className="text-detail-12 tracking-normal text-gray-400">
+                        익일
+                      </span>
+                      <span className="tracking-normal">{slot}</span>
+                    </span>
+                  ) : (
+                    <span className="truncate">{slot}</span>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {days.map((day, dayIndex) => {

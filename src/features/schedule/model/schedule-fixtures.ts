@@ -464,6 +464,8 @@ export const scheduleTimelineTimeSlots = [
   "22",
   "23",
   "00",
+  "01",
+  "02",
 ] as const satisfies readonly string[];
 
 export const scheduleTimelineBlocks = [

@@ -19,6 +19,13 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await expect(
       page.getByRole("grid", { name: "주간 근무 시간표" }),
     ).toBeVisible();
+    const timelineHeaders = page
+      .getByRole("grid", { name: "주간 근무 시간표" })
+      .getByRole("columnheader");
+    await expect(timelineHeaders).toHaveCount(19);
+    await expect(timelineHeaders.first()).toContainText("08");
+    await expect(timelineHeaders.last()).toContainText("익일");
+    await expect(timelineHeaders.last()).toContainText("02");
 
     await captureActualScreenshot({
       page,
