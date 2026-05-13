@@ -1,16 +1,23 @@
 "use client"
 
+import type { CSSProperties } from "react"
 import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 
-const Toaster = ({ ...props }: ToasterProps) => {
+const DEFAULT_TOAST_DURATION_MS = 5000
+
+const Toaster = ({ style, toastOptions, ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme()
 
   return (
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      closeButton
+      containerAriaLabel="알림"
+      duration={DEFAULT_TOAST_DURATION_MS}
+      visibleToasts={1}
       icons={{
         success: (
           <CircleCheckIcon className="size-4" />
@@ -34,11 +41,17 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--normal-text": "var(--popover-foreground)",
           "--normal-border": "var(--border)",
           "--border-radius": "var(--radius)",
-        } as React.CSSProperties
+          ...style,
+        } as CSSProperties
       }
       toastOptions={{
+        ...toastOptions,
+        closeButtonAriaLabel: toastOptions?.closeButtonAriaLabel ?? "알림 닫기",
         classNames: {
-          toast: "cn-toast",
+          ...toastOptions?.classNames,
+          toast: ["cn-toast", toastOptions?.classNames?.toast]
+            .filter(Boolean)
+            .join(" "),
         },
       }}
       {...props}

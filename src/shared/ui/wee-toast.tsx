@@ -32,6 +32,9 @@ type WeeCompactToastOptions = {
   title: ReactNode;
 } & Pick<WeeToastBaseOptions, "duration" | "id" | "position" | "testId">;
 
+const WEE_COMPACT_TOAST_ID = "wee-compact-toast";
+const WEE_TOAST_DEFAULT_DURATION_MS = 5000;
+
 type WeeToastSurfaceProps = ComponentPropsWithoutRef<"div">;
 
 function WeeToastSurface({
@@ -89,13 +92,14 @@ function showWeeToast({
 
 function showWeeCompactToast({
   title,
-  duration = 2200,
+  duration = WEE_TOAST_DEFAULT_DURATION_MS,
   ...options
 }: WeeCompactToastOptions) {
   return toast.custom(
     () => <WeeToastSurface>{title}</WeeToastSurface>,
     {
       duration,
+      id: WEE_COMPACT_TOAST_ID,
       position: "bottom-center",
       testId: "wee-toast",
       ...options,
