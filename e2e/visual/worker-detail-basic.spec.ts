@@ -69,6 +69,8 @@ test(`WKR-03 edit-info-dialog ${desktop}`, async ({ page }) => {
   );
   await expect(dialog.getByText("세율 방식")).toHaveCount(0);
   await expect(dialog.getByLabel("세율", { exact: true })).toHaveCount(0);
+  const statusSelect = dialog.getByLabel("소속 상태");
+  const effectiveFromInput = dialog.getByLabel("적용 시작");
   const payInput = dialog.getByLabel("급여 금액");
   const payTypeControl = dialog
     .getByTestId("worker-edit-pay-type-control")
@@ -79,6 +81,18 @@ test(`WKR-03 edit-info-dialog ${desktop}`, async ({ page }) => {
   const payrollRowMetrics = {
     payTypeHeight: await payTypeControl.evaluate((element) =>
       Math.round(element.getBoundingClientRect().height),
+    ),
+    statusHeight: await statusSelect.evaluate((element) =>
+      Math.round(element.getBoundingClientRect().height),
+    ),
+    statusTop: await statusSelect.evaluate((element) =>
+      Math.round(element.getBoundingClientRect().top),
+    ),
+    effectiveFromHeight: await effectiveFromInput.evaluate((element) =>
+      Math.round(element.getBoundingClientRect().height),
+    ),
+    effectiveFromTop: await effectiveFromInput.evaluate((element) =>
+      Math.round(element.getBoundingClientRect().top),
     ),
     inputHeight: await payInput.evaluate((element) =>
       Math.round(element.getBoundingClientRect().height),
@@ -94,6 +108,11 @@ test(`WKR-03 edit-info-dialog ${desktop}`, async ({ page }) => {
     ),
   };
   expect(payrollRowMetrics.payTypeHeight).toBe(44);
+  expect(payrollRowMetrics.statusHeight).toBe(44);
+  expect(payrollRowMetrics.effectiveFromHeight).toBe(
+    payrollRowMetrics.statusHeight,
+  );
+  expect(payrollRowMetrics.effectiveFromTop).toBe(payrollRowMetrics.statusTop);
   expect(payrollRowMetrics.inputHeight).toBe(payrollRowMetrics.payTypeHeight);
   expect(payrollRowMetrics.withholdingHeight).toBe(
     payrollRowMetrics.payTypeHeight,

@@ -577,6 +577,7 @@ function EditInfoDialog({
             </label>
             <EditTextField
               error={submitted ? errors.effectiveFrom : undefined}
+              inputClassName="!h-11 !min-h-11 !rounded-[8px] !px-4"
               label="적용 시작"
               type="date"
               value={form.effectiveFrom}
