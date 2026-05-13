@@ -4,6 +4,10 @@ import {
   type DocumentData,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
+// TODO(refactor): Before adding more payroll behavior, split this data source
+// into Firestore collection readers, document mappers, payroll calculation
+// builders, statement view-model builders, and formatting helpers with focused
+// pure tests for the calculation and mapper layers.
 import { resolveActiveWorkspaceId } from "@/entities/workspace";
 import { readActiveWorkspaceId } from "@/entities/workspace";
 import { getFirebaseDb, isMockFirebaseProject } from "@/shared/api/firebase/client";

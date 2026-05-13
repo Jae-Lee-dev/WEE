@@ -4,6 +4,9 @@ import {
   type DocumentData,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
+// TODO(refactor): Before expanding dashboard summaries, split Firestore reads,
+// location aggregation, worker aggregation, AI monitoring mapping, and CSV/view
+// model shaping into focused model/api modules with pure aggregation tests.
 import { resolveActiveWorkspaceId } from "@/entities/workspace";
 import { readActiveWorkspaceId } from "@/entities/workspace";
 import { getFirebaseDb, isMockFirebaseProject } from "@/shared/api/firebase/client";

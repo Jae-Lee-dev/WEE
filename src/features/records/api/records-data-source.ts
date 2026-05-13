@@ -7,6 +7,10 @@ import {
   serverTimestamp,
   writeBatch,
 } from "firebase/firestore";
+// TODO(refactor): Before adding more record-processing behavior, split this
+// data source into Firestore adapters, document mappers, record action writers,
+// timeline/detail view-model builders, and date/status formatting helpers with
+// pure tests around mapper and action-decision behavior.
 import { resolveActiveWorkspaceId } from "@/entities/workspace";
 import { readActiveWorkspaceId } from "@/entities/workspace";
 import {

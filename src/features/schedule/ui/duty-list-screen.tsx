@@ -1,5 +1,9 @@
 "use client";
 
+// TODO(refactor): When DUT-01 receives more interaction work, move the create,
+// edit-basic, edit-time dialogs and the detail panel into feature-local UI
+// files, and keep this screen focused on data loading, selection, and layout
+// orchestration.
 import Link from "next/link";
 import {
   useEffect,

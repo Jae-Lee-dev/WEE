@@ -1,5 +1,8 @@
 "use client";
 
+// TODO(refactor): When WKR-06 gets more tag-management changes, split the tag
+// list panel, create dialog, detail/edit panel, and assignment rows into
+// feature-local UI files, leaving this screen as the data/mutation coordinator.
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
