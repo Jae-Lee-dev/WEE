@@ -416,11 +416,11 @@ function WorkerListTable({
         </div>
       </div>
 
-      <div className="grid h-9 shrink-0 grid-cols-[15%_24%_19%_24%_1fr] items-center border-b border-gray-300 px-4 text-h-18-regular text-gray-500">
+      <div className="grid h-9 shrink-0 grid-cols-[15%_19%_24%_24%_1fr] items-center border-b border-gray-300 px-4 text-h-18-regular text-gray-500">
         <div>이름</div>
-        <div>등록일</div>
         <div>근무자 태그</div>
         <div>급여</div>
+        <div>등록일</div>
         <div>소속 상태</div>
       </div>
 
@@ -478,18 +478,18 @@ function WorkerListTableState({
 
 function WorkerListRowItem({ row }: { row: WorkerListRow }) {
   const className = cn(
-    "grid min-h-[42px] grid-cols-[15%_24%_19%_24%_1fr] items-center border-b border-gray-100 px-4 text-h-18-regular text-gray-900 last:border-b-0",
+    "grid min-h-[42px] grid-cols-[15%_19%_24%_24%_1fr] items-center border-b border-gray-100 px-4 text-h-18-regular text-gray-900 last:border-b-0",
     row.detailHref &&
       "transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200",
   );
   const content = (
     <>
       <div>{row.name}</div>
-      <div>{row.registeredAt}</div>
       <div>
         <WorkerTagBadge tag={row.tag} />
       </div>
       <div>{row.pay}</div>
+      <div>{row.registeredAt}</div>
       <div className="flex items-center gap-2">
         <WorkerStatusBadge status={row.status} />
         {row.statusDate ? (
