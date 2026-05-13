@@ -136,8 +136,26 @@ type PayrollRowModel = {
 type PayStatementModel = {
   finalAmount: number;
   monthKey: string;
+  overtimePay: number | null;
   status: string;
   workerId: string;
+};
+
+type BonusItemModel = {
+  amount: number;
+  monthKey: string;
+  payrollStatus: string;
+  workerId: string;
+};
+
+type OvertimeWorkModel = {
+  extraEndAt: Date | null;
+  extraStartAt: Date | null;
+  monthKey: string;
+  payrollStatus: string;
+  status: string;
+  workerId: string;
+  workRecordId: string | null;
 };
 
 type AiRunModel = {
@@ -158,7 +176,9 @@ type AiCandidateModel = {
 type DashboardCollections = {
   aiRuns: readonly FirestoreDocument[];
   anomalyFlags: readonly FirestoreDocument[];
+  bonusItems: readonly FirestoreDocument[];
   locations: readonly FirestoreDocument[];
+  overtimeWorks: readonly FirestoreDocument[];
   payStatements: readonly FirestoreDocument[];
   payrollWorkerMonthRows: readonly FirestoreDocument[];
   workers: readonly FirestoreDocument[];
@@ -308,7 +328,9 @@ async function readDashboardCollections(): Promise<DashboardCollections> {
   const [
     aiRuns,
     anomalyFlags,
+    bonusItems,
     locations,
+    overtimeWorks,
     payStatements,
     payrollWorkerMonthRows,
     workers,
@@ -317,7 +339,9 @@ async function readDashboardCollections(): Promise<DashboardCollections> {
   ] = await Promise.all([
     readWorkspaceCollection(workspaceId, "aiRuns"),
     readWorkspaceCollection(workspaceId, "anomalyFlags"),
+    readWorkspaceCollection(workspaceId, "bonusItems"),
     readWorkspaceCollection(workspaceId, "locations"),
+    readWorkspaceCollection(workspaceId, "overtimeWorks"),
     readWorkspaceCollection(workspaceId, "payStatements"),
     readWorkspaceCollection(workspaceId, "payrollWorkerMonthRows"),
     readWorkspaceCollection(workspaceId, "workers"),
@@ -328,7 +352,9 @@ async function readDashboardCollections(): Promise<DashboardCollections> {
   return {
     aiRuns,
     anomalyFlags,
+    bonusItems,
     locations,
+    overtimeWorks,
     payStatements,
     payrollWorkerMonthRows,
     workers,
@@ -407,20 +433,22 @@ function mapWorkersViewModel(
     .map(mapWorker)
     .filter((worker) => worker.status === "active");
   const tags = collections.workerTags.map(mapTag);
-  const tagById = toMap(tags, (tag) => tag.id);
   const records = collections.workRecords.map(mapWorkRecord);
   const flags = collections.anomalyFlags.map(mapAnomalyFlag);
   const payrollRows = collections.payrollWorkerMonthRows.map(mapPayrollRow);
   const statements = collections.payStatements.map(mapPayStatement);
+  const bonusItems = collections.bonusItems.map(mapBonusItem);
+  const overtimeWorks = collections.overtimeWorks.map(mapOvertimeWork);
   const latestMonthKey = getLatestMonthKey(records.map((record) => record.monthKey));
   const summaries = workers.map((worker) =>
     createWorkerSummary({
+      bonusItems,
       flags,
       latestMonthKey,
+      overtimeWorks,
       payrollRows,
       records,
       statements,
-      tagById,
       worker,
     }),
   );
@@ -547,20 +575,22 @@ function createLocationWorkerRows(
 }
 
 function createWorkerSummary({
+  bonusItems,
   flags,
   latestMonthKey,
+  overtimeWorks,
   payrollRows,
   records,
   statements,
-  tagById,
   worker,
 }: {
+  bonusItems: readonly BonusItemModel[];
   flags: readonly AnomalyFlagModel[];
   latestMonthKey: string;
+  overtimeWorks: readonly OvertimeWorkModel[];
   payrollRows: readonly PayrollRowModel[];
   records: readonly WorkRecordModel[];
   statements: readonly PayStatementModel[];
-  tagById: Record<string, TagModel>;
   worker: WorkerModel;
 }): DashboardWorkerSummary {
   const workerRecords = records.filter(
@@ -574,9 +604,17 @@ function createWorkerSummary({
   const paidStatement = statements
     .filter((statement) => statement.workerId === worker.id)
     .sort(compareStatements)[0];
+  const payrollMonthKey = latestPayroll?.monthKey ?? paidStatement?.monthKey ?? latestMonthKey;
+  const payrollRecords = records.filter(
+    (record) => record.workerId === worker.id && record.monthKey === payrollMonthKey,
+  );
+  const payrollStatement =
+    statements.find(
+      (statement) =>
+        statement.workerId === worker.id && statement.monthKey === payrollMonthKey,
+    ) ?? paidStatement;
   const basePay =
-    latestPayroll?.finalAmount ?? paidStatement?.finalAmount ?? estimatePay(baseHours);
-  const tagLabels = worker.tagIds.map((tagId) => tagById[tagId]?.label).filter(Boolean);
+    latestPayroll?.finalAmount ?? payrollStatement?.finalAmount ?? estimatePay(baseHours);
 
   return {
     action: {
@@ -594,19 +632,55 @@ function createWorkerSummary({
       workerRecords.length > 0
         ? (workerRecords.filter(isLateRecord).length / workerRecords.length) * 100
         : 0,
-    memoPoints: [
-      `${latestMonthKey || "최근"} 기준 ${workerRecords.length}개 근무기록`,
-      `미처리 이상 플래그 ${workerFlags.filter((flag) => flag.status !== "resolved").length}건`,
-      tagLabels.length > 0 ? `태그 ${tagLabels.join(", ")}` : "태그 미지정",
-    ],
-    memoSummary:
-      workerRecords.length > 0
-        ? "실제 근무기록과 급여 projection 기준으로 집계되었습니다."
-        : "선택 기간에 집계 가능한 근무기록이 없습니다.",
-    memoUpdatedAt: "실시간 Firestore",
     name: worker.name,
+    payrollDetail: createPayrollDetail({
+      bonusItems,
+      overtimeWorks,
+      payrollRecords,
+      payrollStatement,
+      workerId: worker.id,
+      monthKey: payrollMonthKey,
+    }),
     payrollHistory: createPayrollHistory(worker.id, payrollRows, statements),
     tags: worker.tagIds,
+  };
+}
+
+function createPayrollDetail({
+  bonusItems,
+  monthKey,
+  overtimeWorks,
+  payrollRecords,
+  payrollStatement,
+  workerId,
+}: {
+  bonusItems: readonly BonusItemModel[];
+  monthKey: string;
+  overtimeWorks: readonly OvertimeWorkModel[];
+  payrollRecords: readonly WorkRecordModel[];
+  payrollStatement: PayStatementModel | undefined;
+  workerId: string;
+}): DashboardWorkerSummary["payrollDetail"] {
+  const workerBonusItems = bonusItems.filter(
+    (item) =>
+      item.workerId === workerId &&
+      item.monthKey === monthKey &&
+      item.payrollStatus !== "deleted",
+  );
+  const workerOvertimeWorks = overtimeWorks.filter(
+    (work) =>
+      work.workerId === workerId &&
+      work.monthKey === monthKey &&
+      isPayrollRelevantOvertime(work),
+  );
+  const recordsById = toMap(payrollRecords, (record) => record.id);
+  const estimatedOvertimePay = estimateOvertimePay(workerOvertimeWorks, recordsById);
+
+  return {
+    bonusPay: Math.round(sum(workerBonusItems.map((item) => item.amount))),
+    overtimePay: payrollStatement?.overtimePay ?? estimatedOvertimePay,
+    overtimePendingCount: workerOvertimeWorks.filter(isPendingOvertime).length,
+    regularWorkPay: estimatePay(sum(payrollRecords.map(getRecordHours))),
   };
 }
 
@@ -783,8 +857,34 @@ function mapPayStatement(document: FirestoreDocument): PayStatementModel {
   return {
     finalAmount: readNumber(snapshot.finalAmount, 0),
     monthKey: readString(data.monthKey, ""),
+    overtimePay: readNullableNumber(snapshot.overtimePay),
     status: readString(data.status, ""),
     workerId: readString(data.workerId, ""),
+  };
+}
+
+function mapBonusItem(document: FirestoreDocument): BonusItemModel {
+  const data = document.data;
+
+  return {
+    amount: readNumber(data.amount, 0),
+    monthKey: readString(data.monthKey, ""),
+    payrollStatus: readString(data.payrollStatus, "confirmed"),
+    workerId: readString(data.workerId, ""),
+  };
+}
+
+function mapOvertimeWork(document: FirestoreDocument): OvertimeWorkModel {
+  const data = document.data;
+
+  return {
+    extraEndAt: readDate(data.extraEndAt),
+    extraStartAt: readDate(data.extraStartAt),
+    monthKey: readString(data.monthKey, ""),
+    payrollStatus: readString(data.payrollStatus, "none"),
+    status: readString(data.status, ""),
+    workerId: readString(data.workerId, ""),
+    workRecordId: readNullableString(data.workRecordId),
   };
 }
 
@@ -902,12 +1002,59 @@ function getRecordHours(record: WorkRecordModel) {
   return (end - start) / (60 * 60 * 1000);
 }
 
+function estimateOvertimePay(
+  overtimeWorks: readonly OvertimeWorkModel[],
+  recordsById: Record<string, WorkRecordModel>,
+) {
+  return Math.round(
+    estimatePay(
+      sum(overtimeWorks.map((work) => getOvertimeWorkHours(work, recordsById))),
+    ),
+  );
+}
+
+function getOvertimeWorkHours(
+  work: OvertimeWorkModel,
+  recordsById: Record<string, WorkRecordModel>,
+) {
+  const record = work.workRecordId ? recordsById[work.workRecordId] : undefined;
+  const start = getTime(work.extraStartAt ?? record?.plannedEndAt);
+  const end = getTime(work.extraEndAt ?? record?.effectiveEndAt);
+
+  if (start <= 0 || end <= start) {
+    return 0;
+  }
+
+  return (end - start) / (60 * 60 * 1000);
+}
+
+function isPayrollRelevantOvertime(work: OvertimeWorkModel) {
+  if (work.status === "rejected" || work.status === "withdrawn") {
+    return false;
+  }
+
+  return (
+    work.status === "submitted" ||
+    work.status === "approved" ||
+    work.payrollStatus === "confirmed" ||
+    work.payrollStatus === "held"
+  );
+}
+
+function isPendingOvertime(work: OvertimeWorkModel) {
+  return work.status === "submitted" || work.payrollStatus === "held";
+}
+
 function estimatePay(hours: number) {
   return Math.round(hours * 12000);
 }
 
 function readString(value: unknown, fallback: string) {
   return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+function readNullableString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : null;
 }
 
 function readStringArray(value: unknown) {

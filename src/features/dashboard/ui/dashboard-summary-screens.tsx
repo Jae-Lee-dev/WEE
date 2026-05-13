@@ -61,8 +61,9 @@ export function DashboardLocationsScreen() {
   const [locationId, setLocationId] = useState<DashboardLocationId>(
     dataSource.initialData.defaultLocationId,
   );
-  const [periodId, setPeriodId] =
-    useState<DashboardLocationPeriodId>(dataSource.initialData.defaultPeriodId);
+  const [periodId, setPeriodId] = useState<DashboardLocationPeriodId>(
+    dataSource.initialData.defaultPeriodId,
+  );
   const [loading, setLoading] = useState(dataSource.mode !== "fixture");
   const [errorMessage, setErrorMessage] = useState("");
   const summary =
@@ -242,7 +243,7 @@ export function DashboardWorkersScreen() {
         setSelectedWorkerId((current) =>
           nextViewModel.summaries.some((worker) => worker.id === current)
             ? current
-            : nextViewModel.summaries[0]?.id ?? "",
+            : (nextViewModel.summaries[0]?.id ?? ""),
         );
         setTagId((current) =>
           nextViewModel.tagOptions.some((option) => option.id === current)
@@ -308,7 +309,14 @@ export function DashboardWorkersScreen() {
             disabled={loading || !!errorMessage}
             onClick={() =>
               downloadCsv("wee-worker-dashboard.csv", [
-                ["조교", "태그", "근무시간", "예상 급여", "이상 플래그", "지각률"],
+                [
+                  "조교",
+                  "태그",
+                  "근무시간",
+                  "예상 급여",
+                  "이상 플래그",
+                  "지각률",
+                ],
                 ...filteredWorkers.map((worker) => [
                   worker.name,
                   worker.tags
@@ -369,7 +377,6 @@ export function DashboardWorkersScreen() {
           {selectedWorker ? (
             <WorkerDashboardPanel
               periodId={periodId}
-              tagOptions={viewModel.tagOptions}
               worker={selectedWorker}
             />
           ) : (
@@ -481,7 +488,10 @@ export function DashboardAiMonitoringScreen({
           <AiRunInfoCard label="최근 실행" value={viewModel.lastRunAt} />
           <AiRunInfoCard
             label="분석 범위"
-            value={getOptionLabel(dashboardAiAnalysisPeriodOptions, lastRunPeriodId)}
+            value={getOptionLabel(
+              dashboardAiAnalysisPeriodOptions,
+              lastRunPeriodId,
+            )}
           />
           <AiRunInfoCard label="권장 액션" value="REC-01 검토" />
         </div>
@@ -528,7 +538,11 @@ function LocationWorkerTable({
               <div className="min-w-0 truncate">{row.workerName}</div>
               <div>{row.workHours}h</div>
               <CountCell count={row.lateCount} unit="회" tone="orange" />
-              <CountCell count={row.locationAnomalyCount} unit="건" tone="red" />
+              <CountCell
+                count={row.locationAnomalyCount}
+                unit="건"
+                tone="red"
+              />
               <CountCell count={row.absenceCount} unit="건" tone="red" />
               <div
                 className={cn(
@@ -661,11 +675,9 @@ function WorkerSelectorPanel({
 
 function WorkerDashboardPanel({
   periodId,
-  tagOptions,
   worker,
 }: {
   periodId: DashboardWorkerPeriodId;
-  tagOptions: readonly DashboardSelectOption<DashboardWorkerTagId>[];
   worker: DashboardWorkerSummary;
 }) {
   const profile = dashboardWorkerPeriodProfiles[periodId];
@@ -674,7 +686,9 @@ function WorkerDashboardPanel({
   const totalFlags = Math.max(0, worker.baseFlags + profile.flagDelta);
   const lateRate = Math.max(0, worker.lateRate + profile.lateDelta);
   const periodLabel = getOptionLabel(dashboardWorkerPeriodOptions, periodId);
-  const hourTrend = profile.hourParts.map((part) => Math.round(totalHours * part));
+  const hourTrend = profile.hourParts.map((part) =>
+    Math.round(totalHours * part),
+  );
   const payTrend = profile.payParts.map((part) => Math.round(totalPay * part));
 
   const metrics = [
@@ -738,7 +752,7 @@ function WorkerDashboardPanel({
 
         <div className="grid grid-cols-2 gap-4">
           <FlagDistributionCard worker={worker} />
-          <WorkerMemoCard tagOptions={tagOptions} worker={worker} />
+          <WorkerPayrollDetailCard worker={worker} />
         </div>
 
         <WorkerPayrollHistoryTable worker={worker} />
@@ -804,36 +818,81 @@ function FlagDistributionCard({ worker }: { worker: DashboardWorkerSummary }) {
   );
 }
 
-function WorkerMemoCard({
-  tagOptions,
-  worker,
-}: {
-  tagOptions: readonly DashboardSelectOption<DashboardWorkerTagId>[];
-  worker: DashboardWorkerSummary;
-}) {
+function WorkerPayrollDetailCard({ worker }: { worker: DashboardWorkerSummary }) {
+  const rows: readonly {
+    id: string;
+    label: string;
+    badgeLabel?: string;
+    badgeVariant?: "orange" | "grey";
+    amount: number;
+    tone: DashboardMetricTone;
+  }[] = [
+    {
+      id: "regular",
+      label: "일반근무",
+      amount: worker.payrollDetail.regularWorkPay,
+      tone: "green",
+    },
+    {
+      id: "overtime",
+      label: "추가근무",
+      badgeLabel: `보류·미처리 ${worker.payrollDetail.overtimePendingCount}건`,
+      badgeVariant:
+        worker.payrollDetail.overtimePendingCount > 0 ? "orange" : "grey",
+      amount: worker.payrollDetail.overtimePay,
+      tone:
+        worker.payrollDetail.overtimePendingCount > 0
+          ? "orange"
+          : worker.payrollDetail.overtimePay > 0
+            ? "green"
+            : "grey",
+    },
+    {
+      id: "bonus",
+      label: "보너스",
+      amount: worker.payrollDetail.bonusPay,
+      tone:
+        worker.payrollDetail.bonusPay > 0
+          ? "blue"
+          : worker.payrollDetail.bonusPay < 0
+            ? "red"
+            : "grey",
+    },
+  ];
+
   return (
-    <div className="rounded-[8px] border border-gray-200 bg-white p-4">
-      <h2 className="text-h-20 text-gray-900">운영 메모</h2>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {worker.tags.map((tag) => (
-          <Badge key={tag} variant="grey" size="M">
-            {getOptionLabel(tagOptions, tag)}
-          </Badge>
-        ))}
-      </div>
-      <p className="mt-4 rounded-[8px] bg-gray-50 px-4 py-3 text-body-14-regular text-gray-600">
-        {worker.memoSummary}
-      </p>
-      <div className="mt-4 space-y-2">
-        {worker.memoPoints.map((point) => (
-          <div key={point} className="flex items-start gap-2 text-body-14-regular text-gray-600">
-            <span className="mt-2 size-1.5 shrink-0 rounded-full bg-green-400" />
-            <span>{point}</span>
-          </div>
-        ))}
-      </div>
-      <div className="mt-4 border-t border-gray-100 pt-3 text-label-12-regular text-gray-500">
-        최근 업데이트 · {worker.memoUpdatedAt}
+    <div
+      className="rounded-[8px] border border-gray-200 bg-white p-4"
+      data-testid="dashboard-worker-payroll-detail"
+    >
+      <h2 className="text-h-20 text-gray-900">급여 상세</h2>
+      <div className="mt-4 divide-y divide-gray-100">
+        {rows.map((row) => {
+          const tone = metricToneClassNames[row.tone];
+
+          return (
+            <div
+              key={row.id}
+              className="flex min-h-12 items-center justify-between gap-4 py-2.5"
+            >
+              <div className="min-w-0">
+                <div className="text-h-16-medium text-gray-700">
+                  {row.label}
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {row.badgeLabel ? (
+                  <Badge variant={row.badgeVariant} size="M">
+                    {row.badgeLabel}
+                  </Badge>
+                ) : null}
+                <div className={cn("text-h-18-semibold", tone.value)}>
+                  {formatCurrency(row.amount)}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -895,7 +954,11 @@ function DashboardAiLockedState() {
             있습니다.
           </p>
           <div className="mt-5 flex gap-2.5">
-            <Button type="button" size="sm" className="h-10 rounded-full px-4 text-white">
+            <Button
+              type="button"
+              size="sm"
+              className="h-10 rounded-full px-4 text-white"
+            >
               Standard로 업그레이드
             </Button>
             <Button
@@ -909,7 +972,9 @@ function DashboardAiLockedState() {
           </div>
         </div>
         <div className="rounded-[8px] border border-gray-200 bg-gray-50 p-4">
-          <h3 className="text-h-16-semibold text-gray-900">Standard 포함 기능</h3>
+          <h3 className="text-h-16-semibold text-gray-900">
+            Standard 포함 기능
+          </h3>
           <div className="mt-3 space-y-2 text-body-14-regular text-gray-600">
             {dashboardAiMonitoringFixture.lockedFeatures.map((feature) => (
               <div key={feature}>- {feature}</div>
@@ -959,13 +1024,19 @@ function AiPatternTable({ rows }: { rows: readonly DashboardAiPatternRow[] }) {
               className="grid min-h-[48px] grid-cols-[120px_170px_250px_minmax(360px,1fr)_130px] items-center border-b border-gray-100 px-4 text-h-18-regular text-gray-900 last:border-b-0"
             >
               <div>
-                <MetricToneBadge tone={row.severityTone}>{row.severity}</MetricToneBadge>
+                <MetricToneBadge tone={row.severityTone}>
+                  {row.severity}
+                </MetricToneBadge>
               </div>
               <div className="min-w-0 truncate">{row.target}</div>
               <div className="min-w-0 truncate">{row.pattern}</div>
-              <div className="min-w-0 truncate text-gray-600">{row.evidence}</div>
+              <div className="min-w-0 truncate text-gray-600">
+                {row.evidence}
+              </div>
               <div>
-                <MetricToneBadge tone={row.statusTone}>{row.status}</MetricToneBadge>
+                <MetricToneBadge tone={row.statusTone}>
+                  {row.status}
+                </MetricToneBadge>
               </div>
             </div>
           ))}

@@ -796,6 +796,13 @@ export type DashboardWorkerFlagDistribution = {
   tone: DashboardMetricTone;
 };
 
+export type DashboardWorkerPayrollDetail = {
+  regularWorkPay: number;
+  overtimePay: number;
+  overtimePendingCount: number;
+  bonusPay: number;
+};
+
 export type DashboardWorkerSummary = {
   id: string;
   name: string;
@@ -805,9 +812,7 @@ export type DashboardWorkerSummary = {
   basePay: number;
   baseFlags: number;
   lateRate: number;
-  memoSummary: string;
-  memoPoints: readonly string[];
-  memoUpdatedAt: string;
+  payrollDetail: DashboardWorkerPayrollDetail;
   flagDistribution: readonly DashboardWorkerFlagDistribution[];
   payrollHistory: readonly DashboardWorkerPayrollHistory[];
   action: DashboardActionMeta;
@@ -868,9 +873,12 @@ export const dashboardWorkerSummaries = [
     basePay: 552000,
     baseFlags: 1,
     lateRate: 4.2,
-    memoSummary: "주중 마감 운영과 행정 처리 숙련도가 높아 안정적으로 투입됩니다.",
-    memoPoints: ["월·수 행정 우선 배치", "시험기간 야간자습 추가 투입 가능", "최근 1개월 이의신청 없음"],
-    memoUpdatedAt: "2026.04.21 · 실장 김도윤",
+    payrollDetail: {
+      regularWorkPay: 492000,
+      overtimePay: 35000,
+      overtimePendingCount: 1,
+      bonusPay: 25000,
+    },
     flagDistribution: [
       { type: "위치이상", count: 0, tone: "grey" },
       { type: "시간이상", count: 1, tone: "orange" },
@@ -897,9 +905,12 @@ export const dashboardWorkerSummaries = [
     basePay: 483000,
     baseFlags: 0,
     lateRate: 0,
-    memoSummary: "학생 응대가 안정적이라 저학년 질문 응대 시간대에 우선 배치합니다.",
-    memoPoints: ["오후 4시 이후 질문조교 선호", "금요일 마감 직전 단독 배치 지양", "추가근무 수용률 높음"],
-    memoUpdatedAt: "2026.04.18 · 관리자 박은지",
+    payrollDetail: {
+      regularWorkPay: 463000,
+      overtimePay: 0,
+      overtimePendingCount: 0,
+      bonusPay: 20000,
+    },
     flagDistribution: [
       { type: "위치이상", count: 0, tone: "grey" },
       { type: "시간이상", count: 0, tone: "grey" },
@@ -926,9 +937,12 @@ export const dashboardWorkerSummaries = [
     basePay: 436000,
     baseFlags: 2,
     lateRate: 8.3,
-    memoSummary: "출근 직전 이동 이슈가 있어 첫 타임 초반 로그 확인이 필요합니다.",
-    memoPoints: ["첫 타임 배치 시 출근 로그 확인", "행정보다 수업 보조 선호", "최근 위치이상 플래그 1건"],
-    memoUpdatedAt: "2026.04.20 · 실장 김도윤",
+    payrollDetail: {
+      regularWorkPay: 436000,
+      overtimePay: 0,
+      overtimePendingCount: 1,
+      bonusPay: 0,
+    },
     flagDistribution: [
       { type: "위치이상", count: 1, tone: "red" },
       { type: "시간이상", count: 1, tone: "orange" },
@@ -955,9 +969,12 @@ export const dashboardWorkerSummaries = [
     basePay: 462000,
     baseFlags: 1,
     lateRate: 2.5,
-    memoSummary: "수업 보조 품질이 좋고 일정 변경을 미리 공유하는 편입니다.",
-    memoPoints: ["화·목 고정 시간대 선호", "과학 계열 수업 보조 만족도 높음", "급여 산정 특이사항 없음"],
-    memoUpdatedAt: "2026.04.16 · 관리자 이소민",
+    payrollDetail: {
+      regularWorkPay: 432000,
+      overtimePay: 30000,
+      overtimePendingCount: 0,
+      bonusPay: 0,
+    },
     flagDistribution: [
       { type: "위치이상", count: 1, tone: "red" },
       { type: "시간이상", count: 0, tone: "grey" },
@@ -984,9 +1001,12 @@ export const dashboardWorkerSummaries = [
     basePay: 374000,
     baseFlags: 1,
     lateRate: 6.3,
-    memoSummary: "행정과 마감 정산을 함께 맡길 수 있으나 연속 근무는 짧게 잡습니다.",
-    memoPoints: ["하루 2블록 이하 배치 권장", "주말 단기 투입 가능", "퇴근미처리 재발 여부 관찰"],
-    memoUpdatedAt: "2026.04.19 · 실장 김도윤",
+    payrollDetail: {
+      regularWorkPay: 354000,
+      overtimePay: 20000,
+      overtimePendingCount: 1,
+      bonusPay: 0,
+    },
     flagDistribution: [
       { type: "위치이상", count: 0, tone: "grey" },
       { type: "시간이상", count: 0, tone: "grey" },
@@ -1013,9 +1033,12 @@ export const dashboardWorkerSummaries = [
     basePay: 506000,
     baseFlags: 0,
     lateRate: 0,
-    memoSummary: "수학 질문 대응은 강점이고 행정 업무는 역할을 분리하면 안정적입니다.",
-    memoPoints: ["질문조교 중심 배치", "행정 단독 마감은 보류", "시험기간 추가근무 가능 여부 확인"],
-    memoUpdatedAt: "2026.04.17 · 관리자 박은지",
+    payrollDetail: {
+      regularWorkPay: 486000,
+      overtimePay: 20000,
+      overtimePendingCount: 0,
+      bonusPay: 0,
+    },
     flagDistribution: [
       { type: "위치이상", count: 0, tone: "grey" },
       { type: "시간이상", count: 0, tone: "grey" },

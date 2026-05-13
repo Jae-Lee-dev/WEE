@@ -146,6 +146,16 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     });
     await page.evaluate(() => document.fonts.ready);
     await expect(page.getByTestId("dashboard-workers-screen")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "급여 상세" })).toBeVisible();
+    await expect(page.getByTestId("dashboard-worker-payroll-detail")).toContainText(
+      "일반근무",
+    );
+    await expect(page.getByTestId("dashboard-worker-payroll-detail")).toContainText(
+      "추가근무",
+    );
+    await expect(page.getByTestId("dashboard-worker-payroll-detail")).toContainText(
+      "보류·미처리 1건",
+    );
     await expect(page.getByRole("heading", { name: "최근 명세 상태" })).toBeVisible();
 
     await captureActualScreenshot({
