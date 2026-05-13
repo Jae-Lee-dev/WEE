@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { LogOut } from "lucide-react";
+import { Check, Copy, LogOut } from "lucide-react";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import {
   adminSections,
@@ -451,13 +451,6 @@ function AdminHeader({
     });
   }
 
-  const inviteCodeButtonLabel =
-    currentInviteCodeCopyResult === "copied"
-      ? "복사됨"
-      : currentInviteCodeCopyResult === "failed"
-        ? "복사 실패"
-        : "참여 코드 복사";
-
   return (
     <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4">
       <div className="flex items-center gap-3">
@@ -476,20 +469,54 @@ function AdminHeader({
         <button
           type="button"
           aria-disabled={canCopyInviteCode ? undefined : true}
-          aria-live="polite"
-          className={`flex h-9 items-center justify-center rounded-full border border-gray-200 bg-white px-3.5 text-h-16-medium text-gray-700 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 ${
+          className={`flex h-9 items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-3.5 text-h-16-medium text-gray-700 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 ${
             canCopyInviteCode
               ? "hover:border-gray-300 hover:bg-gray-50"
               : "cursor-not-allowed opacity-60"
           }`}
+          data-copy-state={currentInviteCodeCopyResult}
           data-testid="admin-header-invite-code-copy"
           disabled={!canCopyInviteCode}
           onClick={() => {
             void handleInviteCodeCopy();
           }}
         >
-          {inviteCodeButtonLabel}
+          <span>참여 코드 복사</span>
+          <span
+            aria-hidden="true"
+            className="relative size-4 shrink-0 overflow-hidden"
+          >
+            <Copy
+              className={`absolute inset-0 size-4 transition-all duration-200 ease-out ${
+                currentInviteCodeCopyResult === "copied"
+                  ? "scale-75 rotate-6 opacity-0"
+                  : currentInviteCodeCopyResult === "failed"
+                    ? "scale-100 text-red-500 opacity-100"
+                    : "scale-100 rotate-0 opacity-100"
+              }`}
+              strokeWidth={2.2}
+            />
+            <Check
+              className={`absolute inset-0 size-4 text-green-400 transition-all duration-200 ease-out ${
+                currentInviteCodeCopyResult === "copied"
+                  ? "scale-100 rotate-0 opacity-100"
+                  : "scale-50 -rotate-12 opacity-0"
+              }`}
+              strokeWidth={2.6}
+            />
+          </span>
         </button>
+        <span
+          aria-live="polite"
+          className="sr-only"
+          data-testid="admin-header-invite-code-copy-status"
+        >
+          {currentInviteCodeCopyResult === "copied"
+            ? "참여 코드가 복사되었습니다."
+            : currentInviteCodeCopyResult === "failed"
+              ? "참여 코드 복사에 실패했습니다."
+              : ""}
+        </span>
         <HeaderNotificationSlot />
       </div>
     </header>

@@ -157,9 +157,14 @@ test("admin shell copies invite code from topbar outside workers", async ({
   const copyButton = page.getByTestId("admin-header-invite-code-copy");
   await expect(copyButton).toBeEnabled();
   await expect(copyButton).toHaveText("참여 코드 복사");
+  await expect(copyButton).toHaveAttribute("data-copy-state", "idle");
   await copyButton.click();
 
-  await expect(copyButton).toHaveText("복사됨");
+  await expect(copyButton).toHaveText("참여 코드 복사");
+  await expect(copyButton).toHaveAttribute("data-copy-state", "copied");
+  await expect(
+    page.getByTestId("admin-header-invite-code-copy-status"),
+  ).toHaveText("참여 코드가 복사되었습니다.");
   await expect
     .poll(() =>
       page.evaluate(() => window.localStorage.getItem("wee.test.clipboard")),
