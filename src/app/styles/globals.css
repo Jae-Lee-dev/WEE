@@ -455,92 +455,94 @@ body:has([data-admin-shell="compact"]) [data-slot="table-cell"] {
 @keyframes invite-code-copy-success-out {
   0% {
     opacity: 1;
-    transform: rotate(0deg) scale(1);
+    transform: translateY(0) scale(1);
   }
-  56% {
-    opacity: 0.54;
-    transform: rotate(88deg) scale(0.96);
+  48% {
+    opacity: 0.58;
+    transform: translateY(-0.5px) scale(0.99);
   }
   100% {
     opacity: 0;
-    transform: rotate(156deg) scale(0.9);
+    transform: translateY(-1px) scale(0.96);
   }
 }
 
 @keyframes invite-code-check-spin-in {
   0% {
     opacity: 0;
-    transform: rotate(-156deg) scale(0.86);
+    transform: translateY(1px) scale(0.96);
   }
-  58% {
-    opacity: 0.72;
-    transform: rotate(-58deg) scale(0.98);
+  24% {
+    opacity: 0;
+    transform: translateY(1px) scale(0.96);
   }
   82% {
-    transform: rotate(-12deg) scale(1.04);
+    opacity: 1;
+    transform: translateY(0) scale(1.015);
   }
   100% {
     opacity: 1;
-    transform: rotate(0deg) scale(1);
+    transform: translateY(0) scale(1);
   }
 }
 
 @keyframes invite-code-copy-failure-out {
   0% {
     opacity: 1;
-    transform: rotate(0deg) scale(1);
+    transform: translateY(0) scale(1);
   }
-  56% {
-    opacity: 0.54;
-    transform: rotate(-88deg) scale(0.96);
+  48% {
+    opacity: 0.58;
+    transform: translateY(0.5px) scale(0.99);
   }
   100% {
     opacity: 0;
-    transform: rotate(-156deg) scale(0.9);
+    transform: translateY(1px) scale(0.96);
   }
 }
 
 @keyframes invite-code-x-spin-in {
   0% {
     opacity: 0;
-    transform: rotate(156deg) scale(0.86);
+    transform: translateY(1px) scale(0.96);
   }
-  58% {
-    opacity: 0.72;
-    transform: rotate(58deg) scale(0.98);
+  24% {
+    opacity: 0;
+    transform: translateY(1px) scale(0.96);
   }
   82% {
-    transform: rotate(12deg) scale(1.04);
+    opacity: 1;
+    transform: translateY(0) scale(1.015);
   }
   100% {
     opacity: 1;
-    transform: rotate(0deg) scale(1);
+    transform: translateY(0) scale(1);
   }
 }
 
 .admin-invite-copy-success-out {
-  animation: invite-code-copy-success-out 300ms cubic-bezier(0.22, 1, 0.36, 1)
+  animation: invite-code-copy-success-out 460ms cubic-bezier(0.22, 1, 0.36, 1)
     both;
   transform-origin: center;
   will-change: opacity, transform;
 }
 
 .admin-invite-check-spin-in {
-  animation: invite-code-check-spin-in 340ms cubic-bezier(0.22, 1, 0.36, 1)
+  animation: invite-code-check-spin-in 560ms cubic-bezier(0.22, 1, 0.36, 1)
     both;
   transform-origin: center;
   will-change: opacity, transform;
 }
 
 .admin-invite-copy-failure-out {
-  animation: invite-code-copy-failure-out 300ms cubic-bezier(0.22, 1, 0.36, 1)
+  animation: invite-code-copy-failure-out 460ms cubic-bezier(0.22, 1, 0.36, 1)
     both;
   transform-origin: center;
   will-change: opacity, transform;
 }
 
 .admin-invite-x-spin-in {
-  animation: invite-code-x-spin-in 340ms cubic-bezier(0.22, 1, 0.36, 1)
+  animation: invite-code-x-spin-in 560ms cubic-bezier(0.22, 1, 0.36, 1)
     both;
   transform-origin: center;
   will-change: opacity, transform;
