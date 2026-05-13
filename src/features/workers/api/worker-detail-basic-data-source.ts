@@ -505,7 +505,7 @@ function createPayrollRows(
     return [
       { id: "payType", label: "급여 타입", value: "미설정" },
       { id: "rate", label: "단가", value: "급여 미설정" },
-      { id: "tax", label: "세율", value: "미설정" },
+      { id: "tax", label: "원천징수", value: "미설정" },
       { id: "effectiveFrom", label: "적용 시작", value: "-" },
     ];
   }
@@ -513,7 +513,7 @@ function createPayrollRows(
   return [
     { id: "payType", label: "급여 타입", value: readPayrollTypeLabel(setting) },
     { id: "rate", label: "단가", value: readPayrollRateLabel(setting) },
-    { id: "tax", label: "세율", value: readTaxLabel(setting) },
+    { id: "tax", label: "원천징수", value: readTaxLabel(setting) },
     {
       id: "effectiveFrom",
       label: "적용 시작",
@@ -732,11 +732,15 @@ function readPayrollRateLabel(setting: PayrollSetting) {
 }
 
 function readTaxLabel(setting: PayrollSetting) {
+  if (setting.taxType === "none") {
+    return "없음";
+  }
+
   if (setting.taxRatePercent !== null) {
     return `${setting.taxRatePercent}%`;
   }
 
-  return setting.taxType === "none" ? "비과세" : "미설정";
+  return setting.taxType === "custom" ? "3.3%" : "미설정";
 }
 
 function comparePayrollSettings(left: PayrollSetting, right: PayrollSetting) {

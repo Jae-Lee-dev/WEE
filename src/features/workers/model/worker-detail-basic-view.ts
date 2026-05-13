@@ -10,8 +10,7 @@ export type EditInfoFormField =
   | "contact"
   | "effectiveFrom"
   | "name"
-  | "payAmount"
-  | "taxRatePercent";
+  | "payAmount";
 
 export type EditInfoFormErrors = Partial<Record<EditInfoFormField, string>>;
 
@@ -23,9 +22,10 @@ export type EditInfoFormState = {
   payrollType: WorkerDetailPayrollType;
   status: WorkerDetailStatusValue;
   tagIds: readonly string[];
-  taxRatePercent: string;
   taxType: WorkerDetailTaxType;
 };
+
+export const workerDetailWithholdingTaxRatePercent = 3.3;
 
 export function createEditInfoFormState(
   values: WorkerDetailBasicEditValues,
@@ -41,8 +41,6 @@ export function createEditInfoFormState(
     payrollType: values.payrollType,
     status: values.status,
     tagIds: [...values.tagIds],
-    taxRatePercent:
-      values.taxRatePercent === null ? "" : String(values.taxRatePercent),
     taxType: values.taxType,
   };
 }
@@ -52,7 +50,6 @@ export function getEditInfoFormErrors(
 ): EditInfoFormErrors {
   const errors: EditInfoFormErrors = {};
   const payAmount = parseDecimalInput(form.payAmount);
-  const taxRatePercent = parseDecimalInput(form.taxRatePercent);
 
   if (!form.name.trim()) {
     errors.name = "이름을 입력해 주세요.";
@@ -68,13 +65,6 @@ export function getEditInfoFormErrors(
 
   if (payAmount === null || payAmount <= 0) {
     errors.payAmount = "급여 금액을 입력해 주세요.";
-  }
-
-  if (
-    form.taxType === "custom" &&
-    (taxRatePercent === null || taxRatePercent < 0 || taxRatePercent > 100)
-  ) {
-    errors.taxRatePercent = "0~100 사이의 세율을 입력해 주세요.";
   }
 
   return errors;
@@ -99,7 +89,7 @@ export function createWorkerDetailSaveInput(
 ): WorkerDetailBasicSaveInput {
   const payAmount = parseDecimalInput(form.payAmount) ?? 0;
   const taxRatePercent =
-    form.taxType === "custom" ? parseDecimalInput(form.taxRatePercent) ?? 0 : null;
+    form.taxType === "custom" ? workerDetailWithholdingTaxRatePercent : null;
 
   return {
     contact: form.contact.trim(),

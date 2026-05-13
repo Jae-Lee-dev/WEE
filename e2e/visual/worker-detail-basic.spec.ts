@@ -25,6 +25,7 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await expect(screen).toContainText("국민은행 123-456-789");
     await expect(screen).toContainText("급여 설정");
     await expect(screen).toContainText("₩10,000 / 시간");
+    await expect(screen).toContainText("원천징수");
     await expect(
       page.getByRole("link", { name: "통장 사본 다운로드" }),
     ).toHaveAttribute("href", /worker-kim-seoyeon-bankbook/);
@@ -50,11 +51,18 @@ test(`WKR-03 edit-info-dialog ${desktop}`, async ({ page }) => {
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText("조교 정보 수정");
   await expect(dialog).toContainText("급여 타입");
+  await expect(dialog).toContainText("원천징수");
   await expect(dialog).toContainText("급여 설정 변경은 해당 월 1일부터 소급 적용됩니다");
   await expect(dialog.getByRole("tab", { name: "시급" })).toHaveAttribute(
     "aria-selected",
     "true",
   );
+  await expect(dialog.getByRole("tab", { name: "3.3%" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(dialog.getByText("세율 방식")).toHaveCount(0);
+  await expect(dialog.getByLabel("세율", { exact: true })).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: "저장" })).toBeDisabled();
 
   await captureActualScreenshot({
@@ -166,6 +174,24 @@ test("WKR-03 switches pay type through shared segment", async ({ page }) => {
     "true",
   );
   await expect(dialog.getByText("원/월")).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "저장" })).toBeEnabled();
+});
+
+test("WKR-03 switches withholding through shared segment", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: routePath,
+    viewport: desktop,
+  });
+  await page.getByTestId("worker-basic-edit-trigger").click();
+
+  const dialog = page.getByTestId("worker-edit-info-dialog");
+  await dialog.getByRole("tab", { name: "없음" }).click();
+
+  await expect(dialog.getByRole("tab", { name: "없음" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   await expect(dialog.getByRole("button", { name: "저장" })).toBeEnabled();
 });
 

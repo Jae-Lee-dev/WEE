@@ -98,7 +98,7 @@ export const workerDetailBasicFixture = {
   payrollRows: [
     { id: "payType", label: "급여 타입", value: "시급" },
     { id: "rate", label: "단가", value: "₩10,000 / 시간" },
-    { id: "tax", label: "세율", value: "3.3%" },
+    { id: "tax", label: "원천징수", value: "3.3%" },
     { id: "effectiveFrom", label: "적용 시작", value: "2026.04.01" },
   ],
   editDialog: {

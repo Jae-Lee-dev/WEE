@@ -40,7 +40,6 @@ import {
   type WorkerDetailPayrollType,
   type WorkerDetailStatusValue,
   type WorkerDetailTagOption,
-  type WorkerDetailTaxType,
 } from "../api/worker-detail-basic-data-source";
 import {
   areEditInfoFormsEqual,
@@ -48,6 +47,7 @@ import {
   createWorkerDetailSaveInput,
   getEditInfoFormErrors,
   hasEditInfoFormErrors,
+  workerDetailWithholdingTaxRatePercent,
   type EditInfoFormField,
   type EditInfoFormState,
 } from "../model/worker-detail-basic-view";
@@ -64,11 +64,6 @@ const blockerToneClassName: Record<DeleteBlockerTone, string> = {
 const statusOptions: SelectOption[] = [
   { label: "활성", value: "active" },
   { label: "비활성", value: "inactive" },
-];
-
-const taxTypeOptions: SelectOption[] = [
-  { label: "원천징수 3.3%", value: "custom" },
-  { label: "비과세", value: "none" },
 ];
 
 export function WorkerDetailBasicScreen({
@@ -648,7 +643,7 @@ function EditInfoDialog({
             </p>
           </div>
 
-          <div className="mt-4 grid grid-cols-[1fr_180px] gap-4">
+          <div className="mt-4 grid grid-cols-[minmax(0,1fr)_180px] gap-4">
             <EditTextField
               error={submitted ? errors.payAmount : undefined}
               inputMode="numeric"
@@ -658,37 +653,24 @@ function EditInfoDialog({
               onChange={handleTextChange("payAmount")}
               suffix={form.payrollType === "hourly" ? "원/시간" : "원/월"}
             />
-            <label className="block">
-              <span className="text-h-18-semibold text-gray-900">세율 방식</span>
-              <OptionSelect
+            <div>
+              <span className="text-h-18-semibold text-gray-900">원천징수</span>
+              <Segment
+                className="mt-3 grid h-11 w-full grid-cols-2 [&_[data-slot=tabs-trigger]]:h-9 [&_[data-slot=tabs-trigger]]:rounded-[8px] [&_[data-slot=tabs-trigger]]:px-2 [&_[data-slot=tabs-trigger]]:py-0 [&_[data-slot=tabs-trigger]]:text-h-16-semibold"
+                options={[
+                  { value: "none", label: "없음" },
+                  {
+                    value: "custom",
+                    label: `${workerDetailWithholdingTaxRatePercent}%`,
+                  },
+                ]}
                 value={form.taxType}
                 disabled={saving}
-                onValueChange={(value) =>
-                  setFormValue("taxType", value as WorkerDetailTaxType)
-                }
-                options={[...taxTypeOptions]}
-                triggerAriaLabel="세율 방식"
-                triggerClassName="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-white px-4 text-h-18-regular"
-                contentClassName="z-[70]"
-                itemClassName="text-h-16-medium tracking-normal"
+                onChange={(value) => setFormValue("taxType", value)}
               />
               <span className="mt-1 block min-h-4 text-label-12-regular text-red-500" />
-            </label>
-          </div>
-
-          {form.taxType === "custom" ? (
-            <div className="mt-4 max-w-[220px]">
-              <EditTextField
-                error={submitted ? errors.taxRatePercent : undefined}
-                inputMode="decimal"
-                label="세율"
-                value={form.taxRatePercent}
-                disabled={saving}
-                onChange={handleTextChange("taxRatePercent")}
-                suffix="%"
-              />
             </div>
-          ) : null}
+          </div>
 
           {saveErrorMessage ? (
             <p className="mt-3 text-label-14-medium text-red-500" role="alert">
