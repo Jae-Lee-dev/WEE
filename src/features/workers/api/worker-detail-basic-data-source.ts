@@ -386,7 +386,7 @@ function createDetailProfile({
     status,
     paySummary,
     registeredSummary: `${registeredAt} 등록`,
-    monthlySummary: readString(data.monthlySummary, "당월 근무시간 집계 전"),
+    monthlySummary: readString(data.monthlySummary, "당월 급여명세 미확정"),
     deleteLabel: workerDetailProfile.deleteLabel,
   };
 }

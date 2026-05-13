@@ -316,7 +316,7 @@ function buildProfile({
     deleteLabel: workerDetailProfile.deleteLabel,
     monthlySummary: monthKey
       ? `${formatMonthKorean(monthKey)} ${formatHours(monthlyMinutes)} 근무`
-      : "근무시간 집계 전",
+      : "당월 급여명세 미확정",
     name,
     paySummary: formatPayrollBasis(setting),
     registeredSummary: `${formatDateLabel(readDate(workerData.approvedAt) ?? readDate(workerData.createdAt))} 등록`,

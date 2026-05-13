@@ -62,7 +62,7 @@ export function WorkerDetailPayrollScreen({
       issues: [],
       profile: {
         deleteLabel: "조교 삭제",
-        monthlySummary: "급여 산정 확인 중",
+        monthlySummary: "급여명세 확인 중",
         name: "조교 정보 로딩 중",
         paySummary: "급여 설정 확인 중",
         registeredSummary: "등록일 확인 중",
@@ -232,12 +232,12 @@ function RecentStatementsCard({
 }) {
   return (
     <WorkerDetailSubsection
-      ariaLabel="최근 확정 명세"
+      ariaLabel="최근 확정 급여명세"
       className="min-h-0 flex-1 gap-5 rounded-[10px] p-5"
       testId="worker-detail-payroll-statements"
     >
       <WorkerDetailSubsectionHeader className="min-h-0">
-        <h2 className="text-h-20 text-gray-900">최근 확정 명세</h2>
+        <h2 className="text-h-20 text-gray-900">최근 확정 급여명세</h2>
       </WorkerDetailSubsectionHeader>
       <div
         className="grid min-h-[45px] grid-cols-[24%_24%_24%_1fr] items-center border-b border-gray-300 px-5 py-2.5 text-label-18 text-gray-500"
@@ -250,13 +250,13 @@ function RecentStatementsCard({
       </div>
       <div role="rowgroup">
         {loading ? (
-          <PanelState>최근 명세를 불러오는 중입니다.</PanelState>
+          <PanelState>최근 급여명세를 불러오는 중입니다.</PanelState>
         ) : statements.length > 0 ? (
           statements.map((statement) => (
             <RecentStatementRow key={statement.id} statement={statement} />
           ))
         ) : (
-          <PanelState>표시할 확정 명세가 없습니다.</PanelState>
+          <PanelState>표시할 확정 급여명세가 없습니다.</PanelState>
         )}
       </div>
     </WorkerDetailSubsection>

@@ -43,7 +43,7 @@ export const workerDetailPayrollSummary = {
     },
     {
       id: "latest-confirmed",
-      label: "최근 확정 명세",
+      label: "최근 확정 급여명세",
       value: "₩ 562,134",
       badge: "26.03",
       tone: "green",
@@ -55,7 +55,7 @@ export const workerDetailPayrollSummary = {
       tone: "red",
     },
   ],
-  actions: ["급여 산정으로 이동", "급여 명세 보기"],
+  actions: ["급여 산정으로 이동", "급여명세 보기"],
 } as const satisfies {
   title: string;
   metrics: readonly WorkerDetailPayrollMetric[];

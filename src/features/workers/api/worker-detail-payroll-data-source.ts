@@ -261,7 +261,7 @@ function buildProfile({
   return {
     deleteLabel: workerDetailProfile.deleteLabel,
     monthlySummary: latestRow?.finalAmount == null
-      ? `${formatMonthKorean(latestRow?.monthKey ?? "")} 산정 대기`
+      ? `${formatMonthKorean(latestRow?.monthKey ?? "")} 급여명세 미확정`
       : `${formatMonthKorean(latestRow.monthKey)} 산정 ${formatWon(latestRow.finalAmount)}`,
     name: readString(workerData.name, readString(workerData.displayName, "이름 없는 조교")),
     paySummary: formatPayrollBasis(setting),
@@ -290,11 +290,11 @@ function buildSummaryMetrics({
     {
       badge: latestStatement ? formatMonthShort(latestStatement.monthKey) : undefined,
       id: "latest-confirmed",
-      label: "최근 확정 명세",
+      label: "최근 확정 급여명세",
       tone: latestStatement?.finalAmount == null ? "default" : "green",
       value:
         latestStatement?.finalAmount == null
-          ? "명세 없음"
+          ? "급여명세 없음"
           : formatWon(latestStatement.finalAmount),
     },
     {
@@ -449,7 +449,7 @@ function buildPendingIssues({
           state: "재확정 필요",
           tag: "재확정",
           tagTone: "orange",
-          title: "명세 확정 후 산정 입력이 변경되었습니다.",
+          title: "급여명세 확정 후 산정 입력이 변경되었습니다.",
         },
       ]
     : [];

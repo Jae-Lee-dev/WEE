@@ -61,7 +61,7 @@ export function WorkerDetailScheduleScreen({
       history: [],
       profile: {
         deleteLabel: "조교 삭제",
-        monthlySummary: "근무시간 집계 전",
+        monthlySummary: "당월 급여명세 확인 중",
         name: "조교 정보 로딩 중",
         paySummary: "급여 설정 확인 중",
         registeredSummary: "등록일 확인 중",

@@ -95,7 +95,7 @@ export function WorkerDetailBasicScreen({
         status: "불러오는 중",
         paySummary: "급여 확인 중",
         registeredSummary: "등록일 확인 중",
-        monthlySummary: "당월 근무시간 확인 중",
+        monthlySummary: "당월 급여명세 확인 중",
         deleteLabel: "조교 삭제",
       },
       tagOptions: [],
