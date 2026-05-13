@@ -191,7 +191,6 @@ export function WorkersListScreen({
         errorMessage={errorMessage}
         loading={loading}
         rows={pagedRows}
-        status={status}
         currentPage={safeCurrentPage}
         lastUpdatedAt={lastUpdatedAt}
         pageSize={pageSize}
@@ -375,7 +374,6 @@ function WorkerListTable({
   pageSize,
   refreshing,
   rows,
-  status,
   tagOptions,
   totalItems,
   totalPages,
@@ -390,7 +388,6 @@ function WorkerListTable({
   pageSize: number;
   refreshing: boolean;
   rows: readonly WorkerListRow[];
-  status: WorkerListStatus;
   tagOptions: readonly WorkerTag[];
   totalItems: number;
   totalPages: number;
@@ -436,9 +433,7 @@ function WorkerListTable({
         ) : errorMessage ? (
           <WorkerListTableState label={errorMessage} role="alert" />
         ) : rows.length > 0 ? (
-          rows.map((row) => (
-            <WorkerListRowItem key={row.id} row={row} status={status} />
-          ))
+          rows.map((row) => <WorkerListRowItem key={row.id} row={row} />)
         ) : (
           <WorkerListTableState
             label={
@@ -481,16 +476,9 @@ function WorkerListTableState({
   );
 }
 
-function WorkerListRowItem({
-  row,
-  status,
-}: {
-  row: WorkerListRow;
-  status: WorkerListStatus;
-}) {
+function WorkerListRowItem({ row }: { row: WorkerListRow }) {
   const className = cn(
     "grid min-h-[42px] grid-cols-[15%_24%_19%_24%_1fr] items-center border-b border-gray-100 px-4 text-h-18-regular text-gray-900 last:border-b-0",
-    status === "inactive" && "min-h-[60px]",
     row.detailHref &&
       "transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200",
   );
@@ -502,10 +490,10 @@ function WorkerListRowItem({
         <WorkerTagBadge tag={row.tag} />
       </div>
       <div>{row.pay}</div>
-      <div className="flex flex-col items-start gap-1">
+      <div className="flex items-center gap-2">
         <WorkerStatusBadge status={row.status} />
         {row.statusDate ? (
-          <span className="text-label-14-regular text-gray-500">
+          <span className="shrink-0 text-label-14-regular text-gray-500">
             {row.statusDate}
           </span>
         ) : null}
