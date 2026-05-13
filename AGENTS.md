@@ -62,15 +62,18 @@ This version has breaking changes. APIs, conventions, and file structure may dif
 
 ## Develop Merge Closeout
 
+- For merge/closeout policy, the outer root `AGENTS.md` and current outer `WIP.md` supersede stale `AGENTS.md` copies inside existing feature worktrees.
 - Default closeout for a finished feature is:
   - verify in the feature worktree,
   - commit the useful changes,
   - fast-forward merge `feat/<feature-name>` into `repos/admin-web` `develop`,
   - run the appropriate post-merge check on `develop`,
   - update outer `WIP.md` with the final commit, merge status, verification, cleanup, and any remaining active worktrees.
-- Use `git merge --ff-only feat/<feature-name>` from `repos/admin-web` `develop` whenever possible. If `develop` moved and fast-forward fails, update the feature branch from current `develop`, rerun the relevant verification, then merge.
+- Use `git merge --ff-only feat/<feature-name>` from `repos/admin-web` `develop` whenever possible. If `develop` moved and fast-forward fails, the feature owner updates the feature branch from current `develop`, resolves any conflicts using their task context, reruns the relevant verification, then merges.
+- A dirty `repos/admin-web` checkout is a coordination signal, not an automatic merge blocker. Compare `git diff --name-only` in `develop` with the feature branch diff. If there is no path overlap, preserve the dirty files untouched and proceed with the fast-forward merge when Git allows it.
+- If dirty `develop` changes overlap the feature diff, or Git refuses the merge because local changes would be overwritten, stop and hand the blocker to the context owner: the session/worktree that made or is actively carrying the overlapping change. If unknown, record exact paths in outer `WIP.md` and ask the user to assign ownership.
 - Do not leave verified feature work only in `worktrees/admin-web/<feature-name>/` as the final answer unless the user explicitly asked not to merge or a blocker prevents a safe merge.
-- Merge blockers: failed or skipped required verification, dirty or partly uncommitted feature worktree, unresolved conflicts, unclear ownership, another session's active worktree, stacked dependency on an unmerged branch, or a user request for PR-only/handoff-only work. Record the blocker in outer `WIP.md`.
+- Merge blockers: failed or skipped required feature verification, dirty or partly uncommitted feature worktree, unresolved conflicts, unclear overlapping ownership, stacked dependency on an unmerged branch, or a user request for PR-only/handoff-only work. Record the blocker and responsible context owner in outer `WIP.md`.
 - Rollbacks from `develop` should normally be done with `git revert <commit>`, not history rewrites. Call out external side effects separately for Firestore rules, seed data, migrations, or deployed resources.
 
 ## UI Rules
