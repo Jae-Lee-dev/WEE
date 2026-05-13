@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -459,12 +460,35 @@ function EditInfoDialog({
   tagOptions: readonly WorkerDetailTagOption[];
 }) {
   const dialog = fixture.editDialog;
-  const [form, setForm] = useState<EditInfoFormState>(() =>
-    createEditInfoFormState(initialValues),
+  const initialForm = useMemo(
+    () => createEditInfoFormState(initialValues),
+    [initialValues],
   );
+  const [form, setForm] = useState<EditInfoFormState>(initialForm);
   const [submitted, setSubmitted] = useState(false);
   const errors = getEditInfoFormErrors(form);
+  const hasChanges = !areEditInfoFormsEqual(form, initialForm);
   const selectedTagCount = form.tagIds.length;
+  const showUnsavedChangesAlert = useCallback(() => {
+    // TODO: alert는 추후 토스트 기반 안내로 개선한다.
+    window.alert("저장하지 않은 수정사항이 있습니다. 저장하거나 취소해 주세요.");
+  }, []);
+
+  useEffect(() => {
+    if (!hasChanges) {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [hasChanges]);
 
   const setFormValue = <Field extends keyof EditInfoFormState>(
     field: Field,
@@ -499,6 +523,10 @@ function EditInfoDialog({
   };
 
   const handleSave = () => {
+    if (!hasChanges) {
+      return;
+    }
+
     setSubmitted(true);
 
     if (hasEditInfoFormErrors(errors)) {
@@ -506,6 +534,19 @@ function EditInfoDialog({
     }
 
     void onSave(createWorkerDetailSaveInput(form));
+  };
+
+  const handleClose = () => {
+    if (saving) {
+      return;
+    }
+
+    if (hasChanges) {
+      showUnsavedChangesAlert();
+      return;
+    }
+
+    onClose();
   };
 
   return (
@@ -678,14 +719,14 @@ function EditInfoDialog({
             type="button"
             variant="secondary"
             disabled={saving}
-            onClick={onClose}
+            onClick={handleClose}
             className="h-11 rounded-[8px] px-6 text-h-18-semibold tracking-normal"
           >
             {dialog.cancelLabel}
           </Button>
           <Button
             type="button"
-            disabled={saving}
+            disabled={saving || !hasChanges}
             onClick={handleSave}
             className="h-11 rounded-[8px] px-6 text-h-18-semibold tracking-normal text-white"
           >
@@ -825,6 +866,47 @@ function getEditInfoFormErrors(form: EditInfoFormState): EditInfoFormErrors {
 
 function hasEditInfoFormErrors(errors: EditInfoFormErrors) {
   return Object.values(errors).some(Boolean);
+}
+
+function areEditInfoFormsEqual(
+  left: EditInfoFormState,
+  right: EditInfoFormState,
+) {
+  return areWorkerDetailSaveInputsEqual(
+    createWorkerDetailSaveInput(left),
+    createWorkerDetailSaveInput(right),
+  );
+}
+
+function areWorkerDetailSaveInputsEqual(
+  left: WorkerDetailBasicSaveInput,
+  right: WorkerDetailBasicSaveInput,
+) {
+  return (
+    left.contact === right.contact &&
+    left.effectiveFrom === right.effectiveFrom &&
+    left.hourlyRate === right.hourlyRate &&
+    left.monthlySalary === right.monthlySalary &&
+    left.name === right.name &&
+    left.payrollType === right.payrollType &&
+    left.status === right.status &&
+    areStringSetsEqual(left.tagIds, right.tagIds) &&
+    left.taxRatePercent === right.taxRatePercent &&
+    left.taxType === right.taxType
+  );
+}
+
+function areStringSetsEqual(
+  left: readonly string[],
+  right: readonly string[],
+) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  const rightValues = new Set(right);
+
+  return left.every((value) => rightValues.has(value));
 }
 
 function createWorkerDetailSaveInput(
