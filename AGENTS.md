@@ -35,6 +35,7 @@ This version has breaking changes. APIs, conventions, and file structure may dif
 
 - This repo is the admin web only. The Flutter assistant app, Firebase Functions, and shared docs are separate follow-up surfaces unless explicitly added.
 - Treat `repos/admin-web/` as the `develop` integration checkout. Do feature edits in `worktrees/admin-web/<feature-name>/`, not directly in `repos/admin-web/`, unless the user asks for a small integration-only change.
+- Completed feature work should normally be merged back into this `develop` checkout before handoff. The user usually runs the `develop` server, so a clean committed feature worktree is not enough for review unless the user explicitly asked for handoff-only work.
 - Do not add `Co-Authored-By` trailers to commits.
 - Prefer small, verifiable changes. Avoid speculative abstractions and unrelated cleanup.
 - Check `git status --short --branch` before and after edits.
@@ -58,6 +59,19 @@ This version has breaking changes. APIs, conventions, and file structure may dif
 - Worktree cleanup and branch cleanup are separate: remove the worktree after useful work is committed, merged, pushed, or preserved in a PR, but delete the branch only after it is merged into `develop`, no active branch depends on it, and it is no longer needed for review.
 - Never remove, reset, or repurpose another session's active worktree unless the user explicitly asks or outer `WIP.md` marks it safe to clean.
 - Before handing off, update outer `WIP.md` with the active worktree, merge/commit status, verification commands, branch dependencies, and dirty/stale worktrees.
+
+## Develop Merge Closeout
+
+- Default closeout for a finished feature is:
+  - verify in the feature worktree,
+  - commit the useful changes,
+  - fast-forward merge `feat/<feature-name>` into `repos/admin-web` `develop`,
+  - run the appropriate post-merge check on `develop`,
+  - update outer `WIP.md` with the final commit, merge status, verification, cleanup, and any remaining active worktrees.
+- Use `git merge --ff-only feat/<feature-name>` from `repos/admin-web` `develop` whenever possible. If `develop` moved and fast-forward fails, update the feature branch from current `develop`, rerun the relevant verification, then merge.
+- Do not leave verified feature work only in `worktrees/admin-web/<feature-name>/` as the final answer unless the user explicitly asked not to merge or a blocker prevents a safe merge.
+- Merge blockers: failed or skipped required verification, dirty or partly uncommitted feature worktree, unresolved conflicts, unclear ownership, another session's active worktree, stacked dependency on an unmerged branch, or a user request for PR-only/handoff-only work. Record the blocker in outer `WIP.md`.
+- Rollbacks from `develop` should normally be done with `git revert <commit>`, not history rewrites. Call out external side effects separately for Firestore rules, seed data, migrations, or deployed resources.
 
 ## UI Rules
 
