@@ -13,6 +13,10 @@ import {
   type AdminSection,
   type AdminTab,
 } from "@/shared/config/admin-navigation";
+import {
+  createAdminShellBadgeDataSource,
+  type AdminShellBadgeCounts,
+} from "@/features/dashboard";
 import { HeaderNotificationSlot } from "./header-notification-slot";
 import { IconChevronLeft } from "@/shared/ui/icons";
 import { Badge } from "@/shared/ui/badge";
@@ -60,13 +64,18 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const currentSection = findSectionByPath(pathname);
   const workerDetail = isWorkerDetailPath(pathname);
   const account = useAdminShellAccount();
+  const badgeCounts = useAdminShellBadgeCounts();
 
   return (
     <div
       className="flex h-screen min-w-[1040px] overflow-hidden bg-gray-100 text-gray-900"
       data-admin-shell="compact"
     >
-      <AdminSidebar account={account} currentSection={currentSection} />
+      <AdminSidebar
+        account={account}
+        badgeCounts={badgeCounts}
+        currentSection={currentSection}
+      />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-gray-100">
         <AdminHeader
           title={workerDetail ? "조교 상세" : currentSection.label}
@@ -75,7 +84,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
           isInviteCodeLoading={account.isLoading}
         />
         {workerDetail ? null : (
-          <SectionTabs pathname={pathname} tabs={currentSection.tabs} />
+          <SectionTabs
+            badgeCounts={badgeCounts}
+            pathname={pathname}
+            tabs={currentSection.tabs}
+          />
         )}
         <main
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-3 pt-3 [scrollbar-gutter:stable]"
@@ -98,9 +111,11 @@ function isWorkerDetailPath(pathname: string) {
 
 function AdminSidebar({
   account,
+  badgeCounts,
   currentSection,
 }: {
   account: AdminShellAccount;
+  badgeCounts: AdminShellBadgeCounts;
   currentSection: AdminSection;
 }) {
   const router = useRouter();
@@ -166,6 +181,7 @@ function AdminSidebar({
             {adminSections.slice(0, 5).map((section) => (
               <SidebarItem
                 key={section.key}
+                badgeCounts={badgeCounts}
                 section={section}
                 active={currentSection.key === section.key}
               />
@@ -173,11 +189,13 @@ function AdminSidebar({
           </div>
           <SidebarSeparator />
           <SidebarItem
+            badgeCounts={badgeCounts}
             section={adminSections[5]}
             active={currentSection.key === adminSections[5].key}
           />
           <SidebarSeparator />
           <SidebarItem
+            badgeCounts={badgeCounts}
             section={adminSections[6]}
             active={currentSection.key === adminSections[6].key}
           />
@@ -317,6 +335,44 @@ function useAdminShellAccount() {
   return account;
 }
 
+function useAdminShellBadgeCounts() {
+  const dataSource = useMemo(() => createAdminShellBadgeDataSource(), []);
+  const [counts, setCounts] = useState<AdminShellBadgeCounts>(
+    dataSource.initialCounts ?? {
+      recordPendingItems: 0,
+      scheduleApprovals: 0,
+      workerApplications: 0,
+    },
+  );
+
+  useEffect(() => {
+    let active = true;
+
+    void dataSource
+      .listBadgeCounts()
+      .then((nextCounts) => {
+        if (active) {
+          setCounts(nextCounts);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setCounts({
+            recordPendingItems: 0,
+            scheduleApprovals: 0,
+            workerApplications: 0,
+          });
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [dataSource]);
+
+  return counts;
+}
+
 function getAuthProfile(user: User | null) {
   const email = normalizeDisplayText(user?.email) ?? null;
   const displayName =
@@ -347,16 +403,21 @@ function SidebarSeparator({ className = "" }: { className?: string }) {
 }
 
 function SidebarItem({
+  badgeCounts,
   section,
   active,
 }: {
+  badgeCounts: AdminShellBadgeCounts;
   section: AdminSection;
   active: boolean;
 }) {
+  const sectionBadge = getSectionBadge(section, badgeCounts);
+
   return (
     <Link
       href={section.href}
       aria-current={active ? "page" : undefined}
+      data-testid={`admin-sidebar-item-${section.key}`}
       className={`flex h-9 w-full items-center gap-3 rounded-[8px] px-3 py-2 transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 ${
         active
           ? "bg-gray-50 text-green-400 active:bg-gray-100"
@@ -373,18 +434,41 @@ function SidebarItem({
       >
         {section.label}
       </span>
-      {section.badge ? (
+      {sectionBadge ? (
         <Badge
-          variant={section.badgeTone === "ai" ? "green" : "greenSolid"}
-          size={section.badgeTone === "ai" ? "M" : "count"}
-          shape={section.badgeTone === "ai" ? "default" : "pill"}
-          className={section.badgeTone === "ai" ? "text-green-300" : undefined}
+          variant={sectionBadge.tone === "ai" ? "green" : "greenSolid"}
+          size={sectionBadge.tone === "ai" ? "M" : "count"}
+          shape={sectionBadge.tone === "ai" ? "default" : "pill"}
+          className={sectionBadge.tone === "ai" ? "text-green-300" : undefined}
         >
-          {section.badge}
+          {sectionBadge.label}
         </Badge>
       ) : null}
     </Link>
   );
+}
+
+function getSectionBadge(
+  section: AdminSection,
+  counts: AdminShellBadgeCounts,
+) {
+  if (section.badge && section.badgeTone === "ai") {
+    return { label: section.badge, tone: "ai" as const };
+  }
+
+  if (section.key === "workers") {
+    return createCountBadge(counts.workerApplications);
+  }
+
+  if (section.key === "schedule") {
+    return createCountBadge(counts.scheduleApprovals);
+  }
+
+  if (section.key === "records") {
+    return createCountBadge(counts.recordPendingItems);
+  }
+
+  return null;
 }
 
 function SidebarIcon({ name }: { name: AdminIconName }) {
@@ -565,9 +649,11 @@ async function copyTextToClipboard(text: string) {
 }
 
 function SectionTabs({
+  badgeCounts,
   pathname,
   tabs,
 }: {
+  badgeCounts: AdminShellBadgeCounts;
   pathname: string;
   tabs: AdminTab[];
 }) {
@@ -603,13 +689,7 @@ function SectionTabs({
         />
         {tabs.map((tab) => {
           const active = activeTabHref === tab.href;
-          const showWorkersApplicationBadge =
-            tab.href === "/workers/applications";
-          const showScheduleApprovalBadge =
-            tab.href === "/schedule" && pathname.startsWith("/schedule");
-          const fallbackBadge =
-            showWorkersApplicationBadge || showScheduleApprovalBadge ? "6" : undefined;
-          const badge = tab.badge ?? fallbackBadge;
+          const badge = tab.badge ?? getTabBadge(tab, badgeCounts);
 
           return (
             <Link
@@ -644,6 +724,26 @@ function SectionTabs({
       </nav>
     </div>
   );
+}
+
+function getTabBadge(tab: AdminTab, counts: AdminShellBadgeCounts) {
+  if (tab.href === "/workers/applications") {
+    return createCountBadge(counts.workerApplications)?.label;
+  }
+
+  if (tab.href === "/schedule") {
+    return createCountBadge(counts.scheduleApprovals)?.label;
+  }
+
+  if (tab.href === "/records") {
+    return createCountBadge(counts.recordPendingItems)?.label;
+  }
+
+  return undefined;
+}
+
+function createCountBadge(count: number) {
+  return count > 0 ? { label: String(count), tone: "count" as const } : null;
 }
 
 function findActiveTabHref(pathname: string, tabs: AdminTab[]) {

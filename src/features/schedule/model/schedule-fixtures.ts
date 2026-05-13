@@ -395,7 +395,6 @@ export const scheduleApprovalRequests = [
 ] as const satisfies readonly ScheduleApprovalRequestRow[];
 
 export const scheduleApprovalSummary = {
-  tabBadgeText: "6",
   listCountText: "17",
   selectedRequestId: "request-ihaeun-change-0415",
   approveLabel: "승인",

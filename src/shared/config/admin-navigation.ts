@@ -73,7 +73,6 @@ export const adminSections: AdminSection[] = [
     label: "조교 관리",
     href: "/workers",
     icon: "workers",
-    badge: "6",
     tabs: [
       { label: "조교 목록", href: "/workers", screenId: "WKR-02" },
       { label: "소속 신청", href: "/workers/applications", screenId: "WKR-01" },
@@ -85,7 +84,6 @@ export const adminSections: AdminSection[] = [
     label: "근무 ∙ 시간표",
     href: "/schedule",
     icon: "schedule",
-    badge: "12",
     tabs: [
       {
         label: "근무 시간표",
@@ -106,9 +104,8 @@ export const adminSections: AdminSection[] = [
     label: "근무 기록",
     href: "/records",
     icon: "records",
-    badge: "22",
     tabs: [
-      { label: "근무기록", href: "/records", screenId: "REC-01", badge: "6" },
+      { label: "근무기록", href: "/records", screenId: "REC-01" },
       {
         label: "이상감지처리 이력",
         href: "/records/anomaly-history",

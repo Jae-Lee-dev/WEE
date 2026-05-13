@@ -21,6 +21,21 @@ for (const viewport of viewports) {
       "김쌤 수학학원",
     );
     await expect(page.getByTestId("sidebar-account-name")).toHaveText("김준희");
+    await expect(page.getByTestId("admin-sidebar-item-workers")).toContainText(
+      "6",
+    );
+    await expect(page.getByTestId("admin-sidebar-item-schedule")).toContainText(
+      "1",
+    );
+    await expect(page.getByTestId("admin-sidebar-item-records")).toContainText(
+      "3",
+    );
+    await expect(page.getByTestId("admin-sidebar-item-schedule")).not.toContainText(
+      "12",
+    );
+    await expect(page.getByTestId("admin-sidebar-item-records")).not.toContainText(
+      "22",
+    );
 
     const logoHeaderMetrics = await page.evaluate(() => {
       const logoHeader = document.querySelector(

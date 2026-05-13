@@ -23,6 +23,17 @@ type DashboardInboxRowsByFilter = Record<
   readonly DashboardInboxRow[]
 >;
 
+export type AdminShellBadgeCounts = {
+  recordPendingItems: number;
+  scheduleApprovals: number;
+  workerApplications: number;
+};
+
+export type AdminShellBadgeDataSource = {
+  initialCounts?: AdminShellBadgeCounts;
+  listBadgeCounts: () => Promise<AdminShellBadgeCounts>;
+};
+
 export type DashboardInboxDataSourceMode = "fixture" | "firestore";
 
 export type DashboardInboxDataSource = {
@@ -74,12 +85,44 @@ const actionByFilter = {
   Pick<DashboardActionMeta, "actionType" | "recordType">
 >;
 
+const emptyAdminShellBadgeCounts = {
+  recordPendingItems: 0,
+  scheduleApprovals: 0,
+  workerApplications: 0,
+} as const satisfies AdminShellBadgeCounts;
+
+const visualAdminShellBadgeCounts = {
+  recordPendingItems: 3,
+  scheduleApprovals: 1,
+  workerApplications: 6,
+} as const satisfies AdminShellBadgeCounts;
+
+const closedAdminShellBadgeStatuses = new Set([
+  "approved",
+  "cancelled",
+  "completed",
+  "deleted",
+  "done",
+  "paid",
+  "rejected",
+  "resolved",
+  "withdrawn",
+]);
+
 export function createDashboardInboxDataSource(): DashboardInboxDataSource {
   if (shouldUseFixtureDataSource()) {
     return createFixtureDashboardInboxDataSource();
   }
 
   return createFirestoreDashboardInboxDataSource();
+}
+
+export function createAdminShellBadgeDataSource(): AdminShellBadgeDataSource {
+  if (shouldUseFixtureDataSource()) {
+    return createVisualAdminShellBadgeDataSource();
+  }
+
+  return createFirestoreAdminShellBadgeDataSource();
 }
 
 function createFixtureDashboardInboxDataSource(): DashboardInboxDataSource {
@@ -89,6 +132,15 @@ function createFixtureDashboardInboxDataSource(): DashboardInboxDataSource {
 
     async listInboxRows() {
       return dashboardInboxRows;
+    },
+  };
+}
+
+function createVisualAdminShellBadgeDataSource(): AdminShellBadgeDataSource {
+  return {
+    initialCounts: visualAdminShellBadgeCounts,
+    async listBadgeCounts() {
+      return visualAdminShellBadgeCounts;
     },
   };
 }
@@ -117,6 +169,61 @@ function createFirestoreDashboardInboxDataSource(): DashboardInboxDataSource {
         .filter((row): row is DashboardInboxRow => row !== null);
 
       return groupInboxRows(rows);
+    },
+  };
+}
+
+function createFirestoreAdminShellBadgeDataSource(): AdminShellBadgeDataSource {
+  return {
+    initialCounts: emptyAdminShellBadgeCounts,
+
+    async listBadgeCounts() {
+      const workspaceId = await requireActiveWorkspaceId();
+      const snapshot = await getDocs(
+        collection(
+          getFirebaseDb(),
+          "workspaces",
+          workspaceId,
+          "operationalInboxItems",
+        ),
+      );
+
+      return snapshot.docs.reduce<AdminShellBadgeCounts>((counts, document) => {
+        const item = readOperationalInboxItem(document);
+
+        if (!isOpenAdminShellBadgeStatus(item.status)) {
+          return counts;
+        }
+
+        const filter = readInboxFilter(item);
+
+        if (filter === "affiliation") {
+          return {
+            ...counts,
+            workerApplications: counts.workerApplications + 1,
+          };
+        }
+
+        if (filter === "schedule") {
+          return {
+            ...counts,
+            scheduleApprovals: counts.scheduleApprovals + 1,
+          };
+        }
+
+        if (
+          filter === "overtime" ||
+          filter === "correction" ||
+          filter === "anomaly"
+        ) {
+          return {
+            ...counts,
+            recordPendingItems: counts.recordPendingItems + 1,
+          };
+        }
+
+        return counts;
+      }, emptyAdminShellBadgeCounts);
     },
   };
 }
@@ -249,6 +356,10 @@ function readStatusLabel(status: string) {
     default:
       return status || "확인 필요";
   }
+}
+
+function isOpenAdminShellBadgeStatus(status: string) {
+  return !closedAdminShellBadgeStatuses.has(status);
 }
 
 function createTargetHref(item: OperationalInboxItem) {
