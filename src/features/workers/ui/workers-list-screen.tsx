@@ -494,7 +494,7 @@ function WorkerListRowItem({ row }: { row: WorkerListRow }) {
         <WorkerStatusBadge status={row.status} />
         {row.statusDate ? (
           <span className="shrink-0 text-label-14-regular text-gray-500">
-            {row.statusDate}
+            {row.statusDate}부터
           </span>
         ) : null}
       </div>
