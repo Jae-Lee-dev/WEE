@@ -33,6 +33,7 @@ type PositionedRecordBlock = {
 type RecordMainScreenProps = {
   dataSource?: RecordsDataSource;
   initialFocusId?: string;
+  initialWorkerNameFilter?: string;
 };
 
 type RecordFilterState = {
@@ -79,10 +80,13 @@ const toneTextStyles: Record<RecordsTone, CSSProperties> = {
 export function RecordMainScreen({
   dataSource: dataSourceProp,
   initialFocusId,
+  initialWorkerNameFilter,
 }: RecordMainScreenProps = {}) {
   const fixtureMode = shouldUseRecordsFixtureDataSource();
   const fallbackDataSource = useMemo(() => createRecordsDataSource(), []);
   const dataSource = dataSourceProp ?? fallbackDataSource;
+  const initialWorkerFilterId =
+    createWorkerFilterIdFromName(initialWorkerNameFilter);
   const [viewModel, setViewModel] = useState<RecordMainViewModel>(
     fixtureMode
       ? recordMainFixtureViewModel
@@ -100,7 +104,9 @@ export function RecordMainScreen({
       ? (recordMainFixtureViewModel.initialWeekStartKey ?? null)
       : null,
   );
-  const [selectedWorkerFilterId, setSelectedWorkerFilterId] = useState("all");
+  const [selectedWorkerFilterId, setSelectedWorkerFilterId] = useState(
+    initialWorkerFilterId,
+  );
   const [selectedStatusFilterId, setSelectedStatusFilterId] = useState("all");
   const [selectedTypeFilterId, setSelectedTypeFilterId] = useState("all");
   const [loading, setLoading] = useState(!fixtureMode);
@@ -111,8 +117,14 @@ export function RecordMainScreen({
     viewModel.initialWeekStartKey ??
     viewModel.timeline.weekNavigation?.initialWeekStartKey ??
     null;
-  const workerFilterOptions =
-    viewModel.timeline.filters.location ?? emptyFilterOptions;
+  const workerFilterOptions = useMemo(
+    () =>
+      createWorkerFilterOptionsWithInitialName(
+        viewModel.timeline.filters.location ?? emptyFilterOptions,
+        initialWorkerNameFilter,
+      ),
+    [initialWorkerNameFilter, viewModel.timeline.filters.location],
+  );
   const weekScopedBlocks = useMemo(
     () =>
       activeWeekStartKey && viewModel.timeline.weekNavigation
@@ -281,12 +293,16 @@ export function RecordMainScreen({
           return;
         }
 
+        const nextWorkerFilterId =
+          createWorkerFilterIdFromName(initialWorkerNameFilter);
         const selection = resolveInitialRecordSelection(
           nextViewModel,
           initialFocusId,
+          nextWorkerFilterId,
         );
 
         setViewModel(nextViewModel);
+        setSelectedWorkerFilterId(nextWorkerFilterId);
         setSelectedBlockId(selection.block?.id ?? null);
         setSelectedWeekStartKey(selection.weekStartKey);
         setSelectedStateId(selection.stateId);
@@ -310,7 +326,7 @@ export function RecordMainScreen({
     return () => {
       active = false;
     };
-  }, [dataSource, initialFocusId]);
+  }, [dataSource, initialFocusId, initialWorkerNameFilter]);
 
   return (
     <section
@@ -1199,13 +1215,27 @@ function getNavigatedWeekStartKey(
 function resolveInitialRecordSelection(
   viewModel: RecordMainViewModel,
   focusId: string | undefined,
+  workerFilterId = "all",
 ) {
   const focusedBlock = focusId
     ? selectBlockByFocusId(viewModel.blocks, focusId)
     : null;
+  const workerScopedBlock =
+    workerFilterId === "all"
+      ? null
+      : selectDefaultBlockFromBlocks(
+          viewModel.blocks.filter((block) =>
+            matchesWorkerFilter(
+              block,
+              workerFilterId,
+              viewModel.timeline.filters.location ?? emptyFilterOptions,
+            ),
+          ),
+        );
   const initialBlock =
     focusedBlock ??
-    (viewModel.initialBlockId
+    workerScopedBlock ??
+    (workerFilterId === "all" && viewModel.initialBlockId
       ? viewModel.blocks.find((block) => block.id === viewModel.initialBlockId) ??
         null
       : null);
@@ -1318,6 +1348,30 @@ function createStableFilterId(value: string) {
     .toLocaleLowerCase("ko-KR")
     .replace(/[^0-9a-z가-힣]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function createWorkerFilterIdFromName(name: string | undefined) {
+  const filterId = name ? createStableFilterId(name) : "";
+
+  return filterId || "all";
+}
+
+function createWorkerFilterOptionsWithInitialName(
+  options: readonly RecordsFilterOption[],
+  initialWorkerName: string | undefined,
+) {
+  const label = initialWorkerName?.trim();
+  const filterId = createWorkerFilterIdFromName(label);
+
+  if (
+    !label ||
+    filterId === "all" ||
+    options.some((option) => option.id === filterId || option.label === label)
+  ) {
+    return options;
+  }
+
+  return [...options, { id: filterId, label }] satisfies readonly RecordsFilterOption[];
 }
 
 function isBlockInWeek(block: RecordTimelineBlock, weekStartKey: string) {

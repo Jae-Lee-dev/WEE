@@ -4,6 +4,7 @@ type RecordsPageProps = {
   searchParams: Promise<{
     focus?: string;
     recordId?: string;
+    workerName?: string;
   }>;
 };
 

@@ -123,11 +123,12 @@ export function WorkerDetailScheduleScreen({
         className="grid grid-cols-[minmax(0,1fr)_360px] gap-4"
         data-testid="worker-detail-schedule-screen"
       >
-        <ScheduleGrid blocks={viewModel.blocks} loading={loading} />
+        <ScheduleGrid blocks={viewModel.blocks} />
         <ScheduleHistoryPanel history={viewModel.history} loading={loading} />
       </div>
       <RecentWorkRecords
         loading={loading}
+        profileName={viewModel.profile.name}
         records={viewModel.recentRecords}
         workerId={workerId}
       />
@@ -137,10 +138,8 @@ export function WorkerDetailScheduleScreen({
 
 function ScheduleGrid({
   blocks: scheduleBlocks,
-  loading,
 }: {
   blocks: readonly WorkerDetailScheduleBlock[];
-  loading: boolean;
 }) {
   return (
     <section
@@ -186,7 +185,8 @@ function ScheduleGrid({
           >
             <div
               className={cn(
-                "flex items-center justify-center border-r border-gray-200 bg-gray-50 px-1 text-h-18-semibold text-gray-800",
+                "flex items-center justify-center border-r border-gray-200 bg-gray-50 px-1 text-h-18-semibold",
+                getScheduleDayTextClassName(day.id),
                 last && "rounded-bl-[8px]",
               )}
               role="rowheader"
@@ -213,11 +213,6 @@ function ScheduleGrid({
               {blocks.map((block) => (
                 <ScheduleBlock block={block} key={block.id} />
               ))}
-              {!loading && blocks.length === 0 ? (
-                <div className="absolute inset-y-0 left-3 flex items-center text-detail-16-regular text-gray-400">
-                  배정 없음
-                </div>
-              ) : null}
             </div>
           </div>
         );
@@ -231,7 +226,7 @@ function ScheduleBlock({ block }: { block: WorkerDetailScheduleBlock }) {
     <div
       aria-label={`${block.title} ${block.startHour}:00~${block.endHour}:00`}
       className={cn(
-        "absolute top-3 z-10 flex h-[42px] items-center overflow-hidden rounded-[6px] border px-2.5 text-h-14-semibold",
+        "absolute inset-y-0 z-10 flex items-center overflow-hidden border px-3 text-h-14-semibold",
         scheduleBlockToneClassNames[block.tone],
       )}
       role="gridcell"
@@ -326,13 +321,24 @@ function ScheduleHistoryCard({
 
 function RecentWorkRecords({
   loading,
+  profileName,
   records,
   workerId,
 }: {
   loading: boolean;
+  profileName: string;
   records: readonly WorkerDetailWorkRecord[];
   workerId: string;
 }) {
+  const normalizedProfileName = profileName.trim();
+  const canLinkWithProfileName =
+    !loading &&
+    normalizedProfileName &&
+    normalizedProfileName !== "조교 정보 로딩 중";
+  const recordsHref = `/records?workerName=${encodeURIComponent(
+    normalizedProfileName,
+  )}`;
+
   return (
     <WorkerDetailSubsection
       ariaLabel="최근 근무 기록"
@@ -341,15 +347,17 @@ function RecentWorkRecords({
     >
       <WorkerDetailSubsectionHeader
         actions={
-          <Button
-            asChild
-            variant="secondary"
-            className="h-9 rounded-full px-4 text-h-18-regular text-gray-800"
-          >
-            <Link href={`/records?workerId=${encodeURIComponent(workerId)}`}>
-              근무기록으로 이동
-            </Link>
-          </Button>
+          canLinkWithProfileName ? (
+            <Button
+              asChild
+              variant="secondary"
+              className="h-9 rounded-full px-4 text-h-18-regular text-gray-800"
+            >
+              <Link href={recordsHref} data-worker-id={workerId}>
+                근무기록으로 이동
+              </Link>
+            </Button>
+          ) : null
         }
       >
         <h2 className="text-h-20 text-gray-900">최근 근무 기록</h2>
@@ -376,6 +384,17 @@ function RecentWorkRecords({
       </div>
     </WorkerDetailSubsection>
   );
+}
+
+function getScheduleDayTextClassName(dayId: string) {
+  switch (dayId) {
+    case "sun":
+      return "text-red-500";
+    case "sat":
+      return "text-blue-500";
+    default:
+      return "text-gray-800";
+  }
 }
 
 function PanelState({ children }: { children: string }) {

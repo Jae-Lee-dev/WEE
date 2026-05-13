@@ -16,10 +16,16 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await expect(
       page.getByRole("heading", { name: "시간표 변경 이력" }),
     ).toBeVisible();
+    await expect(
+      page.getByTestId("worker-detail-schedule-screen").getByRole("rowheader"),
+    ).toHaveText(["일", "월", "화", "수", "목", "금", "토"]);
     await expect(page.getByText("영어 C반").first()).toBeVisible();
+    await expect(page.getByText("배정 없음")).toHaveCount(0);
     await expect(page.getByTestId("worker-detail-recent-work-records")).toContainText(
       "근무기록으로 이동",
     );
+    await expect(page.getByRole("link", { name: "근무기록으로 이동" }))
+      .toHaveAttribute("href", /\/records\?workerName=%EA%B9%80%EC%84%9C%EC%97%B0$/);
 
     await captureActualScreenshot({
       page,

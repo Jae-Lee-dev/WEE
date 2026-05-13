@@ -66,6 +66,24 @@ test("REC-01 uses shared selects and edits selected records", async ({ page }) =
   ).toBeVisible();
 });
 
+test("REC-01 workerName query applies worker filter", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/records?workerName=이하은",
+    viewport: desktop,
+  });
+
+  await expect(page.getByRole("combobox", { name: "조교 필터" })).toContainText(
+    "이하은",
+  );
+  await expect(
+    page.locator("[data-record-block-id='record-lee-haeun-english-c-mon']"),
+  ).toBeVisible();
+  await expect(
+    page.locator("[data-record-block-id='record-song-hyunwoo-physics-f-mon']"),
+  ).toHaveCount(0);
+});
+
 test(`REC-01 anomaly-step-1 ${desktop}`, async ({ page }) => {
   await prepareVisualPage({ page, path: "/records", viewport: desktop });
   await page.evaluate(() => document.fonts.ready);
