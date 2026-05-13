@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { Badge } from "@/shared/ui/badge";
 import { cn } from "@/shared/lib/utils";
@@ -9,6 +8,7 @@ import {
   type WorkerDetailProfile,
   type WorkerDetailTabId,
 } from "../model/worker-detail-common-fixtures";
+import { WorkerDetailTabs } from "./worker-detail-tabs";
 
 type WorkerDetailSubsectionProps = {
   ariaLabel?: string;
@@ -36,6 +36,8 @@ export function WorkerDetailShell({
   profile?: WorkerDetailProfile;
   workerId?: string;
 }) {
+  const workerDetailTabs = createWorkerDetailTabs(workerId);
+
   return (
     <section
       aria-label="조교 상세"
@@ -46,7 +48,7 @@ export function WorkerDetailShell({
       data-testid="worker-detail-shell"
     >
       <WorkerProfileCard profile={profile} />
-      <WorkerDetailTabs activeTab={activeTab} workerId={workerId} />
+      <WorkerDetailTabs activeTab={activeTab} tabs={workerDetailTabs} />
       {children}
     </section>
   );
@@ -124,42 +126,5 @@ function WorkerProfileCard({ profile }: { profile: WorkerDetailProfile }) {
         {profile.deleteLabel}
       </button>
     </section>
-  );
-}
-
-function WorkerDetailTabs({
-  activeTab,
-  workerId,
-}: {
-  activeTab: WorkerDetailTabId;
-  workerId: string;
-}) {
-  const workerDetailTabs = createWorkerDetailTabs(workerId);
-
-  return (
-    <nav
-      aria-label="조교 상세 탭"
-      className="flex h-9 items-end gap-8 border-b border-gray-200 px-4"
-    >
-      {workerDetailTabs.map((tab) => {
-        const active = tab.id === activeTab;
-
-        return (
-          <Link
-            key={tab.id}
-            href={tab.href}
-            aria-current={active ? "page" : undefined}
-            className={cn(
-              "flex h-9 items-start border-b-2 text-h-20 transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
-              active
-                ? "border-green-400 text-green-400"
-                : "border-transparent text-gray-500 hover:border-gray-200 hover:text-gray-800",
-            )}
-          >
-            {tab.label}
-          </Link>
-        );
-      })}
-    </nav>
   );
 }

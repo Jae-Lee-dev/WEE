@@ -50,6 +50,10 @@ test(`WKR-03 edit-info-dialog ${desktop}`, async ({ page }) => {
   await expect(dialog).toContainText("조교 정보 수정");
   await expect(dialog).toContainText("급여 타입");
   await expect(dialog).toContainText("급여 설정 변경은 해당 월 1일부터 소급 적용됩니다");
+  await expect(dialog.getByRole("tab", { name: "시급" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   await expect(dialog.getByRole("button", { name: "저장" })).toBeDisabled();
 
   await captureActualScreenshot({
@@ -86,6 +90,25 @@ test("WKR-03 edits worker info in dialog", async ({ page }) => {
   await expect(page.getByTestId("worker-detail-basic-screen")).toContainText(
     "₩12,000 / 시간",
   );
+});
+
+test("WKR-03 switches pay type through shared segment", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: routePath,
+    viewport: desktop,
+  });
+  await page.getByTestId("worker-basic-edit-trigger").click();
+
+  const dialog = page.getByTestId("worker-edit-info-dialog");
+  await dialog.getByRole("tab", { name: "월급" }).click();
+
+  await expect(dialog.getByRole("tab", { name: "월급" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(dialog.getByText("원/월")).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "저장" })).toBeEnabled();
 });
 
 test("WKR-03 warns before closing dirty edit dialog", async ({ page }) => {

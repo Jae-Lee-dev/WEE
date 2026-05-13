@@ -1,16 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { SlidingTabTextMask } from "@/shared/ui/sliding-tab-text-mask";
 import { Tabs, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { useSlidingTabIndicator } from "@/shared/ui/use-sliding-tab-indicator";
 import { cn } from "@/shared/lib/utils";
 
-type Option<T extends string> = { value: T; label: string };
+type Option<T extends string> = { value: T; label: string; href?: string };
 
 type LineTabsProps<T extends string> = {
   options: Option<T>[];
   value: T;
-  onChange: (value: T) => void;
+  onChange?: (value: T) => void;
   className?: string;
 };
 
@@ -24,7 +25,10 @@ function LineTabs<T extends string>({
     useSlidingTabIndicator({ options, value });
 
   return (
-    <Tabs value={value} onValueChange={(next) => onChange(next as T)}>
+    <Tabs
+      value={value}
+      onValueChange={onChange ? (next) => onChange(next as T) : undefined}
+    >
       <TabsList
         ref={listRef}
         variant="line"
@@ -39,14 +43,8 @@ function LineTabs<T extends string>({
             transform: `translateX(${indicatorStyle?.x ?? 0}px)`,
           }}
         />
-        {options.map((option) => (
-          <TabsTrigger
-            key={option.value}
-            variant="line"
-            value={option.value}
-            className="relative z-10 data-[state=active]:border-transparent data-[state=active]:text-gray-500 data-[state=active]:hover:border-transparent data-[state=active]:hover:text-gray-800 data-[state=active]:active:border-transparent data-[state=active]:active:text-gray-900"
-            {...{ [slidingTabValueAttribute]: option.value }}
-          >
+        {options.map((option) => {
+          const content = (
             <SlidingTabTextMask
               activeClassName="text-green-400 group-has-[[data-state=active]:hover]/line-tabs:text-green-450 group-has-[[data-state=active]:active]/line-tabs:text-green-500"
               indicatorStyle={indicatorStyle}
@@ -55,8 +53,21 @@ function LineTabs<T extends string>({
             >
               {option.label}
             </SlidingTabTextMask>
-          </TabsTrigger>
-        ))}
+          );
+
+          return (
+            <TabsTrigger
+              key={option.value}
+              variant="line"
+              value={option.value}
+              asChild={Boolean(option.href)}
+              className="relative z-10 data-[state=active]:border-transparent data-[state=active]:text-gray-500 data-[state=active]:hover:border-transparent data-[state=active]:hover:text-gray-800 data-[state=active]:active:border-transparent data-[state=active]:active:text-gray-900"
+              {...{ [slidingTabValueAttribute]: option.value }}
+            >
+              {option.href ? <Link href={option.href}>{content}</Link> : content}
+            </TabsTrigger>
+          );
+        })}
       </TabsList>
     </Tabs>
   );

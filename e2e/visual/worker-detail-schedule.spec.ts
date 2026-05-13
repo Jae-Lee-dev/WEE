@@ -20,10 +20,15 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
       page.getByTestId("worker-detail-schedule-screen").getByRole("rowheader"),
     ).toHaveText(["일", "월", "화", "수", "목", "금", "토"]);
     const detailShell = page.getByTestId("worker-detail-shell");
+    const detailTabs = detailShell.getByRole("navigation", {
+      name: "조교 상세 탭",
+    });
 
-    await expect(
-      detailShell.getByRole("navigation", { name: "조교 상세 탭" }),
-    ).toHaveCSS("padding-left", "16px");
+    await expect(detailTabs).toHaveCSS("padding-left", "16px");
+    await expect(detailTabs.getByRole("tab", { name: "시간표" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     await expect(page.getByText("영어 C반").first()).toBeVisible();
     await expect(
       page.getByRole("gridcell", { name: /연구실 행정/ }),
@@ -42,6 +47,17 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     });
   });
 }
+
+test("WKR-04 detail tabs route with shared tab semantics", async ({ page }) => {
+  await prepareVisualPage({ page, path: routePath, viewport: "desktop-1920" });
+
+  await page
+    .getByRole("navigation", { name: "조교 상세 탭" })
+    .getByRole("tab", { name: "급여 현황" })
+    .click();
+
+  await expect(page).toHaveURL(/\/workers\/worker_kim_seoyeon\/payroll$/);
+});
 
 test("WKR-04 full-page desktop-1920", async ({ page }) => {
   const viewport: VisualViewportName = "desktop-1920";

@@ -12,9 +12,11 @@ type SegmentProps<T extends string> = {
   value: T;
   onChange: (value: T) => void;
   className?: string;
+  disabled?: boolean;
 };
 
 function Segment<T extends string>({
+  disabled = false,
   options,
   value,
   onChange,
@@ -24,12 +26,16 @@ function Segment<T extends string>({
     useSlidingTabIndicator({ options, value });
 
   return (
-    <Tabs value={value} onValueChange={(next) => onChange(next as T)}>
+    <Tabs
+      value={value}
+      onValueChange={disabled ? undefined : (next) => onChange(next as T)}
+    >
       <TabsList
         ref={listRef}
         variant="segment"
         className={cn(
           "relative isolate inline-flex items-center overflow-hidden",
+          disabled && "opacity-60",
           className,
         )}
       >
@@ -49,6 +55,7 @@ function Segment<T extends string>({
             key={option.value}
             variant="segment"
             value={option.value}
+            disabled={disabled}
             {...{ [slidingTabValueAttribute]: option.value }}
           >
             <SlidingTabTextMask

@@ -11,6 +11,7 @@ import {
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
+import { Segment } from "@/shared/ui/segment";
 import { OptionSelect, type SelectOption } from "@/shared/ui/select";
 import { cn } from "@/shared/lib/utils";
 import {
@@ -646,20 +647,16 @@ function EditInfoDialog({
             <span className="text-h-18-semibold text-gray-900">
               {dialog.payTypeLabel}
             </span>
-            <div className="grid h-11 grid-cols-2 rounded-[8px] border border-gray-200 bg-white p-1">
-              <PayTypeButton
-                active={form.payrollType === "hourly"}
-                disabled={saving}
-                label={dialog.payTypeOptions[0]}
-                onClick={() => handlePayrollTypeChange("hourly")}
-              />
-              <PayTypeButton
-                active={form.payrollType === "monthly"}
-                disabled={saving}
-                label={dialog.payTypeOptions[1]}
-                onClick={() => handlePayrollTypeChange("monthly")}
-              />
-            </div>
+            <Segment
+              options={[
+                { value: "hourly", label: dialog.payTypeOptions[0] },
+                { value: "monthly", label: dialog.payTypeOptions[1] },
+              ]}
+              value={form.payrollType}
+              onChange={handlePayrollTypeChange}
+              disabled={saving}
+              className="h-11 w-full"
+            />
             <p className="text-detail-16-regular text-gray-600">
               {dialog.payTypeNote}
             </p>
@@ -735,33 +732,6 @@ function EditInfoDialog({
         </div>
       </section>
     </DialogBackdrop>
-  );
-}
-
-function PayTypeButton({
-  active,
-  disabled,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  disabled: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      disabled={disabled}
-      onClick={onClick}
-      className={cn(
-        "rounded-[8px] text-h-18-semibold transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:cursor-not-allowed",
-        active ? "bg-green-400 text-white" : "text-gray-700 hover:bg-gray-50",
-      )}
-    >
-      {label}
-    </button>
   );
 }
 
