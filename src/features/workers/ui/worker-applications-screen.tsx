@@ -581,7 +581,7 @@ function PaySettingCard({
         급여 설정 <span className="text-red-500">*</span>
       </h3>
       <Segment
-        className="mt-3 grid h-[56px] w-full grid-cols-2"
+        className="mt-3 grid h-11 w-full grid-cols-2 [&_[data-slot=tabs-trigger]]:h-9 [&_[data-slot=tabs-trigger]]:py-0"
         options={[
           {
             value: "hourly",
