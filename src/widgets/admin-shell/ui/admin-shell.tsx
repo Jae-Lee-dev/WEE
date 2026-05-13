@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Check, Copy, LogOut } from "lucide-react";
+import { Check, Copy, LogOut, X } from "lucide-react";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import {
   adminSections,
@@ -486,20 +486,28 @@ function AdminHeader({
             className="relative size-4 shrink-0 overflow-visible"
           >
             <Copy
-              className={`absolute inset-0 size-4 transform-gpu transition-[opacity,transform] duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none ${
+              className={`absolute inset-0 size-4 transform-gpu ${
                 currentInviteCodeCopyResult === "copied"
-                  ? "scale-0 rotate-180 opacity-0"
+                  ? "admin-invite-copy-success-out"
                   : currentInviteCodeCopyResult === "failed"
-                    ? "scale-100 rotate-0 text-red-500 opacity-100"
+                    ? "admin-invite-copy-failure-out"
                     : "scale-100 rotate-0 opacity-100"
               }`}
               strokeWidth={2.2}
             />
             <Check
-              className={`absolute inset-0 size-4 transform-gpu text-green-400 transition-[opacity,transform] duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none ${
+              className={`absolute inset-0 size-4 transform-gpu text-green-400 ${
                 currentInviteCodeCopyResult === "copied"
-                  ? "scale-100 rotate-0 opacity-100"
+                  ? "admin-invite-check-spin-in"
                   : "scale-0 -rotate-180 opacity-0"
+              }`}
+              strokeWidth={2.6}
+            />
+            <X
+              className={`absolute inset-0 size-4 transform-gpu text-red-500 ${
+                currentInviteCodeCopyResult === "failed"
+                  ? "admin-invite-x-spin-in"
+                  : "scale-0 rotate-180 opacity-0"
               }`}
               strokeWidth={2.6}
             />

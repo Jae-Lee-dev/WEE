@@ -171,3 +171,27 @@ test("admin shell copies invite code from topbar outside workers", async ({
     )
     .toBe("WEE-ABC123");
 });
+
+test("admin shell shows failed invite code copy state", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window.navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async () => {
+          throw new Error("copy failed");
+        },
+      },
+    });
+    document.execCommand = () => false;
+  });
+  await prepareVisualPage({ page, path: "/dashboard", viewport: "laptop-1366" });
+
+  const copyButton = page.getByTestId("admin-header-invite-code-copy");
+  await expect(copyButton).toBeEnabled();
+  await copyButton.click();
+
+  await expect(copyButton).toHaveAttribute("data-copy-state", "failed");
+  await expect(
+    page.getByTestId("admin-header-invite-code-copy-status"),
+  ).toHaveText("참여 코드 복사에 실패했습니다.");
+});
