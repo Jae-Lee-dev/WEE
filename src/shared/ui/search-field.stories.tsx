@@ -47,3 +47,27 @@ export const FigmaTextfieldSearch: Story = {
     );
   },
 };
+
+export const DebouncedSearch: Story = {
+  render: function Render() {
+    const [value, setValue] = useState("");
+    const [debouncedValue, setDebouncedValue] = useState("");
+
+    return (
+      <div className="grid w-[416px] gap-2">
+        <SearchField
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          onDebouncedValueChange={setDebouncedValue}
+          debounceMs={400}
+          placeholder="검색어를 입력해 주세요"
+          aria-label="디바운스 검색"
+        />
+        <div className="rounded-[6px] border border-gray-100 bg-gray-50 px-3 py-2 text-label-12-regular text-gray-600">
+          <div>즉시 값: {value || "(empty)"}</div>
+          <div>디바운스 값: {debouncedValue || "(empty)"}</div>
+        </div>
+      </div>
+    );
+  },
+};
