@@ -211,7 +211,9 @@ test(`DSH-03 search-worker ${desktop}`, async ({ page }) => {
   });
   await page.evaluate(() => document.fonts.ready);
   await page.getByTestId("dashboard-worker-search").fill("최민준");
-  await expect(page.getByText("조교 목록 (1/6명)")).toBeVisible();
+  await expect(page.getByText("조교 목록")).toHaveCount(0);
+  await expect(page.getByText("조교 목록 (1/6명)")).toHaveCount(0);
+  await expect(page.getByTestId("dashboard-worker-option")).toHaveCount(1);
   await expect(page.getByText("재확정 필요")).toBeVisible();
 
   await captureActualScreenshot({
@@ -222,20 +224,22 @@ test(`DSH-03 search-worker ${desktop}`, async ({ page }) => {
   });
 });
 
-test(`DSH-03 tag-science ${desktop}`, async ({ page }) => {
+test(`DSH-03 search-worker-tag ${desktop}`, async ({ page }) => {
   await prepareVisualPage({
     page,
     path: "/dashboard/workers",
     viewport: desktop,
   });
   await page.evaluate(() => document.fonts.ready);
-  await selectOption(page, "dashboard-worker-tag-select", "과학");
-  await expect(page.getByText("조교 목록 (2/6명)")).toBeVisible();
+  await page.getByTestId("dashboard-worker-search").fill("과학");
+  await expect(page.getByText("조교 목록")).toHaveCount(0);
+  await expect(page.getByTestId("dashboard-worker-tag-select")).toHaveCount(0);
+  await expect(page.getByTestId("dashboard-worker-option")).toHaveCount(2);
 
   await captureActualScreenshot({
     page,
     screenId: "DSH-03",
-    state: "tag-science",
+    state: "search-worker-tag",
     viewport: desktop,
   });
 });

@@ -220,7 +220,6 @@ export function DashboardWorkersScreen() {
   const [periodId, setPeriodId] = useState<DashboardWorkerPeriodId>("month");
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [tagId, setTagId] = useState<DashboardWorkerTagId>("all");
   const [selectedWorkerId, setSelectedWorkerId] = useState<string>(
     dataSource.initialData.summaries[0]?.id ?? "",
   );
@@ -245,11 +244,6 @@ export function DashboardWorkersScreen() {
             ? current
             : (nextViewModel.summaries[0]?.id ?? ""),
         );
-        setTagId((current) =>
-          nextViewModel.tagOptions.some((option) => option.id === current)
-            ? current
-            : "all",
-        );
       })
       .catch(() => {
         if (!active) {
@@ -269,15 +263,18 @@ export function DashboardWorkersScreen() {
     () =>
       viewModel.summaries.filter((worker) => {
         const trimmedQuery = searchQuery.trim().toLowerCase();
+        const tagSearchText = worker.tags
+          .map((tag) => getOptionLabel(viewModel.tagOptions, tag))
+          .join(" ")
+          .toLowerCase();
         const matchesQuery =
           trimmedQuery.length === 0 ||
-          worker.name.toLowerCase().includes(trimmedQuery);
-        const matchesTag =
-          tagId === "all" || worker.tags.some((tag) => tag === tagId);
+          worker.name.toLowerCase().includes(trimmedQuery) ||
+          tagSearchText.includes(trimmedQuery);
 
-        return matchesQuery && matchesTag;
+        return matchesQuery;
       }),
-    [searchQuery, tagId, viewModel.summaries],
+    [searchQuery, viewModel.summaries, viewModel.tagOptions],
   );
 
   const selectedWorker =
@@ -289,7 +286,7 @@ export function DashboardWorkersScreen() {
     <section
       aria-label="근무자별 대시보드"
       className="flex h-full min-h-0 w-full flex-col gap-4"
-      data-dashboard-worker-state={`${periodId}:${tagId}:${selectedWorker?.id ?? "empty"}`}
+      data-dashboard-worker-state={`${periodId}:${selectedWorker?.id ?? "empty"}`}
       data-testid="dashboard-workers-screen"
     >
       <ToolbarShell>
@@ -367,18 +364,12 @@ export function DashboardWorkersScreen() {
             searchQuery={searchInput}
             selectedWorkerId={activeWorkerId}
             tagOptions={viewModel.tagOptions}
-            tagId={tagId}
-            totalWorkerCount={viewModel.summaries.length}
             onDebouncedSearchChange={setSearchQuery}
             onSearchChange={setSearchInput}
             onSelectWorker={setSelectedWorkerId}
-            onTagChange={setTagId}
           />
           {selectedWorker ? (
-            <WorkerDashboardPanel
-              periodId={periodId}
-              worker={selectedWorker}
-            />
+            <WorkerDashboardPanel periodId={periodId} worker={selectedWorker} />
           ) : (
             <EmptyPanel>선택 가능한 조교가 없습니다.</EmptyPanel>
           )}
@@ -585,52 +576,34 @@ function WorkerSelectorPanel({
   onDebouncedSearchChange,
   onSearchChange,
   onSelectWorker,
-  onTagChange,
   searchQuery,
   selectedWorkerId,
   tagOptions,
-  tagId,
-  totalWorkerCount,
 }: {
   filteredWorkers: readonly DashboardWorkerSummary[];
   onDebouncedSearchChange: (value: string) => void;
   onSearchChange: (value: string) => void;
   onSelectWorker: (workerId: string) => void;
-  onTagChange: (value: DashboardWorkerTagId) => void;
   searchQuery: string;
   selectedWorkerId: string;
   tagOptions: readonly DashboardSelectOption<DashboardWorkerTagId>[];
-  tagId: DashboardWorkerTagId;
-  totalWorkerCount: number;
 }) {
   return (
     <div
-      className="flex min-h-0 flex-col overflow-hidden rounded-[8px] bg-white"
+      className="flex min-h-0 flex-col overflow-hidden rounded-[8px] border border-gray-200 bg-white"
       data-testid="dashboard-worker-selector"
     >
-      <div className="sticky top-0 z-10 shrink-0 border-b border-gray-200 bg-white px-4 py-3">
-        <div className="mb-3 text-label-12-medium text-gray-500">
-          조교 목록 ({filteredWorkers.length}/{totalWorkerCount}명)
-        </div>
+      <div className="sticky top-0 z-10 shrink-0 border-b border-gray-100 bg-white p-2">
         <SearchField
-          aria-label="조교 이름 검색"
-          className="h-10 border-gray-200 px-3 py-0 text-h-16-medium [&_input]:text-h-16-medium [&_input]:text-gray-900 [&_svg]:size-5 [&_svg]:text-green-400"
+          aria-label="조교 이름 및 태그 검색"
+          className="h-10 border-gray-200 bg-gray-50 px-3 py-0 text-h-16-medium [&_input]:text-h-16-medium [&_input]:text-gray-900 [&_svg]:size-5 [&_svg]:text-gray-400"
           data-testid="dashboard-worker-search"
           debounceMs={300}
           onChange={(event) => onSearchChange(event.target.value)}
           onDebouncedValueChange={onDebouncedSearchChange}
-          placeholder="조교 이름 검색"
+          placeholder="조교 이름 및 태그 검색"
           value={searchQuery}
         />
-        <div className="mt-2">
-          <DashboardSelectField
-            ariaLabel="근무자 태그 필터"
-            options={tagOptions}
-            testId="dashboard-worker-tag-select"
-            value={tagId}
-            onChange={onTagChange}
-          />
-        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -647,11 +620,12 @@ function WorkerSelectorPanel({
                 aria-pressed={selected}
                 data-action-type={worker.action.actionType}
                 data-target-id={worker.action.targetId}
+                data-testid="dashboard-worker-option"
                 data-record-type={worker.action.recordType}
                 onClick={() => onSelectWorker(worker.id)}
                 className={cn(
                   "block w-full border-b border-gray-100 px-4 py-3 text-left transition-colors duration-150 ease-out last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200",
-                  selected && "bg-green-100 hover:bg-green-100",
+                  selected && "bg-green-50 hover:bg-green-50",
                 )}
               >
                 <div className="min-w-0 truncate text-h-16-semibold text-gray-900">
@@ -818,45 +792,32 @@ function FlagDistributionCard({ worker }: { worker: DashboardWorkerSummary }) {
   );
 }
 
-function WorkerPayrollDetailCard({ worker }: { worker: DashboardWorkerSummary }) {
+function WorkerPayrollDetailCard({
+  worker,
+}: {
+  worker: DashboardWorkerSummary;
+}) {
   const rows: readonly {
     id: string;
     label: string;
     badgeLabel?: string;
-    badgeVariant?: "orange" | "grey";
     amount: number;
-    tone: DashboardMetricTone;
   }[] = [
     {
       id: "regular",
       label: "일반근무",
       amount: worker.payrollDetail.regularWorkPay,
-      tone: "green",
     },
     {
       id: "overtime",
       label: "추가근무",
       badgeLabel: `보류·미처리 ${worker.payrollDetail.overtimePendingCount}건`,
-      badgeVariant:
-        worker.payrollDetail.overtimePendingCount > 0 ? "orange" : "grey",
       amount: worker.payrollDetail.overtimePay,
-      tone:
-        worker.payrollDetail.overtimePendingCount > 0
-          ? "orange"
-          : worker.payrollDetail.overtimePay > 0
-            ? "green"
-            : "grey",
     },
     {
       id: "bonus",
       label: "보너스",
       amount: worker.payrollDetail.bonusPay,
-      tone:
-        worker.payrollDetail.bonusPay > 0
-          ? "blue"
-          : worker.payrollDetail.bonusPay < 0
-            ? "red"
-            : "grey",
     },
   ];
 
@@ -867,32 +828,26 @@ function WorkerPayrollDetailCard({ worker }: { worker: DashboardWorkerSummary })
     >
       <h2 className="text-h-20 text-gray-900">급여 상세</h2>
       <div className="mt-4 divide-y divide-gray-100">
-        {rows.map((row) => {
-          const tone = metricToneClassNames[row.tone];
-
-          return (
-            <div
-              key={row.id}
-              className="flex min-h-12 items-center justify-between gap-4 py-2.5"
-            >
-              <div className="min-w-0">
-                <div className="text-h-16-medium text-gray-700">
-                  {row.label}
-                </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                {row.badgeLabel ? (
-                  <Badge variant={row.badgeVariant} size="M">
-                    {row.badgeLabel}
-                  </Badge>
-                ) : null}
-                <div className={cn("text-h-18-semibold", tone.value)}>
-                  {formatCurrency(row.amount)}
-                </div>
+        {rows.map((row) => (
+          <div
+            key={row.id}
+            className="flex min-h-12 items-center justify-between gap-4 py-2.5"
+          >
+            <div className="min-w-0">
+              <div className="text-h-16-medium text-gray-700">{row.label}</div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {row.badgeLabel ? (
+                <Badge variant="grey" size="M">
+                  {row.badgeLabel}
+                </Badge>
+              ) : null}
+              <div className="text-h-18-semibold text-gray-900">
+                {formatCurrency(row.amount)}
               </div>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     </div>
   );
