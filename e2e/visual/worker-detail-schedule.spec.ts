@@ -19,7 +19,15 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await expect(
       page.getByTestId("worker-detail-schedule-screen").getByRole("rowheader"),
     ).toHaveText(["일", "월", "화", "수", "목", "금", "토"]);
+    const detailShell = page.getByTestId("worker-detail-shell");
+
+    await expect(
+      detailShell.getByRole("navigation", { name: "조교 상세 탭" }),
+    ).toHaveCSS("padding-left", "16px");
     await expect(page.getByText("영어 C반").first()).toBeVisible();
+    await expect(
+      page.getByRole("gridcell", { name: /연구실 행정/ }),
+    ).toHaveCSS("height", "54px");
     await expect(page.getByText("배정 없음")).toHaveCount(0);
     await expect(page.getByTestId("worker-detail-recent-work-records")).toContainText(
       "근무기록으로 이동",

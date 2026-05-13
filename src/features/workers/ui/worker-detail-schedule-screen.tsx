@@ -144,10 +144,10 @@ function ScheduleGrid({
   return (
     <section
       aria-label="주간 시간표"
-      className="min-w-0 overflow-hidden rounded-[8px] border border-gray-100 bg-white"
+      className="min-w-0 overflow-hidden rounded-[10px] border border-gray-200 bg-white"
     >
       <div
-        className="grid h-10 grid-cols-[44px_minmax(0,1fr)] border-b border-gray-200"
+        className="grid h-[47px] grid-cols-[48px_minmax(0,1fr)] border-b border-gray-200"
         role="row"
       >
         <div className="border-r border-gray-200" />
@@ -177,7 +177,7 @@ function ScheduleGrid({
         return (
           <div
             className={cn(
-              "grid h-[92px] grid-cols-[44px_minmax(0,1fr)]",
+              "grid h-[110px] grid-cols-[48px_minmax(0,1fr)]",
               !last && "border-b border-gray-100",
             )}
             key={day.id}
@@ -226,7 +226,7 @@ function ScheduleBlock({ block }: { block: WorkerDetailScheduleBlock }) {
     <div
       aria-label={`${block.title} ${block.startHour}:00~${block.endHour}:00`}
       className={cn(
-        "absolute inset-y-0 z-10 flex items-center overflow-hidden border px-3 text-h-14-semibold",
+        "absolute top-0 z-10 flex h-[54px] items-center overflow-hidden rounded-[4px] border px-2 text-h-14-semibold",
         scheduleBlockToneClassNames[block.tone],
       )}
       role="gridcell"

@@ -139,7 +139,7 @@ function WorkerDetailTabs({
   return (
     <nav
       aria-label="조교 상세 탭"
-      className="flex h-9 items-end gap-8 border-b border-gray-200"
+      className="flex h-9 items-end gap-8 border-b border-gray-200 px-4"
     >
       {workerDetailTabs.map((tab) => {
         const active = tab.id === activeTab;
