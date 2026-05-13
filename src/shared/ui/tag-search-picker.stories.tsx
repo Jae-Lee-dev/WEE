@@ -38,6 +38,26 @@ const workerTagOptions = [
     description: "토요일 배치 가능",
   },
   {
+    value: "deep-high-school",
+    label: "고3 심화",
+    description: "상위권 문제 풀이",
+  },
+  {
+    value: "makeup-class",
+    label: "보강 전담",
+    description: "결석 보강 우선",
+  },
+  {
+    value: "online-qna",
+    label: "온라인 질의응답",
+    description: "비대면 질문 처리",
+  },
+  {
+    value: "material-maker",
+    label: "자료 제작",
+    description: "프린트 정리",
+  },
+  {
     value: "disabled",
     label: "비활성 태그",
     description: "선택할 수 없는 예시",
@@ -94,6 +114,30 @@ export const SelectedInlineTags: Story = {
   render: function Render(args) {
     return (
       <div className="w-[520px] pb-72">
+        <TagSearchPicker {...args} />
+      </div>
+    );
+  },
+};
+
+export const ManySelectedTags: Story = {
+  args: {
+    defaultValue: [
+      "middle-math",
+      "high-math",
+      "exam",
+      "new-worker",
+      "veteran",
+      "weekend",
+      "deep-high-school",
+      "makeup-class",
+      "online-qna",
+      "material-maker",
+    ],
+  },
+  render: function Render(args) {
+    return (
+      <div className="w-[360px]">
         <TagSearchPicker {...args} />
       </div>
     );

@@ -386,7 +386,7 @@ function TagSearchPicker({
         aria-disabled={disabled || undefined}
         aria-invalid={invalid || undefined}
         className={cn(
-          "group flex min-h-11 w-full flex-wrap items-center gap-2 rounded-[6px] border border-gray-100 bg-white px-3 py-2 transition-colors duration-150 ease-out hover:border-gray-200 focus-within:border-green-400 focus-within:ring-2 focus-within:ring-green-100 aria-disabled:pointer-events-none aria-disabled:bg-gray-50 aria-disabled:opacity-50 aria-invalid:border-red-500 aria-invalid:ring-2 aria-invalid:ring-red-100",
+          "group grid min-h-11 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-[6px] border border-gray-100 bg-white px-3 py-2 transition-colors duration-150 ease-out hover:border-gray-200 focus-within:border-green-400 focus-within:ring-2 focus-within:ring-green-100 aria-disabled:pointer-events-none aria-disabled:bg-gray-50 aria-disabled:opacity-50 aria-invalid:border-red-500 aria-invalid:ring-2 aria-invalid:ring-red-100",
           triggerClassName,
         )}
         data-slot="tag-search-picker-trigger"
@@ -398,38 +398,40 @@ function TagSearchPicker({
           inputRef.current?.focus();
         }}
       >
-        {selectedOptions.map((option) => (
-          <TagSearchPickerChip
-            key={option.value}
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {selectedOptions.map((option) => (
+            <TagSearchPickerChip
+              key={option.value}
+              disabled={disabled}
+              option={option}
+              onRemove={() => removeOption(option)}
+            />
+          ))}
+          <input
+            ref={inputRef}
+            aria-activedescendant={
+              activeItem
+                ? getDropdownItemId(listboxId, effectiveActiveIndex)
+                : undefined
+            }
+            aria-autocomplete="list"
+            aria-controls={showListbox ? listboxId : undefined}
+            aria-expanded={showListbox}
+            aria-label={inputAriaLabel}
             disabled={disabled}
-            option={option}
-            onRemove={() => removeOption(option)}
+            id={inputId}
+            role="combobox"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setOpenState(true);
+            }}
+            onFocus={() => setOpenState(true)}
+            onKeyDown={handleInputKeyDown}
+            placeholder={selectedOptions.length === 0 ? placeholder : undefined}
+            className="min-w-[120px] flex-1 bg-transparent py-1 text-h-18-regular tracking-normal text-gray-900 outline-none placeholder:text-gray-400 disabled:cursor-not-allowed"
           />
-        ))}
-        <input
-          ref={inputRef}
-          aria-activedescendant={
-            activeItem
-              ? getDropdownItemId(listboxId, effectiveActiveIndex)
-              : undefined
-          }
-          aria-autocomplete="list"
-          aria-controls={showListbox ? listboxId : undefined}
-          aria-expanded={showListbox}
-          aria-label={inputAriaLabel}
-          disabled={disabled}
-          id={inputId}
-          role="combobox"
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setOpenState(true);
-          }}
-          onFocus={() => setOpenState(true)}
-          onKeyDown={handleInputKeyDown}
-          placeholder={selectedOptions.length === 0 ? placeholder : undefined}
-          className="min-w-[120px] flex-1 bg-transparent py-1 text-h-18-regular tracking-normal text-gray-900 outline-none placeholder:text-gray-400 disabled:cursor-not-allowed"
-        />
+        </div>
         <IconSearch className="size-6 shrink-0 text-gray-400 transition-colors duration-150 ease-out group-focus-within:text-green-400" />
       </div>
 
