@@ -857,7 +857,7 @@ function WorkerTagDetailPanel({
         <div className="mt-6">
           <div className="flex items-center gap-2">
             <h3 className="text-h-18-semibold text-gray-900">
-              {editable ? "적용할 조교" : "현재 적용된 조교"}
+              {editable ? "적용 대상" : "현재 적용된 조교"}
             </h3>
             <Badge variant="grey" size="M" className="min-w-10 tabular-nums">
               {currentCountText}
@@ -875,7 +875,10 @@ function WorkerTagDetailPanel({
           />
         </div>
 
-        <div className="mt-4 overflow-hidden rounded-[8px] border border-gray-100">
+        <div
+          className="mt-4 max-h-70 overflow-y-auto rounded-[8px] border border-gray-100"
+          data-testid="worker-tags-assignment-list"
+        >
           {assignmentLoading ? (
             <WorkerTagAssignmentState label="조교 목록을 불러오는 중입니다." />
           ) : assignmentError ? (

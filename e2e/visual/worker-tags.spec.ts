@@ -31,8 +31,13 @@ test(`WKR-06 edit-tag-panel ${desktop}`, async ({ page }) => {
   await expect(panel.getByText("3명")).toBeVisible();
   await page.getByTestId("worker-tags-edit-trigger-first").click();
   await expect(panel).toHaveAttribute("data-worker-tags-panel-mode", "edit");
+  await expect(panel.getByRole("heading", { name: "적용 대상" })).toBeVisible();
   await expect(panel.getByText("3명")).toBeVisible();
   await expect(panel.getByText("조교 목록을 불러오는 중입니다.")).toHaveCount(0);
+  await expect(panel.getByTestId("worker-tags-assignment-list")).toHaveCSS(
+    "overflow-y",
+    "auto",
+  );
 
   const controlHeights = await panel.evaluate((root) => {
     const controls = ["태그명", "색상", "상태"].map((label) => {
