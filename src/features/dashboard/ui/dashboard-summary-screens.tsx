@@ -287,7 +287,7 @@ export function DashboardWorkersScreen() {
   return (
     <section
       aria-label="근무자별 대시보드"
-      className="flex w-full flex-col gap-4"
+      className="flex h-full min-h-0 w-full flex-col gap-4"
       data-dashboard-worker-state={`${periodId}:${tagId}:${selectedWorker?.id ?? "empty"}`}
       data-testid="dashboard-workers-screen"
     >
@@ -353,7 +353,7 @@ export function DashboardWorkersScreen() {
       ) : errorMessage ? (
         <DashboardSectionState label={errorMessage} role="alert" />
       ) : (
-        <div className="grid min-h-[520px] grid-cols-[232px_minmax(0,1fr)] gap-4">
+        <div className="grid min-h-0 flex-1 grid-cols-[232px_minmax(0,1fr)] gap-4 overflow-hidden">
           <WorkerSelectorPanel
             filteredWorkers={filteredWorkers}
             searchQuery={searchInput}
@@ -590,8 +590,11 @@ function WorkerSelectorPanel({
   totalWorkerCount: number;
 }) {
   return (
-    <div className="min-h-0 overflow-hidden rounded-[8px] bg-white">
-      <div className="sticky top-0 z-10 border-b border-gray-200 bg-white px-4 py-3">
+    <div
+      className="flex min-h-0 flex-col overflow-hidden rounded-[8px] bg-white"
+      data-testid="dashboard-worker-selector"
+    >
+      <div className="sticky top-0 z-10 shrink-0 border-b border-gray-200 bg-white px-4 py-3">
         <div className="mb-3 text-label-12-medium text-gray-500">
           조교 목록 ({filteredWorkers.length}/{totalWorkerCount}명)
         </div>
@@ -616,7 +619,7 @@ function WorkerSelectorPanel({
         </div>
       </div>
 
-      <div className="max-h-[598px] overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {filteredWorkers.length === 0 ? (
           <EmptyPanel compact>검색 결과가 없습니다.</EmptyPanel>
         ) : (
@@ -637,22 +640,10 @@ function WorkerSelectorPanel({
                   selected && "bg-green-100 hover:bg-green-100",
                 )}
               >
-                <div className="flex items-center gap-2.5">
-                  <span
-                    className={cn(
-                      "flex size-7 shrink-0 items-center justify-center rounded-full text-detail-12 font-semibold",
-                      selected
-                        ? "bg-green-400 text-white"
-                        : "bg-gray-100 text-gray-600",
-                    )}
-                  >
-                    {worker.initials}
-                  </span>
-                  <span className="min-w-0 truncate text-h-16-semibold text-gray-900">
-                    {worker.name}
-                  </span>
+                <div className="min-w-0 truncate text-h-16-semibold text-gray-900">
+                  {worker.name}
                 </div>
-                <div className="mt-2 flex flex-wrap gap-1.5 pl-9">
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {worker.tags.map((tag) => (
                     <Badge key={tag} variant="grey" size="M">
                       {getOptionLabel(tagOptions, tag)}
@@ -721,7 +712,10 @@ function WorkerDashboardPanel({
   ] as const satisfies readonly DashboardOperationalMetric[];
 
   return (
-    <div className="min-w-0 overflow-y-auto">
+    <div
+      className="min-h-0 min-w-0 overflow-y-auto pr-1"
+      data-testid="dashboard-worker-detail-scroll"
+    >
       <div className="flex flex-col gap-4">
         <OperationalMetricGrid metrics={metrics} />
 

@@ -230,6 +230,46 @@ test(`DSH-03 tag-science ${desktop}`, async ({ page }) => {
   });
 });
 
+test("DSH-03 detail panel owns vertical scroll", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/dashboard/workers",
+    viewport: "laptop-1366",
+  });
+  await page.evaluate(() => document.fonts.ready);
+  await expect(page.getByTestId("dashboard-worker-detail-scroll")).toBeVisible();
+
+  const metrics = await page.evaluate(() => {
+    const shell = document.querySelector('[data-testid="admin-shell-content-scroll"]');
+    const detail = document.querySelector('[data-testid="dashboard-worker-detail-scroll"]');
+    const search = document.querySelector('[data-testid="dashboard-worker-search"]');
+
+    if (
+      !(shell instanceof HTMLElement) ||
+      !(detail instanceof HTMLElement) ||
+      !(search instanceof HTMLElement)
+    ) {
+      throw new Error("Dashboard worker scroll measurement target not found");
+    }
+
+    const searchTopBefore = search.getBoundingClientRect().top;
+    detail.scrollTop = 160;
+    const searchTopAfter = search.getBoundingClientRect().top;
+
+    return {
+      detailOverflowY: detail.scrollHeight - detail.clientHeight,
+      detailScrollTop: detail.scrollTop,
+      searchTopDelta: searchTopAfter - searchTopBefore,
+      shellOverflowY: shell.scrollHeight - shell.clientHeight,
+    };
+  });
+
+  expect(metrics.shellOverflowY).toBeLessThanOrEqual(1);
+  expect(metrics.detailOverflowY).toBeGreaterThan(0);
+  expect(metrics.detailScrollTop).toBeGreaterThan(0);
+  expect(Math.abs(metrics.searchTopDelta)).toBeLessThanOrEqual(1);
+});
+
 test(`DSH-04 analysis-last-month ${desktop}`, async ({ page }) => {
   await prepareVisualPage({
     page,
