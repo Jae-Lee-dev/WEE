@@ -841,10 +841,10 @@ function createWorkers(workspaceId, managerUid) {
     workspaceId,
   }));
   const pending = createAffiliationApplicationWorkers(workspaceId);
+  const rejectedReason = "계좌 정보 확인 불가";
   const rejected = {
     ...worker("worker_oh_rejected", "worker-auth-oh", "오지훈", ["worker_tag_watch"], "2026-04-18T12:40:00+09:00"),
     membershipStatus: "rejected",
-    rejectionReason: "계좌 정보 확인 불가",
     status: "inactive",
     updatedAt: ts("2026-04-18T16:00:00+09:00"),
     workspaceId,
@@ -870,7 +870,7 @@ function createWorkers(workspaceId, managerUid) {
       createdAt: rejected.appliedAt,
       decidedAt: ts("2026-04-18T16:00:00+09:00"),
       decidedBy: managerUid,
-      rejectionReason: rejected.rejectionReason,
+      rejectionReason: rejectedReason,
       status: "rejected",
       workerId: rejected.id,
       workerName: rejected.name,

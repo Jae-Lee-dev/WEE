@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteField,
   doc,
   getDocs,
   increment,
@@ -122,6 +123,8 @@ function createFixtureWorkerApplicationsDataSource(): WorkerApplicationsDataSour
       return data;
     },
     async rejectApplication(input) {
+      const rejectionReason = input.rejectionReason.trim();
+
       data = {
         ...data,
         rows: data.rows.map((row) =>
@@ -134,7 +137,7 @@ function createFixtureWorkerApplicationsDataSource(): WorkerApplicationsDataSour
                     bankbookStatus: "미확인",
                     requestedPay: "미입력",
                   }),
-                  rejectionReason: input.rejectionReason || "사유 미입력",
+                  rejectionReason: rejectionReason || undefined,
                   statusText: "반려",
                 },
                 statusText: "반려",
@@ -250,6 +253,7 @@ function createFirestoreWorkerApplicationsDataSource(): WorkerApplicationsDataSo
           approvedAt: serverTimestamp(),
           decidedAt: serverTimestamp(),
           decidedBy,
+          rejectionReason: deleteField(),
           status: "approved",
           updatedAt: serverTimestamp(),
           workerId: input.workerId,
@@ -260,6 +264,7 @@ function createFirestoreWorkerApplicationsDataSource(): WorkerApplicationsDataSo
       );
       batch.update(workerRef, {
         membershipStatus: "approved",
+        rejectionReason: deleteField(),
         status: "active",
         tagIds,
         updatedAt: serverTimestamp(),
@@ -327,6 +332,7 @@ function createFirestoreWorkerApplicationsDataSource(): WorkerApplicationsDataSo
     },
     listApplications,
     async rejectApplication(input) {
+      const rejectionReason = input.rejectionReason.trim();
       const workspaceId = await requireActiveWorkspaceId();
       const db = getFirebaseDb();
       const batch = writeBatch(db);
@@ -343,7 +349,7 @@ function createFirestoreWorkerApplicationsDataSource(): WorkerApplicationsDataSo
         {
           decidedAt: serverTimestamp(),
           decidedBy,
-          rejectionReason: input.rejectionReason,
+          rejectionReason: rejectionReason || deleteField(),
           status: "rejected",
           updatedAt: serverTimestamp(),
           workerId: input.workerId,
@@ -353,7 +359,7 @@ function createFirestoreWorkerApplicationsDataSource(): WorkerApplicationsDataSo
       );
       batch.update(doc(db, "workspaces", workspaceId, "workers", input.workerId), {
         membershipStatus: "rejected",
-        rejectionReason: input.rejectionReason,
+        rejectionReason: deleteField(),
         status: "inactive",
         updatedAt: serverTimestamp(),
       });
@@ -490,6 +496,14 @@ async function createApplicationInfo({
   status: WorkerApplicationStatus;
   workerData: DocumentData | undefined;
 }): Promise<WorkerApplicationInfo> {
+  const membershipRejectionReason = readString(
+    membershipData?.rejectionReason,
+    "",
+  );
+  const legacyWorkerRejectionReason = membershipData
+    ? ""
+    : readString(workerData?.rejectionReason, "");
+
   return {
     appliedAt: formatDateLabel(appliedAt, "-"),
     bankbookDownloadUrl:
@@ -500,10 +514,7 @@ async function createApplicationInfo({
     requestedPay: readRequestedPay(membershipData, workerData),
     rejectionReason:
       status === "rejected"
-        ? readString(
-            membershipData?.rejectionReason,
-            readString(workerData?.rejectionReason, ""),
-          ) || undefined
+        ? membershipRejectionReason || legacyWorkerRejectionReason || undefined
         : undefined,
     statusText: readApplicationStatusLabel(status),
   };
