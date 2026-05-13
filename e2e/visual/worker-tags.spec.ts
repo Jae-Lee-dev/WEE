@@ -14,6 +14,24 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await expect(
       page.getByRole("heading", { name: "근무자 태그 관리" }),
     ).toBeVisible();
+    const statusColumnOffset = await page.evaluate(() => {
+      const header = document.querySelector(
+        '[data-testid="worker-tags-list-status-header"]',
+      );
+      const firstStatus = document.querySelector(
+        '[data-testid="worker-tags-row-first-status"]',
+      );
+
+      if (!(header instanceof HTMLElement) || !(firstStatus instanceof HTMLElement)) {
+        throw new Error("worker tag list status column nodes not found");
+      }
+
+      return Math.abs(
+        header.getBoundingClientRect().left -
+          firstStatus.getBoundingClientRect().left,
+      );
+    });
+    expect(statusColumnOffset).toBeLessThanOrEqual(1);
 
     await captureActualScreenshot({
       page,
@@ -143,8 +161,11 @@ test("WKR-06 edits and deletes worker tags", async ({ page }) => {
   ).toBeVisible();
 
   await panel.getByRole("button", { name: "삭제" }).click();
-  await panel
-    .getByTestId("worker-tags-delete-confirm")
+  const deleteConfirm = page.getByTestId("worker-tags-delete-confirm");
+
+  await expect(deleteConfirm).toBeVisible();
+  await expect(deleteConfirm).toHaveAttribute("role", "dialog");
+  await deleteConfirm
     .getByRole("button", { name: "삭제" })
     .click();
 

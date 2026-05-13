@@ -183,7 +183,10 @@ function createFirestoreWorkerTagsDataSource(): WorkerTagsDataSource {
         }
 
         batch.update(worker.ref, {
-          tagIds: addStringToArray(readStringArray(worker.data().tagIds), tagRef.id),
+          tagIds: addStringToArray(
+            readStringArray(worker.data().tagIds),
+            tagRef.id,
+          ),
           updatedAt: serverTimestamp(),
         });
       }
@@ -342,7 +345,9 @@ async function requireActiveWorkspaceId() {
 }
 
 function shouldUseFixtureDataSource() {
-  return isMockFirebaseProject() || readActiveWorkspaceId() === "workspace_visual";
+  return (
+    isMockFirebaseProject() || readActiveWorkspaceId() === "workspace_visual"
+  );
 }
 
 function mapWorkerTagDocument(
@@ -405,11 +410,12 @@ function countWorkerTagAssignments(
 }
 
 function toWorkerTagCountText(usageCount: number) {
-  return `적용 조교 ${usageCount}명`;
+  return `${usageCount}명`;
 }
 
 function compareWorkerTags(left: WorkerTagModel, right: WorkerTagModel) {
-  const statusCompare = getStatusRank(left.status) - getStatusRank(right.status);
+  const statusCompare =
+    getStatusRank(left.status) - getStatusRank(right.status);
 
   if (statusCompare !== 0) {
     return statusCompare;

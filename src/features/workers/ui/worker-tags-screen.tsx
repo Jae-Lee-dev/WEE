@@ -330,7 +330,7 @@ function WorkerTagListPanel({
       <div className="grid h-9 shrink-0 grid-cols-[minmax(0,1fr)_128px_88px] items-center border-b border-gray-300 px-4 text-h-18-regular text-gray-500">
         <div>태그</div>
         <div>대상 수</div>
-        <div className="text-right">상태</div>
+        <div data-testid="worker-tags-list-status-header">상태</div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -386,7 +386,10 @@ function WorkerTagListRow({
         <WorkerTagBadge tag={tag} />
       </div>
       <div className="min-w-0 truncate text-gray-700">{tag.countText}</div>
-      <div className="flex justify-end">
+      <div
+        className="flex justify-start"
+        data-testid={first ? "worker-tags-row-first-status" : undefined}
+      >
         {tag.statusText ? (
           <WorkerTagStatusBadge label={tag.statusText} />
         ) : null}
@@ -606,7 +609,7 @@ function WorkerTagCreateDialog({
           </div>
         </div>
 
-        <DialogFooter className="-mx-0 -mb-0 flex h-16 shrink-0 flex-row items-center justify-end gap-3 rounded-none border-0 bg-transparent px-6 pb-4 pt-4">
+        <DialogFooter className="mx-0 mb-0 flex h-16 shrink-0 flex-row items-center justify-end gap-3 rounded-none border-0 bg-transparent px-6 pb-4 pt-4">
           <Button
             type="button"
             variant="secondary"
@@ -669,9 +672,9 @@ function WorkerTagDetailPanel({
   const [selectedWorkerIds, setSelectedWorkerIds] = useState<readonly string[]>(
     [],
   );
-  const [committedWorkerIds, setCommittedWorkerIds] = useState<readonly string[]>(
-    [],
-  );
+  const [committedWorkerIds, setCommittedWorkerIds] = useState<
+    readonly string[]
+  >([]);
   const [searchText, setSearchText] = useState("");
   const [debouncedSearchText, setDebouncedSearchText] = useState("");
   const [assignmentLoading, setAssignmentLoading] = useState(
@@ -798,135 +801,202 @@ function WorkerTagDetailPanel({
   };
 
   return (
-    <aside
-      className="flex min-w-0 flex-col overflow-hidden rounded-[8px] border border-gray-200 bg-white"
-      data-testid="worker-tags-detail-panel"
-      data-worker-tags-panel-mode={mode}
-    >
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pt-4">
-        <div className="flex shrink-0 items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="text-h-20 text-gray-900">{title}</h2>
-            <p className="mt-1 text-h-16-medium tracking-normal text-gray-500">
-              {editable
-                ? "태그 정보와 적용 조교를 저장합니다."
-                : "태그 정보와 현재 적용된 조교를 확인합니다."}
-            </p>
+    <>
+      <aside
+        className="flex min-w-0 flex-col overflow-hidden rounded-[8px] border border-gray-200 bg-white"
+        data-testid="worker-tags-detail-panel"
+        data-worker-tags-panel-mode={mode}
+      >
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pt-4">
+          <div className="flex shrink-0 items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-h-20 text-gray-900">{title}</h2>
+              <p className="mt-1 text-h-16-medium tracking-normal text-gray-500">
+                {editable
+                  ? "태그 정보와 적용 대상을 저장합니다."
+                  : "태그 정보와 적용 대상을 확인합니다."}
+              </p>
+            </div>
           </div>
-        </div>
 
-        <div className="mt-5 grid shrink-0 grid-cols-[minmax(0,1fr)_124px_124px] gap-3">
-          <label className="block">
-            <span className="text-h-18-semibold text-gray-900">태그명</span>
-            <Input
-              aria-label="태그명"
-              disabled={!editable || saving}
-              value={label}
-              onChange={(event) => setLabel(event.target.value)}
-              className={workerTagFormControlClassName}
-            />
-          </label>
-          <label className="block">
-            <span className="text-h-18-semibold text-gray-900">색상</span>
-            <OptionSelect
-              value={tone}
-              disabled={!editable || saving}
-              onValueChange={(value) => setTone(value as WorkerTagTone)}
-              options={[...workerTagToneOptions]}
-              triggerAriaLabel="색상"
-              triggerClassName={workerTagFormControlClassName}
-              contentClassName="z-[70]"
-              itemClassName="text-h-16-medium tracking-normal"
-            />
-          </label>
-          <label className="block">
-            <span className="text-h-18-semibold text-gray-900">상태</span>
-            <OptionSelect
-              value={status}
-              disabled={!editable || saving}
-              onValueChange={(value) => setStatus(value as WorkerTagStatus)}
-              options={[...workerTagStatusOptions]}
-              triggerAriaLabel="상태"
-              triggerClassName={workerTagFormControlClassName}
-              contentClassName="z-[70]"
-              itemClassName="text-h-16-medium tracking-normal"
-            />
-          </label>
-        </div>
-
-        <div className="mt-6 shrink-0">
-          <div className="flex items-center gap-2">
-            <h3 className="text-h-18-semibold text-gray-900">
-              {editable ? "적용 대상" : "현재 적용된 조교"}
-            </h3>
-            <Badge variant="grey" size="M" className="min-w-10 tabular-nums">
-              {currentCountText}
-            </Badge>
+          <div className="mt-5 grid shrink-0 grid-cols-[minmax(0,1fr)_124px_124px] gap-3">
+            <label className="block">
+              <span className="text-h-18-semibold text-gray-900">태그명</span>
+              <Input
+                aria-label="태그명"
+                disabled={!editable || saving}
+                value={label}
+                onChange={(event) => setLabel(event.target.value)}
+                className={workerTagFormControlClassName}
+              />
+            </label>
+            <label className="block">
+              <span className="text-h-18-semibold text-gray-900">색상</span>
+              <OptionSelect
+                value={tone}
+                disabled={!editable || saving}
+                onValueChange={(value) => setTone(value as WorkerTagTone)}
+                options={[...workerTagToneOptions]}
+                triggerAriaLabel="색상"
+                triggerClassName={workerTagFormControlClassName}
+                contentClassName="z-[70]"
+                itemClassName="text-h-16-medium tracking-normal"
+              />
+            </label>
+            <label className="block">
+              <span className="text-h-18-semibold text-gray-900">상태</span>
+              <OptionSelect
+                value={status}
+                disabled={!editable || saving}
+                onValueChange={(value) => setStatus(value as WorkerTagStatus)}
+                options={[...workerTagStatusOptions]}
+                triggerAriaLabel="상태"
+                triggerClassName={workerTagFormControlClassName}
+                contentClassName="z-[70]"
+                itemClassName="text-h-16-medium tracking-normal"
+              />
+            </label>
           </div>
-          <SearchField
-            aria-label="조교 이름 검색"
-            className="mt-3 h-11 rounded-[8px] border-gray-200 px-4 py-0 [&_input]:text-gray-900 [&_input]:disabled:text-gray-500 [&_svg]:text-green-400"
-            debounceMs={300}
-            disabled={saving}
-            onChange={(event) => setSearchText(event.target.value)}
-            onDebouncedValueChange={setDebouncedSearchText}
-            placeholder={workerTagEditDialog.searchPlaceholder}
-            value={searchText}
-          />
+
+          <div className="mt-6 shrink-0">
+            <div className="flex items-center gap-2">
+              <h3 className="text-h-18-semibold text-gray-900">
+                {"적용 대상"}
+              </h3>
+              <Badge variant="grey" size="M" className="min-w-10 tabular-nums">
+                {currentCountText}
+              </Badge>
+            </div>
+            <SearchField
+              aria-label="조교 이름 검색"
+              className="mt-3 h-11 rounded-[8px] border-gray-200 px-4 py-0 [&_input]:text-gray-900 [&_input]:disabled:text-gray-500 [&_svg]:text-green-400"
+              debounceMs={300}
+              disabled={saving}
+              onChange={(event) => setSearchText(event.target.value)}
+              onDebouncedValueChange={setDebouncedSearchText}
+              placeholder={workerTagEditDialog.searchPlaceholder}
+              value={searchText}
+            />
+          </div>
+
+          <div
+            className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-[8px] border border-gray-100"
+            data-testid="worker-tags-assignment-list"
+          >
+            {assignmentLoading ? (
+              <WorkerTagAssignmentState label="조교 목록을 불러오는 중입니다." />
+            ) : assignmentError ? (
+              <WorkerTagAssignmentState label={assignmentError} role="alert" />
+            ) : visibleWorkers.length > 0 ? (
+              visibleWorkers.map((worker) => {
+                const checked = selectedWorkerIds.includes(worker.id);
+
+                return (
+                  <WorkerTagAssignmentRow
+                    key={worker.id}
+                    checked={checked}
+                    editable={editable}
+                    saving={saving}
+                    worker={worker}
+                    onToggle={() => toggleWorker(worker)}
+                  />
+                );
+              })
+            ) : (
+              <WorkerTagAssignmentState
+                label={
+                  editable ? "표시할 조교가 없습니다." : "적용 대상이 없습니다."
+                }
+              />
+            )}
+          </div>
         </div>
 
         <div
-          className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-[8px] border border-gray-100"
-          data-testid="worker-tags-assignment-list"
+          className="mt-auto flex h-16 shrink-0 items-center justify-end gap-3 px-4 pb-4 pt-4"
+          data-testid="worker-tags-detail-actions"
         >
-          {assignmentLoading ? (
-            <WorkerTagAssignmentState label="조교 목록을 불러오는 중입니다." />
-          ) : assignmentError ? (
-            <WorkerTagAssignmentState label={assignmentError} role="alert" />
-          ) : visibleWorkers.length > 0 ? (
-            visibleWorkers.map((worker) => {
-              const checked = selectedWorkerIds.includes(worker.id);
-
-              return (
-                <WorkerTagAssignmentRow
-                  key={worker.id}
-                  checked={checked}
-                  editable={editable}
-                  saving={saving}
-                  worker={worker}
-                  onToggle={() => toggleWorker(worker)}
-                />
-              );
-            })
+          {mode === "view" && tag ? (
+            <>
+              <Button
+                type="button"
+                variant="danger"
+                disabled={deleting || saving}
+                onClick={() => setConfirmingDelete(true)}
+                className="h-11 rounded-[8px] px-6 text-h-16-semibold"
+              >
+                삭제
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                data-testid={
+                  firstSelected ? "worker-tags-edit-trigger-first" : undefined
+                }
+                disabled={deleting || saving}
+                onClick={() => {
+                  setConfirmingDelete(false);
+                  onStartEdit();
+                }}
+                className="h-11 rounded-[8px] px-6 text-h-16-semibold"
+              >
+                수정
+              </Button>
+            </>
           ) : (
-            <WorkerTagAssignmentState
-              label={
-                editable
-                  ? "표시할 조교가 없습니다."
-                  : "현재 적용된 조교가 없습니다."
-              }
-            />
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={saving}
+                onClick={() => {
+                  resetDraftToTag();
+                  onCancel();
+                }}
+                className="h-11 rounded-[8px] px-6 text-h-16-semibold"
+              >
+                취소
+              </Button>
+              <Button
+                type="button"
+                disabled={!canSave}
+                onClick={handleSave}
+                className="h-11 rounded-[8px] px-7 text-h-16-semibold"
+              >
+                {saving ? "저장 중" : "저장"}
+              </Button>
+            </>
           )}
         </div>
+      </aside>
 
-        {confirmingDelete && tag ? (
-          <div
-            className="mt-4 shrink-0 rounded-[8px] border border-red-100 bg-red-50 p-4"
+      {confirmingDelete && tag ? (
+        <Dialog
+          open
+          onOpenChange={(open) => {
+            if (!open && !deleting) {
+              setConfirmingDelete(false);
+            }
+          }}
+        >
+          <DialogContent
+            showCloseButton={false}
             data-testid="worker-tags-delete-confirm"
+            className="w-[calc(100vw-32px)] max-w-[480px] rounded-[8px] bg-white px-6 py-6 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0 sm:max-w-[480px]"
           >
-            <h3 className="text-h-18-semibold text-red-500">
+            <DialogTitle className="text-h-20 text-gray-900">
               근무자 태그 삭제
-            </h3>
-            <p className="mt-2 text-h-16-medium leading-normal tracking-normal text-red-500">
-              {tag.label} 태그를 삭제하고 적용된 조교에서 이 태그를 제거합니다.
-            </p>
-            <div className="mt-4 flex justify-end gap-3">
+            </DialogTitle>
+            <DialogDescription className="mt-3 text-body-14-regular tracking-normal text-gray-500">
+              {tag.label} 태그를 삭제하고 적용 대상에서 이 태그를 제거합니다.
+            </DialogDescription>
+            <DialogFooter className="mx-0 mb-0 mt-8 flex-row justify-end gap-3 rounded-none border-0 bg-transparent p-0">
               <Button
                 type="button"
                 variant="secondary"
                 disabled={deleting}
                 onClick={() => setConfirmingDelete(false)}
-                className="h-9 rounded-full px-4 text-label-18 font-medium tracking-normal"
+                className="h-11 rounded-[8px] px-6 text-h-16-semibold"
               >
                 취소
               </Button>
@@ -937,72 +1007,15 @@ function WorkerTagDetailPanel({
                 onClick={() => {
                   void onDelete(tag);
                 }}
-                className="h-9 rounded-full px-4 text-label-18 font-medium tracking-normal"
+                className="h-11 rounded-[8px] px-6 text-h-16-semibold"
               >
                 {deleting ? "삭제 중" : "삭제"}
               </Button>
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      <div
-        className="mt-auto flex h-16 shrink-0 items-center justify-end gap-3 px-4 pb-4 pt-4"
-        data-testid="worker-tags-detail-actions"
-      >
-        {mode === "view" && tag ? (
-          <>
-            <Button
-              type="button"
-              variant="danger"
-              disabled={deleting || saving}
-              onClick={() => setConfirmingDelete(true)}
-              className="h-11 rounded-[8px] px-6 text-h-16-semibold"
-            >
-              삭제
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              data-testid={
-                firstSelected ? "worker-tags-edit-trigger-first" : undefined
-              }
-              disabled={deleting || saving}
-              onClick={() => {
-                setConfirmingDelete(false);
-                onStartEdit();
-              }}
-              className="h-11 rounded-[8px] px-6 text-h-16-semibold"
-            >
-              수정
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={saving}
-              onClick={() => {
-                resetDraftToTag();
-                onCancel();
-              }}
-              className="h-11 rounded-[8px] px-6 text-h-16-semibold"
-            >
-              취소
-            </Button>
-            <Button
-              type="button"
-              disabled={!canSave}
-              onClick={handleSave}
-              className="h-11 rounded-[8px] px-7 text-h-16-semibold"
-            >
-              {saving ? "저장 중" : "저장"}
-            </Button>
-          </>
-        )}
-      </div>
-    </aside>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
+    </>
   );
 }
 
