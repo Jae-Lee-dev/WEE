@@ -260,7 +260,7 @@ export function WorkerTagsScreen({
           onSelect={handleSelectTag}
         />
         <WorkerTagDetailPanel
-          key={`${panelMode}:${panelMode === "create" ? "new" : selectedTag?.id ?? "empty"}`}
+          key={`${panelMode}:${panelMode === "create" ? "new" : (selectedTag?.id ?? "empty")}`}
           dataSource={dataSource}
           deleting={deleting}
           firstSelected={rows[0]?.id === selectedTag?.id}
@@ -361,7 +361,8 @@ function WorkerTagListRow({
       onClick={onSelect}
       className={cn(
         "grid min-h-14 w-full grid-cols-[minmax(0,1fr)_128px_88px] items-center border-b border-gray-100 px-4 text-left text-h-18-regular tracking-normal text-gray-900 transition-colors duration-150 ease-out last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200",
-        selected && "bg-green-50 ring-2 ring-inset ring-green-400 hover:bg-green-50",
+        selected &&
+          "bg-green-50 ring-2 ring-inset ring-green-400 hover:bg-green-50",
       )}
     >
       <div className="min-w-0">
@@ -369,7 +370,9 @@ function WorkerTagListRow({
       </div>
       <div className="min-w-0 truncate text-gray-700">{tag.countText}</div>
       <div className="flex justify-end">
-        {tag.statusText ? <WorkerTagStatusBadge label={tag.statusText} /> : null}
+        {tag.statusText ? (
+          <WorkerTagStatusBadge label={tag.statusText} />
+        ) : null}
       </div>
     </button>
   );
@@ -414,7 +417,10 @@ function WorkerTagDetailPanel({
   tag: WorkerTagRow | null;
   onCancel: () => void;
   onDelete: (tag: WorkerTagRow) => Promise<void>;
-  onSave: (input: WorkerTagSaveInput, currentTag?: WorkerTagRow) => Promise<void>;
+  onSave: (
+    input: WorkerTagSaveInput,
+    currentTag?: WorkerTagRow,
+  ) => Promise<void>;
   onStartEdit: () => void;
 }) {
   const editable = mode !== "view";
@@ -430,8 +436,9 @@ function WorkerTagDetailPanel({
   );
   const [searchText, setSearchText] = useState("");
   const [debouncedSearchText, setDebouncedSearchText] = useState("");
-  const [assignmentLoading, setAssignmentLoading] =
-    useState(shouldLoadAssignments);
+  const [assignmentLoading, setAssignmentLoading] = useState(
+    shouldLoadAssignments,
+  );
   const [assignmentError, setAssignmentError] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const normalizedSearchText = debouncedSearchText
@@ -440,13 +447,14 @@ function WorkerTagDetailPanel({
   const selectedWorkers = workers.filter((worker) =>
     selectedWorkerIds.includes(worker.id),
   );
-  const visibleWorkers = (editable ? workers : selectedWorkers).filter((worker) =>
-    normalizedSearchText
-      ? worker.name.toLocaleLowerCase("ko-KR").includes(normalizedSearchText)
-      : true,
+  const visibleWorkers = (editable ? workers : selectedWorkers).filter(
+    (worker) =>
+      normalizedSearchText
+        ? worker.name.toLocaleLowerCase("ko-KR").includes(normalizedSearchText)
+        : true,
   );
   const currentCountText = assignmentLoading
-    ? tag?.countText ?? "0명"
+    ? (tag?.countText ?? "0명")
     : `${selectedWorkerIds.length}명`;
   const title =
     mode === "create"
@@ -560,7 +568,6 @@ function WorkerTagDetailPanel({
                 : "태그 정보와 현재 적용된 조교를 확인합니다."}
             </p>
           </div>
-          {tag ? <WorkerTagBadge tag={tag} /> : null}
         </div>
 
         <div className="mt-5 grid grid-cols-[minmax(0,1fr)_132px] gap-3">
@@ -668,7 +675,9 @@ function WorkerTagDetailPanel({
             className="mt-4 rounded-[8px] border border-red-100 bg-red-50 p-4"
             data-testid="worker-tags-delete-confirm"
           >
-            <h3 className="text-h-18-semibold text-red-500">근무자 태그 삭제</h3>
+            <h3 className="text-h-18-semibold text-red-500">
+              근무자 태그 삭제
+            </h3>
             <p className="mt-2 text-h-16-medium leading-[1.5] tracking-normal text-red-500">
               {tag.label} 태그를 삭제하고 적용된 조교에서 이 태그를 제거합니다.
             </p>
