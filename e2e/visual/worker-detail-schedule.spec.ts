@@ -28,10 +28,14 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
       "scrollbar-gutter",
       /stable/,
     );
-    await expect(detailTabs).toHaveCSS("padding-left", "16px");
+    await expect(detailTabs).toHaveCSS("padding-left", "0px");
     await expect(detailTabs.getByRole("link", { name: "시간표" })).toHaveCSS(
       "padding-left",
       "12px",
+    );
+    await expect(detailTabs.getByRole("link", { name: "시간표" })).toHaveCSS(
+      "font-size",
+      "16px",
     );
     await expect(detailTabs.getByRole("link", { name: "시간표" })).toHaveAttribute(
       "aria-current",
