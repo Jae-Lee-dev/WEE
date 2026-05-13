@@ -17,10 +17,7 @@ import {
   workerDetailProfile,
   type WorkerDetailProfile,
 } from "../model/worker-detail-common-fixtures";
-import {
-  WorkerDetailTabs,
-  useWorkerDetailActiveTab,
-} from "./worker-detail-tabs";
+import { WorkerDetailTabs } from "./worker-detail-tabs";
 
 type WorkerDetailSubsectionProps = {
   ariaLabel?: string;
@@ -54,7 +51,6 @@ export function WorkerDetailShell({
   initialProfile?: WorkerDetailProfile;
   workerId?: string;
 }) {
-  const activeTab = useWorkerDetailActiveTab();
   const [deleteHandler, setDeleteHandlerState] =
     useState<WorkerDetailDeleteHandler | null>(null);
   const [profile, setProfile] = useState<WorkerDetailProfile>(initialProfile);
@@ -62,8 +58,6 @@ export function WorkerDetailShell({
     () => createWorkerDetailTabs(workerId),
     [workerId],
   );
-  const shellMaxWidthClassName =
-    activeTab === "payroll" ? "max-w-[1580px]" : "max-w-[1480px]";
   const setDeleteHandler = useCallback(
     (handler: WorkerDetailDeleteHandler | null) => {
       setDeleteHandlerState(() => handler);
@@ -79,8 +73,7 @@ export function WorkerDetailShell({
       <section
         aria-label="조교 상세"
         className={cn(
-          "mx-auto flex w-full flex-col gap-4 tracking-normal",
-          shellMaxWidthClassName,
+          "mx-auto flex w-full max-w-[1580px] flex-col gap-4 tracking-normal",
         )}
         data-testid="worker-detail-shell"
       >

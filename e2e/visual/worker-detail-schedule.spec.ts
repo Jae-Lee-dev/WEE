@@ -25,13 +25,9 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     });
 
     await expect(detailTabs).toHaveCSS("padding-left", "16px");
-    await expect(detailTabs.getByRole("tablist")).toHaveCSS(
-      "justify-content",
-      "flex-start",
-    );
-    await expect(detailTabs.getByRole("tab", { name: "시간표" })).toHaveAttribute(
-      "aria-selected",
-      "true",
+    await expect(detailTabs.getByRole("link", { name: "시간표" })).toHaveAttribute(
+      "aria-current",
+      "page",
     );
     await expect(page.getByText("영어 C반").first()).toBeVisible();
     await expect(
@@ -52,12 +48,12 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
   });
 }
 
-test("WKR-04 detail tabs route with shared tab semantics", async ({ page }) => {
+test("WKR-04 detail tabs route with shared navigation semantics", async ({ page }) => {
   await prepareVisualPage({ page, path: routePath, viewport: "desktop-1920" });
 
   await page
     .getByRole("navigation", { name: "조교 상세 탭" })
-    .getByRole("tab", { name: "급여 현황" })
+    .getByRole("link", { name: "급여 현황" })
     .click();
 
   await expect(page).toHaveURL(/\/workers\/worker_kim_seoyeon\/payroll$/);
@@ -68,8 +64,10 @@ test("WKR-04 detail tabs animate between routes", async ({ page }) => {
 
   const samples = await page.evaluate(async () => {
     const nav = document.querySelector('[aria-label="조교 상세 탭"]');
-    const indicator = nav?.querySelector('[data-testid="line-tabs-indicator"]');
-    const payrollTab = Array.from(nav?.querySelectorAll('[role="tab"]') ?? [])
+    const indicator = nav?.querySelector(
+      '[data-testid="worker-detail-tabs-indicator"]',
+    );
+    const payrollTab = Array.from(nav?.querySelectorAll("a") ?? [])
       .find((tab) => tab.textContent?.includes("급여 현황"));
 
     if (!(indicator instanceof HTMLElement) || !(payrollTab instanceof HTMLElement)) {
@@ -106,6 +104,25 @@ test("WKR-04 detail tabs animate between routes", async ({ page }) => {
 
   expect(new Set(changedValues).size).toBeGreaterThan(2);
   await expect(page).toHaveURL(/\/workers\/worker_kim_seoyeon\/payroll$/);
+});
+
+test("WKR-04 detail tabs do not shift shell width between routes", async ({ page }) => {
+  await prepareVisualPage({ page, path: routePath, viewport: "desktop-1920" });
+
+  const beforeRect = await page.getByTestId("worker-detail-shell").boundingBox();
+
+  await page
+    .getByRole("navigation", { name: "조교 상세 탭" })
+    .getByRole("link", { name: "급여 현황" })
+    .click();
+  await expect(page).toHaveURL(/\/workers\/worker_kim_seoyeon\/payroll$/);
+
+  const afterRect = await page.getByTestId("worker-detail-shell").boundingBox();
+
+  expect(Math.round(afterRect?.x ?? 0)).toBe(Math.round(beforeRect?.x ?? 0));
+  expect(Math.round(afterRect?.width ?? 0)).toBe(
+    Math.round(beforeRect?.width ?? 0),
+  );
 });
 
 test("WKR-04 full-page desktop-1920", async ({ page }) => {
