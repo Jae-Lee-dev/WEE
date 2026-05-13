@@ -542,14 +542,14 @@ function EditInfoDialog({
     <Dialog open onOpenChange={(open) => !open && handleClose()}>
       <DialogContent
         showCloseButton={false}
-        className="flex max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] max-w-[680px] flex-col rounded-[8px] bg-white p-8 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0"
+        className="flex max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] max-w-[680px] flex-col overflow-hidden rounded-[8px] bg-white p-8 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0"
         data-testid="worker-edit-info-dialog"
       >
         <DialogTitle className="text-h-20 text-gray-900">
           {dialog.title}
         </DialogTitle>
 
-        <div className="mt-6 min-h-0 overflow-y-auto pr-1">
+        <div className="mt-6 min-h-0 flex-1 overflow-y-auto pr-1">
           <div className="grid grid-cols-2 gap-x-4 gap-y-4">
             <EditTextField
               error={submitted ? errors.name : undefined}
@@ -697,7 +697,7 @@ function EditInfoDialog({
           ) : null}
         </div>
 
-        <DialogFooter className="-mx-0 -mb-0 mt-8 flex-row justify-end gap-3 rounded-none border-0 bg-transparent p-0">
+        <DialogFooter className="-mx-0 -mb-0 mt-8 shrink-0 flex-row justify-end gap-3 rounded-none border-0 bg-transparent p-0">
           <Button
             type="button"
             variant="secondary"

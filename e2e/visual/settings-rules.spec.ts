@@ -1,4 +1,4 @@
-import { expect, test } from "playwright/test";
+import { expect, test, type Page } from "playwright/test";
 import {
   captureActualScreenshot,
   prepareVisualPage,
@@ -6,6 +6,7 @@ import {
 } from "./helpers";
 
 const desktop: VisualViewportName = "desktop-1920";
+const laptop: VisualViewportName = "laptop-1366";
 
 for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
   test(`SET-03 default ${viewport}`, async ({ page }) => {
@@ -33,7 +34,7 @@ test(`SET-03 rules-dialog ${desktop}`, async ({ page }) => {
   await expect(page.getByTestId("settings-rules-dialog")).toBeVisible();
   await expect(page.getByLabel("시간 이상 허용 오차")).toHaveValue("5");
   await expect(page.getByLabel("근무 시간 올림 단위")).toHaveValue("6");
-  await expect(page.getByLabel("급여 올림 단위")).toHaveValue("1");
+  await expect(page.getByLabel("급여 올림 단위")).toContainText("원 단위");
 
   await captureActualScreenshot({
     page,
@@ -42,3 +43,52 @@ test(`SET-03 rules-dialog ${desktop}`, async ({ page }) => {
     viewport: desktop,
   });
 });
+
+test(`SET-03 rules-dialog contained ${laptop}`, async ({ page }) => {
+  await prepareVisualPage({ page, path: "/settings/rules", viewport: laptop });
+  await page.evaluate(() => document.fonts.ready);
+  await page.getByTestId("settings-rules-edit-trigger").click();
+
+  await expectDialogContentContained(page, "settings-rules-dialog");
+});
+
+async function expectDialogContentContained(page: Page, testId: string) {
+  const metrics = await page.getByTestId(testId).evaluate((dialog) => {
+    const dialogRect = dialog.getBoundingClientRect();
+    const visibleOverflow = Array.from(dialog.querySelectorAll("*")).filter(
+      (node) => {
+        if (!(node instanceof HTMLElement)) {
+          return false;
+        }
+
+        const style = window.getComputedStyle(node);
+        const rect = node.getBoundingClientRect();
+
+        if (
+          style.display === "none" ||
+          style.visibility === "hidden" ||
+          rect.width === 0 ||
+          rect.height === 0
+        ) {
+          return false;
+        }
+
+        return (
+          rect.left < dialogRect.left - 1 ||
+          rect.right > dialogRect.right + 1
+        );
+      },
+    );
+
+    return {
+      dialogLeft: dialogRect.left,
+      dialogRight: dialogRect.right,
+      overflowCount: visibleOverflow.length,
+      viewportWidth: window.innerWidth,
+    };
+  });
+
+  expect(metrics.dialogLeft).toBeGreaterThanOrEqual(0);
+  expect(metrics.dialogRight).toBeLessThanOrEqual(metrics.viewportWidth);
+  expect(metrics.overflowCount).toBe(0);
+}

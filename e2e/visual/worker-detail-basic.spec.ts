@@ -1,4 +1,4 @@
-import { expect, test } from "playwright/test";
+import { expect, test, type Page } from "playwright/test";
 import {
   captureActualScreenshot,
   prepareVisualPage,
@@ -7,6 +7,7 @@ import {
 
 const routePath = "/workers/worker_kim_seoyeon";
 const desktop: VisualViewportName = "desktop-1920";
+const laptop: VisualViewportName = "laptop-1366";
 
 for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
   test(`WKR-03 default ${viewport}`, async ({ page }) => {
@@ -63,6 +64,63 @@ test(`WKR-03 edit-info-dialog ${desktop}`, async ({ page }) => {
     viewport: desktop,
   });
 });
+
+test(`WKR-03 edit-info-dialog contained ${laptop}`, async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: routePath,
+    viewport: laptop,
+  });
+  await page.evaluate(() => document.fonts.ready);
+  await page.getByTestId("worker-basic-edit-trigger").click();
+
+  await expectScrollableDialogContained(page, "worker-edit-info-dialog");
+});
+
+async function expectScrollableDialogContained(page: Page, testId: string) {
+  const metrics = await page.getByTestId(testId).evaluate((dialog) => {
+    const dialogRect = dialog.getBoundingClientRect();
+    const footer = dialog.querySelector('[data-slot="dialog-footer"]');
+    const scroller = Array.from(dialog.children).find((node) => {
+      if (!(node instanceof HTMLElement)) {
+        return false;
+      }
+
+      return window.getComputedStyle(node).overflowY === "auto";
+    });
+
+    if (!(footer instanceof HTMLElement) || !(scroller instanceof HTMLElement)) {
+      throw new Error("Dialog layout targets not found");
+    }
+
+    const footerRect = footer.getBoundingClientRect();
+    const scrollerRect = scroller.getBoundingClientRect();
+
+    return {
+      dialogBottom: dialogRect.bottom,
+      dialogLeft: dialogRect.left,
+      dialogRight: dialogRect.right,
+      dialogTop: dialogRect.top,
+      footerBottom: footerRect.bottom,
+      footerTop: footerRect.top,
+      scrollerBottom: scrollerRect.bottom,
+      scrollerClientHeight: scroller.clientHeight,
+      scrollerScrollHeight: scroller.scrollHeight,
+      viewportHeight: window.innerHeight,
+      viewportWidth: window.innerWidth,
+    };
+  });
+
+  expect(metrics.dialogLeft).toBeGreaterThanOrEqual(0);
+  expect(metrics.dialogRight).toBeLessThanOrEqual(metrics.viewportWidth);
+  expect(metrics.dialogTop).toBeGreaterThanOrEqual(0);
+  expect(metrics.dialogBottom).toBeLessThanOrEqual(metrics.viewportHeight);
+  expect(metrics.scrollerBottom).toBeLessThanOrEqual(metrics.footerTop);
+  expect(metrics.footerBottom).toBeLessThanOrEqual(metrics.dialogBottom);
+  expect(metrics.scrollerScrollHeight).toBeGreaterThan(
+    metrics.scrollerClientHeight,
+  );
+}
 
 test("WKR-03 edits worker info in dialog", async ({ page }) => {
   await prepareVisualPage({

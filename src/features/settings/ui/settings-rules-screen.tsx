@@ -199,7 +199,7 @@ function SettingsRulesDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         showCloseButton={false}
-        className="flex w-[calc(100vw-32px)] max-w-[640px] flex-col gap-8 rounded-[10px] bg-white p-8 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.16)] ring-0"
+        className="flex w-[calc(100vw-32px)] max-w-[720px] flex-col gap-8 rounded-[10px] bg-white p-8 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.16)] ring-0"
         data-testid="settings-rules-dialog"
       >
         <DialogHeader className="gap-0">
