@@ -45,8 +45,11 @@ export function WorkerDetailShell({
       )}
       data-testid="worker-detail-shell"
     >
-      <WorkerProfileCard profile={profile} />
-      <WorkerDetailTabs activeTab={activeTab} workerId={workerId} />
+      <WorkerDetailHeaderCard
+        activeTab={activeTab}
+        profile={profile}
+        workerId={workerId}
+      />
       {children}
     </section>
   );
@@ -92,9 +95,28 @@ export function WorkerDetailSubsectionHeader({
   );
 }
 
+function WorkerDetailHeaderCard({
+  activeTab,
+  profile,
+  workerId,
+}: {
+  activeTab: WorkerDetailTabId;
+  profile: WorkerDetailProfile;
+  workerId: string;
+}) {
+  return (
+    <section className="overflow-hidden rounded-[8px] border border-gray-100 bg-white">
+      <WorkerProfileCard profile={profile} />
+      <div className="border-t border-gray-100 px-4 pb-3 pt-2">
+        <WorkerDetailTabs activeTab={activeTab} workerId={workerId} />
+      </div>
+    </section>
+  );
+}
+
 function WorkerProfileCard({ profile }: { profile: WorkerDetailProfile }) {
   return (
-    <section className="flex min-h-[68px] items-center justify-between gap-4 rounded-[8px] border border-gray-100 bg-white px-4 py-4">
+    <div className="flex min-h-[68px] items-center justify-between gap-4 px-4 py-4">
       <div className="min-w-0">
         <div className="flex items-center gap-3">
           <h2 className="text-h-20 text-gray-900">{profile.name}</h2>
@@ -123,7 +145,7 @@ function WorkerProfileCard({ profile }: { profile: WorkerDetailProfile }) {
       >
         {profile.deleteLabel}
       </button>
-    </section>
+    </div>
   );
 }
 
@@ -139,7 +161,7 @@ function WorkerDetailTabs({
   return (
     <nav
       aria-label="조교 상세 탭"
-      className="flex h-9 items-end gap-8 border-b border-gray-200"
+      className="flex h-8 items-end gap-6 border-b border-gray-200"
     >
       {workerDetailTabs.map((tab) => {
         const active = tab.id === activeTab;
@@ -150,7 +172,7 @@ function WorkerDetailTabs({
             href={tab.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex h-9 items-start border-b-2 text-h-20 transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
+              "flex h-8 items-start border-b-2 pt-1 text-h-16-semibold transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
               active
                 ? "border-green-400 text-green-400"
                 : "border-transparent text-gray-500 hover:border-gray-200 hover:text-gray-800",
