@@ -1,5 +1,7 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import type { ControlSize } from "@/shared/ui/control-size";
+import { Input } from "@/shared/ui/input";
 import { OptionSelect } from "@/shared/ui/select";
 
 const meta = {
@@ -20,6 +22,7 @@ const statusOptions = [
   { value: "active", label: "활성" },
   { value: "inactive", label: "비활성" },
 ];
+const sizes: ControlSize[] = ["sm", "default", "lg"];
 
 export const Status: Story = {
   args: {
@@ -61,4 +64,25 @@ export const FigmaPendingSelect: Story = {
       />
     );
   },
+};
+
+export const MatchedInputAndSelectSizes: Story = {
+  args: {
+    options: statusOptions,
+  },
+  render: () => (
+    <div className="grid w-[620px] gap-3">
+      {sizes.map((size) => (
+        <div key={size} className="grid grid-cols-[72px_1fr_1fr] items-center gap-3">
+          <span className="text-label-14-medium text-gray-500">{size}</span>
+          <Input placeholder={`${size} input`} size={size} />
+          <OptionSelect
+            defaultValue="active"
+            options={statusOptions}
+            size={size}
+          />
+        </div>
+      ))}
+    </div>
+  ),
 };

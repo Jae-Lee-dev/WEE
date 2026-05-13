@@ -22,6 +22,7 @@ import {
   TagSearchPicker,
   type TagSearchPickerOption,
 } from "@/shared/ui/tag-search-picker";
+import type { ControlSize } from "@/shared/ui/control-size";
 import { cn } from "@/shared/lib/utils";
 import {
   WorkerDetailSubsection,
@@ -563,13 +564,14 @@ function EditInfoDialog({
               <span className="text-h-18-semibold text-gray-900">소속 상태</span>
               <OptionSelect
                 value={form.status}
+                size="lg"
                 disabled={saving}
                 onValueChange={(value) =>
                   setFormValue("status", value as WorkerDetailStatusValue)
                 }
                 options={[...statusOptions]}
                 triggerAriaLabel="소속 상태"
-                triggerClassName="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-white px-4 text-h-18-regular"
+                triggerClassName="mt-3 w-full rounded-[8px] border-gray-200 bg-white"
                 contentClassName="z-[70]"
                 itemClassName="text-h-16-medium tracking-normal"
               />
@@ -577,7 +579,6 @@ function EditInfoDialog({
             </label>
             <EditTextField
               error={submitted ? errors.effectiveFrom : undefined}
-              inputClassName="!h-11 !min-h-11 !rounded-[8px] !px-4"
               label="적용 시작"
               type="date"
               value={form.effectiveFrom}
@@ -634,7 +635,6 @@ function EditInfoDialog({
             <EditTextField
               error={submitted ? errors.payAmount : undefined}
               inputMode="numeric"
-              inputClassName="!h-11 !min-h-11 !rounded-[8px] !px-4"
               label="급여 금액"
               value={form.payAmount}
               disabled={saving}
@@ -698,6 +698,7 @@ function EditTextField({
   inputMode,
   label,
   onChange,
+  size = "lg",
   suffix,
   type = "text",
   value,
@@ -708,6 +709,7 @@ function EditTextField({
   inputMode?: "decimal" | "numeric";
   label: string;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  size?: ControlSize;
   suffix?: string;
   type?: "date" | "text";
   value: string;
@@ -718,13 +720,14 @@ function EditTextField({
       <div className="relative mt-3">
         <Input
           type={type}
+          size={size}
           value={value}
           disabled={disabled}
           inputMode={inputMode}
           onChange={onChange}
           aria-invalid={Boolean(error)}
           className={cn(
-            "h-11 w-full rounded-[8px] border-gray-200 bg-white text-h-18-regular text-gray-900 disabled:bg-gray-50 disabled:text-gray-500",
+            "w-full rounded-[8px] border-gray-200 bg-white text-gray-900 disabled:bg-gray-50 disabled:text-gray-500",
             inputClassName,
             suffix && "!pr-20",
           )}

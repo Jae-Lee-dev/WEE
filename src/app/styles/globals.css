@@ -318,8 +318,22 @@ body:has([data-admin-shell="compact"]) [data-slot="input"] {
   padding: 0 12px;
 }
 
+body:has([data-admin-shell="compact"]) [data-slot="input"][data-size="sm"] {
+  min-height: var(--admin-control-height-sm);
+  height: var(--admin-control-height-sm);
+  padding: 0 8px;
+}
+
+body:has([data-admin-shell="compact"]) [data-slot="input"][data-size="lg"] {
+  min-height: var(--admin-control-height-lg);
+  height: var(--admin-control-height-lg);
+  border-radius: var(--admin-card-radius);
+  padding: 0 16px;
+}
+
 body:has([data-admin-shell="compact"]) [data-slot="select-trigger"] {
   min-height: var(--admin-control-height);
+  height: var(--admin-control-height);
   border-radius: 6px;
   padding: 6px 10px;
 }
@@ -327,7 +341,16 @@ body:has([data-admin-shell="compact"]) [data-slot="select-trigger"] {
 body:has([data-admin-shell="compact"])
   [data-slot="select-trigger"][data-size="sm"] {
   min-height: var(--admin-control-height-sm);
-  padding: 5px 8px;
+  height: var(--admin-control-height-sm);
+  padding: 0 8px;
+}
+
+body:has([data-admin-shell="compact"])
+  [data-slot="select-trigger"][data-size="lg"] {
+  min-height: var(--admin-control-height-lg);
+  height: var(--admin-control-height-lg);
+  border-radius: var(--admin-card-radius);
+  padding: 0 16px;
 }
 
 body:has([data-admin-shell="compact"]) [data-slot="select-item"] {

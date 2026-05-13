@@ -4,6 +4,7 @@ import * as React from "react"
 import { Select as SelectPrimitive } from "radix-ui"
 
 import { cn } from "@/shared/lib/utils"
+import type { ControlSize } from "@/shared/ui/control-size"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
 type SelectOption = {
@@ -20,7 +21,7 @@ type OptionSelectProps = Omit<
   itemClassName?: string
   options: SelectOption[]
   placeholder?: React.ReactNode
-  size?: "sm" | "default"
+  size?: ControlSize
   triggerAriaDescribedBy?: string
   triggerAriaInvalid?: boolean
   triggerAriaLabel?: string
@@ -101,14 +102,15 @@ function SelectTrigger({
   children,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
-  size?: "sm" | "default"
+  size?: ControlSize
 }) {
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        "grid w-fit grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1.5 whitespace-nowrap rounded-[6px] border border-gray-200 bg-white px-2.5 py-2 text-label-18 text-gray-700 transition-colors outline-none select-none hover:border-gray-300 focus-visible:border-gray-300 focus-visible:ring-2 focus-visible:ring-gray-200 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-red-500 aria-invalid:ring-2 aria-invalid:ring-red-100 data-placeholder:text-gray-500 data-open:border-gray-200 data-open:focus-visible:border-gray-200 data-open:focus-visible:ring-gray-200 data-[size=default]:min-h-[42px] data-[size=sm]:min-h-9 data-[size=sm]:px-2 data-[size=sm]:py-1.5 data-[size=sm]:text-label-14-medium *:data-[slot=select-value]:col-start-1 *:data-[slot=select-value]:row-start-1 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 data-open:[&_svg]:rotate-180 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        "grid w-fit grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1.5 whitespace-nowrap rounded-[6px] border border-gray-200 bg-white text-gray-700 transition-colors outline-none select-none hover:border-gray-300 focus-visible:border-gray-300 focus-visible:ring-2 focus-visible:ring-gray-200 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-red-500 aria-invalid:ring-2 aria-invalid:ring-red-100 data-placeholder:text-gray-500 data-open:border-gray-200 data-open:focus-visible:border-gray-200 data-open:focus-visible:ring-gray-200 *:data-[slot=select-value]:col-start-1 *:data-[slot=select-value]:row-start-1 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 data-open:[&_svg]:rotate-180 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        selectTriggerSizeClassName[size],
         className
       )}
       {...props}
@@ -119,6 +121,12 @@ function SelectTrigger({
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   )
+}
+
+const selectTriggerSizeClassName: Record<ControlSize, string> = {
+  sm: "h-9 min-h-9 px-2 py-0 text-label-14-medium",
+  default: "h-[42px] min-h-[42px] px-2.5 py-0 text-label-18",
+  lg: "h-11 min-h-11 px-4 py-0 text-h-18-regular",
 }
 
 function SelectTriggerSizer({ options }: { options: SelectOption[] }) {
