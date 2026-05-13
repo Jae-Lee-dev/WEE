@@ -6,6 +6,7 @@ import {
 } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getDownloadURL, getStorage, ref } from "firebase/storage";
 
 const firebaseEnv = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -45,6 +46,30 @@ export function getFirebaseAuth() {
 
 export function getFirebaseDb() {
   return getFirestore(getFirebaseApp());
+}
+
+export function getFirebaseStorage() {
+  return getStorage(getFirebaseApp());
+}
+
+export async function resolveFirebaseStorageDownloadUrl(
+  storagePath: string,
+): Promise<string | null> {
+  const trimmedPath = storagePath.trim();
+
+  if (!trimmedPath) {
+    return null;
+  }
+
+  if (/^https?:\/\//i.test(trimmedPath)) {
+    return trimmedPath;
+  }
+
+  try {
+    return await getDownloadURL(ref(getFirebaseStorage(), trimmedPath));
+  } catch {
+    return null;
+  }
 }
 
 export function isMockFirebaseProject() {

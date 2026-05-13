@@ -24,6 +24,9 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await expect(screen).toContainText("국민은행 123-456-789");
     await expect(screen).toContainText("급여 설정");
     await expect(screen).toContainText("₩10,000 / 시간");
+    await expect(
+      page.getByRole("link", { name: "통장 사본 다운로드" }),
+    ).toHaveAttribute("href", /worker-kim-seoyeon-bankbook/);
 
     await captureActualScreenshot({
       page,
@@ -55,6 +58,30 @@ test(`WKR-03 edit-info-dialog ${desktop}`, async ({ page }) => {
     state: "edit-info-dialog",
     viewport: desktop,
   });
+});
+
+test("WKR-03 edits worker info in dialog", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: routePath,
+    viewport: desktop,
+  });
+  await page.getByTestId("worker-basic-edit-trigger").click();
+
+  const dialog = page.getByTestId("worker-edit-info-dialog");
+
+  await dialog.getByLabel("이름").fill("김서연 수정");
+  await dialog.getByLabel("급여 금액").fill("12000");
+  await dialog.getByRole("button", { name: "저장" }).click();
+
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText("조교 정보를 수정했습니다.")).toBeVisible();
+  await expect(page.getByTestId("worker-detail-basic-screen")).toContainText(
+    "김서연 수정",
+  );
+  await expect(page.getByTestId("worker-detail-basic-screen")).toContainText(
+    "₩12,000 / 시간",
+  );
 });
 
 test(`WKR-03 delete-blocked-dialog ${desktop}`, async ({ page }) => {

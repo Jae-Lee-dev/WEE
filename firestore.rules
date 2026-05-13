@@ -336,6 +336,125 @@ service cloud.firestore {
         && data.updatedAt == request.time;
     }
 
+    function isWorkerDetailEdit() {
+      let data = request.resource.data;
+      let changedKeys = data.diff(resource.data).affectedKeys();
+
+      return resource.data.status != 'deleted'
+        && changedKeys.hasOnly([
+          'contact',
+          'name',
+          'nameKey',
+          'status',
+          'tagIds',
+          'updatedAt'
+        ])
+        && data.name is string
+        && data.name.size() > 0
+        && data.nameKey is string
+        && data.nameKey.size() > 0
+        && data.contact is string
+        && data.status in ['active', 'inactive']
+        && data.tagIds is list
+        && data.tagIds.size() <= 20
+        && data.updatedAt == request.time;
+    }
+
+    function isPayrollDateValue(value) {
+      return value is string
+        && value.matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+
+    function isPayrollTaxBase(data) {
+      return data.taxType in ['custom', 'none']
+        && (
+          (
+            data.taxType == 'custom'
+            && data.taxRatePercent is number
+            && data.taxRatePercent >= 0
+            && data.taxRatePercent <= 100
+          ) ||
+          (
+            data.taxType == 'none'
+            && data.taxRatePercent == null
+          )
+        );
+    }
+
+    function isPayrollAmountBase(data) {
+      return data.payrollType in ['hourly', 'monthly']
+        && (
+          (
+            data.payrollType == 'hourly'
+            && data.hourlyRate is int
+            && data.hourlyRate > 0
+            && data.monthlySalary == null
+          ) ||
+          (
+            data.payrollType == 'monthly'
+            && data.monthlySalary is int
+            && data.monthlySalary > 0
+            && data.hourlyRate == null
+          )
+        );
+    }
+
+    function isPayrollSettingBase(workspaceId, data) {
+      return data.workspaceId == workspaceId
+        && data.workerId is string
+        && data.workerId.size() > 0
+        && data.workerName is string
+        && data.workerName.size() > 0
+        && data.status == 'active'
+        && isPayrollDateValue(data.effectiveFrom)
+        && isPayrollAmountBase(data)
+        && isPayrollTaxBase(data);
+    }
+
+    function isPayrollSettingCreate(workspaceId) {
+      let data = request.resource.data;
+
+      return data.keys().hasOnly([
+          'createdAt',
+          'effectiveFrom',
+          'hourlyRate',
+          'monthlySalary',
+          'payrollType',
+          'status',
+          'taxRatePercent',
+          'taxType',
+          'updatedAt',
+          'workerId',
+          'workerName',
+          'workspaceId'
+        ])
+        && isPayrollSettingBase(workspaceId, data)
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function isPayrollSettingEdit(workspaceId) {
+      let data = request.resource.data;
+      let changedKeys = data.diff(resource.data).affectedKeys();
+
+      return changedKeys.hasOnly([
+          'effectiveFrom',
+          'hourlyRate',
+          'monthlySalary',
+          'payrollType',
+          'status',
+          'taxRatePercent',
+          'taxType',
+          'updatedAt',
+          'workerName'
+        ])
+        && isPayrollSettingBase(workspaceId, data)
+        && data.createdAt == resource.data.createdAt
+        && data.workerId == resource.data.workerId
+        && data.workspaceId == resource.data.workspaceId
+        && data.updatedAt == request.time;
+    }
+
     function isDutyTagAssignmentEdit() {
       let data = request.resource.data;
       let changedKeys = data.diff(resource.data).affectedKeys();
@@ -466,8 +585,20 @@ service cloud.firestore {
       match /workers/{workerId} {
         allow get, list: if isWorkspaceManager(workspaceId);
         allow update: if isWorkspaceManagerAfter(workspaceId)
-          && isWorkerTagAssignmentEdit();
+          && (
+            isWorkerTagAssignmentEdit() ||
+            isWorkerDetailEdit()
+          );
         allow create, delete: if false;
+      }
+
+      match /payrollSettings/{settingId} {
+        allow get, list: if isWorkspaceManager(workspaceId);
+        allow create: if isWorkspaceManagerAfter(workspaceId)
+          && isPayrollSettingCreate(workspaceId);
+        allow update: if isWorkspaceManagerAfter(workspaceId)
+          && isPayrollSettingEdit(workspaceId);
+        allow delete: if false;
       }
 
       match /workRecords/{recordId} {

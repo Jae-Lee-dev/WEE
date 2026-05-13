@@ -7,6 +7,7 @@ import {
 import { resolveActiveWorkspaceId } from "@/entities/workspace";
 import { readActiveWorkspaceId } from "@/entities/workspace";
 import { getFirebaseDb, isMockFirebaseProject } from "@/shared/api/firebase/client";
+import { resolveFirebaseStorageDownloadUrl } from "@/shared/api/firebase";
 import {
   workerApplicationsFixtureData,
   type WorkerApplicationInfo,
@@ -76,7 +77,7 @@ function createFirestoreWorkerApplicationsDataSource(): WorkerApplicationsDataSo
       const applicationByWorkerId = new Map<string, WorkerApplicationModel>();
 
       for (const membership of membershipsSnapshot.docs.map(mapDocument)) {
-        const application = mapApplicationMembership(membership, workerById);
+        const application = await mapApplicationMembership(membership, workerById);
 
         if (application) {
           applicationByWorkerId.set(application.workerId, application);
@@ -88,7 +89,7 @@ function createFirestoreWorkerApplicationsDataSource(): WorkerApplicationsDataSo
           continue;
         }
 
-        const application = mapApplicationWorker(worker);
+        const application = await mapApplicationWorker(worker);
 
         if (application) {
           applicationByWorkerId.set(application.workerId, application);
@@ -139,10 +140,10 @@ function mapDocument(
   };
 }
 
-function mapApplicationMembership(
+async function mapApplicationMembership(
   membership: FirestoreDocument,
   workerById: ReadonlyMap<string, FirestoreDocument>,
-): WorkerApplicationModel | null {
+): Promise<WorkerApplicationModel | null> {
   const workerId = readString(membership.data.workerId, "");
   const worker = workerById.get(workerId);
   const status = readApplicationStatus(membership.data, worker?.data);
@@ -160,9 +161,9 @@ function mapApplicationMembership(
   });
 }
 
-function mapApplicationWorker(
+async function mapApplicationWorker(
   worker: FirestoreDocument,
-): WorkerApplicationModel | null {
+): Promise<WorkerApplicationModel | null> {
   const status = readApplicationStatus(worker.data);
 
   if (!status) {
@@ -178,7 +179,7 @@ function mapApplicationWorker(
   });
 }
 
-function createApplicationModel({
+async function createApplicationModel({
   id,
   membershipData,
   status,
@@ -190,14 +191,14 @@ function createApplicationModel({
   status: WorkerApplicationStatus;
   worker: FirestoreDocument | undefined;
   workerId: string;
-}): WorkerApplicationModel {
+}): Promise<WorkerApplicationModel> {
   const workerData = worker?.data;
   const appliedAt =
     readDate(membershipData?.appliedAt) ??
     readDate(membershipData?.createdAt) ??
     readDate(workerData?.appliedAt) ??
     readDate(workerData?.createdAt);
-  const info = createApplicationInfo({
+  const info = await createApplicationInfo({
     appliedAt,
     membershipData,
     status,
@@ -223,7 +224,7 @@ function createApplicationModel({
   };
 }
 
-function createApplicationInfo({
+async function createApplicationInfo({
   appliedAt,
   membershipData,
   status,
@@ -233,9 +234,13 @@ function createApplicationInfo({
   membershipData: DocumentData | undefined;
   status: WorkerApplicationStatus;
   workerData: DocumentData | undefined;
-}): WorkerApplicationInfo {
+}): Promise<WorkerApplicationInfo> {
   return {
     appliedAt: formatDateLabel(appliedAt, "-"),
+    bankbookDownloadUrl:
+      (await resolveFirebaseStorageDownloadUrl(
+        readBankbookStoragePath(membershipData, workerData),
+      )) ?? undefined,
     bankbookStatus: readBankbookStatus(membershipData, workerData),
     requestedPay: readRequestedPay(membershipData, workerData),
     rejectionReason:
@@ -313,18 +318,27 @@ function readBankbookStatus(
     return explicitStatus;
   }
 
-  const account = readObject(workerData?.account) ?? readObject(membershipData?.account);
-
-  if (
-    readString(account?.storagePath, "") ||
-    readString(account?.bankbookStoragePath, "") ||
-    readString(workerData?.bankbookStoragePath, "") ||
-    readString(membershipData?.bankbookStoragePath, "")
-  ) {
+  if (readBankbookStoragePath(membershipData, workerData)) {
     return "업로드 완료";
   }
 
   return "미업로드";
+}
+
+function readBankbookStoragePath(
+  membershipData: DocumentData | undefined,
+  workerData: DocumentData | undefined,
+) {
+  const account = readObject(workerData?.account) ?? readObject(membershipData?.account);
+
+  return (
+    readString(account?.storagePath, "") ||
+    readString(account?.bankbookStoragePath, "") ||
+    readString(workerData?.bankbookStoragePath, "") ||
+    readString(membershipData?.bankbookStoragePath, "") ||
+    readString(workerData?.bankbookDownloadUrl, "") ||
+    readString(membershipData?.bankbookDownloadUrl, "")
+  );
 }
 
 function readRequestedPay(

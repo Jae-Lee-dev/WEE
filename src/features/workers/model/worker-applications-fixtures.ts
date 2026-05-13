@@ -14,6 +14,7 @@ export type WorkerApplicationTag = {
 
 export type WorkerApplicationInfo = {
   appliedAt: string;
+  bankbookDownloadUrl?: string;
   bankbookStatus: string;
   requestedPay: string;
   rejectionReason?: string;
@@ -42,6 +43,7 @@ export const workerApplicationRows = Array.from({ length: 6 }, (_, index) => ({
 
 export const workerApplicationInfo = {
   appliedAt: "2026.04.15",
+  bankbookDownloadUrl: "https://example.com/worker-application-bankbook.png",
   bankbookStatus: "업로드 완료",
   requestedPay: "시급 ₩12,000",
 } as const satisfies WorkerApplicationInfo;

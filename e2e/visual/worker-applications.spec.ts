@@ -34,6 +34,9 @@ test(`WKR-01 selected-application ${desktop}`, async ({ page }) => {
   await page.evaluate(() => document.fonts.ready);
   await page.getByTestId("worker-application-row-1").click();
   await expect(page.getByRole("heading", { name: "소속 승인" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "통장 사본 다운로드" }),
+  ).toHaveAttribute("href", /worker-application-bankbook/);
 
   await captureActualScreenshot({
     page,

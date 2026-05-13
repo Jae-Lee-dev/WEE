@@ -291,12 +291,25 @@ function ApplicationInfoCard({
         ) : null}
       </dl>
       <div className="mt-5 flex justify-end">
-        <button
-          type="button"
-          className="flex h-9 items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-16-medium text-gray-800 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
-        >
-          통장 사본 다운로드
-        </button>
+        {info.bankbookDownloadUrl ? (
+          <a
+            href={info.bankbookDownloadUrl}
+            target="_blank"
+            rel="noreferrer"
+            download
+            className="flex h-9 items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-16-medium text-gray-800 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+          >
+            통장 사본 다운로드
+          </a>
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="flex h-9 cursor-not-allowed items-center justify-center rounded-full border border-gray-200 bg-gray-50 px-4 text-h-16-medium text-gray-400"
+          >
+            통장 사본 다운로드
+          </button>
+        )}
       </div>
     </section>
   );
