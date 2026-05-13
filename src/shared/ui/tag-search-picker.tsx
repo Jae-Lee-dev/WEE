@@ -26,6 +26,7 @@ type TagSearchPickerProps = Omit<
   "children" | "defaultValue" | "onChange"
 > & {
   allowCreate?: boolean;
+  closeOnSelect?: boolean;
   createLabel?: (query: string) => React.ReactNode;
   defaultInputValue?: string;
   defaultOpen?: boolean;
@@ -61,6 +62,7 @@ const defaultPlaceholder = "태그를 검색하거나 추가하세요";
 
 function TagSearchPicker({
   allowCreate = false,
+  closeOnSelect = false,
   className,
   createLabel,
   defaultInputValue = "",
@@ -236,10 +238,15 @@ function TagSearchPicker({
 
       commitValue([...selectedValues, option.value], { option, reason });
       setQuery("");
-      setOpenState(true);
-      focusInput();
+      if (closeOnSelect) {
+        setOpenState(false);
+      } else {
+        setOpenState(true);
+        focusInput();
+      }
     },
     [
+      closeOnSelect,
       commitValue,
       disabled,
       focusInput,

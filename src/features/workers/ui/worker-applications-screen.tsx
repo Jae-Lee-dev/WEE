@@ -11,9 +11,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/dialog";
-import { IconCheck, IconSearch } from "@/shared/ui/icons";
 import { Input } from "@/shared/ui/input";
 import { Segment } from "@/shared/ui/segment";
+import {
+  TagSearchPicker,
+  type TagSearchPickerOption,
+} from "@/shared/ui/tag-search-picker";
 import { Textarea } from "@/shared/ui/textarea";
 import { cn } from "@/shared/lib/utils";
 import {
@@ -33,6 +36,7 @@ import {
 } from "../model/worker-applications-fixtures";
 
 const fixedWorkerApplicationTaxRatePercent = 3.3;
+const draftWorkerTagValuePrefix = "draft-worker-tag:";
 
 export function WorkerApplicationsScreen({
   dataSource: dataSourceProp,
@@ -50,7 +54,6 @@ export function WorkerApplicationsScreen({
   const [selectedApplicationId, setSelectedApplicationId] = useState<
     string | undefined
   >();
-  const [tagMenuOpen, setTagMenuOpen] = useState(false);
   const [payKind, setPayKind] = useState<WorkerApplicationPayKind>("hourly");
   const [loading, setLoading] = useState(!dataSource.initialData);
   const [savingDecision, setSavingDecision] = useState(false);
@@ -99,7 +102,6 @@ export function WorkerApplicationsScreen({
     setPayKind(
       nextApplication ? getDefaultApplicationPayKind(nextApplication) : "hourly",
     );
-    setTagMenuOpen(false);
     setStatusMessage("");
     setErrorMessage("");
   };
@@ -114,7 +116,6 @@ export function WorkerApplicationsScreen({
 
       setApplicationData(nextData);
       setSelectedApplicationId(undefined);
-      setTagMenuOpen(false);
       setStatusMessage(`${input.workerName} 조교의 소속 신청을 승인했습니다.`);
     } catch {
       setErrorMessage("소속 신청을 승인하지 못했습니다.");
@@ -132,7 +133,6 @@ export function WorkerApplicationsScreen({
       const nextData = await dataSource.rejectApplication(input);
 
       setApplicationData(nextData);
-      setTagMenuOpen(false);
       setStatusMessage("소속 신청을 반려했습니다.");
     } catch {
       setErrorMessage("소속 신청을 반려하지 못했습니다.");
@@ -176,11 +176,8 @@ export function WorkerApplicationsScreen({
         selectedApplication={selectedApplication}
         saving={savingDecision}
         statusMessage={statusMessage}
-        tagMenuOpen={tagMenuOpen}
         tags={applicationData.tags}
         payKind={payKind}
-        onOpenTagMenu={() => setTagMenuOpen((open) => !open)}
-        onCloseTagMenu={() => setTagMenuOpen(false)}
         onSelectPayKind={setPayKind}
       />
     </section>
@@ -274,48 +271,58 @@ function ApplicationDecisionPanel({
   errorMessage,
   onApprove,
   onReject,
-  onCloseTagMenu,
   selectedApplication,
   saving,
   statusMessage,
-  tagMenuOpen,
   tags,
   payKind,
-  onOpenTagMenu,
   onSelectPayKind,
 }: {
   errorMessage: string;
   onApprove: (input: ApproveWorkerApplicationInput) => void;
   onReject: (input: RejectWorkerApplicationInput) => void;
-  onCloseTagMenu: () => void;
   selectedApplication: WorkerApplicationRow | undefined;
   saving: boolean;
   statusMessage: string;
-  tagMenuOpen: boolean;
   tags: readonly WorkerApplicationTag[];
   payKind: WorkerApplicationPayKind;
-  onOpenTagMenu: () => void;
   onSelectPayKind: (payKind: WorkerApplicationPayKind) => void;
 }) {
   const requested = selectedApplication?.info?.requestedPay ?? "";
-  const [selectedTagIds, setSelectedTagIds] = useState<readonly string[]>(
+  const [selectedTagValues, setSelectedTagValues] = useState<readonly string[]>(
     selectedApplication?.tagIds ?? [],
   );
-  const [customTagText, setCustomTagText] = useState("");
-  const [customTagLabels, setCustomTagLabels] = useState<readonly string[]>([]);
+  const [draftTagOptions, setDraftTagOptions] = useState<
+    readonly TagSearchPickerOption[]
+  >([]);
   const [payAmount, setPayAmount] = useState(extractFirstNumber(requested));
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [submitted, setSubmitted] = useState(false);
-  const selectedTags = tags.filter((tag) => selectedTagIds.includes(tag.id));
-  const allSelectedTagLabels = [
-    ...selectedTags.map((tag) => tag.label),
-    ...customTagLabels,
-  ];
+  const workerTagOptions = useMemo(
+    () => [
+      ...tags.map((tag) => ({ label: tag.label, value: tag.id })),
+      ...draftTagOptions,
+    ],
+    [draftTagOptions, tags],
+  );
+  const existingTagIds = useMemo(() => new Set(tags.map((tag) => tag.id)), [tags]);
+  const workerTagOptionByValue = useMemo(
+    () => new Map(workerTagOptions.map((option) => [option.value, option])),
+    [workerTagOptions],
+  );
+  const selectedTagIds = selectedTagValues.filter((tagValue) =>
+    existingTagIds.has(tagValue),
+  );
+  const newTagLabels = selectedTagValues
+    .filter((tagValue) => !existingTagIds.has(tagValue))
+    .map((tagValue) => workerTagOptionByValue.get(tagValue)?.label)
+    .filter((label): label is string => Boolean(label));
+  const selectedTagCount = selectedTagIds.length + newTagLabels.length;
   const normalizedPayAmount = parsePositiveInt(payAmount);
   const canApprove =
     Boolean(selectedApplication?.workerId ?? selectedApplication?.id) &&
-    allSelectedTagLabels.length > 0 &&
+    selectedTagCount > 0 &&
     normalizedPayAmount !== null;
 
   if (!selectedApplication) {
@@ -337,37 +344,19 @@ function ApplicationDecisionPanel({
         <div className="mt-5 flex flex-col gap-4">
           <ApplicationInfoCard info={selectedApplication.info} />
           <WorkerTagCard
-            customTagLabels={customTagLabels}
-            customTagText={customTagText}
-            error={submitted && allSelectedTagLabels.length === 0}
-            onAddCustomTag={() => {
-              const normalized = customTagText.trim().replace(/\s+/g, " ");
+            error={submitted && selectedTagCount === 0}
+            options={workerTagOptions}
+            selectedValues={selectedTagValues}
+            onCreateTag={(label) => {
+              const option = createDraftWorkerTagOption(label, workerTagOptions);
 
-              if (!normalized) {
-                return;
-              }
+              setDraftTagOptions((currentOptions) =>
+                mergeTagSearchPickerOptions(currentOptions, [option]),
+              );
 
-              if (
-                !customTagLabels.includes(normalized) &&
-                !tags.some((tag) => tag.label === normalized)
-              ) {
-                setCustomTagLabels((current) => appendUnique(current, normalized));
-              }
-              setCustomTagText("");
-              onCloseTagMenu();
+              return option;
             }}
-            tagMenuOpen={tagMenuOpen}
-            tags={tags}
-            selectedTagIds={selectedTagIds}
-            onOpenTagMenu={onOpenTagMenu}
-            onRemoveCustomTag={(label) =>
-              setCustomTagLabels((current) => removeItem(current, label))
-            }
-            onSearchTextChange={setCustomTagText}
-            onToggleTag={(tagId) => {
-              setSelectedTagIds((current) => toggleItem(current, tagId));
-              onCloseTagMenu();
-            }}
+            onValueChange={setSelectedTagValues}
           />
           <PaySettingCard
             amount={payAmount}
@@ -416,7 +405,7 @@ function ApplicationDecisionPanel({
               membershipId: selectedApplication.membershipId,
               monthlySalary:
                 payKind === "monthly" ? normalizedPayAmount : null,
-              newTagLabels: customTagLabels,
+              newTagLabels,
               payrollType: payKind,
               tagIds: selectedTagIds,
               taxRatePercent: fixedWorkerApplicationTaxRatePercent,
@@ -506,96 +495,46 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 function WorkerTagCard({
-  customTagLabels,
-  customTagText,
   error,
-  onAddCustomTag,
-  tagMenuOpen,
-  tags,
-  selectedTagIds,
-  onOpenTagMenu,
-  onRemoveCustomTag,
-  onSearchTextChange,
-  onToggleTag,
+  onCreateTag,
+  onValueChange,
+  options,
+  selectedValues,
 }: {
-  customTagLabels: readonly string[];
-  customTagText: string;
   error: boolean;
-  onAddCustomTag: () => void;
-  tagMenuOpen: boolean;
-  tags: readonly WorkerApplicationTag[];
-  selectedTagIds: readonly string[];
-  onOpenTagMenu: () => void;
-  onRemoveCustomTag: (label: string) => void;
-  onSearchTextChange: (value: string) => void;
-  onToggleTag: (tagId: string) => void;
+  onCreateTag: (label: string) => TagSearchPickerOption;
+  onValueChange: (value: readonly string[]) => void;
+  options: readonly TagSearchPickerOption[];
+  selectedValues: readonly string[];
 }) {
-  const selectedTags = tags.filter((tag) => selectedTagIds.includes(tag.id));
-  const hasTags = selectedTags.length > 0 || customTagLabels.length > 0;
-
   return (
     <section className="relative z-20 rounded-[8px] border border-gray-100 px-4 py-4">
       <h3 className="text-h-18-semibold text-gray-900">
         근무자 태그 <span className="text-red-500">*</span>
       </h3>
 
-      {hasTags ? (
-        <div
-          className="mt-3 flex min-h-[34px] flex-wrap items-center gap-2"
-          data-testid="worker-application-tag-added"
-        >
-          {selectedTags.map((tag) => (
-            <TagPill key={tag.id} tag={tag} onRemove={() => onToggleTag(tag.id)} />
-          ))}
-          {customTagLabels.map((label) => (
-            <TagPill
-              key={label}
-              label={label}
-              onRemove={() => onRemoveCustomTag(label)}
-            />
-          ))}
-          <button
-            type="button"
-            data-testid="worker-application-tag-add-chip"
-            onClick={onOpenTagMenu}
-            className="rounded-[4px] bg-gray-100 px-2.5 py-1 text-h-16-medium text-gray-600 transition-colors duration-150 ease-out hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
-          >
-            태그 추가 +
-          </button>
-        </div>
-      ) : (
-        <div className="relative mt-3">
-          <TagSearchInput
-            value={customTagText}
-            onChange={onSearchTextChange}
-            onFocus={onOpenTagMenu}
-            onAddCustomTag={onAddCustomTag}
-          />
-          {tagMenuOpen ? (
-            <TagMenu
-              selectedTagIds={selectedTagIds}
-              tags={tags}
-              onToggleTag={onToggleTag}
-            />
-          ) : null}
-        </div>
-      )}
-
-      {hasTags && tagMenuOpen ? (
-        <div className="relative mt-3">
-          <TagSearchInput
-            value={customTagText}
-            onChange={onSearchTextChange}
-            onFocus={onOpenTagMenu}
-            onAddCustomTag={onAddCustomTag}
-          />
-          <TagMenu
-            selectedTagIds={selectedTagIds}
-            tags={tags}
-            onToggleTag={onToggleTag}
-          />
-        </div>
-      ) : null}
+      <TagSearchPicker
+        allowCreate
+        closeOnSelect
+        className="mt-3"
+        createLabel={(query) => (
+          <>
+            새 태그 <span className="font-semibold text-gray-900">{query}</span>
+            <span> 선택</span>
+          </>
+        )}
+        data-testid="worker-application-tag-picker"
+        emptyMessage="일치하는 근무자 태그가 없습니다."
+        inputAriaLabel="근무자 태그 검색"
+        invalid={error}
+        listboxClassName="z-30"
+        options={options}
+        placeholder="태그를 검색하거나 새 태그를 입력하세요"
+        triggerClassName="min-h-11 rounded-[8px] border-gray-200 px-4"
+        value={selectedValues}
+        onCreateOption={onCreateTag}
+        onValueChange={(value) => onValueChange(value)}
+      />
 
       {error ? (
         <p className="mt-2 text-label-12-medium text-red-500">
@@ -603,113 +542,6 @@ function WorkerTagCard({
         </p>
       ) : null}
     </section>
-  );
-}
-
-function TagSearchInput({
-  onAddCustomTag,
-  onChange,
-  onFocus,
-  value,
-}: {
-  onAddCustomTag: () => void;
-  onChange: (value: string) => void;
-  onFocus: () => void;
-  value: string;
-}) {
-  return (
-    <div className="flex h-11 w-full items-center gap-3 rounded-[8px] border border-gray-200 bg-white px-4 transition-colors duration-150 ease-out focus-within:ring-2 focus-within:ring-green-200">
-      <Input
-        data-testid="worker-application-tag-search-trigger"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        onFocus={onFocus}
-        placeholder="태그를 검색하거나 새 태그를 입력하세요"
-        className="h-auto min-w-0 flex-1 border-0 bg-transparent p-0 text-h-18-regular text-gray-900 shadow-none hover:border-0 focus-visible:border-0 focus-visible:ring-0"
-      />
-      {value.trim() ? (
-        <button
-          type="button"
-          onClick={onAddCustomTag}
-          className="shrink-0 rounded-[4px] bg-green-100 px-2 py-1 text-h-14-semibold text-green-500"
-        >
-          추가
-        </button>
-      ) : null}
-      <IconSearch className="size-6 shrink-0 text-green-400" />
-    </div>
-  );
-}
-
-function TagPill({
-  label,
-  onRemove,
-  tag,
-}: {
-  label?: string;
-  onRemove: () => void;
-  tag?: WorkerApplicationTag;
-}) {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-[4px] bg-gray-100 px-2.5 py-1 text-h-16-medium text-gray-600">
-      {tag?.label ?? label ?? "베테랑"}
-      <button
-        type="button"
-        aria-label={`${tag?.label ?? label} 태그 제거`}
-        onClick={onRemove}
-        className="text-gray-400 hover:text-gray-700"
-      >
-        ×
-      </button>
-    </span>
-  );
-}
-
-function TagMenu({
-  selectedTagIds,
-  tags,
-  onToggleTag,
-}: {
-  selectedTagIds: readonly string[];
-  tags: readonly WorkerApplicationTag[];
-  onToggleTag: (tagId: string) => void;
-}) {
-  return (
-    <div
-      role="listbox"
-      aria-label="근무자 태그 선택"
-      data-testid="worker-application-tag-menu"
-      className="absolute left-0 top-[53px] z-30 w-full overflow-hidden rounded-[4px] border border-gray-100 bg-white px-3 shadow-[0px_8px_20px_rgba(17,24,39,0.12)]"
-    >
-      {tags.length > 0 ? (
-        tags.map((tag, index) => {
-          const selected = selectedTagIds.includes(tag.id);
-
-          return (
-          <button
-            key={tag.id}
-            type="button"
-            role="option"
-            aria-selected={selected}
-            data-testid={
-              index === 0 ? "worker-application-tag-option-first" : undefined
-            }
-            onClick={() => onToggleTag(tag.id)}
-            className="flex h-11 w-full items-center justify-between gap-2 border-b border-gray-200 text-left text-h-18-regular text-gray-900 last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200"
-          >
-            <span className="min-w-0 truncate">{tag.label}</span>
-            {selected ? (
-              <IconCheck className="size-5 shrink-0 text-green-400" />
-            ) : null}
-          </button>
-          );
-        })
-      ) : (
-        <div className="flex h-11 items-center text-h-18-regular text-gray-500">
-          사용 가능한 태그가 없습니다.
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -856,18 +688,45 @@ function getDefaultApplicationPayKind(
   return application.info?.requestedPay?.includes("월급") ? "monthly" : "hourly";
 }
 
-function appendUnique<T>(items: readonly T[], nextItem: T) {
-  return items.includes(nextItem) ? items : items.concat(nextItem);
+function createDraftWorkerTagOption(
+  label: string,
+  options: readonly TagSearchPickerOption[],
+): TagSearchPickerOption {
+  const normalizedLabel = label.trim().replace(/\s+/g, " ");
+  const baseValue =
+    normalizeDraftWorkerTagLabel(normalizedLabel)
+      .replace(/[^a-z0-9가-힣]+/gi, "-")
+      .replace(/^-+|-+$/g, "") || "tag";
+  const optionValues = new Set(options.map((option) => option.value));
+  let value = `${draftWorkerTagValuePrefix}${baseValue}`;
+  let index = 2;
+
+  while (optionValues.has(value)) {
+    value = `${draftWorkerTagValuePrefix}${baseValue}-${index}`;
+    index += 1;
+  }
+
+  return { label: normalizedLabel, value };
 }
 
-function removeItem<T>(items: readonly T[], itemToRemove: T) {
-  return items.filter((item) => item !== itemToRemove);
+function mergeTagSearchPickerOptions(
+  baseOptions: readonly TagSearchPickerOption[],
+  nextOptions: readonly TagSearchPickerOption[],
+) {
+  const optionMap = new Map<string, TagSearchPickerOption>();
+
+  baseOptions.forEach((option) => {
+    optionMap.set(option.value, option);
+  });
+  nextOptions.forEach((option) => {
+    optionMap.set(option.value, option);
+  });
+
+  return Array.from(optionMap.values());
 }
 
-function toggleItem<T>(items: readonly T[], itemToToggle: T) {
-  return items.includes(itemToToggle)
-    ? removeItem(items, itemToToggle)
-    : items.concat(itemToToggle);
+function normalizeDraftWorkerTagLabel(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("ko-KR");
 }
 
 function parsePositiveInt(value: string) {

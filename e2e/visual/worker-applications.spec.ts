@@ -54,8 +54,8 @@ test(`WKR-01 tag-search ${desktop}`, async ({ page }) => {
   });
   await page.evaluate(() => document.fonts.ready);
   await page.getByTestId("worker-application-row-1").click();
-  await page.getByTestId("worker-application-tag-search-trigger").click();
-  await expect(page.getByTestId("worker-application-tag-menu")).toBeVisible();
+  await page.getByRole("combobox", { name: "근무자 태그 검색" }).click();
+  await expect(page.getByRole("listbox", { name: "태그 선택" })).toBeVisible();
 
   await captureActualScreenshot({
     page,
@@ -73,8 +73,13 @@ test(`WKR-01 tag-added ${desktop}`, async ({ page }) => {
   });
   await page.evaluate(() => document.fonts.ready);
   await page.getByTestId("worker-application-row-1").click();
-  await page.getByTestId("worker-application-tag-search-trigger").click();
-  await expect(page.getByTestId("worker-application-tag-menu")).toBeVisible();
+  await page
+    .getByRole("combobox", { name: "근무자 태그 검색" })
+    .fill("문서 검토");
+  await page.getByRole("option", { name: "새 태그 문서 검토 선택" }).click();
+  await expect(
+    page.getByRole("button", { name: "문서 검토 태그 제거" }),
+  ).toBeVisible();
 
   await captureActualScreenshot({
     page,
@@ -92,8 +97,8 @@ test(`WKR-01 monthly-pay-selected ${desktop}`, async ({ page }) => {
   });
   await page.evaluate(() => document.fonts.ready);
   await page.getByTestId("worker-application-row-1").click();
-  await page.getByTestId("worker-application-tag-search-trigger").click();
-  await page.getByTestId("worker-application-tag-option-first").click();
+  await page.getByRole("combobox", { name: "근무자 태그 검색" }).click();
+  await page.getByRole("option", { name: "베테랑" }).click();
   await page.getByTestId("worker-application-pay-monthly").click();
   await expect(page.getByTestId("worker-application-pay-monthly")).toHaveAttribute(
     "aria-selected",
