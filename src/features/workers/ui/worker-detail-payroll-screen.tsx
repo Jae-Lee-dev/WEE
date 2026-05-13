@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/shared/ui/badge";
-import { Button } from "@/shared/ui/button";
 import {
   WorkerDetailShell,
   WorkerDetailSubsection,
@@ -115,6 +114,7 @@ export function WorkerDetailPayrollScreen({
   return (
     <WorkerDetailShell
       activeTab="payroll"
+      className="max-w-[1580px]"
       profile={viewModel.profile}
       workerId={workerId}
     >
@@ -127,10 +127,10 @@ export function WorkerDetailPayrollScreen({
         </div>
       ) : null}
       <div
-        className="grid grid-cols-[minmax(0,1fr)_minmax(480px,1fr)] gap-4"
+        className="grid min-h-[600px] grid-cols-[minmax(0,1fr)_minmax(480px,1fr)] items-stretch gap-5 2xl:min-h-[734px]"
         data-testid="worker-detail-payroll-screen"
       >
-        <div className="flex min-w-0 flex-col gap-4">
+        <div className="flex h-full min-w-0 flex-col gap-5">
           <PayrollSummaryCard
             currentMonthKey={viewModel.currentMonthKey}
             summary={viewModel.summary}
@@ -164,36 +164,32 @@ function PayrollSummaryCard({
   const payrollHref = createPayrollCalculationHref(workerId, currentMonthKey);
 
   return (
-    <WorkerDetailSubsection ariaLabel="급여 요약">
-      <WorkerDetailSubsectionHeader>
+    <WorkerDetailSubsection
+      ariaLabel="급여 요약"
+      className="gap-5 rounded-[10px] p-5"
+    >
+      <WorkerDetailSubsectionHeader className="min-h-0">
         <h2 className="text-h-20 text-gray-900">
           {summary.title}
         </h2>
       </WorkerDetailSubsectionHeader>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-4">
         {summary.metrics.map((metric) => (
           <PayrollMetricCard key={metric.id} metric={metric} />
         ))}
       </div>
       <div className="flex gap-3">
-        {summary.actions.map((label) => (
-          <Button
-            asChild
-            key={label}
-            variant="secondary"
-            className="h-9 rounded-full px-4 text-h-18-regular text-gray-800"
-          >
-            <Link
-              href={
-                label.includes("명세")
-                  ? `/payroll/statements?workerId=${encodeURIComponent(workerId)}`
-                  : payrollHref
-              }
-            >
+        {summary.actions.map((label) => {
+          const href = label.includes("명세")
+            ? `/payroll/statements?workerId=${encodeURIComponent(workerId)}`
+            : payrollHref;
+
+          return (
+            <PayrollSummaryLink href={href} key={label}>
               {label}
-            </Link>
-          </Button>
-        ))}
+            </PayrollSummaryLink>
+          );
+        })}
       </div>
     </WorkerDetailSubsection>
   );
@@ -208,10 +204,14 @@ function PayrollMetricCard({ metric }: { metric: WorkerDetailPayrollMetric }) {
         : "text-gray-900";
 
   return (
-    <article className="flex h-[108px] flex-col justify-between rounded-[8px] border border-gray-200 p-3.5">
-      <div className="text-h-18-semibold text-gray-800">{metric.label}</div>
-      <div className="flex items-center gap-2">
-        <span className={`text-h-24 ${valueColor}`}>{metric.value}</span>
+    <article className="flex h-[108px] flex-col justify-between rounded-[10px] border border-gray-100 bg-white p-4 2xl:p-5">
+      <div className="text-detail-16-semibold text-gray-600">{metric.label}</div>
+      <div className="flex items-center gap-1 2xl:gap-2">
+        <span
+          className={`shrink-0 whitespace-nowrap text-[20px] font-semibold leading-[1.4] tracking-tight 2xl:text-h-24 ${valueColor}`}
+        >
+          {metric.value}
+        </span>
         {metric.badge ? (
           <Badge
             variant="green"
@@ -236,14 +236,14 @@ function RecentStatementsCard({
   return (
     <WorkerDetailSubsection
       ariaLabel="최근 확정 명세"
-      className="min-h-[280px]"
+      className="min-h-0 flex-1 gap-5 rounded-[10px] p-5"
       testId="worker-detail-payroll-statements"
     >
-      <WorkerDetailSubsectionHeader>
+      <WorkerDetailSubsectionHeader className="min-h-0">
         <h2 className="text-h-20 text-gray-900">최근 확정 명세</h2>
       </WorkerDetailSubsectionHeader>
       <div
-        className="grid h-10 grid-cols-[24%_24%_24%_1fr] items-center border-b border-gray-300 text-h-18-regular text-gray-500"
+        className="grid min-h-[45px] grid-cols-[24%_24%_24%_1fr] items-center border-b border-gray-300 px-5 py-2.5 text-label-18 text-gray-500"
         role="row"
       >
         <div role="columnheader">월</div>
@@ -273,7 +273,7 @@ function RecentStatementRow({
 }) {
   return (
     <div
-      className="grid h-10 grid-cols-[24%_24%_24%_1fr] items-center border-b border-gray-100 text-h-18-regular text-gray-900 last:border-b-0"
+      className="grid min-h-[45px] grid-cols-[24%_24%_24%_1fr] items-center border-b border-gray-100 px-5 py-2.5 text-h-18-regular text-gray-900 last:border-b-0"
       role="row"
     >
       <div role="cell">{statement.month}</div>
@@ -300,10 +300,10 @@ function PendingIssuesCard({
   return (
     <WorkerDetailSubsection
       ariaLabel="처리 대기 건"
-      className="min-h-[480px]"
+      className="h-full min-h-0 gap-5 rounded-[10px] p-5"
       testId="worker-detail-payroll-issues"
     >
-      <WorkerDetailSubsectionHeader>
+      <WorkerDetailSubsectionHeader className="min-h-0">
         <h2 className="text-h-20 text-gray-900">처리 대기 건</h2>
         <Badge variant="grey" size="M">
           {loading ? "확인 중" : `${issues.length.toLocaleString("ko-KR")}건`}
@@ -343,32 +343,50 @@ function PendingIssueRow({
     : createPayrollCalculationHref(workerId, currentMonthKey);
 
   return (
-    <article className="flex min-h-[96px] items-center justify-between gap-4 rounded-[8px] border border-gray-100 px-3.5 py-3">
-      <div className="flex min-w-0 items-start gap-3">
-        <PayrollBadge label={issue.tag} tone={issue.tagTone} />
-        <h3 className="min-w-0 truncate text-h-18-semibold text-gray-900">
-          {issue.title}
-        </h3>
-      </div>
-      <div className="flex shrink-0 items-center gap-3">
-        <span className="mr-2 text-h-16-medium text-gray-600">
+    <article className="flex flex-col gap-3 rounded-[10px] border border-gray-100 p-4">
+      <div className="flex min-w-0 items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <PayrollBadge label={issue.tag} tone={issue.tagTone} />
+          <h3 className="min-w-0 truncate text-h-18-semibold text-gray-900">
+            {issue.title}
+          </h3>
+        </div>
+        <span className="shrink-0 text-detail-16-regular text-gray-600">
           {issue.state}
         </span>
-        <Button
-          asChild
-          variant="secondary"
-          className="h-9 rounded-[8px] px-4 text-h-18-semibold text-gray-900"
+      </div>
+      <div className="flex w-full items-start justify-end gap-3">
+        <Link
+          href={detailHref}
+          className="inline-flex min-h-[45px] items-center justify-center rounded-[10px] border border-gray-200 bg-white px-6 py-3 text-h-18-semibold text-gray-900 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-200"
         >
-          <Link href={detailHref}>{issue.detailLabel}</Link>
-        </Button>
-        <Button
+          {issue.detailLabel}
+        </Link>
+        <button
           type="button"
-          className="h-9 rounded-[8px] px-4 text-h-18-semibold text-white"
+          className="inline-flex min-h-[45px] items-center justify-center rounded-[10px] bg-green-400 px-6 py-3 text-h-18-semibold text-white transition-colors duration-150 ease-out hover:bg-green-450 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
         >
           {issue.processLabel}
-        </Button>
+        </button>
       </div>
     </article>
+  );
+}
+
+function PayrollSummaryLink({
+  children,
+  href,
+}: {
+  children: string;
+  href: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-2 text-label-18 text-gray-600 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-200"
+    >
+      {children}
+    </Link>
   );
 }
 
