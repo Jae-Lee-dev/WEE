@@ -28,9 +28,9 @@ export type WorkerApplicationsDataSource = {
   approveApplication: (
     input: ApproveWorkerApplicationInput,
   ) => Promise<WorkerApplicationsData>;
-  countPendingApplications: () => Promise<number>;
+  countApplications: () => Promise<number>;
   initialData?: WorkerApplicationsData;
-  initialPendingApplicationCount?: number;
+  initialApplicationCount?: number;
   listApplications: () => Promise<WorkerApplicationsData>;
   rejectApplication: (
     input: RejectWorkerApplicationInput,
@@ -81,18 +81,16 @@ type WorkerTagModel = WorkerApplicationTag & {
   status: string;
 };
 
-export const workerApplicationsPendingCountChangedEvent =
-  "wee:worker-applications:pending-count-changed";
+export const workerApplicationsCountChangedEvent =
+  "wee:worker-applications:count-changed";
 
 export const emptyWorkerApplicationsData = {
   rows: [],
   tags: [],
 } as const satisfies WorkerApplicationsData;
 
-export function countPendingWorkerApplicationRows(
-  rows: readonly WorkerApplicationRow[],
-) {
-  return rows.filter(isPendingWorkerApplicationRow).length;
+export function countWorkerApplicationRows(rows: readonly WorkerApplicationRow[]) {
+  return rows.length;
 }
 
 export function createWorkerApplicationsDataSource(): WorkerApplicationsDataSource {
@@ -107,7 +105,7 @@ function createFixtureWorkerApplicationsDataSource(): WorkerApplicationsDataSour
   let data: WorkerApplicationsData = workerApplicationsFixtureData;
 
   return {
-    initialPendingApplicationCount: countPendingWorkerApplicationRows(data.rows),
+    initialApplicationCount: countWorkerApplicationRows(data.rows),
     initialData: workerApplicationsFixtureData,
     async approveApplication(input) {
       data = {
@@ -117,8 +115,8 @@ function createFixtureWorkerApplicationsDataSource(): WorkerApplicationsDataSour
 
       return data;
     },
-    async countPendingApplications() {
-      return countPendingWorkerApplicationRows(data.rows);
+    async countApplications() {
+      return countWorkerApplicationRows(data.rows);
     },
     async listApplications() {
       return data;
@@ -290,7 +288,7 @@ function createFirestoreWorkerApplicationsDataSource(): WorkerApplicationsDataSo
 
       return listApplications();
     },
-    async countPendingApplications() {
+    async countApplications() {
       const workspaceId = await requireActiveWorkspaceId();
       const [membershipsSnapshot, workersSnapshot] = await Promise.all([
         getDocs(getWorkspaceCollection(workspaceId, "memberships")),
@@ -325,9 +323,7 @@ function createFirestoreWorkerApplicationsDataSource(): WorkerApplicationsDataSo
         }
       }
 
-      return [...applicationsByWorkerId.values()].filter(
-        (application) => application.status === "pending",
-      ).length;
+      return applicationsByWorkerId.size;
     },
     listApplications,
     async rejectApplication(input) {
@@ -550,12 +546,6 @@ function readApplicationStatus(
 
 function readApplicationStatusLabel(status: WorkerApplicationStatus) {
   return status === "pending" ? "승인 대기" : "반려";
-}
-
-function isPendingWorkerApplicationRow(row: WorkerApplicationRow) {
-  const statusText = row.statusText ?? row.info?.statusText ?? "";
-
-  return statusText !== readApplicationStatusLabel("rejected");
 }
 
 function readPhoneLabel(

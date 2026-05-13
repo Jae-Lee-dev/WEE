@@ -1,8 +1,8 @@
 export { defaultWorkerDetailRouteId } from "./model/worker-detail-common-fixtures";
 export {
-  countPendingWorkerApplicationRows,
+  countWorkerApplicationRows,
   createWorkerApplicationsDataSource,
-  workerApplicationsPendingCountChangedEvent,
+  workerApplicationsCountChangedEvent,
   type WorkerApplicationsDataSource,
 } from "./api/worker-applications-data-source";
 export * from "./ui/worker-applications-screen";

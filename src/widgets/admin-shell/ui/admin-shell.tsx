@@ -19,7 +19,7 @@ import {
 } from "@/features/dashboard";
 import {
   createWorkerApplicationsDataSource,
-  workerApplicationsPendingCountChangedEvent,
+  workerApplicationsCountChangedEvent,
 } from "@/features/workers";
 import { HeaderNotificationSlot } from "./header-notification-slot";
 import { IconChevronLeft } from "@/shared/ui/icons";
@@ -354,7 +354,7 @@ function useAdminShellBadgeCounts() {
     {
       ...(dataSource.initialCounts ?? emptyAdminShellBadgeCounts),
       workerApplications:
-        workerApplicationsDataSource.initialPendingApplicationCount ?? 0,
+        workerApplicationsDataSource.initialApplicationCount ?? 0,
     },
   );
 
@@ -363,7 +363,7 @@ function useAdminShellBadgeCounts() {
 
     void Promise.allSettled([
       dataSource.listBadgeCounts(),
-      workerApplicationsDataSource.countPendingApplications(),
+      workerApplicationsDataSource.countApplications(),
     ]).then(([badgeCountsResult, workerApplicationsResult]) => {
       if (!active) {
         return;
@@ -390,32 +390,32 @@ function useAdminShellBadgeCounts() {
   }, [dataSource, workerApplicationsDataSource]);
 
   useEffect(() => {
-    function handlePendingCountChanged(event: Event) {
+    function handleApplicationCountChanged(event: Event) {
       if (!(event instanceof CustomEvent)) {
         return;
       }
 
-      const pendingCount = event.detail?.pendingCount;
+      const count = event.detail?.count;
 
-      if (typeof pendingCount !== "number") {
+      if (typeof count !== "number") {
         return;
       }
 
       setCounts((current) => ({
         ...current,
-        workerApplications: pendingCount,
+        workerApplications: count,
       }));
     }
 
     window.addEventListener(
-      workerApplicationsPendingCountChangedEvent,
-      handlePendingCountChanged,
+      workerApplicationsCountChangedEvent,
+      handleApplicationCountChanged,
     );
 
     return () => {
       window.removeEventListener(
-        workerApplicationsPendingCountChangedEvent,
-        handlePendingCountChanged,
+        workerApplicationsCountChangedEvent,
+        handleApplicationCountChanged,
       );
     };
   }, []);

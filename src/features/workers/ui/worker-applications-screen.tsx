@@ -20,10 +20,10 @@ import {
 import { Textarea } from "@/shared/ui/textarea";
 import { cn } from "@/shared/lib/utils";
 import {
-  countPendingWorkerApplicationRows,
+  countWorkerApplicationRows,
   createWorkerApplicationsDataSource,
   emptyWorkerApplicationsData,
-  workerApplicationsPendingCountChangedEvent,
+  workerApplicationsCountChangedEvent,
   type ApproveWorkerApplicationInput,
   type RejectWorkerApplicationInput,
   type WorkerApplicationsDataSource,
@@ -77,7 +77,7 @@ export function WorkerApplicationsScreen({
         }
 
         setApplicationData(nextData);
-        publishPendingApplicationCount(nextData.rows);
+        publishApplicationCount(nextData.rows);
         setErrorMessage("");
         setLoading(false);
       })
@@ -119,7 +119,7 @@ export function WorkerApplicationsScreen({
 
       setApplicationData(nextData);
       setSelectedApplicationId(undefined);
-      publishPendingApplicationCount(nextData.rows);
+      publishApplicationCount(nextData.rows);
       setStatusMessage(`${input.workerName} 조교의 소속 신청을 승인했습니다.`);
     } catch {
       setErrorMessage("소속 신청을 승인하지 못했습니다.");
@@ -137,7 +137,7 @@ export function WorkerApplicationsScreen({
       const nextData = await dataSource.rejectApplication(input);
 
       setApplicationData(nextData);
-      publishPendingApplicationCount(nextData.rows);
+      publishApplicationCount(nextData.rows);
       setStatusMessage("소속 신청을 반려했습니다.");
     } catch {
       setErrorMessage("소속 신청을 반려하지 못했습니다.");
@@ -272,11 +272,11 @@ function ApplicationListState({
   );
 }
 
-function publishPendingApplicationCount(rows: readonly WorkerApplicationRow[]) {
+function publishApplicationCount(rows: readonly WorkerApplicationRow[]) {
   window.dispatchEvent(
-    new CustomEvent(workerApplicationsPendingCountChangedEvent, {
+    new CustomEvent(workerApplicationsCountChangedEvent, {
       detail: {
-        pendingCount: countPendingWorkerApplicationRows(rows),
+        count: countWorkerApplicationRows(rows),
       },
     }),
   );

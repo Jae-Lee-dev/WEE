@@ -139,12 +139,12 @@ async function expectWorkerApplicationIndicatorToMatchList(page: Page) {
   await expect(listCount).toHaveText(/\d+건/);
 
   const listCountText = await listCount.textContent();
-  const pendingCount = listCountText?.replace(/\D/g, "") ?? "";
+  const rowCount = listCountText?.replace(/\D/g, "") ?? "";
 
   await expect(
     page
       .getByRole("link", { name: /소속 신청/ })
       .locator('[data-slot="badge"]')
       .first(),
-  ).toHaveText(pendingCount);
+  ).toHaveText(rowCount);
 }
