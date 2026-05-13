@@ -1,7 +1,19 @@
-import { collection, getDocs } from "firebase/firestore";
+import {
+  Timestamp,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  serverTimestamp,
+  writeBatch,
+} from "firebase/firestore";
 import { resolveActiveWorkspaceId } from "@/features/entry/workspace-data-source";
 import { readActiveWorkspaceId } from "@/features/entry/workspace-onboarding-state";
-import { getFirebaseDb, isMockFirebaseProject } from "@/lib/firebase/client";
+import {
+  getFirebaseAuth,
+  getFirebaseDb,
+  isMockFirebaseProject,
+} from "@/lib/firebase/client";
 import {
   anomalyHistoryFixtureViewModel,
   attendanceLogFixtureViewModel,
@@ -18,6 +30,7 @@ import {
   type CorrectionHistoryViewModel,
   type CorrectionRow,
   type CorrectionStatus,
+  type RecordDetailAction,
   type RecordDetailLine,
   type RecordDetailState,
   type RecordDetailStateId,
@@ -31,10 +44,20 @@ import {
 } from "./records-fixtures";
 
 export type RecordsDataSource = {
+  applyMainRecordAction: (input: RecordMainActionInput) => Promise<void>;
   getAnomalyHistory: () => Promise<AnomalyHistoryViewModel>;
   getAttendanceLogs: () => Promise<AttendanceLogViewModel>;
   getCorrections: () => Promise<CorrectionHistoryViewModel>;
   getMainRecords: () => Promise<RecordMainViewModel>;
+};
+
+export type RecordMainActionInput = {
+  action: "delete" | "edit" | "mark-normal";
+  endTime?: string;
+  payrollEffect: "hold" | "immediate";
+  reason: string;
+  recordId: string;
+  startTime?: string;
 };
 
 type FirestoreDocument = {
@@ -155,6 +178,7 @@ export function shouldUseRecordsFixtureDataSource() {
 
 function createFixtureRecordsDataSource(): RecordsDataSource {
   return {
+    async applyMainRecordAction() {},
     async getAnomalyHistory() {
       return anomalyHistoryFixtureViewModel;
     },
@@ -172,6 +196,95 @@ function createFixtureRecordsDataSource(): RecordsDataSource {
 
 function createFirestoreRecordsDataSource(): RecordsDataSource {
   return {
+    async applyMainRecordAction(input) {
+      const workspaceId = await requireActiveWorkspaceId();
+      const db = getFirebaseDb();
+      const recordRef = doc(
+        db,
+        "workspaces",
+        workspaceId,
+        "workRecords",
+        input.recordId,
+      );
+      const recordSnapshot = await getDoc(recordRef);
+
+      if (!recordSnapshot.exists()) {
+        throw new Error("근무기록을 찾을 수 없습니다.");
+      }
+
+      const recordData = recordSnapshot.data() as Record<string, unknown>;
+      const dateKey = readString(
+        recordData.dateKey,
+        readString(recordData.date, ""),
+      );
+      const workerId = readString(recordData.workerId, "");
+      const flags = await readWorkspaceCollection(workspaceId, "anomalyFlags");
+      const flag = flags.find(
+        (item) => readString(item.data.workRecordId, "") === input.recordId,
+      );
+      const resolutionRef = doc(
+        collection(db, "workspaces", workspaceId, "anomalyResolutions"),
+      );
+      const batch = writeBatch(db);
+      const payrollApplication =
+        input.payrollEffect === "hold" ? "hold" : "immediate";
+      const recordUpdate: Record<string, unknown> = {
+        "managerOnly.anomalyResolutionId": resolutionRef.id,
+        "managerOnly.payrollApplication": payrollApplication,
+        "managerOnly.reviewedBy": getFirebaseAuth().currentUser?.uid ?? null,
+        hasUnresolvedAnomaly: false,
+        status: input.action === "delete" ? "deleted" : "resolved",
+        updatedAt: serverTimestamp(),
+      };
+
+      if (input.action === "edit") {
+        const effectiveStartAt = parseRecordActionTimestamp(
+          dateKey,
+          input.startTime,
+        );
+        const effectiveEndAt = parseRecordActionTimestamp(dateKey, input.endTime);
+
+        if (effectiveStartAt) {
+          recordUpdate.effectiveStartAt = effectiveStartAt;
+        }
+
+        if (effectiveEndAt) {
+          recordUpdate.effectiveEndAt = effectiveEndAt;
+        }
+      }
+
+      if (input.action === "delete") {
+        recordUpdate.deletedAt = serverTimestamp();
+      }
+
+      batch.update(recordRef, recordUpdate);
+
+      if (flag) {
+        batch.update(
+          doc(db, "workspaces", workspaceId, "anomalyFlags", flag.id),
+          {
+            resolvedAt: serverTimestamp(),
+            status: "resolved",
+            updatedAt: serverTimestamp(),
+          },
+        );
+      }
+
+      batch.set(resolutionRef, {
+        anomalyFlagId: flag?.id ?? null,
+        createdAt: serverTimestamp(),
+        decidedBy: getFirebaseAuth().currentUser?.uid ?? null,
+        decision: getRecordActionDecision(input.action),
+        managerNote: input.reason,
+        payrollEffect: payrollApplication,
+        status: "completed",
+        workRecordId: input.recordId,
+        workerId,
+        workspaceId,
+      });
+
+      await batch.commit();
+    },
     async getAnomalyHistory() {
       return mapAnomalyHistoryView(await loadRecordsCollections());
     },
@@ -237,6 +350,31 @@ async function readWorkspaceCollection(
     data: document.data() as Record<string, unknown>,
     id: document.id,
   }));
+}
+
+function getRecordActionDecision(action: RecordMainActionInput["action"]) {
+  switch (action) {
+    case "delete":
+      return "delete_record";
+    case "edit":
+      return "modify_record";
+    default:
+      return "mark_normal";
+  }
+}
+
+function parseRecordActionTimestamp(dateKey: string, timeValue: string | undefined) {
+  if (!dateKey || !timeValue || !timeValue.match(/^\d{2}:\d{2}$/)) {
+    return null;
+  }
+
+  const date = new Date(`${dateKey}T${timeValue}:00+09:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return Timestamp.fromDate(date);
 }
 
 function mapRecordMainView(collections: RecordsCollections): RecordMainViewModel {
@@ -669,32 +807,28 @@ function createDetailStates({
   }
 
   const normal = createNormalDetailState(record, attendance);
-  const anomalyBase = createAnomalyDetailBase(record, attendance, flag);
+  const hasUnresolvedFlag = Boolean(flag) &&
+    isUnresolvedAnomaly(record, new Map([[record.id, flag ?? undefined]]));
+  const actionBase = hasUnresolvedFlag
+    ? createAnomalyDetailBase(record, attendance, flag)
+    : createRecordActionDetailBase(record, attendance);
 
   return {
     empty,
     "normal-selected": normal,
-    "anomaly-step-1": anomalyBase,
+    "anomaly-step-1": actionBase,
     "anomaly-step-2": {
-      ...anomalyBase,
+      ...actionBase,
       id: "anomaly-step-2",
-      actions: [
-        { id: "mark-normal", label: "정상 처리", active: true },
-        { id: "edit", label: "수정" },
-        { id: "delete", label: "삭제" },
-      ],
+      actions: createRecordActionButtons(hasUnresolvedFlag, "mark-normal"),
       confirmLabel: "확인",
       helperText:
         "이상이 없다고 판단하여 플래그를 닫습니다. 근무기록은 변경되지 않습니다.",
     },
     "anomaly-step-3": {
-      ...anomalyBase,
+      ...actionBase,
       id: "anomaly-step-3",
-      actions: [
-        { id: "mark-normal", label: "정상 처리" },
-        { id: "edit", label: "수정", active: true },
-        { id: "delete", label: "삭제" },
-      ],
+      actions: createRecordActionButtons(hasUnresolvedFlag, "edit"),
       confirmLabel: "확인",
       payrollMode: {
         label: "급여 반영",
@@ -721,13 +855,9 @@ function createDetailStates({
       ],
     },
     "anomaly-step-4": {
-      ...anomalyBase,
+      ...actionBase,
       id: "anomaly-step-4",
-      actions: [
-        { id: "mark-normal", label: "정상 처리" },
-        { id: "edit", label: "수정" },
-        { id: "delete", label: "삭제", active: true },
-      ],
+      actions: createRecordActionButtons(hasUnresolvedFlag, "delete"),
       confirmLabel: "확인",
       helperText: "해당 근무기록이 삭제되어 결근으로 처리됩니다.",
       payrollMode: {
@@ -746,12 +876,40 @@ function createNormalDetailState(
   attendance: AttendanceLogModel | null,
 ): RecordDetailState {
   return {
+    actions: createRecordActionButtons(false),
     id: "normal-selected",
     lines: createRecordDetailLines(record, attendance, false),
     statusLabel: "정상",
     statusTone: "green",
     title: `${record.workerName} · ${record.dutyName}`,
   };
+}
+
+function createRecordActionDetailBase(
+  record: WorkRecordModel,
+  attendance: AttendanceLogModel | null,
+): RecordDetailState {
+  return {
+    actions: createRecordActionButtons(false),
+    id: "normal-selected",
+    lines: createRecordDetailLines(record, attendance, false),
+    statusLabel: "정상",
+    statusTone: "green",
+    title: `${record.workerName} · ${record.dutyName}`,
+  };
+}
+
+function createRecordActionButtons(
+  hasAnomalyAction: boolean,
+  activeAction?: string,
+): readonly RecordDetailAction[] {
+  return [
+    ...(hasAnomalyAction
+      ? [{ id: "mark-normal", label: "정상 처리", active: activeAction === "mark-normal" }]
+      : []),
+    { id: "edit", label: "수정", active: activeAction === "edit" },
+    { id: "delete", label: "삭제", active: activeAction === "delete" },
+  ];
 }
 
 function createAnomalyDetailBase(

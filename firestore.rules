@@ -255,6 +255,155 @@ service cloud.firestore {
         ]);
     }
 
+    function isTagColor(value) {
+      return value in ['green', 'blue', 'orange', 'red', 'grey', 'gray', 'pink'];
+    }
+
+    function isWorkspaceTagBase(workspaceId, data) {
+      return data.workspaceId == workspaceId
+        && data.name is string
+        && data.name.size() > 0
+        && data.nameKey is string
+        && data.nameKey.size() > 0
+        && isTagColor(data.color)
+        && data.status in ['active', 'inactive', 'deleted']
+        && data.usageCount is int
+        && data.usageCount >= 0;
+    }
+
+    function isWorkspaceTagCreate(workspaceId) {
+      let data = request.resource.data;
+
+      return data.keys().hasOnly([
+          'color',
+          'createdAt',
+          'createdBy',
+          'name',
+          'nameKey',
+          'status',
+          'updatedAt',
+          'usageCount',
+          'workspaceId'
+        ])
+        && isWorkspaceTagBase(workspaceId, data)
+        && data.status in ['active', 'inactive']
+        && data.createdBy == request.auth.uid
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function isWorkspaceTagEdit(workspaceId) {
+      let data = request.resource.data;
+      let changedKeys = data.diff(resource.data).affectedKeys();
+
+      return resource.data.status != 'deleted'
+        && changedKeys.hasOnly([
+          'color',
+          'name',
+          'nameKey',
+          'status',
+          'updatedAt',
+          'usageCount'
+        ])
+        && isWorkspaceTagBase(workspaceId, data)
+        && data.status in ['active', 'inactive']
+        && data.createdAt == resource.data.createdAt
+        && data.createdBy == resource.data.createdBy
+        && data.updatedAt == request.time;
+    }
+
+    function isWorkspaceTagSoftDelete(workspaceId) {
+      let data = request.resource.data;
+      let changedKeys = data.diff(resource.data).affectedKeys();
+
+      return resource.data.status != 'deleted'
+        && changedKeys.hasOnly(['deletedAt', 'status', 'updatedAt', 'usageCount'])
+        && isWorkspaceTagBase(workspaceId, data)
+        && data.status == 'deleted'
+        && data.usageCount == 0
+        && data.deletedAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function isWorkerTagAssignmentEdit() {
+      let data = request.resource.data;
+      let changedKeys = data.diff(resource.data).affectedKeys();
+
+      return resource.data.status != 'deleted'
+        && changedKeys.hasOnly(['tagIds', 'updatedAt'])
+        && data.tagIds is list
+        && data.tagIds.size() <= 20
+        && data.updatedAt == request.time;
+    }
+
+    function isDutyTagAssignmentEdit() {
+      let data = request.resource.data;
+      let changedKeys = data.diff(resource.data).affectedKeys();
+
+      return resource.data.manualStatus != 'deleted'
+        && changedKeys.hasOnly(['tags', 'updatedAt'])
+        && data.tags is list
+        && data.tags.size() <= 8
+        && data.updatedAt == request.time;
+    }
+
+    function isWorkRecordManagerAction() {
+      let data = request.resource.data;
+      let changedKeys = data.diff(resource.data).affectedKeys();
+
+      return resource.data.status != 'paid'
+        && changedKeys.hasOnly([
+          'deletedAt',
+          'effectiveEndAt',
+          'effectiveStartAt',
+          'hasUnresolvedAnomaly',
+          'managerOnly',
+          'status',
+          'updatedAt'
+        ])
+        && data.status in ['resolved', 'deleted']
+        && data.hasUnresolvedAnomaly == false
+        && data.updatedAt == request.time;
+    }
+
+    function isAnomalyFlagManagerResolution() {
+      let data = request.resource.data;
+      let changedKeys = data.diff(resource.data).affectedKeys();
+
+      return resource.data.status == 'unresolved'
+        && changedKeys.hasOnly(['resolvedAt', 'status', 'updatedAt'])
+        && data.status == 'resolved'
+        && data.resolvedAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function isAnomalyResolutionCreate(workspaceId) {
+      let data = request.resource.data;
+
+      return data.keys().hasOnly([
+          'anomalyFlagId',
+          'createdAt',
+          'decidedBy',
+          'decision',
+          'managerNote',
+          'payrollEffect',
+          'status',
+          'workRecordId',
+          'workerId',
+          'workspaceId'
+        ])
+        && data.workspaceId == workspaceId
+        && data.createdAt == request.time
+        && data.decidedBy == request.auth.uid
+        && data.decision in ['mark_normal', 'modify_record', 'delete_record']
+        && data.managerNote is string
+        && data.payrollEffect in ['immediate', 'hold']
+        && data.status == 'completed'
+        && data.workRecordId is string
+        && data.workRecordId.size() > 0
+        && data.workerId is string;
+    }
+
     match /users/{userId} {
       allow get, create, update: if isSelf(userId);
       allow list, delete: if false;
@@ -285,8 +434,61 @@ service cloud.firestore {
         allow get, list: if isWorkspaceManager(workspaceId);
         allow create: if isWorkspaceManagerAfter(workspaceId)
           && isDutyCreate(workspaceId);
-        allow update: if false;
+        allow update: if isWorkspaceManagerAfter(workspaceId)
+          && isDutyTagAssignmentEdit();
         allow delete: if false;
+      }
+
+      match /dutyTags/{tagId} {
+        allow get, list: if isWorkspaceManager(workspaceId);
+        allow create: if isWorkspaceManagerAfter(workspaceId)
+          && isWorkspaceTagCreate(workspaceId);
+        allow update: if isWorkspaceManagerAfter(workspaceId)
+          && (
+            isWorkspaceTagEdit(workspaceId) ||
+            isWorkspaceTagSoftDelete(workspaceId)
+          );
+        allow delete: if false;
+      }
+
+      match /workerTags/{tagId} {
+        allow get, list: if isWorkspaceManager(workspaceId);
+        allow create: if isWorkspaceManagerAfter(workspaceId)
+          && isWorkspaceTagCreate(workspaceId);
+        allow update: if isWorkspaceManagerAfter(workspaceId)
+          && (
+            isWorkspaceTagEdit(workspaceId) ||
+            isWorkspaceTagSoftDelete(workspaceId)
+          );
+        allow delete: if false;
+      }
+
+      match /workers/{workerId} {
+        allow get, list: if isWorkspaceManager(workspaceId);
+        allow update: if isWorkspaceManagerAfter(workspaceId)
+          && isWorkerTagAssignmentEdit();
+        allow create, delete: if false;
+      }
+
+      match /workRecords/{recordId} {
+        allow get, list: if isWorkspaceManager(workspaceId);
+        allow update: if isWorkspaceManagerAfter(workspaceId)
+          && isWorkRecordManagerAction();
+        allow create, delete: if false;
+      }
+
+      match /anomalyFlags/{flagId} {
+        allow get, list: if isWorkspaceManager(workspaceId);
+        allow update: if isWorkspaceManagerAfter(workspaceId)
+          && isAnomalyFlagManagerResolution();
+        allow create, delete: if false;
+      }
+
+      match /anomalyResolutions/{resolutionId} {
+        allow get, list: if isWorkspaceManager(workspaceId);
+        allow create: if isWorkspaceManagerAfter(workspaceId)
+          && isAnomalyResolutionCreate(workspaceId);
+        allow update, delete: if false;
       }
 
       match /notificationSettings/{settingsId} {

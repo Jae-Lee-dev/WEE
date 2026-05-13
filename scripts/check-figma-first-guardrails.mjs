@@ -87,7 +87,9 @@ const allowedSubmitDrivenTransitionFiles = new Set([
 const allowedLocalArrayMutationTransitionFiles = new Set([
   "src/features/entry/signup-form.tsx",
   "src/features/schedule/duty-list-screen.tsx",
+  "src/features/schedule/duty-tags-screen.tsx",
   "src/features/settings/settings-locations-screen.tsx",
+  "src/features/workers/worker-tags-screen.tsx",
 ]);
 const allowedRuntimeEnvTransitionFiles = new Set([
   "src/lib/firebase/client.ts",

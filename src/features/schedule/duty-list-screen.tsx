@@ -50,6 +50,7 @@ import {
   type DutyDialogWeekdayOption,
   type DutyEditBasicDialogFixture,
   type DutyEditTimeDialogFixture,
+  type DutyFilterOption,
   type DutyListRow,
   type DutyStatus,
   type DutyTag,
@@ -79,6 +80,8 @@ import {
 } from "./timeline-grid-frame";
 
 type DialogState = "create" | "edit-basic" | "edit-time" | null;
+type DutyFilterKey = "location" | "tag" | "status";
+type DutyFilterState = Record<DutyFilterKey, string>;
 type DutyViewMode = "timeline" | "list";
 
 type BadgeToneConfig = {
@@ -168,6 +171,12 @@ const operationEndDateResetFields: readonly DutyFormField[] = [
   "operationStartDate",
 ];
 
+const initialDutyFilters = {
+  location: "all",
+  status: "all",
+  tag: "all",
+} as const satisfies DutyFilterState;
+
 function shouldResetOperationEndDate(field: DutyFormField) {
   return operationEndDateResetFields.includes(field);
 }
@@ -189,6 +198,9 @@ export function DutyListScreen({
   );
   const [viewMode, setViewMode] = useState<DutyViewMode>("timeline");
   const [dialog, setDialog] = useState<DialogState>(null);
+  const [openFilter, setOpenFilter] = useState<DutyFilterKey | null>(null);
+  const [selectedFilters, setSelectedFilters] =
+    useState<DutyFilterState>(initialDutyFilters);
   const [duties, setDuties] = useState<readonly DutyListRow[]>(
     fixtureMode ? dutyListRows : [],
   );
@@ -198,7 +210,12 @@ export function DutyListScreen({
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const selectedDuty = duties.find((duty) => duty.id === selectedDutyId);
-  const dutyTimelineRows = getTimelineEligibleDuties(duties);
+  const filterOptions = useMemo(() => createDutyFilterOptions(duties), [duties]);
+  const filteredDuties = useMemo(
+    () => filterDuties(duties, filterOptions, selectedFilters),
+    [duties, filterOptions, selectedFilters],
+  );
+  const dutyTimelineRows = getTimelineEligibleDuties(filteredDuties);
 
   useEffect(() => {
     if (fixtureMode) {
@@ -250,6 +267,21 @@ export function DutyListScreen({
     }
   };
 
+  const handleSelectFilter = (filter: DutyFilterKey, value: string) => {
+    const nextFilters = {
+      ...selectedFilters,
+      [filter]: value,
+    };
+    const nextRows = filterDuties(duties, filterOptions, nextFilters);
+
+    setSelectedFilters(nextFilters);
+    setOpenFilter(null);
+
+    if (selectedDutyId && !nextRows.some((duty) => duty.id === selectedDutyId)) {
+      setSelectedDutyId(nextRows[0]?.id);
+    }
+  };
+
   return (
     <section
       aria-label="근무 목록"
@@ -273,11 +305,20 @@ export function DutyListScreen({
 
       <DutyToolbar
         createDisabled={!fixtureMode && loading}
+        filterOptions={filterOptions}
+        openFilter={openFilter}
         onCreate={() => {
           setStatusMessage("");
           setDialog("create");
         }}
+        onFilterSelect={handleSelectFilter}
+        onFilterToggle={(filter) =>
+          setOpenFilter((currentFilter) =>
+            currentFilter === filter ? null : filter,
+          )
+        }
         onViewModeChange={setViewMode}
+        selectedFilters={selectedFilters}
         viewMode={viewMode}
       />
 
@@ -291,7 +332,7 @@ export function DutyListScreen({
         ) : (
           <DutyListTable
             onSelectDuty={(duty) => setSelectedDutyId(duty.id)}
-            rows={duties}
+            rows={filteredDuties}
             selectedDutyId={selectedDutyId}
           />
         )}
@@ -326,21 +367,97 @@ export function DutyListScreen({
 
 function DutyToolbar({
   createDisabled,
+  filterOptions,
+  openFilter,
   onCreate,
+  onFilterSelect,
+  onFilterToggle,
   onViewModeChange,
+  selectedFilters,
   viewMode,
 }: {
   createDisabled?: boolean;
+  filterOptions: Record<DutyFilterKey, readonly DutyFilterOption[]>;
+  openFilter: DutyFilterKey | null;
   onCreate: () => void;
+  onFilterSelect: (filter: DutyFilterKey, value: string) => void;
+  onFilterToggle: (filter: DutyFilterKey) => void;
   onViewModeChange: (mode: DutyViewMode) => void;
+  selectedFilters: DutyFilterState;
   viewMode: DutyViewMode;
 }) {
+  const controls = [
+    {
+      key: "location",
+      label: getDutyFilterLabel(
+        filterOptions.location,
+        selectedFilters.location,
+        dutyLocationOptions[0].label,
+      ),
+      menuLabel: "근무지 필터",
+      options: filterOptions.location,
+      testId: "duty-list-location-filter",
+      widthClassName: "min-w-[124px]",
+    },
+    {
+      key: "tag",
+      label: getDutyFilterLabel(
+        filterOptions.tag,
+        selectedFilters.tag,
+        dutyTagFilterOptions[0].label,
+      ),
+      menuLabel: "근무 태그 필터",
+      options: filterOptions.tag,
+      testId: "duty-list-tag-filter",
+      widthClassName: "min-w-[148px]",
+    },
+    {
+      key: "status",
+      label: getDutyFilterLabel(
+        filterOptions.status,
+        selectedFilters.status,
+        dutyStatusFilterOptions[0].label,
+      ),
+      menuLabel: "상태 필터",
+      options: filterOptions.status,
+      testId: "duty-list-status-filter",
+      widthClassName: "min-w-[124px]",
+    },
+  ] as const satisfies readonly {
+    key: DutyFilterKey;
+    label: string;
+    menuLabel: string;
+    options: readonly DutyFilterOption[];
+    testId: string;
+    widthClassName: string;
+  }[];
+
   return (
     <div className="flex h-9 items-center justify-between gap-4">
       <div className="flex min-w-0 items-center gap-3">
-        <FilterTrigger label={dutyLocationOptions[0].label} />
-        <FilterTrigger label={dutyTagFilterOptions[0].label} />
-        <FilterTrigger label={dutyStatusFilterOptions[0].label} />
+        {controls.map((control) => {
+          const menuOpen = openFilter === control.key;
+
+          return (
+            <div className="relative" key={control.key}>
+              <FilterTrigger
+                ariaExpanded={menuOpen}
+                label={control.label}
+                onClick={() => onFilterToggle(control.key)}
+                testId={control.testId}
+                widthClassName={control.widthClassName}
+              />
+              {menuOpen ? (
+                <DutyFilterMenu
+                  label={control.menuLabel}
+                  onOptionClick={(value) => onFilterSelect(control.key, value)}
+                  options={control.options}
+                  selectedValue={selectedFilters[control.key]}
+                />
+              ) : null}
+            </div>
+          );
+        })}
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
@@ -373,15 +490,72 @@ function DutyToolbar({
   );
 }
 
-function FilterTrigger({ label }: { label: string }) {
+function FilterTrigger({
+  ariaExpanded,
+  label,
+  onClick,
+  testId,
+  widthClassName,
+}: {
+  ariaExpanded: boolean;
+  label: string;
+  onClick: () => void;
+  testId: string;
+  widthClassName: string;
+}) {
   return (
     <button
       type="button"
-      className="flex h-10 min-w-[124px] items-center justify-between gap-3 rounded-[6px] border border-gray-200 bg-white px-2.5 text-h-18-regular tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+      aria-expanded={ariaExpanded}
+      aria-haspopup="listbox"
+      data-testid={testId}
+      onClick={onClick}
+      className={cn(
+        "flex h-10 items-center justify-between gap-3 rounded-[6px] border border-gray-200 bg-white px-2.5 text-h-18-regular tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
+        widthClassName,
+      )}
     >
       <span className="min-w-0 truncate">{label}</span>
       <ChevronDown className="size-5 shrink-0 text-gray-700" strokeWidth={2} />
     </button>
+  );
+}
+
+function DutyFilterMenu({
+  label,
+  onOptionClick,
+  options,
+  selectedValue,
+}: {
+  label: string;
+  onOptionClick: (value: string) => void;
+  options: readonly DutyFilterOption[];
+  selectedValue: string;
+}) {
+  return (
+    <div
+      role="listbox"
+      aria-label={label}
+      className="absolute left-0 top-12 z-30 w-[180px] overflow-hidden rounded-[4px] border border-gray-200 bg-white px-3 shadow-[0px_8px_20px_rgba(17,24,39,0.12)]"
+    >
+      {options.map((option) => {
+        const selected = option.id === selectedValue;
+
+        return (
+          <button
+            key={option.id}
+            type="button"
+            role="option"
+            aria-selected={selected}
+            onClick={() => onOptionClick(option.id)}
+            className="flex h-11 w-full items-center justify-between gap-2 border-b border-gray-100 text-left text-h-18-regular text-gray-800 last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200"
+          >
+            <span className="min-w-0 truncate">{option.label}</span>
+            {selected ? <Check className="size-5 shrink-0 text-green-400" /> : null}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -1473,6 +1647,84 @@ function DialogActions({
       </Button>
     </div>
   );
+}
+
+function createDutyFilterOptions(rows: readonly DutyListRow[]) {
+  return {
+    location: [
+      dutyLocationOptions[0],
+      ...uniqueDutyFilterOptions(rows.map((row) => row.location)),
+    ],
+    status: [
+      dutyStatusFilterOptions[0],
+      ...uniqueDutyFilterOptions(rows.map((row) => row.status)),
+    ],
+    tag: [
+      dutyTagFilterOptions[0],
+      ...uniqueDutyFilterOptions(
+        rows.flatMap((row) => row.tags.map((tag) => tag.label)),
+      ),
+    ],
+  } satisfies Record<DutyFilterKey, readonly DutyFilterOption[]>;
+}
+
+function uniqueDutyFilterOptions(labels: readonly string[]): DutyFilterOption[] {
+  return [...new Set(labels.filter(Boolean))]
+    .sort((left, right) => left.localeCompare(right, "ko-KR"))
+    .map((label) => ({
+      id: label,
+      label,
+    }));
+}
+
+function filterDuties(
+  duties: readonly DutyListRow[],
+  options: Record<DutyFilterKey, readonly DutyFilterOption[]>,
+  selectedFilters: DutyFilterState,
+) {
+  return duties.filter(
+    (duty) =>
+      matchesDutyFilterOption(
+        options.location,
+        selectedFilters.location,
+        (option) => duty.location === option.label || duty.location === option.id,
+      ) &&
+      matchesDutyFilterOption(
+        options.tag,
+        selectedFilters.tag,
+        (option) =>
+          duty.tags.some(
+            (tag) => tag.label === option.label || tag.id === option.id,
+          ),
+      ) &&
+      matchesDutyFilterOption(
+        options.status,
+        selectedFilters.status,
+        (option) => duty.status === option.label || duty.status === option.id,
+      ),
+  );
+}
+
+function matchesDutyFilterOption(
+  options: readonly DutyFilterOption[],
+  selectedValue: string,
+  matches: (option: DutyFilterOption) => boolean,
+) {
+  if (selectedValue === "all") {
+    return true;
+  }
+
+  const option = options.find((item) => item.id === selectedValue);
+
+  return option ? matches(option) : true;
+}
+
+function getDutyFilterLabel(
+  options: readonly DutyFilterOption[],
+  selectedValue: string,
+  fallback: string,
+) {
+  return options.find((option) => option.id === selectedValue)?.label ?? fallback;
 }
 
 function getTimelineEligibleDuties(rows: readonly DutyListRow[]) {

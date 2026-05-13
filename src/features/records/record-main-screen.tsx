@@ -1,15 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import {
-  IconChevronDown,
-  IconChevronLeft,
-  IconChevronRight,
-} from "@/components/icons";
+import { IconChevronLeft, IconChevronRight } from "@/components/icons";
+import { OptionSelect, type SelectOption } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
   createRecordsDataSource,
   shouldUseRecordsFixtureDataSource,
+  type RecordMainActionInput,
   type RecordsDataSource,
 } from "./records-data-source";
 import {
@@ -106,6 +104,7 @@ export function RecordMainScreen({
   const [selectedStatusFilterId, setSelectedStatusFilterId] = useState("all");
   const [selectedTypeFilterId, setSelectedTypeFilterId] = useState("all");
   const [loading, setLoading] = useState(!fixtureMode);
+  const [recordActionSaving, setRecordActionSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const activeWeekStartKey =
     selectedWeekStartKey ??
@@ -245,6 +244,33 @@ export function RecordMainScreen({
     setSelectedStateId(resolveBlockStateId(nextBlock));
   }
 
+  async function handleConfirmRecordAction(
+    input: Omit<RecordMainActionInput, "recordId">,
+  ) {
+    if (!selectedVisibleBlockId) {
+      throw new Error("선택된 근무기록이 없습니다.");
+    }
+
+    setRecordActionSaving(true);
+    setErrorMessage("");
+
+    try {
+      await dataSource.applyMainRecordAction({
+        ...input,
+        recordId: selectedVisibleBlockId,
+      });
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "근무기록 처리 내용을 저장하지 못했습니다.",
+      );
+      throw error;
+    } finally {
+      setRecordActionSaving(false);
+    }
+  }
+
   useEffect(() => {
     let active = true;
 
@@ -343,6 +369,8 @@ export function RecordMainScreen({
           timeline={timeline}
         />
         <RecordDetailPanel
+          actionSaving={recordActionSaving}
+          onConfirmRecordAction={handleConfirmRecordAction}
           state={selectedState}
           onSelectState={setSelectedStateId}
         />
@@ -464,31 +492,24 @@ function FilterSelect({
   const selectedValue = options.some((option) => option.id === value)
     ? value
     : options[0]?.id ?? "all";
+  const selectOptions: SelectOption[] = options.map((option) => ({
+    label: option.label,
+    value: option.id,
+  }));
 
   return (
-    <div
-      className={cn(
-        "relative flex h-10 items-center rounded-[6px] border border-gray-200 bg-white text-h-18-regular tracking-normal text-gray-800 transition-colors duration-150 ease-out hover:border-gray-300",
+    <OptionSelect
+      value={selectedValue}
+      onValueChange={onChange}
+      options={selectOptions}
+      triggerAriaLabel={ariaLabel}
+      triggerClassName={cn(
+        "h-10 rounded-[6px] border-gray-200 bg-white px-2.5 text-h-18-regular tracking-normal text-gray-800",
         widthClassName,
       )}
-    >
-      <select
-        aria-label={ariaLabel}
-        className="h-full w-full appearance-none rounded-[6px] bg-transparent pl-3 pr-8 outline-none focus-visible:ring-2 focus-visible:ring-green-200"
-        value={selectedValue}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        {options.map((option) => (
-          <option key={option.id} value={option.id}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <IconChevronDown
-        aria-hidden="true"
-        className="pointer-events-none absolute right-3 size-5 text-gray-700"
-      />
-    </div>
+      contentClassName="z-[70]"
+      itemClassName="text-h-16-medium tracking-normal"
+    />
   );
 }
 
@@ -723,9 +744,15 @@ function RecordTimelineBlockItem({
 }
 
 function RecordDetailPanel({
+  actionSaving,
+  onConfirmRecordAction,
   onSelectState,
   state,
 }: {
+  actionSaving: boolean;
+  onConfirmRecordAction: (
+    input: Omit<RecordMainActionInput, "recordId">,
+  ) => Promise<void>;
   onSelectState: (stateId: RecordDetailStateId) => void;
   state: RecordDetailState;
 }) {
@@ -737,7 +764,13 @@ function RecordDetailPanel({
       {state.id === "empty" ? (
         <EmptyDetail state={state} />
       ) : (
-        <SelectedDetail onSelectState={onSelectState} state={state} />
+        <SelectedDetail
+          key={`${state.id}:${state.title ?? ""}`}
+          actionSaving={actionSaving}
+          onConfirmRecordAction={onConfirmRecordAction}
+          onSelectState={onSelectState}
+          state={state}
+        />
       )}
     </aside>
   );
@@ -754,13 +787,35 @@ function EmptyDetail({ state }: { state: RecordDetailState }) {
 }
 
 function SelectedDetail({
+  actionSaving,
+  onConfirmRecordAction,
   onSelectState,
   state,
 }: {
+  actionSaving: boolean;
+  onConfirmRecordAction: (
+    input: Omit<RecordMainActionInput, "recordId">,
+  ) => Promise<void>;
   onSelectState: (stateId: RecordDetailStateId) => void;
   state: RecordDetailState;
 }) {
   const compactForm = state.id === "anomaly-step-3";
+  const [reason, setReason] = useState("");
+  const [timeValues, setTimeValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      (state.timeFields ?? []).map((field) => [
+        field.id,
+        toTimeInputValue(field.value),
+      ]),
+    ),
+  );
+  const [payrollModeId, setPayrollModeId] = useState(
+    state.payrollMode?.options.find((option) => option.active)?.id ??
+      state.payrollMode?.options[0]?.id ??
+      "",
+  );
+  const [savedMessage, setSavedMessage] = useState("");
+  const [saveErrorMessage, setSaveErrorMessage] = useState("");
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
@@ -837,13 +892,14 @@ function SelectedDetail({
                 {state.reasonField.label}
               </span>
               <textarea
-                readOnly
                 aria-label={state.reasonField.label}
                 className={cn(
-                  "mt-3 w-full resize-none rounded-[8px] border border-gray-200 bg-white px-4 py-4 text-h-18-regular tracking-normal text-gray-500 outline-none",
+                  "mt-3 w-full resize-none rounded-[8px] border border-gray-200 bg-white px-4 py-4 text-h-18-regular tracking-normal text-gray-800 outline-none focus-visible:ring-2 focus-visible:ring-green-200",
                   compactForm ? "h-[76px]" : "h-[84px]",
                 )}
                 placeholder={state.reasonField.placeholder}
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
               />
             </label>
           ) : null}
@@ -855,9 +911,18 @@ function SelectedDetail({
                   <span className="text-h-18-semibold tracking-normal text-gray-900">
                     {field.label}
                   </span>
-                  <div className="mt-3 flex h-11 items-center rounded-[8px] border border-gray-200 bg-white px-4 text-h-18-regular tracking-normal text-gray-800">
-                    {field.value}
-                  </div>
+                  <input
+                    type="time"
+                    aria-label={field.label}
+                    value={timeValues[field.id] ?? toTimeInputValue(field.value)}
+                    onChange={(event) =>
+                      setTimeValues((currentValues) => ({
+                        ...currentValues,
+                        [field.id]: event.target.value,
+                      }))
+                    }
+                    className="mt-3 flex h-11 w-full items-center rounded-[8px] border border-gray-200 bg-white px-4 text-h-18-regular tracking-normal text-gray-800 outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+                  />
                 </label>
               ))}
             </div>
@@ -873,10 +938,11 @@ function SelectedDetail({
                   <button
                     key={option.id}
                     type="button"
-                    aria-pressed={option.active}
+                    aria-pressed={payrollModeId === option.id}
+                    onClick={() => setPayrollModeId(option.id)}
                     className={cn(
                       "rounded-[6px] text-h-18-semibold tracking-normal transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
-                      option.active
+                      payrollModeId === option.id
                         ? "bg-green-400 text-white"
                         : "text-gray-800 hover:bg-gray-50",
                     )}
@@ -887,6 +953,17 @@ function SelectedDetail({
               </div>
             </div>
           ) : null}
+
+          {savedMessage ? (
+            <p className="mt-4 rounded-[8px] border border-green-100 bg-green-50 px-4 py-3 text-h-16-medium text-green-500">
+              {savedMessage}
+            </p>
+          ) : null}
+          {saveErrorMessage ? (
+            <p className="mt-4 rounded-[8px] border border-red-100 bg-red-50 px-4 py-3 text-h-16-medium text-red-500">
+              {saveErrorMessage}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -894,9 +971,22 @@ function SelectedDetail({
         <div className="mt-5 flex shrink-0 justify-end">
           <button
             type="button"
-            className="flex h-11 min-w-[78px] items-center justify-center rounded-[10px] bg-green-400 px-4 text-h-18-semibold tracking-normal text-white transition-colors duration-150 ease-out hover:bg-green-450 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+            disabled={actionSaving}
+            onClick={() => {
+              void handleConfirmSelectedRecordAction({
+                endTime: timeValues["check-out"],
+                onConfirmRecordAction,
+                payrollModeId,
+                reason,
+                setSaveErrorMessage,
+                setSavedMessage,
+                startTime: timeValues["check-in"],
+                state,
+              });
+            }}
+            className="flex h-11 min-w-[78px] items-center justify-center rounded-[10px] bg-green-400 px-4 text-h-18-semibold tracking-normal text-white transition-colors duration-150 ease-out hover:bg-green-450 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:bg-gray-300"
           >
-            {state.confirmLabel}
+            {actionSaving ? "저장 중" : state.confirmLabel}
           </button>
         </div>
       ) : null}
@@ -953,6 +1043,94 @@ function DetailActionButton({
       {action.label}
     </button>
   );
+}
+
+function toTimeInputValue(value: string) {
+  const normalizedValue = value.trim();
+  const timeMatch = normalizedValue.match(/(\d{1,2}):(\d{2})/);
+
+  if (!timeMatch) {
+    return "";
+  }
+
+  let hour = Number(timeMatch[1]);
+  const minute = timeMatch[2];
+
+  if (normalizedValue.includes("오후") && hour < 12) {
+    hour += 12;
+  }
+
+  if (normalizedValue.includes("오전") && hour === 12) {
+    hour = 0;
+  }
+
+  return `${String(hour).padStart(2, "0")}:${minute}`;
+}
+
+async function handleConfirmSelectedRecordAction({
+  endTime,
+  onConfirmRecordAction,
+  payrollModeId,
+  reason,
+  setSaveErrorMessage,
+  setSavedMessage,
+  startTime,
+  state,
+}: {
+  endTime?: string;
+  onConfirmRecordAction: (
+    input: Omit<RecordMainActionInput, "recordId">,
+  ) => Promise<void>;
+  payrollModeId: string;
+  reason: string;
+  setSaveErrorMessage: (message: string) => void;
+  setSavedMessage: (message: string) => void;
+  startTime?: string;
+  state: RecordDetailState;
+}) {
+  const action = getRecordActionFromState(state.id);
+
+  setSavedMessage("");
+  setSaveErrorMessage("");
+
+  try {
+    await onConfirmRecordAction({
+      action,
+      endTime,
+      payrollEffect: payrollModeId === "hold" ? "hold" : "immediate",
+      reason,
+      startTime,
+    });
+    setSavedMessage(getRecordActionSavedMessage(action));
+  } catch {
+    setSaveErrorMessage("근무기록 처리 내용을 저장하지 못했습니다.");
+  }
+}
+
+function getRecordActionFromState(
+  stateId: RecordDetailStateId,
+): RecordMainActionInput["action"] {
+  if (stateId === "anomaly-step-4") {
+    return "delete";
+  }
+
+  if (stateId === "anomaly-step-3") {
+    return "edit";
+  }
+
+  return "mark-normal";
+}
+
+function getRecordActionSavedMessage(action: RecordMainActionInput["action"]) {
+  if (action === "delete") {
+    return "근무기록 삭제 처리를 적용했습니다.";
+  }
+
+  if (action === "edit") {
+    return "근무기록 수정 내용을 적용했습니다.";
+  }
+
+  return "처리 내용을 적용했습니다.";
 }
 
 function createEmptyRecordMainViewModel(

@@ -45,6 +45,27 @@ test(`REC-01 normal-selected ${desktop}`, async ({ page }) => {
   });
 });
 
+test("REC-01 uses shared selects and edits selected records", async ({ page }) => {
+  await prepareVisualPage({ page, path: "/records", viewport: desktop });
+
+  await expect(page.locator("select[aria-label='조교 필터']")).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: "조교 필터" })).toBeVisible();
+
+  await page.getByTestId("record-block-normal").click();
+  await page.getByTestId("record-detail-action-edit").click();
+
+  const detail = page.getByTestId("record-detail-panel");
+
+  await detail.getByLabel("수정 사유").fill("출퇴근 시간 확인");
+  await detail.getByLabel("출근 시간").fill("14:10");
+  await detail.getByRole("button", { name: "보류" }).click();
+  await detail.getByRole("button", { name: "확인" }).click();
+
+  await expect(
+    detail.getByText("근무기록 수정 내용을 적용했습니다."),
+  ).toBeVisible();
+});
+
 test(`REC-01 anomaly-step-1 ${desktop}`, async ({ page }) => {
   await prepareVisualPage({ page, path: "/records", viewport: desktop });
   await page.evaluate(() => document.fonts.ready);

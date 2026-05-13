@@ -45,3 +45,32 @@ test("WKR-06 edit dialog uses clicked tag", async ({ page }) => {
   await expect(dialog.getByLabel("태그명")).toHaveValue("신입");
   await expect(dialog.getByText("3명")).toBeVisible();
 });
+
+test("WKR-06 edits and deletes worker tags", async ({ page }) => {
+  await prepareVisualPage({ page, path: "/workers/tags", viewport: desktop });
+
+  await page.getByTestId("worker-tags-edit-trigger-first").click();
+  const dialog = page.getByTestId("worker-tags-edit-dialog");
+
+  await dialog.getByLabel("태그명").fill("베테랑 수정");
+  await dialog.getByLabel("상태").click();
+  await page.getByRole("option", { name: "비활성" }).click();
+  await dialog.getByRole("button", { name: "저장" }).click();
+
+  await expect(
+    page.getByText("베테랑 수정 근무자 태그를 수정했습니다."),
+  ).toBeVisible();
+  await expect(page.getByText("베테랑 수정", { exact: true })).toBeVisible();
+  await expect(page.getByText("비활성")).toBeVisible();
+
+  await page.getByRole("button", { name: "삭제" }).first().click();
+  await page
+    .getByRole("dialog", { name: "근무자 태그 삭제" })
+    .getByRole("button", { name: "삭제" })
+    .click();
+
+  await expect(
+    page.getByText("베테랑 수정 근무자 태그를 삭제했습니다."),
+  ).toBeVisible();
+  await expect(page.getByText("베테랑 수정", { exact: true })).toHaveCount(0);
+});

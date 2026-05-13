@@ -58,6 +58,20 @@ test(`DUT-01 selected-duty ${desktop}`, async ({ page }) => {
   });
 });
 
+test("DUT-01 filter dropdowns update duty list", async ({ page }) => {
+  await prepareVisualPage({ page, path: routePath, viewport: desktop });
+
+  await page.getByRole("button", { name: "목록 보기" }).click();
+  await page.getByTestId("duty-list-tag-filter").click();
+  await page.getByRole("option", { name: "질문" }).click();
+
+  const table = page.getByTestId("duty-list-table");
+
+  await expect(table.getByText("영어 C반")).toHaveCount(2);
+  await expect(table.getByText("물리 F반")).toHaveCount(0);
+  await expect(table.getByText("2건")).toBeVisible();
+});
+
 test("DUT-02 assigned worker links to worker schedule", async ({ page }) => {
   await prepareVisualPage({ page, path: routePath, viewport: desktop });
 

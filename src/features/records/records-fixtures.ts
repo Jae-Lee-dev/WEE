@@ -421,6 +421,10 @@ export const recordDetailStates = {
       detailLine("check-out", "퇴근", "16:05"),
       detailLine("location", "위치", "정상 (반경 내)"),
     ],
+    actions: [
+      { id: "edit", label: "수정" },
+      { id: "delete", label: "삭제" },
+    ],
   },
   "anomaly-step-1": {
     id: "anomaly-step-1",
@@ -520,11 +524,63 @@ export const recordDetailStates = {
   },
 } as const satisfies Record<RecordDetailStateId, RecordDetailState>;
 
+const normalRecordDetailStates = {
+  ...recordDetailStates,
+  "anomaly-step-1": recordDetailStates["normal-selected"],
+  "anomaly-step-2": {
+    ...recordDetailStates["normal-selected"],
+    id: "anomaly-step-2",
+    confirmLabel: "확인",
+    helperText: "근무기록은 변경되지 않습니다.",
+  },
+  "anomaly-step-3": {
+    ...recordDetailStates["normal-selected"],
+    id: "anomaly-step-3",
+    actions: [
+      { id: "edit", label: "수정", active: true },
+      { id: "delete", label: "삭제" },
+    ],
+    confirmLabel: "확인",
+    payrollMode: {
+      label: "급여 반영",
+      options: [
+        { id: "immediate", label: "즉시", active: true },
+        { id: "hold", label: "보류" },
+      ],
+    },
+    reasonField: {
+      label: "수정 사유",
+      placeholder: "수정 사유를 입력하세요",
+    },
+    timeFields: [
+      { id: "check-in", label: "출근 시간", value: "오후 02:02" },
+      { id: "check-out", label: "퇴근 시간", value: "오후 04:05" },
+    ],
+  },
+  "anomaly-step-4": {
+    ...recordDetailStates["normal-selected"],
+    id: "anomaly-step-4",
+    actions: [
+      { id: "edit", label: "수정" },
+      { id: "delete", label: "삭제", active: true },
+    ],
+    confirmLabel: "확인",
+    helperText: "해당 근무기록이 삭제되어 결근으로 처리됩니다.",
+    payrollMode: {
+      label: "급여 반영",
+      options: [
+        { id: "immediate", label: "즉시", active: true },
+        { id: "hold", label: "보류" },
+      ],
+    },
+  },
+} as const satisfies Record<RecordDetailStateId, RecordDetailState>;
+
 export const recordMainFixtureViewModel = {
   blocks: recordTimelineBlocks,
   detailStates: recordDetailStates,
   detailStatesByBlockId: {
-    "record-lee-haeun-english-c-mon": recordDetailStates,
+    "record-lee-haeun-english-c-mon": normalRecordDetailStates,
     "record-song-hyunwoo-physics-f-mon": recordDetailStates,
   },
   initialBlockId: null,
