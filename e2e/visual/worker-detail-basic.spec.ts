@@ -63,6 +63,27 @@ test(`WKR-03 edit-info-dialog ${desktop}`, async ({ page }) => {
   );
   await expect(dialog.getByText("세율 방식")).toHaveCount(0);
   await expect(dialog.getByLabel("세율", { exact: true })).toHaveCount(0);
+  const payInput = dialog.getByLabel("급여 금액");
+  const withholdingControl = dialog
+    .getByTestId("worker-edit-withholding-control")
+    .locator("[data-slot='tabs-list']");
+  const payrollRowMetrics = {
+    inputHeight: await payInput.evaluate((element) =>
+      Math.round(element.getBoundingClientRect().height),
+    ),
+    inputTop: await payInput.evaluate((element) =>
+      Math.round(element.getBoundingClientRect().top),
+    ),
+    withholdingHeight: await withholdingControl.evaluate((element) =>
+      Math.round(element.getBoundingClientRect().height),
+    ),
+    withholdingTop: await withholdingControl.evaluate((element) =>
+      Math.round(element.getBoundingClientRect().top),
+    ),
+  };
+  expect(payrollRowMetrics.inputHeight).toBe(48);
+  expect(payrollRowMetrics.withholdingHeight).toBe(48);
+  expect(payrollRowMetrics.inputTop).toBe(payrollRowMetrics.withholdingTop);
   await expect(dialog.getByRole("button", { name: "저장" })).toBeDisabled();
 
   await captureActualScreenshot({

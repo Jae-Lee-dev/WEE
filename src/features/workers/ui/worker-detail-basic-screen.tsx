@@ -647,16 +647,17 @@ function EditInfoDialog({
             <EditTextField
               error={submitted ? errors.payAmount : undefined}
               inputMode="numeric"
+              inputClassName="!h-12 !min-h-12 !rounded-[8px] !px-4"
               label="급여 금액"
               value={form.payAmount}
               disabled={saving}
               onChange={handleTextChange("payAmount")}
               suffix={form.payrollType === "hourly" ? "원/시간" : "원/월"}
             />
-            <div>
+            <div data-testid="worker-edit-withholding-control">
               <span className="text-h-18-semibold text-gray-900">원천징수</span>
               <Segment
-                className="mt-3 grid h-11 w-full grid-cols-2 [&_[data-slot=tabs-trigger]]:h-9 [&_[data-slot=tabs-trigger]]:rounded-[8px] [&_[data-slot=tabs-trigger]]:px-2 [&_[data-slot=tabs-trigger]]:py-0 [&_[data-slot=tabs-trigger]]:text-h-16-semibold"
+                className="mt-3 grid h-12 w-full grid-cols-2 [&_[data-slot=tabs-trigger]]:h-10 [&_[data-slot=tabs-trigger]]:rounded-[8px] [&_[data-slot=tabs-trigger]]:px-2 [&_[data-slot=tabs-trigger]]:py-0 [&_[data-slot=tabs-trigger]]:text-h-16-semibold"
                 options={[
                   { value: "none", label: "없음" },
                   {
@@ -706,6 +707,7 @@ function EditInfoDialog({
 function EditTextField({
   disabled,
   error,
+  inputClassName,
   inputMode,
   label,
   onChange,
@@ -715,6 +717,7 @@ function EditTextField({
 }: {
   disabled: boolean;
   error?: string;
+  inputClassName?: string;
   inputMode?: "decimal" | "numeric";
   label: string;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
@@ -735,7 +738,8 @@ function EditTextField({
           aria-invalid={Boolean(error)}
           className={cn(
             "h-11 w-full rounded-[8px] border-gray-200 bg-white text-h-18-regular text-gray-900 disabled:bg-gray-50 disabled:text-gray-500",
-            suffix && "pr-20",
+            inputClassName,
+            suffix && "!pr-20",
           )}
         />
         {suffix ? (
