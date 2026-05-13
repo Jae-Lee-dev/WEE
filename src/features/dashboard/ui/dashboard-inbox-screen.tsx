@@ -3,12 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/shared/ui/badge";
-import {
-  IconCheck,
-  IconChevronDown,
-  IconChevronUp,
-  IconSearch,
-} from "@/shared/ui/icons";
+import { IconCheck, IconChevronDown, IconChevronUp } from "@/shared/ui/icons";
+import { SearchField } from "@/shared/ui/search-field";
 import { cn } from "@/shared/lib/utils";
 import { createDashboardInboxDataSource } from "../api/dashboard-data-source";
 import {
@@ -51,6 +47,7 @@ export function DashboardScreen() {
   const [activeFilter, setActiveFilter] =
     useState<DashboardInboxFilter>("all");
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const dataSource = useMemo(() => createDashboardInboxDataSource(), []);
   const [rowsByFilter, setRowsByFilter] = useState(dataSource.initialRows);
@@ -129,8 +126,9 @@ export function DashboardScreen() {
 
         <SearchBox
           className="ml-auto"
-          value={searchQuery}
-          onChange={setSearchQuery}
+          value={searchInput}
+          onChange={setSearchInput}
+          onDebouncedChange={setSearchQuery}
         />
       </div>
 
@@ -219,29 +217,27 @@ function FilterMenu({
 function SearchBox({
   className,
   onChange,
+  onDebouncedChange,
   value,
 }: {
   className?: string;
   onChange: (value: string) => void;
+  onDebouncedChange: (value: string) => void;
   value: string;
 }) {
   return (
-    <label
+    <SearchField
+      aria-label="운영 인박스 검색"
       className={cn(
-        "flex h-[43px] w-[416px] shrink-0 items-center justify-between rounded-[6px] bg-white px-4",
+        "h-[43px] w-[416px] shrink-0 border-0 px-4 py-0 [&_input]:text-gray-900 [&_svg]:text-green-400",
         className,
       )}
-    >
-      <span className="sr-only">운영 인박스 검색</span>
-      <input
-        type="search"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder="검색어를 입력해 주세요"
-        className="min-w-0 flex-1 bg-transparent text-h-18-regular text-gray-900 outline-none placeholder:text-gray-400"
-      />
-      <IconSearch className="size-6 shrink-0 text-green-400" />
-    </label>
+      debounceMs={300}
+      onChange={(event) => onChange(event.target.value)}
+      onDebouncedValueChange={onDebouncedChange}
+      placeholder="검색어를 입력해 주세요"
+      value={value}
+    />
   );
 }
 

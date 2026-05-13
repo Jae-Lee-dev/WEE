@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { OptionSelect, type SelectOption } from "@/shared/ui/select";
-import { IconCheck, IconSearch } from "@/shared/ui/icons";
+import { IconCheck } from "@/shared/ui/icons";
+import { SearchField } from "@/shared/ui/search-field";
 import { cn } from "@/shared/lib/utils";
 import {
   createWorkerTagsDataSource,
@@ -428,11 +429,14 @@ function WorkerTagDetailPanel({
     [],
   );
   const [searchText, setSearchText] = useState("");
+  const [debouncedSearchText, setDebouncedSearchText] = useState("");
   const [assignmentLoading, setAssignmentLoading] =
     useState(shouldLoadAssignments);
   const [assignmentError, setAssignmentError] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const normalizedSearchText = searchText.trim().toLocaleLowerCase("ko-KR");
+  const normalizedSearchText = debouncedSearchText
+    .trim()
+    .toLocaleLowerCase("ko-KR");
   const selectedWorkers = workers.filter((worker) =>
     selectedWorkerIds.includes(worker.id),
   );
@@ -616,17 +620,16 @@ function WorkerTagDetailPanel({
               <WorkerTagStatusBadge label={tag.statusText} />
             ) : null}
           </div>
-          <label className="mt-3 flex h-11 items-center gap-3 rounded-[8px] border border-gray-200 bg-white px-4">
-            <span className="sr-only">조교 이름 검색</span>
-            <input
-              value={searchText}
-              disabled={saving}
-              onChange={(event) => setSearchText(event.target.value)}
-              placeholder={workerTagEditDialog.searchPlaceholder}
-              className="min-w-0 flex-1 bg-transparent text-h-18-regular text-gray-900 outline-none placeholder:text-gray-400 disabled:text-gray-500"
-            />
-            <IconSearch className="size-6 shrink-0 text-green-400" />
-          </label>
+          <SearchField
+            aria-label="조교 이름 검색"
+            className="mt-3 h-11 rounded-[8px] border-gray-200 px-4 py-0 [&_input]:text-gray-900 [&_input]:disabled:text-gray-500 [&_svg]:text-green-400"
+            debounceMs={300}
+            disabled={saving}
+            onChange={(event) => setSearchText(event.target.value)}
+            onDebouncedValueChange={setDebouncedSearchText}
+            placeholder={workerTagEditDialog.searchPlaceholder}
+            value={searchText}
+          />
         </div>
 
         <div className="mt-4 overflow-hidden rounded-[8px] border border-gray-100">

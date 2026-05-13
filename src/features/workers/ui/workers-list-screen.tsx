@@ -6,18 +6,13 @@ import {
   useMemo,
   useState,
   type CSSProperties,
-  type ReactNode,
 } from "react";
 import { RefreshCw } from "lucide-react";
 import { Badge } from "@/shared/ui/badge";
-import {
-  IconCheck,
-  IconChevronDown,
-  IconChevronUp,
-  IconSearch,
-} from "@/shared/ui/icons";
+import { IconCheck, IconChevronDown, IconChevronUp } from "@/shared/ui/icons";
 import { FilterTabs } from "@/shared/ui/filter-tabs";
 import { Pagination } from "@/shared/ui/pagination";
+import { SearchField } from "@/shared/ui/search-field";
 import { cn } from "@/shared/lib/utils";
 import {
   createWorkerListDataSource,
@@ -66,6 +61,7 @@ export function WorkersListScreen({
     dataSource.initialData ?? emptyWorkerListData,
   );
   const [status, setStatus] = useState<WorkerListStatus>("active");
+  const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTagLabel, setSelectedTagLabel] = useState<string | null>(null);
   const [tagMenuOpen, setTagMenuOpen] = useState(false);
@@ -171,20 +167,18 @@ export function WorkersListScreen({
           />
         </div>
 
-        <SearchShell className="w-[280px] shrink-0">
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(event) => {
-              setSearchQuery(event.target.value);
-              setCurrentPage(1);
-            }}
-            placeholder="이름 검색"
-            className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-gray-400"
-            aria-label="조교 이름 검색"
-          />
-          <IconSearch className="size-6 shrink-0 text-green-400" />
-        </SearchShell>
+        <SearchField
+          aria-label="조교 이름 검색"
+          className="h-[43px] w-[280px] shrink-0 border-0 px-4 py-0 [&_input]:text-gray-900 [&_svg]:text-green-400"
+          debounceMs={300}
+          onChange={(event) => {
+            setSearchInput(event.target.value);
+            setCurrentPage(1);
+          }}
+          onDebouncedValueChange={setSearchQuery}
+          placeholder="이름 검색"
+          value={searchInput}
+        />
       </div>
 
       <WorkerListTable
@@ -303,26 +297,6 @@ function TagFilterOption({
       <span className="min-w-0 truncate">{label}</span>
       {selected ? <IconCheck className="size-5 shrink-0 text-green-400" /> : null}
     </button>
-  );
-}
-
-function SearchShell({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <label
-      className={cn(
-        "flex h-[43px] items-center gap-3 rounded-[6px] bg-white px-4 text-h-18-regular text-gray-900",
-        className,
-      )}
-    >
-      <span className="sr-only">조교 이름 검색</span>
-      {children}
-    </label>
   );
 }
 

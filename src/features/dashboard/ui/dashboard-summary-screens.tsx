@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { TrendChartCard } from "@/shared/ui/trend-chart";
-import { IconChevronDown, IconSearch } from "@/shared/ui/icons";
+import { IconChevronDown } from "@/shared/ui/icons";
+import { SearchField } from "@/shared/ui/search-field";
 import { cn } from "@/shared/lib/utils";
 import {
   createDashboardAiMonitoringDataSource,
@@ -249,6 +250,7 @@ export function DashboardWorkersScreen() {
     dataSource.initialData,
   );
   const [periodId, setPeriodId] = useState<DashboardWorkerPeriodId>("month");
+  const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [tagId, setTagId] = useState<DashboardWorkerTagId>("all");
   const [selectedWorkerId, setSelectedWorkerId] = useState<string>(
@@ -387,12 +389,13 @@ export function DashboardWorkersScreen() {
         <div className="grid min-h-[520px] grid-cols-[232px_minmax(0,1fr)] gap-4">
           <WorkerSelectorPanel
             filteredWorkers={filteredWorkers}
-            searchQuery={searchQuery}
+            searchQuery={searchInput}
             selectedWorkerId={activeWorkerId}
             tagOptions={viewModel.tagOptions}
             tagId={tagId}
             totalWorkerCount={viewModel.summaries.length}
-            onSearchChange={setSearchQuery}
+            onDebouncedSearchChange={setSearchQuery}
+            onSearchChange={setSearchInput}
             onSelectWorker={setSelectedWorkerId}
             onTagChange={setTagId}
           />
@@ -733,6 +736,7 @@ function CountCell({
 
 function WorkerSelectorPanel({
   filteredWorkers,
+  onDebouncedSearchChange,
   onSearchChange,
   onSelectWorker,
   onTagChange,
@@ -743,6 +747,7 @@ function WorkerSelectorPanel({
   totalWorkerCount,
 }: {
   filteredWorkers: readonly DashboardWorkerSummary[];
+  onDebouncedSearchChange: (value: string) => void;
   onSearchChange: (value: string) => void;
   onSelectWorker: (workerId: string) => void;
   onTagChange: (value: DashboardWorkerTagId) => void;
@@ -758,18 +763,16 @@ function WorkerSelectorPanel({
         <div className="mb-3 text-label-12-medium text-gray-500">
           조교 목록 ({filteredWorkers.length}/{totalWorkerCount}명)
         </div>
-        <label className="flex h-10 items-center gap-2 rounded-[6px] border border-gray-200 bg-white px-3 text-h-16-medium text-gray-900">
-          <span className="sr-only">조교 이름 검색</span>
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="조교 이름 검색"
-            className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-gray-400"
-            data-testid="dashboard-worker-search"
-          />
-          <IconSearch className="size-5 shrink-0 text-green-400" />
-        </label>
+        <SearchField
+          aria-label="조교 이름 검색"
+          className="h-10 border-gray-200 px-3 py-0 text-h-16-medium [&_input]:text-h-16-medium [&_input]:text-gray-900 [&_svg]:size-5 [&_svg]:text-green-400"
+          data-testid="dashboard-worker-search"
+          debounceMs={300}
+          onChange={(event) => onSearchChange(event.target.value)}
+          onDebouncedValueChange={onDebouncedSearchChange}
+          placeholder="조교 이름 검색"
+          value={searchQuery}
+        />
         <div className="mt-2">
           <DashboardSelectField
             ariaLabel="근무자 태그 필터"
