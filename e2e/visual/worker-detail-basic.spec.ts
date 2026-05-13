@@ -204,7 +204,9 @@ test("WKR-03 edits worker info in dialog", async ({ page }) => {
   await saveButton.click();
 
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByText("조교 정보를 수정했습니다.")).toBeVisible();
+  await expect(page.getByTestId("wee-toast")).toContainText(
+    "조교 정보를 수정했습니다.",
+  );
   await expect(page.getByTestId("worker-detail-basic-screen")).toContainText(
     "김서연 수정",
   );

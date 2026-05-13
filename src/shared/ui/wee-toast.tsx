@@ -1,11 +1,20 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useMemo, type ComponentPropsWithoutRef, type ReactNode } from "react";
 import { toast, type ExternalToast } from "sonner";
+import { cn } from "@/shared/lib/utils";
 
 type WeeToastBaseOptions = Pick<
   ExternalToast,
-  "action" | "cancel" | "dismissible" | "duration" | "id" | "onAutoClose" | "onDismiss"
+  | "action"
+  | "cancel"
+  | "dismissible"
+  | "duration"
+  | "id"
+  | "onAutoClose"
+  | "onDismiss"
+  | "position"
+  | "testId"
 >;
 
 type WeeToastTone = "success" | "info" | "warning" | "error" | "neutral";
@@ -21,7 +30,34 @@ type WeeToastOptions = WeeToastMessageOptions & {
 
 type WeeCompactToastOptions = {
   title: ReactNode;
-} & Pick<WeeToastBaseOptions, "duration" | "id">;
+} & Pick<WeeToastBaseOptions, "duration" | "id" | "position" | "testId">;
+
+type WeeToastSurfaceProps = ComponentPropsWithoutRef<"div">;
+
+function WeeToastSurface({
+  className,
+  children,
+  ...props
+}: WeeToastSurfaceProps) {
+  return (
+    <div
+      data-slot="wee-toast"
+      className={cn(
+        "relative inline-flex items-center justify-center overflow-hidden rounded-full px-4 py-2 shadow-[0_0_7px_rgba(0,0,0,0.05)]",
+        className,
+      )}
+      {...props}
+    >
+      <span
+        aria-hidden="true"
+        className="absolute inset-0 rounded-full bg-gray-500 mix-blend-multiply backdrop-blur-[4px]"
+      />
+      <span className="relative whitespace-nowrap text-body-14-medium text-white">
+        {children}
+      </span>
+    </div>
+  );
+}
 
 function getToastContent({ title, description }: WeeToastMessageOptions) {
   if (!description) {
@@ -36,7 +72,12 @@ function getToastContent({ title, description }: WeeToastMessageOptions) {
   );
 }
 
-function showWeeToast({ tone = "neutral", title, description, ...options }: WeeToastOptions) {
+function showWeeToast({
+  tone = "neutral",
+  title,
+  description,
+  ...options
+}: WeeToastOptions) {
   const content = getToastContent({ title, description });
 
   if (tone === "neutral") {
@@ -46,15 +87,17 @@ function showWeeToast({ tone = "neutral", title, description, ...options }: WeeT
   return toast[tone](content, options);
 }
 
-function showWeeCompactToast({ title, duration = 2200, ...options }: WeeCompactToastOptions) {
+function showWeeCompactToast({
+  title,
+  duration = 2200,
+  ...options
+}: WeeCompactToastOptions) {
   return toast.custom(
-    () => (
-      <div className="rounded-full bg-gray-500 px-4 py-2 text-body-14-medium text-white shadow-[0_0_7px_rgba(0,0,0,0.05)]">
-        {title}
-      </div>
-    ),
+    () => <WeeToastSurface>{title}</WeeToastSurface>,
     {
       duration,
+      position: "bottom-center",
+      testId: "wee-toast",
       ...options,
     }
   );
@@ -80,5 +123,10 @@ function useWeeToast() {
   );
 }
 
-export { showWeeCompactToast, showWeeToast, useWeeToast };
-export type { WeeCompactToastOptions, WeeToastMessageOptions, WeeToastOptions, WeeToastTone };
+export { showWeeCompactToast, showWeeToast, useWeeToast, WeeToastSurface };
+export type {
+  WeeCompactToastOptions,
+  WeeToastMessageOptions,
+  WeeToastOptions,
+  WeeToastTone,
+};

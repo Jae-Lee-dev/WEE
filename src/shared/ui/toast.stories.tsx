@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { Button } from "@/shared/ui/button";
 import { Toaster } from "@/shared/ui/sonner";
-import { useWeeToast } from "@/shared/ui/wee-toast";
+import { useWeeToast, WeeToastSurface } from "@/shared/ui/wee-toast";
 
 const meta = {
   title: "Design System/Feedback/Toast",
@@ -94,9 +94,7 @@ function FigmaToastExample() {
   return (
     <div className="grid place-items-center gap-4">
       <Toaster />
-      <div className="rounded-full bg-gray-500 px-4 py-2 text-body-14-medium text-white shadow-[0_0_7px_rgba(0,0,0,0.05)]">
-        매칭이 종료되었어요
-      </div>
+      <WeeToastSurface>매칭이 종료되었어요</WeeToastSurface>
       <Button
         variant="secondary"
         onClick={() =>

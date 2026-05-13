@@ -22,6 +22,7 @@ import {
   TagSearchPicker,
   type TagSearchPickerOption,
 } from "@/shared/ui/tag-search-picker";
+import { useWeeToast } from "@/shared/ui/wee-toast";
 import type { ControlSize } from "@/shared/ui/control-size";
 import { cn } from "@/shared/lib/utils";
 import {
@@ -110,7 +111,7 @@ export function WorkerDetailBasicScreen({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveErrorMessage, setSaveErrorMessage] = useState("");
-  const [statusMessage, setStatusMessage] = useState("");
+  const weeToast = useWeeToast();
 
   useEffect(() => {
     let ignore = false;
@@ -144,7 +145,6 @@ export function WorkerDetailBasicScreen({
 
   const openEditDialog = () => {
     setSaveErrorMessage("");
-    setStatusMessage("");
     setDialog("edit-info");
   };
   const openDeleteBlockedDialog = useCallback(() => {
@@ -157,14 +157,13 @@ export function WorkerDetailBasicScreen({
   const handleSaveWorker = async (input: WorkerDetailBasicSaveInput) => {
     setSaving(true);
     setSaveErrorMessage("");
-    setStatusMessage("");
 
     try {
       const nextData = await dataSource.updateWorkerDetail(workerId, input);
 
       setDetailData(nextData);
       setDialog(null);
-      setStatusMessage("조교 정보를 수정했습니다.");
+      weeToast.compact({ title: "조교 정보를 수정했습니다." });
     } catch {
       setSaveErrorMessage("조교 정보를 저장하지 못했습니다.");
     } finally {
@@ -182,14 +181,6 @@ export function WorkerDetailBasicScreen({
           >
             {loadError}
           </div>
-        ) : null}
-        {statusMessage ? (
-          <p
-            className="rounded-[8px] border border-green-100 bg-green-50 px-4 py-3 text-h-18-semibold text-green-500"
-            role="status"
-          >
-            {statusMessage}
-          </p>
         ) : null}
         <div className="grid grid-cols-2 gap-4">
           <PersonalAccountCard
