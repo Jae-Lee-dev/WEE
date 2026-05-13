@@ -570,7 +570,7 @@ function WorkerTagDetailPanel({
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-[minmax(0,1fr)_132px] gap-3">
+        <div className="mt-5 grid grid-cols-[minmax(0,1fr)_124px_124px] gap-3">
           <label className="block">
             <span className="text-h-18-semibold text-gray-900">태그명</span>
             <input
@@ -594,9 +594,6 @@ function WorkerTagDetailPanel({
               itemClassName="text-h-16-medium tracking-normal"
             />
           </label>
-        </div>
-
-        <div className="mt-5 grid grid-cols-[132px_minmax(0,1fr)] gap-3">
           <label className="block">
             <span className="text-h-18-semibold text-gray-900">상태</span>
             <OptionSelect
@@ -610,22 +607,16 @@ function WorkerTagDetailPanel({
               itemClassName="text-h-16-medium tracking-normal"
             />
           </label>
-          <div>
-            <span className="text-h-18-semibold text-gray-900">적용 조교</span>
-            <div className="mt-3 flex h-11 items-center rounded-[8px] border border-gray-100 bg-gray-50 px-4 text-h-18-semibold text-gray-900">
-              {currentCountText}
-            </div>
-          </div>
         </div>
 
         <div className="mt-6">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
             <h3 className="text-h-18-semibold text-gray-900">
               {editable ? "적용할 조교" : "현재 적용된 조교"}
             </h3>
-            {mode === "view" && tag?.statusText ? (
-              <WorkerTagStatusBadge label={tag.statusText} />
-            ) : null}
+            <Badge variant="grey" size="M">
+              {currentCountText}
+            </Badge>
           </div>
           <SearchField
             aria-label="조교 이름 검색"
@@ -781,19 +772,21 @@ function WorkerTagAssignmentRow({
       >
         {worker.name}
       </span>
-      <span
-        aria-hidden="true"
-        className={cn(
-          "flex size-5 items-center justify-center rounded-[2px]",
-          worker.disabled
-            ? "bg-gray-200 text-white"
-            : checked
-              ? "bg-green-400 text-white"
-              : "border border-gray-200 bg-white text-white",
-        )}
-      >
-        {checked ? <IconCheck className="size-4" /> : null}
-      </span>
+      {editable ? (
+        <span
+          aria-hidden="true"
+          className={cn(
+            "flex size-5 items-center justify-center rounded-[2px]",
+            worker.disabled
+              ? "bg-gray-200 text-white"
+              : checked
+                ? "bg-green-400 text-white"
+                : "border border-gray-200 bg-white text-white",
+          )}
+        >
+          {checked ? <IconCheck className="size-4" /> : null}
+        </span>
+      ) : null}
     </>
   );
 
