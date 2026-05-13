@@ -569,7 +569,7 @@ function SectionTabs({
         {tabs.map((tab) => {
           const active = activeTabHref === tab.href;
           const showWorkersApplicationBadge =
-            tab.href === "/workers/applications" && pathname !== "/workers";
+            tab.href === "/workers/applications";
           const showScheduleApprovalBadge =
             tab.href === "/schedule" && pathname.startsWith("/schedule");
           const fallbackBadge =
