@@ -6,6 +6,7 @@ export type HeaderNotificationItem = {
   tone: HeaderNotificationTone;
   title: string;
   date: string;
+  href: string;
 };
 
 export const headerNotifications = [
@@ -15,6 +16,7 @@ export const headerNotifications = [
     tone: "red",
     title: "김서연 · 위치 이상 · 수학 A반",
     date: "04.15",
+    href: "/records?type=anomaly",
   },
   {
     id: "notification-correction",
@@ -22,6 +24,7 @@ export const headerNotifications = [
     tone: "orange",
     title: "김서연 · 4/15 근무기록 수정 이의신청",
     date: "04.15",
+    href: "/records?type=correction",
   },
   {
     id: "notification-overtime",
@@ -29,6 +32,7 @@ export const headerNotifications = [
     tone: "blue",
     title: "이하은 · 시험대비 보강 신청",
     date: "04.15",
+    href: "/records?type=overtime",
   },
   {
     id: "notification-schedule",
@@ -36,5 +40,6 @@ export const headerNotifications = [
     tone: "green",
     title: "강태우 · 시간표 최초 제출",
     date: "04.14",
+    href: "/schedule",
   },
 ] as const satisfies readonly HeaderNotificationItem[];

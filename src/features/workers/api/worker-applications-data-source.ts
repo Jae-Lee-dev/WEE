@@ -1,12 +1,20 @@
 import {
   collection,
+  doc,
   getDocs,
+  increment,
+  serverTimestamp,
+  writeBatch,
   type DocumentData,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
 import { resolveActiveWorkspaceId } from "@/entities/workspace";
 import { readActiveWorkspaceId } from "@/entities/workspace";
-import { getFirebaseDb, isMockFirebaseProject } from "@/shared/api/firebase/client";
+import {
+  getFirebaseAuth,
+  getFirebaseDb,
+  isMockFirebaseProject,
+} from "@/shared/api/firebase/client";
 import { resolveFirebaseStorageDownloadUrl } from "@/shared/api/firebase";
 import {
   workerApplicationsFixtureData,
@@ -17,8 +25,34 @@ import {
 } from "../model/worker-applications-fixtures";
 
 export type WorkerApplicationsDataSource = {
+  approveApplication: (
+    input: ApproveWorkerApplicationInput,
+  ) => Promise<WorkerApplicationsData>;
   initialData?: WorkerApplicationsData;
   listApplications: () => Promise<WorkerApplicationsData>;
+  rejectApplication: (
+    input: RejectWorkerApplicationInput,
+  ) => Promise<WorkerApplicationsData>;
+};
+
+export type ApproveWorkerApplicationInput = {
+  applicationId: string;
+  membershipId?: string;
+  workerId: string;
+  workerName: string;
+  tagIds: readonly string[];
+  newTagLabels: readonly string[];
+  payrollType: "hourly" | "monthly";
+  hourlyRate: number | null;
+  monthlySalary: number | null;
+  taxRatePercent: number | null;
+};
+
+export type RejectWorkerApplicationInput = {
+  applicationId: string;
+  membershipId?: string;
+  rejectionReason: string;
+  workerId: string;
 };
 
 type WorkerApplicationStatus = "pending" | "rejected";
@@ -54,61 +88,224 @@ export function createWorkerApplicationsDataSource(): WorkerApplicationsDataSour
 }
 
 function createFixtureWorkerApplicationsDataSource(): WorkerApplicationsDataSource {
+  let data: WorkerApplicationsData = workerApplicationsFixtureData;
+
   return {
     initialData: workerApplicationsFixtureData,
+    async approveApplication(input) {
+      data = {
+        ...data,
+        rows: data.rows.filter((row) => row.id !== input.applicationId),
+      };
+
+      return data;
+    },
     async listApplications() {
-      return workerApplicationsFixtureData;
+      return data;
+    },
+    async rejectApplication(input) {
+      data = {
+        ...data,
+        rows: data.rows.map((row) =>
+          row.id === input.applicationId
+            ? {
+                ...row,
+                info: {
+                  ...(row.info ?? {
+                    appliedAt: row.appliedAt,
+                    bankbookStatus: "미확인",
+                    requestedPay: "미입력",
+                  }),
+                  rejectionReason: input.rejectionReason || "사유 미입력",
+                  statusText: "반려",
+                },
+                statusText: "반려",
+              }
+            : row,
+        ),
+      };
+
+      return data;
     },
   };
 }
 
 function createFirestoreWorkerApplicationsDataSource(): WorkerApplicationsDataSource {
+  async function listApplications() {
+    const workspaceId = await requireActiveWorkspaceId();
+    const [membershipsSnapshot, workersSnapshot, workerTagsSnapshot] =
+      await Promise.all([
+        getDocs(getWorkspaceCollection(workspaceId, "memberships")),
+        getDocs(getWorkspaceCollection(workspaceId, "workers")),
+        getDocs(getWorkspaceCollection(workspaceId, "workerTags")),
+      ]);
+    const workers = workersSnapshot.docs.map(mapDocument);
+    const workerById = new Map(workers.map((worker) => [worker.id, worker]));
+    const applicationByWorkerId = new Map<string, WorkerApplicationModel>();
+
+    for (const membership of membershipsSnapshot.docs.map(mapDocument)) {
+      const application = await mapApplicationMembership(membership, workerById);
+
+      if (application) {
+        applicationByWorkerId.set(application.workerId, application);
+      }
+    }
+
+    for (const worker of workers) {
+      if (applicationByWorkerId.has(worker.id)) {
+        continue;
+      }
+
+      const application = await mapApplicationWorker(worker);
+
+      if (application) {
+        applicationByWorkerId.set(application.workerId, application);
+      }
+    }
+
+    const rows = [...applicationByWorkerId.values()]
+      .sort(compareApplications)
+      .map((application) => application.row);
+    const tags = workerTagsSnapshot.docs
+      .map(mapWorkerTagDocument)
+      .filter((tag) => tag.status === "active")
+      .sort(compareWorkerTags)
+      .map((tag) => ({
+        id: tag.id,
+        label: tag.label,
+      }));
+
+    return { rows, tags };
+  }
+
   return {
-    async listApplications() {
+    async approveApplication(input) {
       const workspaceId = await requireActiveWorkspaceId();
-      const [membershipsSnapshot, workersSnapshot, workerTagsSnapshot] =
-        await Promise.all([
-          getDocs(getWorkspaceCollection(workspaceId, "memberships")),
-          getDocs(getWorkspaceCollection(workspaceId, "workers")),
-          getDocs(getWorkspaceCollection(workspaceId, "workerTags")),
-        ]);
-      const workers = workersSnapshot.docs.map(mapDocument);
-      const workerById = new Map(workers.map((worker) => [worker.id, worker]));
-      const applicationByWorkerId = new Map<string, WorkerApplicationModel>();
+      const db = getFirebaseDb();
+      const batch = writeBatch(db);
+      const decidedBy = getFirebaseAuth().currentUser?.uid ?? null;
+      const membershipRef = doc(
+        db,
+        "workspaces",
+        workspaceId,
+        "memberships",
+        input.membershipId || input.applicationId || `membership_${input.workerId}`,
+      );
+      const workerRef = doc(db, "workspaces", workspaceId, "workers", input.workerId);
+      const newTagIds = input.newTagLabels.map((label) => createInlineTagId(label));
+      const tagIds = [...new Set([...input.tagIds, ...newTagIds])];
 
-      for (const membership of membershipsSnapshot.docs.map(mapDocument)) {
-        const application = await mapApplicationMembership(membership, workerById);
+      input.newTagLabels.forEach((label, index) => {
+        const tagId = newTagIds[index];
 
-        if (application) {
-          applicationByWorkerId.set(application.workerId, application);
-        }
-      }
-
-      for (const worker of workers) {
-        if (applicationByWorkerId.has(worker.id)) {
-          continue;
+        if (!tagId) {
+          return;
         }
 
-        const application = await mapApplicationWorker(worker);
+        batch.set(doc(db, "workspaces", workspaceId, "workerTags", tagId), {
+          color: "green",
+          createdAt: serverTimestamp(),
+          createdBy: decidedBy,
+          name: label,
+          nameKey: createNameKey(label),
+          status: "active",
+          updatedAt: serverTimestamp(),
+          usageCount: 1,
+          workspaceId,
+        });
+      });
 
-        if (application) {
-          applicationByWorkerId.set(application.workerId, application);
-        }
-      }
+      input.tagIds.forEach((tagId) => {
+        batch.set(
+          doc(db, "workspaces", workspaceId, "workerTags", tagId),
+          {
+            updatedAt: serverTimestamp(),
+            usageCount: increment(1),
+          },
+          { merge: true },
+        );
+      });
 
-      const rows = [...applicationByWorkerId.values()]
-        .sort(compareApplications)
-        .map((application) => application.row);
-      const tags = workerTagsSnapshot.docs
-        .map(mapWorkerTagDocument)
-        .filter((tag) => tag.status === "active")
-        .sort(compareWorkerTags)
-        .map((tag) => ({
-          id: tag.id,
-          label: tag.label,
-        }));
+      batch.set(
+        membershipRef,
+        {
+          approvedAt: serverTimestamp(),
+          decidedAt: serverTimestamp(),
+          decidedBy,
+          status: "approved",
+          updatedAt: serverTimestamp(),
+          workerId: input.workerId,
+          workerName: input.workerName,
+          workspaceId,
+        },
+        { merge: true },
+      );
+      batch.update(workerRef, {
+        membershipStatus: "approved",
+        status: "active",
+        tagIds,
+        updatedAt: serverTimestamp(),
+      });
+      batch.set(
+        doc(db, "workspaces", workspaceId, "payrollSettings", `payroll_${input.workerId}`),
+        {
+          createdAt: serverTimestamp(),
+          effectiveFrom: getCurrentMonthStartDateKey(),
+          hourlyRate: input.payrollType === "hourly" ? input.hourlyRate : null,
+          monthlySalary:
+            input.payrollType === "monthly" ? input.monthlySalary : null,
+          payrollType: input.payrollType,
+          status: "active",
+          taxRatePercent: input.taxRatePercent,
+          taxType: input.taxRatePercent == null ? "none" : "custom",
+          updatedAt: serverTimestamp(),
+          workerId: input.workerId,
+          workerName: input.workerName,
+          workspaceId,
+        },
+        { merge: true },
+      );
 
-      return { rows, tags };
+      await batch.commit();
+
+      return listApplications();
+    },
+    listApplications,
+    async rejectApplication(input) {
+      const workspaceId = await requireActiveWorkspaceId();
+      const db = getFirebaseDb();
+      const batch = writeBatch(db);
+      const decidedBy = getFirebaseAuth().currentUser?.uid ?? null;
+
+      batch.set(
+        doc(
+          db,
+          "workspaces",
+          workspaceId,
+          "memberships",
+          input.membershipId || input.applicationId || `membership_${input.workerId}`,
+        ),
+        {
+          decidedAt: serverTimestamp(),
+          decidedBy,
+          rejectionReason: input.rejectionReason,
+          status: "rejected",
+          updatedAt: serverTimestamp(),
+          workerId: input.workerId,
+          workspaceId,
+        },
+        { merge: true },
+      );
+      batch.update(doc(db, "workspaces", workspaceId, "workers", input.workerId), {
+        membershipStatus: "rejected",
+        rejectionReason: input.rejectionReason,
+        status: "inactive",
+        updatedAt: serverTimestamp(),
+      });
+
+      await batch.commit();
+
+      return listApplications();
     },
   };
 }
@@ -208,6 +405,7 @@ async function createApplicationModel({
   return {
     row: {
       id,
+      membershipId: membershipData ? id : undefined,
       name:
         readString(membershipData?.workerName, "") ||
         readString(workerData?.name, "") ||
@@ -217,6 +415,8 @@ async function createApplicationModel({
       appliedAt: info.appliedAt,
       info,
       statusText: info.statusText,
+      tagIds: readStringArray(workerData?.tagIds),
+      workerId,
     },
     sortAt: appliedAt,
     status,
@@ -402,6 +602,12 @@ function readString(value: unknown, fallback: string) {
   return typeof value === "string" && value.trim() ? value : fallback;
 }
 
+function readStringArray(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
 function readObject(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object"
     ? (value as Record<string, unknown>)
@@ -470,4 +676,20 @@ function formatWon(value: number) {
 
 function getDateTime(date: Date | null) {
   return date?.getTime() ?? 0;
+}
+
+function createNameKey(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("ko-KR");
+}
+
+function createInlineTagId(label: string) {
+  return `worker_tag_${createNameKey(label)
+    .replace(/[^a-z0-9가-힣]+/gi, "_")
+    .replace(/^_+|_+$/g, "")}`;
+}
+
+function getCurrentMonthStartDateKey() {
+  const now = new Date();
+
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
 }

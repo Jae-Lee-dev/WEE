@@ -665,6 +665,8 @@ function calculationRow(
 ): PayrollCalculationRow {
   return {
     id,
+    monthKey: "2026-04",
+    workerId: "worker-kim-seoyeon",
     workerName: "김서연",
     basePay: "\u20a9300,000",
     overtimePay: "\u20a910,000",

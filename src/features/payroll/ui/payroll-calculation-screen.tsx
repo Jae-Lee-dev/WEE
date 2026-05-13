@@ -9,7 +9,9 @@ import { IconNotice } from "@/shared/ui/icons";
 import { cn } from "@/shared/lib/utils";
 import {
   createPayrollDataSource,
+  type PayrollAdjustmentInput,
   type PayrollDataSource,
+  type PayrollDecisionInput,
 } from "../api/payroll-data-source";
 import {
   payrollCalculationFixture,
@@ -67,6 +69,21 @@ type PayrollCalculationScreenProps = {
   initialWorkerId?: string;
 };
 
+type PayrollActionStatus = {
+  kind: "success" | "error";
+  message: string;
+};
+
+type CreateAdjustmentPayload = Pick<
+  PayrollAdjustmentInput,
+  "amount" | "label" | "taxScope"
+>;
+
+type DecidePayrollPayload = Pick<
+  PayrollDecisionInput,
+  "action" | "scheduledPaymentDate"
+>;
+
 export function PayrollCalculationScreen({
   dataSource: dataSourceProp,
   initialFocusId,
@@ -87,6 +104,10 @@ export function PayrollCalculationScreen({
   const [selectedRowId, setSelectedRowId] = useState(viewModel.selectedRowId);
   const [loading, setLoading] = useState(!fixtureMode);
   const [errorMessage, setErrorMessage] = useState("");
+  const [actionStatus, setActionStatus] = useState<PayrollActionStatus | null>(
+    null,
+  );
+  const [savingAction, setSavingAction] = useState(false);
 
   useEffect(() => {
     if (fixtureMode) {
@@ -136,6 +157,103 @@ export function PayrollCalculationScreen({
     };
   }, [dataSource, fixtureMode, initialFocusId, initialMonthKey, initialWorkerId]);
 
+  const selectedRow =
+    viewModel.rows.find((row) => row.id === selectedRowId) ??
+    viewModel.rows[0];
+
+  const applyMutatedViewModel = (
+    nextViewModel: PayrollCalculationFixture,
+    target: {
+      focusId?: string;
+      monthKey?: string;
+      workerId?: string;
+    },
+  ) => {
+    const nextSelectedRowId = resolveSelectedRowId(nextViewModel, target);
+
+    setViewModel(nextViewModel);
+    setSelectedRowId(nextSelectedRowId);
+  };
+
+  const runPayrollMutation = async (
+    mutation: () => Promise<PayrollCalculationFixture>,
+    target: {
+      focusId?: string;
+      monthKey?: string;
+      workerId?: string;
+    },
+    successMessage: string,
+  ) => {
+    setSavingAction(true);
+    setActionStatus(null);
+
+    try {
+      const nextViewModel = await mutation();
+
+      applyMutatedViewModel(nextViewModel, target);
+      setActionStatus({ kind: "success", message: successMessage });
+      return true;
+    } catch (error) {
+      setActionStatus({
+        kind: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "급여 변경을 저장하지 못했습니다.",
+      });
+      return false;
+    } finally {
+      setSavingAction(false);
+    }
+  };
+
+  const handleCreateAdjustment = async (input: CreateAdjustmentPayload) => {
+    const target = createPayrollMutationTarget(selectedRow);
+    const success = await runPayrollMutation(
+      () =>
+        dataSource.createAdjustment({
+          ...target,
+          ...input,
+          workerName: target.workerName,
+        }),
+      target,
+      "보너스/차감 항목을 추가했습니다.",
+    );
+
+    if (success) {
+      setDetailState("detail");
+    }
+  };
+
+  const handleDeleteAdjustment = async (adjustmentId: string) => {
+    const target = createPayrollMutationTarget(selectedRow);
+
+    await runPayrollMutation(
+      () =>
+        dataSource.deleteAdjustment({
+          ...target,
+          adjustmentId,
+        }),
+      target,
+      "보너스/차감 항목을 삭제했습니다.",
+    );
+  };
+
+  const handleDecidePayroll = async (input: DecidePayrollPayload) => {
+    const target = createPayrollMutationTarget(selectedRow);
+
+    await runPayrollMutation(
+      () =>
+        dataSource.decidePayroll({
+          ...target,
+          ...input,
+          workerName: target.workerName,
+        }),
+      target,
+      getPayrollDecisionSuccessMessage(input.action),
+    );
+  };
+
   if (detailState) {
     const detailSet =
       viewModel.detailByRowId?.[selectedRowId] ?? viewModel.details;
@@ -143,7 +261,13 @@ export function PayrollCalculationScreen({
     return (
       <PayrollDetailScreen
         detail={detailSet[detailState] ?? detailSet.detail}
+        status={actionStatus}
+        saving={savingAction}
+        selectedRow={selectedRow}
         onBack={() => setDetailState(null)}
+        onCreateAdjustment={handleCreateAdjustment}
+        onDeleteAdjustment={handleDeleteAdjustment}
+        onDecidePayroll={handleDecidePayroll}
         onShowBonusForm={() => setDetailState("bonus-add")}
         onShowNoOpenItems={() => setDetailState("no-open-items")}
       />
@@ -165,7 +289,10 @@ export function PayrollCalculationScreen({
           {errorMessage}
         </div>
       ) : null}
-      <PayrollListToolbar viewModel={viewModel} />
+      <PayrollListToolbar
+        viewModel={viewModel}
+        onExport={() => exportPayrollRows(viewModel)}
+      />
       <PayrollListTable
         loading={loading}
         onShowDetail={(rowId) => {
@@ -206,8 +333,10 @@ function resolveSelectedRowId(
 }
 
 function PayrollListToolbar({
+  onExport,
   viewModel,
 }: {
+  onExport: () => void;
   viewModel: PayrollCalculationFixture;
 }) {
   return (
@@ -227,6 +356,7 @@ function PayrollListToolbar({
         type="button"
         variant="outline"
         size="sm"
+        onClick={onExport}
         className="h-10 rounded-full px-4 text-h-18-regular font-normal tracking-normal"
       >
         <Printer className="size-5 text-green-400" />
@@ -343,12 +473,24 @@ function PayrollTableState({ children }: { children: string }) {
 
 function PayrollDetailScreen({
   detail,
+  status,
+  saving,
+  selectedRow,
   onBack,
+  onCreateAdjustment,
+  onDeleteAdjustment,
+  onDecidePayroll,
   onShowBonusForm,
   onShowNoOpenItems,
 }: {
   detail: PayrollCalculationDetail;
+  status: PayrollActionStatus | null;
+  saving: boolean;
+  selectedRow?: PayrollCalculationRow;
   onBack: () => void;
+  onCreateAdjustment: (input: CreateAdjustmentPayload) => Promise<void>;
+  onDeleteAdjustment: (adjustmentId: string) => Promise<void>;
+  onDecidePayroll: (input: DecidePayrollPayload) => Promise<void>;
   onShowBonusForm: () => void;
   onShowNoOpenItems: () => void;
 }) {
@@ -396,19 +538,48 @@ function PayrollDetailScreen({
         className="flex flex-1 flex-col gap-4 px-4 py-7"
         data-testid={`payroll-calculation-state-${detail.id}`}
       >
+        {status ? <PayrollActionStatusBanner status={status} /> : null}
         <WorkerSummaryCard detail={detail} />
 
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(540px,1fr)_minmax(520px,1fr)]">
           <PayrollCalculationCard
             detail={detail}
+            saving={saving}
+            onCreateAdjustment={onCreateAdjustment}
+            onDeleteAdjustment={onDeleteAdjustment}
             onShowBonusForm={onShowBonusForm}
           />
           <OpenItemsPanel detail={detail} />
         </div>
       </main>
 
-      <PayrollDetailFooter detail={detail} />
+      <PayrollDetailFooter
+        detail={detail}
+        saving={saving}
+        selectedRow={selectedRow}
+        onDecidePayroll={onDecidePayroll}
+      />
     </section>
+  );
+}
+
+function PayrollActionStatusBanner({
+  status,
+}: {
+  status: PayrollActionStatus;
+}) {
+  return (
+    <div
+      className={cn(
+        "min-h-9 rounded-[8px] border px-4 py-2.5 text-body-14-medium tracking-normal",
+        status.kind === "success"
+          ? "border-green-100 bg-green-50 text-green-500"
+          : "border-red-100 bg-red-50 text-red-500",
+      )}
+      role="alert"
+    >
+      {status.message}
+    </div>
   );
 }
 
@@ -447,9 +618,15 @@ function WorkerSummaryCard({ detail }: { detail: PayrollCalculationDetail }) {
 
 function PayrollCalculationCard({
   detail,
+  saving,
+  onCreateAdjustment,
+  onDeleteAdjustment,
   onShowBonusForm,
 }: {
   detail: PayrollCalculationDetail;
+  saving: boolean;
+  onCreateAdjustment: (input: CreateAdjustmentPayload) => Promise<void>;
+  onDeleteAdjustment: (adjustmentId: string) => Promise<void>;
   onShowBonusForm: () => void;
 }) {
   return (
@@ -471,7 +648,13 @@ function PayrollCalculationCard({
         </span>
       </div>
 
-      <AdjustmentsBox detail={detail} onShowBonusForm={onShowBonusForm} />
+      <AdjustmentsBox
+        detail={detail}
+        saving={saving}
+        onCreateAdjustment={onCreateAdjustment}
+        onDeleteAdjustment={onDeleteAdjustment}
+        onShowBonusForm={onShowBonusForm}
+      />
     </section>
   );
 }
@@ -494,9 +677,15 @@ function CalculationLine({ row }: { row: PayrollCalculationLine }) {
 
 function AdjustmentsBox({
   detail,
+  saving,
+  onCreateAdjustment,
+  onDeleteAdjustment,
   onShowBonusForm,
 }: {
   detail: PayrollCalculationDetail;
+  saving: boolean;
+  onCreateAdjustment: (input: CreateAdjustmentPayload) => Promise<void>;
+  onDeleteAdjustment: (adjustmentId: string) => Promise<void>;
   onShowBonusForm: () => void;
 }) {
   return (
@@ -515,7 +704,13 @@ function AdjustmentsBox({
         </button>
       </div>
 
-      {detail.adjustmentForm ? <AdjustmentForm detail={detail} /> : null}
+      {detail.adjustmentForm ? (
+        <AdjustmentForm
+          detail={detail}
+          saving={saving}
+          onCreateAdjustment={onCreateAdjustment}
+        />
+      ) : null}
 
       <div
         className={cn(
@@ -524,39 +719,92 @@ function AdjustmentsBox({
         )}
       >
         {detail.adjustmentItems.map((item) => (
-          <AdjustmentRow key={item.id} item={item} />
+          <AdjustmentRow
+            key={item.id}
+            item={item}
+            saving={saving}
+            onDeleteAdjustment={onDeleteAdjustment}
+          />
         ))}
       </div>
     </section>
   );
 }
 
-function AdjustmentForm({ detail }: { detail: PayrollCalculationDetail }) {
+function AdjustmentForm({
+  detail,
+  saving,
+  onCreateAdjustment,
+}: {
+  detail: PayrollCalculationDetail;
+  saving: boolean;
+  onCreateAdjustment: (input: CreateAdjustmentPayload) => Promise<void>;
+}) {
   const form = detail.adjustmentForm;
+  const [label, setLabel] = useState("");
+  const [operatorId, setOperatorId] = useState("plus");
+  const [amountText, setAmountText] = useState("");
+  const [taxScope, setTaxScope] =
+    useState<PayrollAdjustmentInput["taxScope"]>("pre_tax");
 
   if (!form) {
     return null;
   }
 
+  const parsedAmount = parseMoneyInput(amountText);
+  const signedAmount =
+    parsedAmount == null
+      ? null
+      : operatorId === "minus"
+        ? -Math.abs(parsedAmount)
+        : Math.abs(parsedAmount);
+  const canSubmit =
+    !saving &&
+    label.trim().length > 0 &&
+    signedAmount != null &&
+    signedAmount !== 0;
+
+  const handleSubmit = async () => {
+    if (!canSubmit || signedAmount == null) {
+      return;
+    }
+
+    await onCreateAdjustment({
+      amount: signedAmount,
+      label: label.trim(),
+      taxScope,
+    });
+    setLabel("");
+    setAmountText("");
+    setOperatorId("plus");
+    setTaxScope("pre_tax");
+  };
+
   return (
     <div className="mt-4" data-testid="payroll-calculation-bonus-add-form">
-      <div className="grid grid-cols-[minmax(180px,1fr)_90px_minmax(150px,0.7fr)] gap-4 text-h-16-semibold tracking-normal text-gray-900">
+      <div className="grid grid-cols-[minmax(180px,1fr)_90px_minmax(150px,0.7fr)_140px] gap-4 text-h-16-semibold tracking-normal text-gray-900">
         <span>{form.itemLabel}</span>
         <span>{form.operatorLabel}</span>
         <span>{form.amountLabel}</span>
+        <span>반영 기준</span>
       </div>
-      <div className="mt-2 grid grid-cols-[minmax(180px,1fr)_90px_minmax(150px,0.7fr)] gap-4">
-        <div className="flex h-11 items-center rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-400">
-          {form.itemPlaceholder}
-        </div>
+      <div className="mt-2 grid grid-cols-[minmax(180px,1fr)_90px_minmax(150px,0.7fr)_140px] gap-4">
+        <input
+          aria-label={form.itemLabel}
+          className="h-11 min-w-0 rounded-[8px] border border-gray-200 bg-white px-4 text-h-18-regular tracking-normal text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-green-400 focus:ring-2 focus:ring-green-100"
+          placeholder={form.itemPlaceholder}
+          value={label}
+          onChange={(event) => setLabel(event.target.value)}
+        />
         <div className="grid h-11 grid-cols-2 overflow-hidden rounded-[8px] border border-gray-200 bg-white p-1">
           {form.operators.map((operator) => (
             <button
               key={operator.id}
               type="button"
+              onClick={() => setOperatorId(operator.id)}
               className={cn(
                 "flex items-center justify-center rounded-[7px] text-h-18-semibold tracking-normal transition-colors duration-150 ease-out",
-                operator.selected
+                operator.id === operatorId
                   ? "bg-green-400 text-white"
                   : "text-gray-600 hover:bg-gray-50",
               )}
@@ -565,21 +813,63 @@ function AdjustmentForm({ detail }: { detail: PayrollCalculationDetail }) {
             </button>
           ))}
         </div>
-        <div className="flex h-11 items-center rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-400">
-          {form.amountPlaceholder}
+        <input
+          aria-label={form.amountLabel}
+          inputMode="numeric"
+          className="h-11 min-w-0 rounded-[8px] border border-gray-200 bg-white px-4 text-h-18-regular tracking-normal text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-green-400 focus:ring-2 focus:ring-green-100"
+          placeholder={form.amountPlaceholder}
+          value={amountText}
+          onChange={(event) => setAmountText(event.target.value)}
+        />
+        <div className="grid h-11 grid-cols-2 overflow-hidden rounded-[8px] border border-gray-200 bg-white p-1">
+          {[
+            { id: "pre_tax", label: "세전" },
+            { id: "post_tax", label: "세후" },
+          ].map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() =>
+                setTaxScope(option.id as PayrollAdjustmentInput["taxScope"])
+              }
+              className={cn(
+                "flex items-center justify-center rounded-[7px] text-h-16-semibold tracking-normal transition-colors duration-150 ease-out",
+                option.id === taxScope
+                  ? "bg-green-400 text-white"
+                  : "text-gray-600 hover:bg-gray-50",
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
       </div>
       <div className="mt-3 flex justify-end">
-        <Button type="button" className="h-12 rounded-[10px] px-7">
+        <Button
+          type="button"
+          disabled={!canSubmit}
+          onClick={handleSubmit}
+          className="h-12 rounded-[10px] px-7"
+        >
           <Plus className="size-5" />
-          {form.submitLabel}
+          {saving ? "저장 중" : form.submitLabel}
         </Button>
       </div>
     </div>
   );
 }
 
-function AdjustmentRow({ item }: { item: PayrollAdjustmentItem }) {
+function AdjustmentRow({
+  item,
+  saving,
+  onDeleteAdjustment,
+}: {
+  item: PayrollAdjustmentItem;
+  saving: boolean;
+  onDeleteAdjustment: (adjustmentId: string) => Promise<void>;
+}) {
+  const canDelete = item.id !== "empty" && item.deleteLabel === "삭제";
+
   return (
     <div className="flex min-h-[48px] items-center gap-4 border-b border-gray-100 text-h-18-regular tracking-normal last:border-b-0">
       <span className="min-w-0 flex-1 text-gray-600">{item.label}</span>
@@ -593,7 +883,13 @@ function AdjustmentRow({ item }: { item: PayrollAdjustmentItem }) {
       </span>
       <button
         type="button"
-        className="flex h-[28px] items-center justify-center rounded-[4px] border border-gray-300 bg-white px-1.5 text-detail-16-semibold tracking-normal text-gray-800"
+        disabled={!canDelete || saving}
+        onClick={() => {
+          if (canDelete) {
+            void onDeleteAdjustment(item.id);
+          }
+        }}
+        className="flex h-[28px] items-center justify-center rounded-[4px] border border-gray-300 bg-white px-1.5 text-detail-16-semibold tracking-normal text-gray-800 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
       >
         {item.deleteLabel}
       </button>
@@ -736,7 +1032,22 @@ function OpenItemLine({ line }: { line: PayrollOpenItemLine }) {
   );
 }
 
-function PayrollDetailFooter({ detail }: { detail: PayrollCalculationDetail }) {
+function PayrollDetailFooter({
+  detail,
+  saving,
+  selectedRow,
+  onDecidePayroll,
+}: {
+  detail: PayrollCalculationDetail;
+  saving: boolean;
+  selectedRow?: PayrollCalculationRow;
+  onDecidePayroll: (input: DecidePayrollPayload) => Promise<void>;
+}) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const action = resolvePayrollDecisionAction(detail.footer.actionLabel);
+  const disabled =
+    saving || detail.footer.actionDisabled || !action || !selectedRow;
+
   return (
     <footer className="mt-auto flex h-[72px] shrink-0 items-center justify-between gap-6 border-t border-gray-200 bg-white px-4">
       <div className="min-w-0">
@@ -749,13 +1060,256 @@ function PayrollDetailFooter({ detail }: { detail: PayrollCalculationDetail }) {
       </div>
       <Button
         type="button"
-        disabled={detail.footer.actionDisabled}
+        disabled={disabled}
+        onClick={() => setDialogOpen(true)}
         className="h-10 rounded-full px-7 text-h-18-semibold tracking-normal disabled:opacity-30"
       >
-        {detail.footer.actionLabel}
+        {saving ? "처리 중" : detail.footer.actionLabel}
       </Button>
+      {dialogOpen && action ? (
+        <PayrollDecisionDialog
+          action={action}
+          saving={saving}
+          workerName={selectedRow?.workerName ?? detail.worker.name}
+          onClose={() => setDialogOpen(false)}
+          onConfirm={async (input) => {
+            await onDecidePayroll(input);
+            setDialogOpen(false);
+          }}
+        />
+      ) : null}
     </footer>
   );
+}
+
+function PayrollDecisionDialog({
+  action,
+  saving,
+  workerName,
+  onClose,
+  onConfirm,
+}: {
+  action: PayrollDecisionInput["action"];
+  saving: boolean;
+  workerName: string;
+  onClose: () => void;
+  onConfirm: (input: DecidePayrollPayload) => Promise<void>;
+}) {
+  const needsPaymentDate = action !== "mark_paid";
+  const [scheduledPaymentDate, setScheduledPaymentDate] = useState(
+    getTomorrowDateKey(),
+  );
+  const dateValid =
+    !needsPaymentDate ||
+    (isDateKey(scheduledPaymentDate) &&
+      scheduledPaymentDate >= getTodayDateKey());
+  const title = getPayrollDecisionDialogTitle(action);
+  const confirmLabel = getPayrollDecisionDialogConfirmLabel(action);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="payroll-decision-title"
+        className="w-full max-w-[440px] rounded-[12px] bg-white px-6 py-6 shadow-[0px_24px_60px_rgba(15,23,42,0.24)]"
+      >
+        <h2
+          id="payroll-decision-title"
+          className="text-h-20 tracking-normal text-gray-900"
+        >
+          {title}
+        </h2>
+        <p className="mt-3 text-body-16-regular leading-[24px] tracking-normal text-gray-600">
+          {workerName}님의 현재 급여 산정 결과를 기준으로 처리합니다.
+        </p>
+        {needsPaymentDate ? (
+          <label className="mt-5 block text-h-16-semibold tracking-normal text-gray-900">
+            지급 예정일
+            <input
+              type="date"
+              className="mt-2 h-11 w-full rounded-[8px] border border-gray-200 px-4 text-h-18-regular tracking-normal text-gray-900 outline-none transition-colors focus:border-green-400 focus:ring-2 focus:ring-green-100"
+              value={scheduledPaymentDate}
+              onChange={(event) => setScheduledPaymentDate(event.target.value)}
+            />
+          </label>
+        ) : null}
+        {!dateValid ? (
+          <p className="mt-2 text-body-14-medium tracking-normal text-red-500">
+            지급 예정일은 오늘 이후 날짜로 입력해야 합니다.
+          </p>
+        ) : null}
+        <div className="mt-6 flex justify-end gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 rounded-full px-5"
+            onClick={onClose}
+          >
+            취소
+          </Button>
+          <Button
+            type="button"
+            disabled={saving || !dateValid}
+            className="h-10 rounded-full px-5"
+            onClick={() =>
+              void onConfirm({
+                action,
+                scheduledPaymentDate: needsPaymentDate
+                  ? scheduledPaymentDate
+                  : null,
+              })
+            }
+          >
+            {saving ? "처리 중" : confirmLabel}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function createPayrollMutationTarget(
+  row: PayrollCalculationRow | undefined,
+): Pick<PayrollAdjustmentInput, "focusId" | "monthKey" | "workerId"> & {
+  workerName: string;
+} {
+  if (!row?.monthKey || !row.workerId) {
+    throw new Error("급여 산정 대상 정보가 없어 작업을 진행할 수 없습니다.");
+  }
+
+  return {
+    focusId: row.id,
+    monthKey: row.monthKey,
+    workerId: row.workerId,
+    workerName: row.workerName,
+  };
+}
+
+function getPayrollDecisionSuccessMessage(
+  action: PayrollDecisionInput["action"],
+) {
+  if (action === "mark_paid") {
+    return "급여 지급 완료로 처리했습니다.";
+  }
+
+  return action === "reconfirm"
+    ? "급여를 재확정했습니다."
+    : "급여를 확정했습니다.";
+}
+
+function resolvePayrollDecisionAction(
+  label: string,
+): PayrollDecisionInput["action"] | null {
+  if (label.includes("지급 완료")) {
+    return "mark_paid";
+  }
+
+  if (label.includes("재확정")) {
+    return "reconfirm";
+  }
+
+  return label.includes("확정") ? "confirm" : null;
+}
+
+function getPayrollDecisionDialogTitle(action: PayrollDecisionInput["action"]) {
+  if (action === "mark_paid") {
+    return "지급 완료 처리";
+  }
+
+  return action === "reconfirm" ? "급여 재확정" : "급여 확정";
+}
+
+function getPayrollDecisionDialogConfirmLabel(
+  action: PayrollDecisionInput["action"],
+) {
+  if (action === "mark_paid") {
+    return "지급 완료";
+  }
+
+  return action === "reconfirm" ? "재확정" : "확정";
+}
+
+function parseMoneyInput(value: string) {
+  const normalized = value.replace(/[^\d]/g, "");
+  const amount = Number.parseInt(normalized, 10);
+
+  return Number.isFinite(amount) && amount > 0 ? amount : null;
+}
+
+function isDateKey(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function getTodayDateKey() {
+  return formatDateKey(new Date());
+}
+
+function getTomorrowDateKey() {
+  const date = new Date();
+
+  date.setDate(date.getDate() + 1);
+
+  return formatDateKey(date);
+}
+
+function formatDateKey(date: Date) {
+  return [
+    String(date.getFullYear()),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function exportPayrollRows(viewModel: PayrollCalculationFixture) {
+  const rows = [
+    viewModel.columns
+      .filter((column) => column.id !== "actions")
+      .map((column) => column.label),
+    ...viewModel.rows.map((row) => [
+      row.workerName,
+      row.basePay,
+      row.overtimePay,
+      row.bonusDeduction,
+      row.tax,
+      row.finalPay,
+      row.status,
+      row.openItems,
+    ]),
+  ];
+  const csv = rows.map((row) => row.map(escapeCsvCell).join(",")).join("\n");
+  const monthLabel = viewModel.selectedMonthLabel.replace(/[^\d.]/g, "");
+
+  downloadTextFile({
+    content: `\uFEFF${csv}`,
+    fileName: `payroll-${monthLabel || "export"}.csv`,
+    mimeType: "text/csv;charset=utf-8",
+  });
+}
+
+function escapeCsvCell(value: string) {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+function downloadTextFile({
+  content,
+  fileName,
+  mimeType,
+}: {
+  content: string;
+  fileName: string;
+  mimeType: string;
+}) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = fileName;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function PayrollBadge({

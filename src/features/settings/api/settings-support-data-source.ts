@@ -26,6 +26,7 @@ export type SettingsRulesInput = {
 export type SettingsNotificationsInput = readonly SettingsNotificationRow[];
 
 export type SettingsSupportDataSource = {
+  cancelSubscription: () => Promise<SettingsBillingFixture>;
   getBilling: () => Promise<SettingsBillingFixture>;
   getNotifications: () => Promise<SettingsNotificationsFixture>;
   getRules: () => Promise<SettingsRulesFixture>;
@@ -33,6 +34,7 @@ export type SettingsSupportDataSource = {
   updateNotifications: (
     rows: SettingsNotificationsInput,
   ) => Promise<SettingsNotificationsFixture>;
+  updatePlan: (planId: string) => Promise<SettingsBillingFixture>;
   updateRules: (input: SettingsRulesInput) => Promise<SettingsRulesFixture>;
 };
 
@@ -50,6 +52,9 @@ function createMockSettingsSupportDataSource(): SettingsSupportDataSource {
 
   return {
     mode: "fixture",
+    async cancelSubscription() {
+      return settingsBillingFixture;
+    },
     async getBilling() {
       return settingsBillingFixture;
     },
@@ -72,12 +77,48 @@ function createMockSettingsSupportDataSource(): SettingsSupportDataSource {
 
       return rules;
     },
+    async updatePlan(planId) {
+      return {
+        ...settingsBillingFixture,
+        plans: settingsBillingFixture.plans.map((plan) => ({
+          ...plan,
+          actionLabel: plan.id === planId ? "현재 플랜" : plan.actionLabel,
+          current: plan.id === planId,
+          highlighted: plan.id === planId,
+        })),
+      };
+    },
   };
 }
 
 function createFirestoreSettingsSupportDataSource(): SettingsSupportDataSource {
   return {
     mode: "firestore",
+    async cancelSubscription() {
+      const workspaceId = await requireActiveWorkspaceId();
+
+      await Promise.all([
+        updateDoc(getWorkspaceDocument(workspaceId), {
+          billingStatus: "cancelled",
+          plan: "starter",
+          updatedAt: serverTimestamp(),
+        }),
+        setDoc(
+          getWorkspaceChildDocument(workspaceId, "subscriptions", "current"),
+          {
+            billingStatus: "cancelled",
+            cancelledAt: serverTimestamp(),
+            plan: "starter",
+            status: "cancelled",
+            updatedAt: serverTimestamp(),
+            workspaceId,
+          },
+          { merge: true },
+        ),
+      ]);
+
+      return createFirestoreSettingsSupportDataSource().getBilling();
+    },
     async getBilling() {
       const workspaceId = await requireActiveWorkspaceId();
       const [workspaceSnapshot, subscriptionSnapshot, billingSnapshot] =
@@ -174,6 +215,30 @@ function createFirestoreSettingsSupportDataSource(): SettingsSupportDataSource {
       });
 
       return mapRulesFixture(await readWorkspaceRulesInput(workspaceId));
+    },
+    async updatePlan(planId) {
+      const workspaceId = await requireActiveWorkspaceId();
+
+      await Promise.all([
+        updateDoc(getWorkspaceDocument(workspaceId), {
+          billingStatus: "active",
+          plan: planId,
+          updatedAt: serverTimestamp(),
+        }),
+        setDoc(
+          getWorkspaceChildDocument(workspaceId, "subscriptions", "current"),
+          {
+            billingStatus: "active",
+            plan: planId,
+            status: "active",
+            updatedAt: serverTimestamp(),
+            workspaceId,
+          },
+          { merge: true },
+        ),
+      ]);
+
+      return createFirestoreSettingsSupportDataSource().getBilling();
     },
   };
 }

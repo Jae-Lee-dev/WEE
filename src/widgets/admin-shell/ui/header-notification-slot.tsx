@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { IconNotice } from "@/shared/ui/icons";
 import { Badge } from "@/shared/ui/badge";
@@ -60,11 +61,13 @@ function NotificationPanel() {
       </div>
       <div className="mt-2.5 border-t border-gray-200">
         {headerNotifications.map((notification, index) => (
-          <div
+          <Link
             key={notification.id}
+            href={notification.href}
             className={cn(
               "flex min-h-[76px] gap-3.5 border-b border-gray-200 px-3.5 pt-4",
               index < headerNotifications.length - 1 && "bg-gray-50",
+              "transition-colors hover:bg-green-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200",
             )}
           >
             <div className="w-[56px] shrink-0">
@@ -85,7 +88,7 @@ function NotificationPanel() {
                 {notification.date}
               </p>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
     </aside>

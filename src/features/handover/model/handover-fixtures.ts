@@ -65,6 +65,7 @@ export type HandoverFixture = {
   document: {
     title: string;
     blocks: readonly HandoverDocumentBlock[];
+    publishedContent?: string;
   };
   chat: {
     title: string;

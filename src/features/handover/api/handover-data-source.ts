@@ -1,13 +1,20 @@
 import {
   collection,
+  doc,
   getDocs,
   limit,
   orderBy,
   query,
+  serverTimestamp,
+  setDoc,
 } from "firebase/firestore";
 import { resolveActiveWorkspaceId } from "@/entities/workspace";
 import { readActiveWorkspaceId } from "@/entities/workspace";
-import { getFirebaseDb, isMockFirebaseProject } from "@/shared/api/firebase/client";
+import {
+  getFirebaseAuth,
+  getFirebaseDb,
+  isMockFirebaseProject,
+} from "@/shared/api/firebase/client";
 import {
   handoverFixture,
   type HandoverDocumentBlock,
@@ -17,6 +24,12 @@ import {
 export type HandoverDataSource = {
   getHandover: () => Promise<HandoverFixture>;
   mode: "fixture" | "firestore";
+  publishHandover: (input: PublishHandoverInput) => Promise<HandoverFixture>;
+};
+
+export type PublishHandoverInput = {
+  content: string;
+  notifyWorkers: boolean;
 };
 
 export function createHandoverDataSource(): HandoverDataSource {
@@ -28,10 +41,17 @@ export function createHandoverDataSource(): HandoverDataSource {
 }
 
 function createMockHandoverDataSource(): HandoverDataSource {
+  let content = serializeBlocks(handoverFixture.document.blocks);
+
   return {
     mode: "fixture",
     async getHandover() {
-      return handoverFixture;
+      return createFixtureFromContent(content);
+    },
+    async publishHandover(input) {
+      content = input.content;
+
+      return createFixtureFromContent(content);
     },
   };
 }
@@ -57,8 +77,29 @@ function createFirestoreHandoverDataSource(): HandoverDataSource {
         document: {
           title: getDocumentTitle(blocks),
           blocks,
+          publishedContent,
         },
       };
+    },
+    async publishHandover(input) {
+      const workspaceId = await requireActiveWorkspaceId();
+      const content = input.content.trim();
+
+      await setDoc(
+        doc(getFirebaseDb(), "workspaces", workspaceId, "handoverDocuments", "handover_current"),
+        {
+          createdBy: getFirebaseAuth().currentUser?.uid ?? null,
+          notifyWorkers: input.notifyWorkers,
+          publishedAt: serverTimestamp(),
+          publishedContent: content,
+          status: "published",
+          updatedAt: serverTimestamp(),
+          workspaceId,
+        },
+        { merge: true },
+      );
+
+      return createFixtureFromContent(content);
     },
   };
 }
@@ -168,4 +209,46 @@ function getDocumentTitle(blocks: readonly HandoverDocumentBlock[]) {
   const heading = blocks.find((block) => block.type === "heading");
 
   return heading?.type === "heading" ? heading.text : handoverFixture.document.title;
+}
+
+function createFixtureFromContent(content: string): HandoverFixture {
+  const blocks = parseMarkdownBlocks(content);
+
+  return {
+    ...handoverFixture,
+    document: {
+      title: getDocumentTitle(blocks),
+      blocks,
+      publishedContent: content,
+    },
+  };
+}
+
+function serializeBlocks(blocks: readonly HandoverDocumentBlock[]) {
+  return blocks
+    .flatMap((block) => {
+      if (block.type === "heading") {
+        return `${"#".repeat(block.level)} ${block.text}`;
+      }
+
+      if (block.type === "paragraph") {
+        return block.lines;
+      }
+
+      if (block.type === "list") {
+        return block.items.map((item) =>
+          `- ${item.segments.map((segment) => segment.text).join("")}`,
+        );
+      }
+
+      if (block.type === "divider") {
+        return "---";
+      }
+
+      return [
+        ...block.suggestion.unchanged.map((line) => `- ${line}`),
+        ...block.suggestion.inserted.map((line) => `- ${line}`),
+      ];
+    })
+    .join("\n");
 }

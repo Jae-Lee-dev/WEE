@@ -1,6 +1,10 @@
 import {
   collection,
+  doc,
   getDocs,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
   type DocumentData,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
@@ -47,6 +51,13 @@ export type PayrollStatementTarget = {
 };
 
 export type PayrollDataSource = {
+  createAdjustment: (
+    input: PayrollAdjustmentInput,
+  ) => Promise<PayrollCalculationFixture>;
+  decidePayroll: (input: PayrollDecisionInput) => Promise<PayrollCalculationFixture>;
+  deleteAdjustment: (
+    input: PayrollDeleteAdjustmentInput,
+  ) => Promise<PayrollCalculationFixture>;
   mode: PayrollDataSourceMode;
   loadCalculation: (
     target?: PayrollCalculationTarget,
@@ -54,6 +65,29 @@ export type PayrollDataSource = {
   loadStatements: (
     target?: PayrollStatementTarget,
   ) => Promise<PayrollStatementFixture>;
+};
+
+export type PayrollMutationTarget = {
+  focusId?: string;
+  monthKey: string;
+  workerId: string;
+};
+
+export type PayrollAdjustmentInput = PayrollMutationTarget & {
+  amount: number;
+  label: string;
+  taxScope: "pre_tax" | "post_tax";
+  workerName: string;
+};
+
+export type PayrollDeleteAdjustmentInput = PayrollMutationTarget & {
+  adjustmentId: string;
+};
+
+export type PayrollDecisionInput = PayrollMutationTarget & {
+  action: "confirm" | "reconfirm" | "mark_paid";
+  scheduledPaymentDate?: string | null;
+  workerName: string;
 };
 
 type PayrollDocument = {
@@ -201,6 +235,15 @@ export function createPayrollDataSource(): PayrollDataSource {
 
 function createFixturePayrollDataSource(): PayrollDataSource {
   return {
+    async createAdjustment() {
+      return payrollCalculationFixture;
+    },
+    async decidePayroll() {
+      return payrollCalculationFixture;
+    },
+    async deleteAdjustment() {
+      return payrollCalculationFixture;
+    },
     mode: "fixture",
 
     async loadCalculation() {
@@ -215,6 +258,155 @@ function createFixturePayrollDataSource(): PayrollDataSource {
 
 function createFirestorePayrollDataSource(): PayrollDataSource {
   return {
+    async createAdjustment(input) {
+      const workspaceId = await requireActiveWorkspaceId();
+      const adjustmentRef = doc(getPayrollCollectionRef(workspaceId, "bonusItems"));
+
+      await setDoc(adjustmentRef, {
+        amount: input.amount,
+        createdAt: serverTimestamp(),
+        label: input.label,
+        monthKey: input.monthKey,
+        payrollStatus: "confirmed",
+        taxScope: input.taxScope,
+        updatedAt: serverTimestamp(),
+        workerId: input.workerId,
+        workerName: input.workerName,
+        workspaceId,
+      });
+
+      return buildCalculationViewModel(await loadPayrollCollections(), input);
+    },
+    async decidePayroll(input) {
+      const workspaceId = await requireActiveWorkspaceId();
+      const collections = await loadPayrollCollections();
+      const projection = collections.payrollWorkerMonthRows
+        .map(mapPayrollWorkerMonthProjection)
+        .find((row) =>
+          row.id === input.focusId ||
+          (row.workerId === input.workerId && row.monthKey === input.monthKey),
+        );
+
+      if (!projection) {
+        throw new Error("급여 산정 대상을 찾을 수 없습니다.");
+      }
+
+      const workerMonthKey = getWorkerMonthKey(projection.workerId, projection.monthKey);
+      const settings = collections.payrollSettings.map(mapPayrollSetting);
+      const settingByWorkerId = indexBy(settings, (setting) => setting.workerId);
+      const bonusesByWorkerMonth = groupBy(
+        collections.bonusItems.map(mapBonusItem).filter((bonus) => bonus.payrollStatus !== "deleted"),
+        (bonus) => getWorkerMonthKey(bonus.workerId, bonus.monthKey),
+      );
+      const recordsByWorkerMonth = groupBy(collections.workRecords.map(mapWorkRecord), (record) =>
+        getWorkerMonthKey(record.workerId, record.dateKey.slice(0, 7)),
+      );
+      const statements = collections.payStatements
+        .map(mapPayStatement)
+        .filter(isPayStatement);
+      const statement =
+        statements.find((item) => item.id === input.focusId) ??
+        statements.find(
+          (item) =>
+            item.workerId === projection.workerId &&
+            item.monthKey === projection.monthKey,
+        );
+      const amounts = calculateAmounts({
+        bonuses: bonusesByWorkerMonth[workerMonthKey] ?? [],
+        projection,
+        records: recordsByWorkerMonth[workerMonthKey] ?? [],
+        setting: settingByWorkerId[projection.workerId],
+        statement,
+      });
+      const statementId =
+        statement?.id ?? `pay_${projection.monthKey.replace("-", "")}_${projection.workerId}`;
+
+      if (input.action === "mark_paid") {
+        await Promise.all([
+          setDoc(
+            doc(getFirebaseDb(), "workspaces", workspaceId, "payStatements", statementId),
+            {
+              paidAt: serverTimestamp(),
+              status: "paid",
+              updatedAt: serverTimestamp(),
+              workspaceId,
+            },
+            { merge: true },
+          ),
+          updateDoc(
+            doc(getFirebaseDb(), "workspaces", workspaceId, "payrollWorkerMonthRows", projection.id),
+            {
+              rowStatus: "paid",
+              updatedAt: serverTimestamp(),
+            },
+          ),
+        ]);
+      } else {
+        await Promise.all([
+          setDoc(
+            doc(getFirebaseDb(), "workspaces", workspaceId, "payStatements", statementId),
+            {
+              confirmedAt: serverTimestamp(),
+              currentCalculationSummary: {
+                finalAmount: amounts.finalAmount,
+                sourceChangedAt: null,
+              },
+              managerOnly: {
+                diffReason: null,
+                needsReconfirmation: false,
+              },
+              monthKey: projection.monthKey,
+              scheduledPaymentDate: input.scheduledPaymentDate ?? null,
+              snapshot: {
+                finalAmount: amounts.finalAmount,
+                overtimePay: amounts.overtimePay,
+                payrollType:
+                  settingByWorkerId[projection.workerId]?.payrollType ?? "hourly",
+                taxAmount: amounts.taxAmount,
+              },
+              status: "processing",
+              updatedAt: serverTimestamp(),
+              workerId: projection.workerId,
+              workerName: input.workerName,
+              workspaceId,
+            },
+            { merge: true },
+          ),
+          updateDoc(
+            doc(getFirebaseDb(), "workspaces", workspaceId, "payrollWorkerMonthRows", projection.id),
+            {
+              currentCalculationSummary: {
+                finalAmount: amounts.finalAmount,
+                hasBlockers: false,
+              },
+              payStatementId: statementId,
+              rowStatus: "processing",
+              updatedAt: serverTimestamp(),
+            },
+          ),
+        ]);
+      }
+
+      return buildCalculationViewModel(await loadPayrollCollections(), {
+        focusId: projection.id,
+        monthKey: projection.monthKey,
+        workerId: projection.workerId,
+      });
+    },
+    async deleteAdjustment(input) {
+      const workspaceId = await requireActiveWorkspaceId();
+
+      await updateDoc(
+        doc(getFirebaseDb(), "workspaces", workspaceId, "bonusItems", input.adjustmentId),
+        {
+          deletedAt: serverTimestamp(),
+          payrollStatus: "deleted",
+          updatedAt: serverTimestamp(),
+        },
+      );
+
+      return buildCalculationViewModel(await loadPayrollCollections(), input);
+    },
     mode: "firestore",
 
     async loadCalculation(target) {
@@ -266,10 +458,14 @@ async function loadPayrollCollections(): Promise<PayrollCollections> {
 
 async function getPayrollCollection(workspaceId: string, name: string) {
   const snapshot = await getDocs(
-    collection(getFirebaseDb(), "workspaces", workspaceId, name),
+    getPayrollCollectionRef(workspaceId, name),
   );
 
   return snapshot.docs.map(mapDocument);
+}
+
+function getPayrollCollectionRef(workspaceId: string, name: string) {
+  return collection(getFirebaseDb(), "workspaces", workspaceId, name);
 }
 
 function buildCalculationViewModel(
@@ -280,7 +476,9 @@ function buildCalculationViewModel(
     mapPayrollWorkerMonthProjection,
   );
   const settings = collections.payrollSettings.map(mapPayrollSetting);
-  const bonuses = collections.bonusItems.map(mapBonusItem);
+  const bonuses = collections.bonusItems
+    .map(mapBonusItem)
+    .filter((bonus) => bonus.payrollStatus !== "deleted");
   const statements = collections.payStatements
     .map(mapPayStatement)
     .filter(isPayStatement);

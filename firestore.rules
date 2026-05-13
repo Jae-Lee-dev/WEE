@@ -360,6 +360,34 @@ service cloud.firestore {
         && data.updatedAt == request.time;
     }
 
+    function isWorkerMembershipDecisionEdit() {
+      let data = request.resource.data;
+      let changedKeys = data.diff(resource.data).affectedKeys();
+
+      return resource.data.status != 'deleted'
+        && changedKeys.hasOnly([
+          'membershipStatus',
+          'rejectionReason',
+          'status',
+          'tagIds',
+          'updatedAt'
+        ])
+        && data.membershipStatus in ['approved', 'rejected']
+        && data.status in ['active', 'inactive']
+        && (
+          !data.keys().hasAny(['tagIds']) ||
+          (
+            data.tagIds is list &&
+            data.tagIds.size() <= 20
+          )
+        )
+        && (
+          !data.keys().hasAny(['rejectionReason']) ||
+          data.rejectionReason is string
+        )
+        && data.updatedAt == request.time;
+    }
+
     function isPayrollDateValue(value) {
       return value is string
         && value.matches('^\\d{4}-\\d{2}-\\d{2}$');
@@ -466,6 +494,66 @@ service cloud.firestore {
         && data.updatedAt == request.time;
     }
 
+    function isDutyDefinitionEdit(workspaceId) {
+      let data = request.resource.data;
+      let changedKeys = data.diff(resource.data).affectedKeys();
+
+      return resource.data.manualStatus != 'deleted'
+        && changedKeys.hasOnly([
+          'endTime',
+          'locationId',
+          'locationName',
+          'name',
+          'nameKey',
+          'operationEndDate',
+          'operationStartDate',
+          'startTime',
+          'tags',
+          'updatedAt',
+          'weekday'
+        ])
+        && data.workspaceId == workspaceId
+        && data.name is string
+        && data.name.size() > 0
+        && data.nameKey is string
+        && data.nameKey.size() > 0
+        && data.tags is list
+        && data.tags.size() <= 8
+        && data.locationId is string
+        && data.locationId.size() > 0
+        && existsAfter(locationPath(workspaceId, data.locationId))
+        && getAfter(locationPath(workspaceId, data.locationId)).data.status == 'active'
+        && data.locationName is string
+        && data.locationName.size() > 0
+        && data.weekday in ['월', '화', '수', '목', '금', '토', '일']
+        && isDutyTimeValue(data.startTime)
+        && isDutyTimeValue(data.endTime)
+        && data.startTime < data.endTime
+        && isDutyDateValue(data.operationStartDate)
+        && isDutyDateValue(data.operationEndDate)
+        && (
+          (data.operationStartDate == null && data.operationEndDate == null) ||
+          (
+            data.operationStartDate is string &&
+            data.operationEndDate is string &&
+            data.operationStartDate <= data.operationEndDate
+          )
+        )
+        && data.assignedWorkerCount == resource.data.assignedWorkerCount
+        && data.manualStatus == resource.data.manualStatus
+        && data.createdAt == resource.data.createdAt
+        && data.createdBy == resource.data.createdBy
+        && data.updatedAt == request.time;
+    }
+
+    function isWorkspaceScopedManagerWrite(workspaceId) {
+      return isWorkspaceManagerAfter(workspaceId)
+        && (
+          !request.resource.data.keys().hasAny(['workspaceId']) ||
+          request.resource.data.workspaceId == workspaceId
+        );
+    }
+
     function isWorkRecordManagerAction() {
       let data = request.resource.data;
       let changedKeys = data.diff(resource.data).affectedKeys();
@@ -554,7 +642,10 @@ service cloud.firestore {
         allow create: if isWorkspaceManagerAfter(workspaceId)
           && isDutyCreate(workspaceId);
         allow update: if isWorkspaceManagerAfter(workspaceId)
-          && isDutyTagAssignmentEdit();
+          && (
+            isDutyTagAssignmentEdit() ||
+            isDutyDefinitionEdit(workspaceId)
+          );
         allow delete: if false;
       }
 
@@ -587,9 +678,16 @@ service cloud.firestore {
         allow update: if isWorkspaceManagerAfter(workspaceId)
           && (
             isWorkerTagAssignmentEdit() ||
-            isWorkerDetailEdit()
+            isWorkerDetailEdit() ||
+            isWorkerMembershipDecisionEdit()
           );
         allow create, delete: if false;
+      }
+
+      match /memberships/{membershipId} {
+        allow get, list: if isWorkspaceManager(workspaceId);
+        allow create, update: if isWorkspaceScopedManagerWrite(workspaceId);
+        allow delete: if false;
       }
 
       match /payrollSettings/{settingId} {
@@ -599,6 +697,48 @@ service cloud.firestore {
         allow update: if isWorkspaceManagerAfter(workspaceId)
           && isPayrollSettingEdit(workspaceId);
         allow delete: if false;
+      }
+
+      match /scheduleRequests/{requestId} {
+        allow get, list: if isWorkspaceManager(workspaceId);
+        allow update: if isWorkspaceScopedManagerWrite(workspaceId);
+        allow create, delete: if false;
+      }
+
+      match /scheduleVersions/{versionId} {
+        allow get, list: if isWorkspaceManager(workspaceId);
+        allow create, update: if isWorkspaceScopedManagerWrite(workspaceId);
+        allow delete: if false;
+      }
+
+      match /handoverDocuments/{documentId} {
+        allow get, list: if isWorkspaceManager(workspaceId);
+        allow create, update: if isWorkspaceScopedManagerWrite(workspaceId);
+        allow delete: if false;
+      }
+
+      match /subscriptions/{subscriptionId} {
+        allow get, list: if isWorkspaceManager(workspaceId);
+        allow create, update: if isWorkspaceScopedManagerWrite(workspaceId);
+        allow delete: if false;
+      }
+
+      match /bonusItems/{bonusItemId} {
+        allow get, list: if isWorkspaceManager(workspaceId);
+        allow create, update: if isWorkspaceScopedManagerWrite(workspaceId);
+        allow delete: if false;
+      }
+
+      match /payStatements/{statementId} {
+        allow get, list: if isWorkspaceManager(workspaceId);
+        allow create, update: if isWorkspaceScopedManagerWrite(workspaceId);
+        allow delete: if false;
+      }
+
+      match /payrollWorkerMonthRows/{rowId} {
+        allow get, list: if isWorkspaceManager(workspaceId);
+        allow update: if isWorkspaceScopedManagerWrite(workspaceId);
+        allow create, delete: if false;
       }
 
       match /workRecords/{recordId} {

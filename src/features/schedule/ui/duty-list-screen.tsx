@@ -20,8 +20,6 @@ import {
   LayoutGrid,
   List,
   Plus,
-  Search,
-  X,
 } from "lucide-react";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
@@ -52,7 +50,6 @@ import {
   type DutyAssignedWorker,
   type DutyDialogField,
   type DutyDialogWeekdayOption,
-  type DutyEditBasicDialogFixture,
   type DutyEditTimeDialogFixture,
   type DutyFilterOption,
   type DutyListRow,
@@ -85,6 +82,7 @@ import {
   type DutyFormField,
   type DutyFormState,
   type DutyLocationOption,
+  type UpdateDutyInput,
 } from "../model/duty-model";
 import {
   scheduleTimelineDays,
@@ -236,6 +234,27 @@ export function DutyListScreen({
     }
   };
 
+  const handleUpdateDuty = async (input: UpdateDutyInput) => {
+    setSaving(true);
+    setErrorMessage("");
+    setStatusMessage("");
+
+    try {
+      const duty = await dataSource.updateDuty(input);
+
+      setDuties((current) =>
+        current.map((item) => (item.id === duty.id ? duty : item)),
+      );
+      setSelectedDutyId(duty.id);
+      setStatusMessage(`${duty.name} 근무를 수정했습니다.`);
+      setDialog(null);
+    } catch {
+      setErrorMessage("근무를 수정하지 못했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSelectFilter = (filter: DutyFilterKey, value: string) => {
     const nextFilters = {
       ...selectedFilters,
@@ -325,10 +344,30 @@ export function DutyListScreen({
         />
       ) : null}
       {dialog === "edit-basic" ? (
-        <EditBasicDialog onClose={() => setDialog(null)} />
+        <EditBasicDialog
+          locations={locations}
+          selectedDuty={selectedDuty}
+          saving={saving}
+          onClose={() => {
+            if (!saving) {
+              setDialog(null);
+            }
+          }}
+          onUpdateDuty={handleUpdateDuty}
+        />
       ) : null}
       {dialog === "edit-time" ? (
-        <EditTimeDialog onClose={() => setDialog(null)} />
+        <EditTimeDialog
+          locations={locations}
+          selectedDuty={selectedDuty}
+          saving={saving}
+          onClose={() => {
+            if (!saving) {
+              setDialog(null);
+            }
+          }}
+          onUpdateDuty={handleUpdateDuty}
+        />
       ) : null}
     </section>
   );
@@ -1051,8 +1090,45 @@ function CreateDutyDialog({
   );
 }
 
-function EditBasicDialog({ onClose }: { onClose: () => void }) {
+function EditBasicDialog({
+  locations,
+  onClose,
+  onUpdateDuty,
+  saving,
+  selectedDuty,
+}: {
+  locations: readonly DutyLocationOption[];
+  onClose: () => void;
+  onUpdateDuty: (input: UpdateDutyInput) => Promise<void>;
+  saving: boolean;
+  selectedDuty?: DutyListRow;
+}) {
   const fixture = dutyEditBasicDialog;
+  const effectiveLocations = getLocationsForDuty(locations, selectedDuty);
+  const [form, setForm] = useState<DutyFormState>(() =>
+    createDutyFormFromRow(selectedDuty, effectiveLocations),
+  );
+  const [submitted, setSubmitted] = useState(false);
+  const errors = getDutyFormErrors(form, effectiveLocations);
+
+  if (!selectedDuty) {
+    return null;
+  }
+
+  const handleSave = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSubmitted(true);
+
+    if (hasDutyFormErrors(errors)) {
+      return;
+    }
+
+    void onUpdateDuty({
+      ...toCreateDutyInput(form, effectiveLocations),
+      applyToSchedules: true,
+      id: selectedDuty.id,
+    });
+  };
 
   return (
     <DialogShell
@@ -1060,33 +1136,104 @@ function EditBasicDialog({ onClose }: { onClose: () => void }) {
       testId="duty-list-edit-basic-dialog"
       className="max-w-[620px] p-8"
     >
-      <h2
-        id="duty-list-edit-basic-dialog-title"
-        className="text-h-20 tracking-normal text-gray-900"
-      >
-        {fixture.title}
-      </h2>
+      <form noValidate onSubmit={handleSave}>
+        <h2
+          id="duty-list-edit-basic-dialog-title"
+          className="text-h-20 tracking-normal text-gray-900"
+        >
+          {fixture.title}
+        </h2>
 
-      <div className="mt-8 flex flex-col gap-6">
-        <DialogField field={fixture.nameField} />
-        <EditBasicTagRow fixture={fixture} />
-        <WeekdayPicker weekdays={fixture.weekdays} />
-        <p className="-mt-5 text-h-16-medium tracking-normal text-gray-600">
-          {fixture.timeChangeHint}
-        </p>
-      </div>
+        <div className="mt-8 flex flex-col gap-6">
+          <CreateDutyTextField
+            disabled={saving}
+            error={submitted ? errors.name : undefined}
+            field={fixture.nameField}
+            name="name"
+            onChange={(event) =>
+              setForm((current) => ({ ...current, name: event.target.value }))
+            }
+            value={form.name}
+          />
+          <CreateDutyTextField
+            disabled={saving}
+            field={dutyCreateDialog.tagSearchField}
+            name="tagText"
+            onChange={(event) =>
+              setForm((current) => ({ ...current, tagText: event.target.value }))
+            }
+            value={form.tagText}
+          />
+          <WeekdayPicker
+            error={submitted ? errors.weekday : undefined}
+            weekdays={fixture.weekdays}
+            selectedWeekday={form.weekday}
+            onSelect={(weekday) =>
+              setForm((current) => ({
+                ...current,
+                operationEndDate:
+                  current.weekday === weekday ? current.operationEndDate : "",
+                weekday,
+              }))
+            }
+          />
+          <p className="-mt-5 text-h-16-medium tracking-normal text-gray-600">
+            {fixture.timeChangeHint}
+          </p>
+        </div>
 
-      <DialogActions
-        cancelLabel={fixture.cancelLabel}
-        saveLabel={fixture.saveLabel}
-        onClose={onClose}
-      />
+        <DialogActions
+          cancelLabel={fixture.cancelLabel}
+          saveLabel={saving ? "저장 중" : fixture.saveLabel}
+          saveDisabled={saving}
+          saveType="submit"
+          onClose={onClose}
+        />
+      </form>
     </DialogShell>
   );
 }
 
-function EditTimeDialog({ onClose }: { onClose: () => void }) {
+function EditTimeDialog({
+  locations,
+  onClose,
+  onUpdateDuty,
+  saving,
+  selectedDuty,
+}: {
+  locations: readonly DutyLocationOption[];
+  onClose: () => void;
+  onUpdateDuty: (input: UpdateDutyInput) => Promise<void>;
+  saving: boolean;
+  selectedDuty?: DutyListRow;
+}) {
   const fixture = dutyEditTimeDialog;
+  const effectiveLocations = getLocationsForDuty(locations, selectedDuty);
+  const [form, setForm] = useState<DutyFormState>(() =>
+    createDutyFormFromRow(selectedDuty, effectiveLocations),
+  );
+  const [applyToSchedules, setApplyToSchedules] = useState(true);
+  const [submitted, setSubmitted] = useState(false);
+  const errors = getDutyFormErrors(form, effectiveLocations);
+
+  if (!selectedDuty) {
+    return null;
+  }
+
+  const handleSave = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSubmitted(true);
+
+    if (hasDutyFormErrors(errors)) {
+      return;
+    }
+
+    void onUpdateDuty({
+      ...toCreateDutyInput(form, effectiveLocations),
+      applyToSchedules,
+      id: selectedDuty.id,
+    });
+  };
 
   return (
     <DialogShell
@@ -1094,25 +1241,57 @@ function EditTimeDialog({ onClose }: { onClose: () => void }) {
       testId="duty-list-edit-time-dialog"
       className="max-w-[620px] p-8"
     >
-      <h2
-        id="duty-list-edit-time-dialog-title"
-        className="text-h-20 tracking-normal text-gray-900"
-      >
-        {fixture.title}
-      </h2>
+      <form noValidate onSubmit={handleSave}>
+        <h2
+          id="duty-list-edit-time-dialog-title"
+          className="text-h-20 tracking-normal text-gray-900"
+        >
+          {fixture.title}
+        </h2>
 
-      <div className="mt-8 grid grid-cols-2 gap-4">
-        <DialogField field={fixture.startTimeField} />
-        <DialogField field={fixture.endTimeField} />
-      </div>
+        <div className="mt-8 grid grid-cols-2 gap-4">
+          <TimeField
+            disabled={saving}
+            error={submitted ? errors.startTime : undefined}
+            label="시작 시간"
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                operationEndDate: "",
+                startTime: event.target.value,
+              }))
+            }
+            value={form.startTime}
+          />
+          <TimeField
+            disabled={saving}
+            error={submitted ? errors.endTime : undefined}
+            label="종료 시간"
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                operationEndDate: "",
+                endTime: event.target.value,
+              }))
+            }
+            value={form.endTime}
+          />
+        </div>
 
-      <EditTimeWorkerList fixture={fixture} />
+        <EditTimeWorkerList
+          applyToSchedules={applyToSchedules}
+          fixture={fixture}
+          onToggleApply={() => setApplyToSchedules((current) => !current)}
+        />
 
-      <DialogActions
-        cancelLabel={fixture.cancelLabel}
-        saveLabel={fixture.saveLabel}
-        onClose={onClose}
-      />
+        <DialogActions
+          cancelLabel={fixture.cancelLabel}
+          saveLabel={saving ? "저장 중" : fixture.saveLabel}
+          saveDisabled={saving}
+          saveType="submit"
+          onClose={onClose}
+        />
+      </form>
     </DialogShell>
   );
 }
@@ -1143,34 +1322,6 @@ function DialogShell({
         {children}
       </section>
     </div>
-  );
-}
-
-function DialogField({
-  field,
-  icon,
-}: {
-  field: DutyDialogField;
-  icon?: "search";
-}) {
-  return (
-    <label className="block">
-      <span className="text-h-18-semibold tracking-normal text-gray-900">
-        {field.label}
-        {field.required ? <span className="text-red-500"> *</span> : null}
-      </span>
-      <span className="mt-3 flex h-11 items-center gap-3 rounded-[8px] border border-gray-200 bg-gray-50 px-4">
-        <input
-          readOnly
-          value={field.value ?? ""}
-          placeholder={field.placeholder}
-          className="min-w-0 flex-1 bg-transparent text-h-18-regular tracking-normal text-gray-900 outline-none placeholder:text-gray-400"
-        />
-        {icon === "search" ? (
-          <Search className="size-6 shrink-0 text-green-400" strokeWidth={2.2} />
-        ) : null}
-      </span>
-    </label>
   );
 }
 
@@ -1461,52 +1612,14 @@ function DateField({
   );
 }
 
-function EditBasicTagRow({
-  fixture,
-}: {
-  fixture: DutyEditBasicDialogFixture;
-}) {
-  return (
-    <div>
-      <h3 className="text-h-18-semibold tracking-normal text-gray-900">
-        근무 태그
-      </h3>
-      <div className="mt-3 flex items-center gap-2">
-        {fixture.tags.map((tag) => {
-          const tone = toneConfig[tag.tone];
-
-          return (
-            <span
-              key={tag.id}
-              className={cn(
-                "inline-flex h-8 items-center gap-1.5 rounded-[4px] px-2 text-detail-16-semibold tracking-normal",
-                tone.variant === "orange"
-                  ? "bg-orange-100 text-orange-400"
-                  : "bg-green-100 text-green-400",
-              )}
-              style={tone.style}
-            >
-              {tag.label}
-              <X className="size-4" strokeWidth={2.4} />
-            </span>
-          );
-        })}
-        <button
-          type="button"
-          className="inline-flex h-8 items-center gap-1.5 rounded-[4px] bg-gray-100 px-2 text-detail-16-semibold tracking-normal text-gray-600"
-        >
-          {fixture.addTagLabel}
-          <Plus className="size-4" strokeWidth={2.4} />
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function EditTimeWorkerList({
+  applyToSchedules,
   fixture,
+  onToggleApply,
 }: {
+  applyToSchedules: boolean;
   fixture: DutyEditTimeDialogFixture;
+  onToggleApply: () => void;
 }) {
   return (
     <div className="mt-9">
@@ -1517,9 +1630,10 @@ function EditTimeWorkerList({
         <Button
           type="button"
           variant="secondary"
+          onClick={onToggleApply}
           className="h-[33px] rounded-[4px] px-3 tracking-normal"
         >
-          {fixture.applyScheduleLabel}
+          {applyToSchedules ? fixture.applyScheduleLabel : "근무 정의만 수정"}
         </Button>
       </div>
 
@@ -1539,7 +1653,10 @@ function EditTimeWorkerList({
             </div>
             <span
               aria-hidden="true"
-              className="flex size-5 shrink-0 items-center justify-center rounded-[2px] bg-green-400 text-white"
+              className={cn(
+                "flex size-5 shrink-0 items-center justify-center rounded-[2px] text-white",
+                applyToSchedules ? "bg-green-400" : "bg-gray-300",
+              )}
             >
               <Check className="size-4" strokeWidth={2.6} />
             </span>
@@ -1616,6 +1733,70 @@ function DialogActions({
       </Button>
     </div>
   );
+}
+
+function getLocationsForDuty(
+  locations: readonly DutyLocationOption[],
+  duty?: DutyListRow,
+): readonly DutyLocationOption[] {
+  if (!duty) {
+    return locations;
+  }
+
+  if (locations.some((location) => location.id === duty.locationId)) {
+    return locations;
+  }
+
+  const fallback = {
+    id: duty.locationId || `location-${duty.location}`,
+    label: duty.location,
+  };
+
+  return [fallback, ...locations];
+}
+
+function createDutyFormFromRow(
+  duty: DutyListRow | undefined,
+  locations: readonly DutyLocationOption[],
+): DutyFormState {
+  if (!duty) {
+    return initialDutyForm;
+  }
+
+  const [startTime = "", endTime = ""] = duty.time.split("~");
+  const locationId =
+    duty.locationId ??
+    locations.find((location) => location.label === duty.location)?.id ??
+    locations[0]?.id ??
+    "";
+
+  return {
+    endTime: duty.timeRows[0]?.endTime ?? endTime,
+    locationId,
+    name: duty.name,
+    operationEndDate: duty.operationEndDate ?? "",
+    operationStartDate: duty.operationStartDate ?? "",
+    startTime: duty.timeRows[0]?.startTime ?? startTime,
+    tagText: duty.tags.map((tag) => tag.label).join(", "),
+    weekday:
+      duty.weekdayValue ??
+      duty.timeRows[0]?.weekday ??
+      parseDutyWeekday(duty.weekday),
+  };
+}
+
+function parseDutyWeekday(value: string): DutyWeekday | "" {
+  const first = value.trim()[0];
+
+  return first === "월" ||
+    first === "화" ||
+    first === "수" ||
+    first === "목" ||
+    first === "금" ||
+    first === "토" ||
+    first === "일"
+    ? first
+    : "";
 }
 
 function getDutyTimelineToneClassName(tone: DutyTone) {

@@ -7,6 +7,7 @@ import { IconChevronLeft, IconNotice } from "@/shared/ui/icons";
 import { cn } from "@/shared/lib/utils";
 import {
   createScheduleApprovalDataSource,
+  type ApproveScheduleRequestInput,
   type ScheduleApprovalDataSource,
   type ScheduleApprovalViewModel,
 } from "../api/schedule-approval-data-source";
@@ -44,7 +45,9 @@ export function ScheduleApprovalScreen({
   const [selectedRequestId, setSelectedRequestId] = useState<string>();
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [loading, setLoading] = useState(!dataSource.initialData);
+  const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
   const selectedRequest = viewModel.rows.find(
     (request) => request.id === selectedRequestId,
   );
@@ -81,15 +84,59 @@ export function ScheduleApprovalScreen({
     return (
       <SelectedApprovalState
         approveLabel={viewModel.approveLabel}
+        errorMessage={errorMessage}
         request={selectedRequest}
         rejectDialogOpen={rejectDialogOpen}
         rejectLabel={viewModel.rejectLabel}
+        saving={saving}
+        statusMessage={statusMessage}
         onBack={() => {
           setSelectedRequestId(undefined);
           setRejectDialogOpen(false);
+          setErrorMessage("");
+          setStatusMessage("");
+        }}
+        onApprove={(input) => {
+          setSaving(true);
+          setErrorMessage("");
+          setStatusMessage("");
+
+          void dataSource
+            .approveRequest(input)
+            .then((nextViewModel) => {
+              setViewModel(nextViewModel);
+              setSelectedRequestId(undefined);
+              setRejectDialogOpen(false);
+              setStatusMessage("시간표 요청을 승인했습니다.");
+            })
+            .catch(() => {
+              setErrorMessage("시간표 요청을 승인하지 못했습니다.");
+            })
+            .finally(() => setSaving(false));
         }}
         onCloseRejectDialog={() => setRejectDialogOpen(false)}
         onOpenRejectDialog={() => setRejectDialogOpen(true)}
+        onReject={(reason) => {
+          setSaving(true);
+          setErrorMessage("");
+          setStatusMessage("");
+
+          void dataSource
+            .rejectRequest({
+              reason,
+              requestId: selectedRequest.id,
+            })
+            .then((nextViewModel) => {
+              setViewModel(nextViewModel);
+              setSelectedRequestId(undefined);
+              setRejectDialogOpen(false);
+              setStatusMessage("시간표 요청을 반려했습니다.");
+            })
+            .catch(() => {
+              setErrorMessage("시간표 요청을 반려하지 못했습니다.");
+            })
+            .finally(() => setSaving(false));
+        }}
       />
     );
   }
@@ -227,22 +274,51 @@ function RequestKindBadge({ row }: { row: ScheduleApprovalRequestRow }) {
 
 function SelectedApprovalState({
   approveLabel,
+  errorMessage,
+  onApprove,
   request,
   rejectDialogOpen,
   rejectLabel,
+  saving,
+  statusMessage,
   onBack,
   onCloseRejectDialog,
   onOpenRejectDialog,
+  onReject,
 }: {
   approveLabel: string;
+  errorMessage: string;
+  onApprove: (input: ApproveScheduleRequestInput) => void;
   request: ScheduleApprovalRequestRow;
   rejectDialogOpen: boolean;
   rejectLabel: string;
+  saving: boolean;
+  statusMessage: string;
   onBack: () => void;
   onCloseRejectDialog: () => void;
   onOpenRejectDialog: () => void;
+  onReject: (reason: string) => void;
 }) {
   const detail = request.selectedDetail;
+  const selectedBlock = detail.timelineBlocks[0];
+  const [adjustmentStartTime, setAdjustmentStartTime] = useState(
+    detail.adjustmentStartTime,
+  );
+  const [adjustmentEndTime, setAdjustmentEndTime] = useState(
+    detail.adjustmentEndTime,
+  );
+  const slotEdit =
+    selectedBlock?.sourceSlotIndex == null
+      ? undefined
+      : {
+          endTime: adjustmentEndTime,
+          sourceSlotIndex: selectedBlock.sourceSlotIndex,
+          startTime: adjustmentStartTime,
+        };
+  const timeInvalid =
+    !adjustmentStartTime ||
+    !adjustmentEndTime ||
+    adjustmentStartTime >= adjustmentEndTime;
 
   return (
     <section
@@ -274,8 +350,34 @@ function SelectedApprovalState({
             approveLabel={approveLabel}
             request={request}
             rejectLabel={rejectLabel}
+            saving={saving}
+            timeInvalid={timeInvalid}
+            onApprove={() => {
+              if (timeInvalid) {
+                return;
+              }
+
+              onApprove({
+                requestId: request.id,
+                slotEdits: slotEdit ? [slotEdit] : [],
+              });
+            }}
             onOpenRejectDialog={onOpenRejectDialog}
           />
+
+          {statusMessage || errorMessage ? (
+            <div
+              className={cn(
+                "rounded-[8px] border px-4 py-2.5 text-body-14-medium",
+                statusMessage
+                  ? "border-green-100 bg-green-50 text-green-500"
+                  : "border-red-100 bg-red-50 text-red-500",
+              )}
+              role={statusMessage ? "status" : "alert"}
+            >
+              {statusMessage || errorMessage}
+            </div>
+          ) : null}
 
           <div className="grid min-h-0 flex-1 grid-cols-[minmax(780px,1fr)_360px] gap-4">
             <section className="min-h-0 overflow-hidden rounded-[8px] bg-white p-4">
@@ -286,13 +388,40 @@ function SelectedApprovalState({
               />
             </section>
 
-            <TimeAdjustmentPanel detail={detail} />
+            <TimeAdjustmentPanel
+              detail={detail}
+              endTime={adjustmentEndTime}
+              saving={saving}
+              startTime={adjustmentStartTime}
+              timeInvalid={timeInvalid}
+              onReset={() => {
+                setAdjustmentStartTime(detail.adjustmentStartTime);
+                setAdjustmentEndTime(detail.adjustmentEndTime);
+              }}
+              onConfirm={() => {
+                if (timeInvalid) {
+                  return;
+                }
+
+                onApprove({
+                  requestId: request.id,
+                  slotEdits: slotEdit ? [slotEdit] : [],
+                });
+              }}
+              onUpdateEndTime={setAdjustmentEndTime}
+              onUpdateStartTime={setAdjustmentStartTime}
+            />
           </div>
         </div>
       </main>
 
       {rejectDialogOpen ? (
-        <RejectDialog detail={detail} onClose={onCloseRejectDialog} />
+        <RejectDialog
+          detail={detail}
+          saving={saving}
+          onClose={onCloseRejectDialog}
+          onReject={onReject}
+        />
       ) : null}
     </section>
   );
@@ -300,13 +429,19 @@ function SelectedApprovalState({
 
 function SelectedProfileHeader({
   approveLabel,
+  onApprove,
   request,
   rejectLabel,
+  saving,
+  timeInvalid,
   onOpenRejectDialog,
 }: {
   approveLabel: string;
+  onApprove: () => void;
   request: ScheduleApprovalRequestRow;
   rejectLabel: string;
+  saving: boolean;
+  timeInvalid: boolean;
   onOpenRejectDialog: () => void;
 }) {
   const detail = request.selectedDetail;
@@ -335,6 +470,7 @@ function SelectedProfileHeader({
           type="button"
           variant="danger"
           data-testid="schedule-approval-reject-trigger"
+          disabled={saving}
           onClick={onOpenRejectDialog}
           className="h-9 rounded-full px-4 tracking-normal"
         >
@@ -343,9 +479,11 @@ function SelectedProfileHeader({
         <Button
           type="button"
           variant="secondary"
+          disabled={saving || timeInvalid}
+          onClick={onApprove}
           className="h-9 rounded-full px-4 tracking-normal"
         >
-          {approveLabel}
+          {saving ? "처리 중" : approveLabel}
         </Button>
       </div>
     </section>
@@ -446,8 +584,24 @@ function TimelineBlock({
 
 function TimeAdjustmentPanel({
   detail,
+  endTime,
+  onConfirm,
+  onReset,
+  onUpdateEndTime,
+  onUpdateStartTime,
+  saving,
+  startTime,
+  timeInvalid,
 }: {
   detail: ScheduleApprovalRequestDetail;
+  endTime: string;
+  onConfirm: () => void;
+  onReset: () => void;
+  onUpdateEndTime: (value: string) => void;
+  onUpdateStartTime: (value: string) => void;
+  saving: boolean;
+  startTime: string;
+  timeInvalid: boolean;
 }) {
   return (
     <aside className="flex min-h-0 flex-col rounded-[8px] border border-gray-300 bg-white p-4">
@@ -469,9 +623,11 @@ function TimeAdjustmentPanel({
           시작 시간
         </span>
         <input
-          readOnly
-          value={detail.adjustmentStartTime}
-          className="mt-3 h-11 w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-400 outline-none"
+          type="time"
+          value={startTime}
+          disabled={saving}
+          onChange={(event) => onUpdateStartTime(event.target.value)}
+          className="mt-3 h-11 w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-900 outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:text-gray-400"
         />
       </label>
 
@@ -480,25 +636,37 @@ function TimeAdjustmentPanel({
           종료 시간
         </span>
         <input
-          readOnly
-          value={detail.adjustmentEndTime}
-          className="mt-3 h-11 w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-400 outline-none"
+          type="time"
+          value={endTime}
+          disabled={saving}
+          onChange={(event) => onUpdateEndTime(event.target.value)}
+          className="mt-3 h-11 w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-900 outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:text-gray-400"
         />
       </label>
+
+      {timeInvalid ? (
+        <p className="mt-2 text-label-12-medium text-red-500">
+          시작 시간과 종료 시간을 확인해 주세요.
+        </p>
+      ) : null}
 
       <div className="mt-auto flex justify-end gap-3">
         <Button
           type="button"
           variant="secondary"
+          disabled={saving}
+          onClick={onReset}
           className="h-11 rounded-[8px] px-6 tracking-normal"
         >
           취소
         </Button>
         <Button
           type="button"
+          disabled={saving || timeInvalid}
+          onClick={onConfirm}
           className="h-11 rounded-[8px] px-6 tracking-normal"
         >
-          시간 반영
+          {saving ? "처리 중" : "시간 반영 승인"}
         </Button>
       </div>
     </aside>
@@ -516,11 +684,17 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 function RejectDialog({
   detail,
+  onReject,
   onClose,
+  saving,
 }: {
   detail: ScheduleApprovalRequestDetail;
+  onReject: (reason: string) => void;
   onClose: () => void;
+  saving: boolean;
 }) {
+  const [reason, setReason] = useState("");
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
       <section
@@ -542,10 +716,11 @@ function RejectDialog({
             {detail.rejectDialog.reasonLabel}
           </span>
           <textarea
-            readOnly
-            value=""
+            value={reason}
+            disabled={saving}
+            onChange={(event) => setReason(event.target.value)}
             placeholder={detail.rejectDialog.reasonPlaceholder}
-            className="mt-3 h-[100px] w-full resize-none rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3 text-h-18-regular tracking-normal text-gray-900 outline-none placeholder:text-gray-400"
+            className="mt-3 h-[100px] w-full resize-none rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3 text-h-18-regular tracking-normal text-gray-900 outline-none placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-green-200 disabled:text-gray-500"
           />
         </label>
 
@@ -554,15 +729,18 @@ function RejectDialog({
             type="button"
             variant="secondary"
             onClick={onClose}
+            disabled={saving}
             className="h-11 rounded-[8px] px-6 tracking-normal"
           >
             취소
           </Button>
           <Button
             type="button"
+            disabled={saving}
+            onClick={() => onReject(reason.trim())}
             className="h-11 rounded-[8px] px-6 tracking-normal"
           >
-            {detail.rejectDialog.confirmLabel}
+            {saving ? "처리 중" : detail.rejectDialog.confirmLabel}
           </Button>
         </div>
       </section>

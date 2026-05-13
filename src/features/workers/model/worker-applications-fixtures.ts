@@ -1,9 +1,12 @@
 export type WorkerApplicationRow = {
   id: string;
+  membershipId?: string;
+  workerId?: string;
   name: string;
   phone: string;
   appliedAt: string;
   info?: WorkerApplicationInfo;
+  tagIds?: readonly string[];
   statusText?: string;
 };
 

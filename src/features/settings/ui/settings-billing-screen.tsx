@@ -18,7 +18,9 @@ export function SettingsBillingScreen() {
   const [fixture, setFixture] =
     useState<SettingsBillingFixture>(settingsBillingFixture);
   const [loading, setLoading] = useState(dataSource.mode !== "fixture");
+  const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -61,17 +63,67 @@ export function SettingsBillingScreen() {
         />
       ) : (
         <>
+          {statusMessage || errorMessage ? (
+            <div
+              className={cn(
+                "rounded-[8px] border px-4 py-2.5 text-body-14-medium",
+                statusMessage
+                  ? "border-green-100 bg-green-50 text-green-500"
+                  : "border-red-100 bg-red-50 text-red-500",
+              )}
+              role={statusMessage ? "status" : "alert"}
+            >
+              {statusMessage || errorMessage}
+            </div>
+          ) : null}
           <div className="grid grid-cols-2 gap-4">
             {fixture.plans.map((plan) => (
-              <BillingPlanCard key={plan.id} plan={plan} />
+              <BillingPlanCard
+                key={plan.id}
+                plan={plan}
+                saving={saving}
+                onSelectPlan={(planId) => {
+                  setSaving(true);
+                  setErrorMessage("");
+                  setStatusMessage("");
+
+                  void dataSource
+                    .updatePlan(planId)
+                    .then((nextFixture) => {
+                      setFixture(nextFixture);
+                      setStatusMessage("요금제를 변경했습니다.");
+                    })
+                    .catch(() => {
+                      setErrorMessage("요금제를 변경하지 못했습니다.");
+                    })
+                    .finally(() => setSaving(false));
+                }}
+              />
             ))}
           </div>
           <div className="flex justify-end">
             <button
               type="button"
+              disabled={saving}
+              onClick={() => {
+                setSaving(true);
+                setErrorMessage("");
+                setStatusMessage("");
+
+                void dataSource
+                  .cancelSubscription()
+                  .then((nextFixture) => {
+                    setFixture(nextFixture);
+                    setStatusMessage("구독을 취소하고 Starter로 전환했습니다.");
+                  })
+                  .catch(() => {
+                    setErrorMessage("구독을 취소하지 못했습니다.");
+                  })
+                  .finally(() => setSaving(false));
+              }}
               className="flex h-9 items-center justify-center rounded-full border border-red-100 bg-white px-4 text-h-18-regular font-medium text-red-500 transition-colors duration-150 ease-out hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-100"
             >
-              {fixture.cancelSubscriptionLabel}
+              {saving ? "처리 중" : fixture.cancelSubscriptionLabel}
             </button>
           </div>
         </>
@@ -97,7 +149,15 @@ function SettingsBillingState({
   );
 }
 
-function BillingPlanCard({ plan }: { plan: BillingPlan }) {
+function BillingPlanCard({
+  onSelectPlan,
+  plan,
+  saving,
+}: {
+  onSelectPlan: (planId: string) => void;
+  plan: BillingPlan;
+  saving: boolean;
+}) {
   return (
     <article
       className={cn(
@@ -155,7 +215,8 @@ function BillingPlanCard({ plan }: { plan: BillingPlan }) {
       <Button
         type="button"
         variant="secondary"
-        disabled={plan.current}
+        disabled={plan.current || saving}
+        onClick={() => onSelectPlan(plan.id)}
         className={cn(
           "mt-auto h-[40px] w-full rounded-[8px] px-4 text-h-18-semibold tracking-normal disabled:opacity-100",
           plan.current
@@ -163,7 +224,7 @@ function BillingPlanCard({ plan }: { plan: BillingPlan }) {
             : "border-gray-200 bg-white text-gray-900",
         )}
       >
-        {plan.actionLabel}
+        {saving && !plan.current ? "처리 중" : plan.actionLabel}
       </Button>
     </article>
   );

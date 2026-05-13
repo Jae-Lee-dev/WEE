@@ -7,6 +7,7 @@ import {
   query,
   runTransaction,
   serverTimestamp,
+  writeBatch,
   type DocumentData,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
@@ -31,12 +32,14 @@ import {
   type CreateDutyInput,
   type DutyLocationOption,
   type StoredDuty,
+  type UpdateDutyInput,
 } from "../model/duty-model";
 
 export type DutyDataSource = {
   listDuties: () => Promise<readonly DutyListRow[]>;
   listLocations: () => Promise<readonly DutyLocationOption[]>;
   createDuty: (input: CreateDutyInput) => Promise<DutyListRow>;
+  updateDuty: (input: UpdateDutyInput) => Promise<DutyListRow>;
 };
 
 type ScheduleVersionSlot = {
@@ -45,7 +48,7 @@ type ScheduleVersionSlot = {
   startTime: string;
   weekday: string;
   workerId: string;
-};
+} & Record<string, unknown>;
 
 export function createDutyDataSource(): DutyDataSource {
   if (shouldUseVisualMockDataSource()) {
@@ -56,8 +59,7 @@ export function createDutyDataSource(): DutyDataSource {
 }
 
 function createFirestoreDutyDataSource(): DutyDataSource {
-  return {
-    async listDuties() {
+  async function listDuties() {
       const workspaceId = await requireActiveWorkspaceId();
       const [dutiesSnapshot, scheduleVersionsSnapshot, workersSnapshot] =
         await Promise.all([
@@ -100,7 +102,10 @@ function createFirestoreDutyDataSource(): DutyDataSource {
           assignedWorkers,
         });
       });
-    },
+    }
+
+  return {
+    listDuties,
 
     async listLocations() {
       const workspaceId = await requireActiveWorkspaceId();
@@ -176,6 +181,74 @@ function createFirestoreDutyDataSource(): DutyDataSource {
 
       return result.row;
     },
+    async updateDuty(input) {
+      const workspaceId = await requireActiveWorkspaceId();
+      const db = getFirebaseDb();
+      const batch = writeBatch(db);
+      const dutyRef = doc(db, "workspaces", workspaceId, "duties", input.id);
+
+      batch.update(dutyRef, {
+        endTime: input.endTime,
+        locationId: input.locationId,
+        locationName: input.locationName,
+        name: input.name,
+        nameKey: input.nameKey,
+        operationEndDate: input.operationEndDate,
+        operationStartDate: input.operationStartDate,
+        startTime: input.startTime,
+        tags: [...input.tags],
+        updatedAt: serverTimestamp(),
+        weekday: input.weekday,
+      });
+
+      if (input.applyToSchedules) {
+        const scheduleVersionsSnapshot = await getDocs(
+          getScheduleVersionsCollection(workspaceId),
+        );
+
+        scheduleVersionsSnapshot.docs.forEach((version) => {
+          const data = version.data();
+
+          if (readString(data.status, "") !== "active") {
+            return;
+          }
+
+          const slots = readScheduleVersionSlots(data.slots);
+
+          if (!slots.some((slot) => slot.dutyId === input.id)) {
+            return;
+          }
+
+          batch.update(
+            doc(db, "workspaces", workspaceId, "scheduleVersions", version.id),
+            {
+              slots: slots.map((slot) =>
+                slot.dutyId === input.id
+                  ? {
+                      ...slot,
+                      endTime: input.endTime,
+                      startTime: input.startTime,
+                      weekday: input.weekday,
+                    }
+                  : slot,
+              ),
+              updatedAt: serverTimestamp(),
+            },
+          );
+        });
+      }
+
+      await batch.commit();
+
+      return (
+        (await listDuties()).find((duty) => duty.id === input.id) ??
+        createDutyListRow({
+          ...input,
+          assignedWorkerCount: 0,
+          manualStatus: "active",
+        })
+      );
+    },
   };
 }
 
@@ -209,6 +282,19 @@ function createMockDutyDataSource(): DutyDataSource {
       nextIndex += 1;
       duties = [row, ...duties];
       markWorkspaceSetupComplete();
+
+      return row;
+    },
+    async updateDuty(input) {
+      const previous = duties.find((duty) => duty.id === input.id);
+      const row = createDutyListRow({
+        ...input,
+        assignedWorkerCount: previous?.appliedWorkerCount ?? 0,
+        assignedWorkers: previous?.assignedWorkers,
+        manualStatus: "active",
+      });
+
+      duties = duties.map((duty) => (duty.id === input.id ? row : duty));
 
       return row;
     },
@@ -345,6 +431,7 @@ function readScheduleVersionSlots(value: unknown): ScheduleVersionSlot[] {
       }
 
       return {
+        ...record,
         dutyId,
         endTime: readString(record.endTime, ""),
         startTime: readString(record.startTime, ""),

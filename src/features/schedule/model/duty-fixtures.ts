@@ -22,9 +22,13 @@ export type DutyTimeRow = {
 export type DutyListRow = {
   id: string;
   name: string;
+  locationId?: string;
   location: string;
+  operationEndDate?: string | null;
   weekday: string;
+  weekdayValue?: DutyWeekday;
   time: string;
+  operationStartDate?: string | null;
   status: DutyStatus;
   statusTone: DutyTone;
   operationPeriod: string;

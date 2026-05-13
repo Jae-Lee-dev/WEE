@@ -40,6 +40,11 @@ export type CreateDutyInput = {
   operationEndDate: string | null;
 };
 
+export type UpdateDutyInput = CreateDutyInput & {
+  applyToSchedules: boolean;
+  id: string;
+};
+
 export type StoredDuty = CreateDutyInput & {
   id: string;
   assignedWorkerCount: number;
@@ -174,12 +179,16 @@ export function createDutyListRow(duty: StoredDuty): DutyListRow {
   return {
     id: duty.id,
     name: duty.name,
+    locationId: duty.locationId,
     location: duty.locationName,
     weekday: weekdayLabels[duty.weekday],
+    weekdayValue: duty.weekday,
     time,
     status,
     statusTone: getStatusTone(status),
     operationPeriod: formatOperationPeriod(duty),
+    operationStartDate: duty.operationStartDate,
+    operationEndDate: duty.operationEndDate,
     operationCountText: formatOperationCount(duty),
     appliedWorkerCount: duty.assignedWorkerCount,
     appliedWorkerCountText: `할당 조교 ${duty.assignedWorkerCount}명`,

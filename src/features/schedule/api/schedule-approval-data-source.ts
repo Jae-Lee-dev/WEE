@@ -1,12 +1,19 @@
 import {
   collection,
+  doc,
   getDocs,
+  serverTimestamp,
+  writeBatch,
   type DocumentData,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
 import { resolveActiveWorkspaceId } from "@/entities/workspace";
 import { readActiveWorkspaceId } from "@/entities/workspace";
-import { getFirebaseDb, isMockFirebaseProject } from "@/shared/api/firebase/client";
+import {
+  getFirebaseAuth,
+  getFirebaseDb,
+  isMockFirebaseProject,
+} from "@/shared/api/firebase/client";
 import {
   scheduleApprovalRequests,
   scheduleApprovalSummary,
@@ -26,8 +33,26 @@ export type ScheduleApprovalViewModel = {
 };
 
 export type ScheduleApprovalDataSource = {
+  approveRequest: (input: ApproveScheduleRequestInput) => Promise<ScheduleApprovalViewModel>;
   initialData?: ScheduleApprovalViewModel;
   listApprovalRequests: () => Promise<ScheduleApprovalViewModel>;
+  rejectRequest: (input: RejectScheduleRequestInput) => Promise<ScheduleApprovalViewModel>;
+};
+
+export type ApproveScheduleRequestInput = {
+  requestId: string;
+  slotEdits?: readonly ScheduleSlotEdit[];
+};
+
+export type RejectScheduleRequestInput = {
+  reason: string;
+  requestId: string;
+};
+
+export type ScheduleSlotEdit = {
+  endTime: string;
+  sourceSlotIndex: number;
+  startTime: string;
 };
 
 type FirestoreDocument = {
@@ -75,7 +100,7 @@ type ScheduleRequestSlot = {
   startTime: string;
   weekday: string;
   workerId: string;
-};
+} & Record<string, unknown>;
 
 const dayIdByKoreanWeekday: Record<string, ScheduleTimelineDayId> = {
   금: "fri",
@@ -96,64 +121,187 @@ export function createScheduleApprovalDataSource(): ScheduleApprovalDataSource {
 }
 
 function createFixtureScheduleApprovalDataSource(): ScheduleApprovalDataSource {
-  const initialData = getFixtureViewModel();
+  let viewModel = getFixtureViewModel();
 
   return {
-    initialData,
+    initialData: viewModel,
+    async approveRequest(input) {
+      viewModel = {
+        ...viewModel,
+        listCountText: String(
+          viewModel.rows.filter((row) => row.id !== input.requestId).length,
+        ),
+        rows: viewModel.rows.filter((row) => row.id !== input.requestId),
+      };
+
+      return viewModel;
+    },
     async listApprovalRequests() {
-      return initialData;
+      return viewModel;
+    },
+    async rejectRequest(input) {
+      viewModel = {
+        ...viewModel,
+        listCountText: String(
+          viewModel.rows.filter((row) => row.id !== input.requestId).length,
+        ),
+        rows: viewModel.rows.filter((row) => row.id !== input.requestId),
+      };
+
+      return viewModel;
     },
   };
 }
 
 function createFirestoreScheduleApprovalDataSource(): ScheduleApprovalDataSource {
-  return {
-    async listApprovalRequests() {
-      const workspaceId = await requireActiveWorkspaceId();
-      const [requests, duties, locations, workers, workerTags] = await Promise.all([
-        readWorkspaceCollection(workspaceId, "scheduleRequests"),
-        readWorkspaceCollection(workspaceId, "duties"),
-        readWorkspaceCollection(workspaceId, "locations"),
-        readWorkspaceCollection(workspaceId, "workers"),
-        readWorkspaceCollection(workspaceId, "workerTags"),
-      ]);
-      const locationNameById = new Map(
-        locations.map((location) => [
-          location.id,
-          readString(location.data.name, "근무지 미지정"),
-        ]),
-      );
-      const dutyById = new Map(
-        duties.map((duty) => {
-          const model = mapDutyDocument(duty, locationNameById);
+  async function listApprovalRequests() {
+    const workspaceId = await requireActiveWorkspaceId();
+    const [requests, duties, locations, workers, workerTags] = await Promise.all([
+      readWorkspaceCollection(workspaceId, "scheduleRequests"),
+      readWorkspaceCollection(workspaceId, "duties"),
+      readWorkspaceCollection(workspaceId, "locations"),
+      readWorkspaceCollection(workspaceId, "workers"),
+      readWorkspaceCollection(workspaceId, "workerTags"),
+    ]);
+    const locationNameById = new Map(
+      locations.map((location) => [
+        location.id,
+        readString(location.data.name, "근무지 미지정"),
+      ]),
+    );
+    const dutyById = new Map(
+      duties.map((duty) => {
+        const model = mapDutyDocument(duty, locationNameById);
 
-          return [model.id, model];
+        return [model.id, model];
+      }),
+    );
+    const workerById = new Map(
+      workers.map(mapWorkerDocument).map((worker) => [worker.id, worker]),
+    );
+    const workerTagById = new Map(
+      workerTags.map(mapWorkerTagDocument).map((tag) => [tag.id, tag]),
+    );
+    const rows = requests
+      .map(mapScheduleRequestDocument)
+      .filter((request) => isPendingScheduleRequest(request.status))
+      .sort(compareRequests)
+      .map((request) =>
+        mapRequestRow({
+          dutyById,
+          request,
+          worker: workerById.get(request.workerId),
+          workerTagById,
         }),
       );
-      const workerById = new Map(workers.map(mapWorkerDocument).map((worker) => [worker.id, worker]));
-      const workerTagById = new Map(
-        workerTags.map(mapWorkerTagDocument).map((tag) => [tag.id, tag]),
-      );
-      const rows = requests
-        .map(mapScheduleRequestDocument)
-        .filter((request) => isPendingScheduleRequest(request.status))
-        .sort(compareRequests)
-        .map((request) =>
-          mapRequestRow({
-            dutyById,
-            request,
-            worker: workerById.get(request.workerId),
-            workerTagById,
-          }),
-        );
 
-      return {
-        approveLabel: scheduleApprovalSummary.approveLabel,
-        listCountText: String(rows.length),
-        rejectLabel: scheduleApprovalSummary.rejectLabel,
-        rows,
-        selectedRequestId: rows[0]?.id ?? "",
-      };
+    return {
+      approveLabel: scheduleApprovalSummary.approveLabel,
+      listCountText: String(rows.length),
+      rejectLabel: scheduleApprovalSummary.rejectLabel,
+      rows,
+      selectedRequestId: rows[0]?.id ?? "",
+    };
+  }
+
+  return {
+    async approveRequest(input) {
+      const workspaceId = await requireActiveWorkspaceId();
+      const db = getFirebaseDb();
+      const [requests, versions] = await Promise.all([
+        readWorkspaceCollection(workspaceId, "scheduleRequests"),
+        readWorkspaceCollection(workspaceId, "scheduleVersions"),
+      ]);
+      const request = requests
+        .map(mapScheduleRequestDocument)
+        .find((item) => item.id === input.requestId);
+
+      if (!request) {
+        throw new Error("시간표 요청을 찾을 수 없습니다.");
+      }
+
+      const batch = writeBatch(db);
+      const decidedBy = getFirebaseAuth().currentUser?.uid ?? null;
+      const editedSlots = applySlotEdits(request.slots, input.slotEdits ?? []);
+      const activeVersions = versions.filter((version) => {
+        const data = version.data;
+
+        return (
+          readString(data.workerId, "") === request.workerId &&
+          readString(data.status, "") === "active"
+        );
+      });
+      const nextVersionNo =
+        activeVersions.reduce(
+          (max, version) => Math.max(max, readNumber(version.data.versionNo, 0)),
+          0,
+        ) + 1;
+      const today = getTodayDateKey();
+
+      activeVersions.forEach((version) => {
+        batch.update(doc(db, "workspaces", workspaceId, "scheduleVersions", version.id), {
+          activeTo: today,
+          status: "archived",
+          updatedAt: serverTimestamp(),
+        });
+      });
+      batch.update(doc(db, "workspaces", workspaceId, "scheduleRequests", input.requestId), {
+        approvedAt: serverTimestamp(),
+        decidedAt: serverTimestamp(),
+        decidedBy,
+        slots: editedSlots,
+        status: "approved",
+        updatedAt: serverTimestamp(),
+      });
+      batch.set(
+        doc(
+          db,
+          "workspaces",
+          workspaceId,
+          "scheduleVersions",
+          `schedule_version_${request.workerId}_${input.requestId}`,
+        ),
+        {
+          activeFrom: today,
+          activeTo: null,
+          approvedAt: serverTimestamp(),
+          createdAt: serverTimestamp(),
+          createdBy: decidedBy,
+          origin:
+            request.requestType === "change"
+              ? "worker_request_change"
+              : "worker_request",
+          requestId: input.requestId,
+          slots: editedSlots,
+          status: "active",
+          updatedAt: serverTimestamp(),
+          versionNo: nextVersionNo,
+          workerId: request.workerId,
+          workerName: request.workerName,
+          workspaceId,
+        },
+      );
+
+      await batch.commit();
+
+      return listApprovalRequests();
+    },
+    listApprovalRequests,
+    async rejectRequest(input) {
+      const workspaceId = await requireActiveWorkspaceId();
+      const db = getFirebaseDb();
+      const batch = writeBatch(db);
+
+      batch.update(doc(db, "workspaces", workspaceId, "scheduleRequests", input.requestId), {
+        decidedAt: serverTimestamp(),
+        decidedBy: getFirebaseAuth().currentUser?.uid ?? null,
+        rejectionReason: input.reason,
+        status: "rejected",
+        updatedAt: serverTimestamp(),
+      });
+      await batch.commit();
+
+      return listApprovalRequests();
     },
   };
 }
@@ -329,6 +477,7 @@ function mapTimelineBlock({
     endHour: parseHour(endTime, parseHour(startTime, 0) + 1),
     label: duty?.name ?? "근무 이름 없음",
     locationName: duty?.locationName ?? "근무지 미지정",
+    sourceSlotIndex: index,
     startHour: parseHour(startTime, 8),
     tagLabel,
     time: startTime && endTime ? `${startTime}~${endTime}` : "-",
@@ -421,6 +570,7 @@ function readSlots(value: unknown): ScheduleRequestSlot[] {
     const slot = readRecord(item);
 
     return {
+      ...slot,
       dutyId: readString(slot.dutyId, ""),
       endTime: readString(slot.endTime, ""),
       startTime: readString(slot.startTime, ""),
@@ -432,6 +582,10 @@ function readSlots(value: unknown): ScheduleRequestSlot[] {
 
 function readString(value: unknown, fallback: string) {
   return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+function readNumber(value: unknown, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
 function readStringArray(value: unknown) {
@@ -525,4 +679,29 @@ function getTime(date: Date | null) {
 
 function pad2(value: number) {
   return String(value).padStart(2, "0");
+}
+
+function applySlotEdits(
+  slots: readonly ScheduleRequestSlot[],
+  edits: readonly ScheduleSlotEdit[],
+) {
+  const editByIndex = new Map(edits.map((edit) => [edit.sourceSlotIndex, edit]));
+
+  return slots.map((slot, index) => {
+    const edit = editByIndex.get(index);
+
+    return edit
+      ? {
+          ...slot,
+          endTime: edit.endTime,
+          startTime: edit.startTime,
+        }
+      : slot;
+  });
+}
+
+function getTodayDateKey() {
+  const now = new Date();
+
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
 }
