@@ -57,7 +57,7 @@ test(`PAY-01 bonus-add ${desktop}`, async ({ page }) => {
   await expect(
     page.getByTestId("payroll-calculation-bonus-add-form"),
   ).toBeVisible();
-  await expect(page.getByText("예) 야근수당")).toBeVisible();
+  await expect(page.getByPlaceholder("예) 야근수당")).toBeVisible();
 
   await captureActualScreenshot({
     page,

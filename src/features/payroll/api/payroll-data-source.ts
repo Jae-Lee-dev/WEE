@@ -293,7 +293,7 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
 
       const workerMonthKey = getWorkerMonthKey(projection.workerId, projection.monthKey);
       const settings = collections.payrollSettings.map(mapPayrollSetting);
-      const settingByWorkerId = indexBy(settings, (setting) => setting.workerId);
+      const resolveSetting = createPayrollSettingResolver(settings);
       const bonusesByWorkerMonth = groupBy(
         collections.bonusItems.map(mapBonusItem).filter((bonus) => bonus.payrollStatus !== "deleted"),
         (bonus) => getWorkerMonthKey(bonus.workerId, bonus.monthKey),
@@ -311,11 +311,12 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
             item.workerId === projection.workerId &&
             item.monthKey === projection.monthKey,
         );
+      const setting = resolveSetting(projection.workerId, projection.monthKey);
       const amounts = calculateAmounts({
         bonuses: bonusesByWorkerMonth[workerMonthKey] ?? [],
         projection,
         records: recordsByWorkerMonth[workerMonthKey] ?? [],
-        setting: settingByWorkerId[projection.workerId],
+        setting,
         statement,
       });
       const statementId =
@@ -360,8 +361,7 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
               snapshot: {
                 finalAmount: amounts.finalAmount,
                 overtimePay: amounts.overtimePay,
-                payrollType:
-                  settingByWorkerId[projection.workerId]?.payrollType ?? "hourly",
+                payrollType: setting?.payrollType ?? "hourly",
                 taxAmount: amounts.taxAmount,
               },
               status: "processing",
@@ -489,7 +489,7 @@ function buildCalculationViewModel(
     mapCorrectionRequest,
   );
   const monthKey = selectCalculationMonthKey(projections, statements, target);
-  const settingByWorkerId = indexBy(settings, (setting) => setting.workerId);
+  const resolveSetting = createPayrollSettingResolver(settings);
   const statementById = indexBy(statements, (statement) => statement.id);
   const statementByWorkerMonth = indexBy(statements, (statement) =>
     getWorkerMonthKey(statement.workerId, statement.monthKey),
@@ -518,6 +518,7 @@ function buildCalculationViewModel(
         projection.workerId,
         projection.monthKey,
       );
+      const setting = resolveSetting(projection.workerId, projection.monthKey);
 
       return buildCalculationRow({
         anomalyFlags: anomaliesByWorkerMonth[workerMonthKey] ?? [],
@@ -526,7 +527,7 @@ function buildCalculationViewModel(
         overtimeWorks: overtimeByWorkerMonth[workerMonthKey] ?? [],
         projection,
         records: recordsByWorkerMonth[workerMonthKey] ?? [],
-        setting: settingByWorkerId[projection.workerId],
+        setting,
         statement:
           (projection.payStatementId
             ? statementById[projection.payStatementId]
@@ -543,6 +544,7 @@ function buildCalculationViewModel(
         (projection.payStatementId
           ? statementById[projection.payStatementId]
           : undefined) ?? statementByWorkerMonth[workerMonthKey];
+      const setting = resolveSetting(projection.workerId, projection.monthKey);
 
       return [
         projection.id,
@@ -553,7 +555,7 @@ function buildCalculationViewModel(
           overtimeWorks: overtimeByWorkerMonth[workerMonthKey] ?? [],
           projection,
           records: recordsByWorkerMonth[workerMonthKey] ?? [],
-          setting: settingByWorkerId[projection.workerId],
+          setting,
           statement,
         }),
       ];
@@ -796,19 +798,23 @@ function calculateAmounts({
   const preTaxAdjustment = sumBonusesByTaxScope(bonuses, "pre_tax");
   const postTaxAdjustment = sumBonusesByTaxScope(bonuses, "post_tax");
   const taxableSubtotal = (basePay ?? 0) + overtimePay + preTaxAdjustment;
-  const taxAmount =
-    statement?.taxAmount ??
-    Math.max(
-      Math.round(taxableSubtotal * ((setting?.taxRatePercent ?? 0) / 100)),
-      0,
-    );
+  const lockedStatement =
+    projection.rowStatus === "paid" ? statement : undefined;
+  const taxAmount = lockedStatement
+    ? lockedStatement.taxAmount
+    : Math.max(
+        Math.round(taxableSubtotal * ((setting?.taxRatePercent ?? 0) / 100)),
+        0,
+      );
   const calculatedFinalAmount =
     taxableSubtotal - taxAmount + postTaxAdjustment;
-  const finalAmount =
-    projection.finalAmount ??
-    statement?.currentFinalAmount ??
-    statement?.finalAmount ??
-    (basePay == null ? null : Math.max(Math.round(calculatedFinalAmount), 0));
+  const calculatedFinalAmountOrNull =
+    basePay == null ? null : Math.max(Math.round(calculatedFinalAmount), 0);
+  const finalAmount = resolveCalculationFinalAmount({
+    calculatedFinalAmount: calculatedFinalAmountOrNull,
+    projection,
+    statement,
+  });
 
   return {
     basePay,
@@ -819,6 +825,30 @@ function calculateAmounts({
     taxAmount,
     totalWorkMinutes,
   };
+}
+
+function resolveCalculationFinalAmount({
+  calculatedFinalAmount,
+  projection,
+  statement,
+}: {
+  calculatedFinalAmount: number | null;
+  projection: PayrollWorkerMonthProjection;
+  statement?: PayStatement;
+}) {
+  if (projection.rowStatus === "paid") {
+    return (
+      statement?.finalAmount ?? projection.finalAmount ?? calculatedFinalAmount
+    );
+  }
+
+  return (
+    calculatedFinalAmount ??
+    projection.finalAmount ??
+    statement?.currentFinalAmount ??
+    statement?.finalAmount ??
+    null
+  );
 }
 
 function buildCalculationLines({
@@ -1368,7 +1398,7 @@ function buildStatementViewModel(
   const projectionByWorkerMonth = indexBy(projections, (row) =>
     getWorkerMonthKey(row.workerId, row.monthKey),
   );
-  const settingByWorkerId = indexBy(settings, (setting) => setting.workerId);
+  const resolveSetting = createPayrollSettingResolver(settings);
   const rowsForMonth = statements
     .filter((statement) => statement.monthKey === monthKey)
     .sort(compareStatements);
@@ -1389,7 +1419,7 @@ function buildStatementViewModel(
           projectionByWorkerMonth[
             getWorkerMonthKey(statement.workerId, statement.monthKey)
           ],
-        setting: settingByWorkerId[statement.workerId],
+        setting: resolveSetting(statement.workerId, statement.monthKey),
         statement,
       }),
     ]),
@@ -1764,6 +1794,38 @@ function mapDocument(
     data: snapshot.data() as Record<string, unknown>,
     id: snapshot.id,
   };
+}
+
+function createPayrollSettingResolver(settings: readonly PayrollSetting[]) {
+  const settingsByWorkerId = groupBy(settings, (setting) => setting.workerId);
+
+  return (workerId: string, monthKey: string) =>
+    findPayrollSettingForMonth(settingsByWorkerId[workerId] ?? [], monthKey);
+}
+
+function findPayrollSettingForMonth(
+  settings: readonly PayrollSetting[],
+  monthKey: string,
+) {
+  const monthEndKey = getMonthEndDateKey(monthKey);
+
+  return settings
+    .filter(
+      (setting) =>
+        !setting.effectiveFrom || setting.effectiveFrom <= monthEndKey,
+    )
+    .sort(comparePayrollSettings)[0];
+}
+
+function comparePayrollSettings(left: PayrollSetting, right: PayrollSetting) {
+  return (right.effectiveFrom ?? "").localeCompare(left.effectiveFrom ?? "");
+}
+
+function getMonthEndDateKey(monthKey: string) {
+  const [year, month] = splitMonthKey(monthKey);
+  const lastDay = new Date(Number(year), Number(month), 0).getDate();
+
+  return `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
 }
 
 function selectCalculationMonthKey(
