@@ -803,8 +803,8 @@ function WorkerTagDetailPanel({
       data-testid="worker-tags-detail-panel"
       data-worker-tags-panel-mode={mode}
     >
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4">
-        <div className="flex items-start justify-between gap-3">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pt-4">
+        <div className="flex shrink-0 items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-h-20 text-gray-900">{title}</h2>
             <p className="mt-1 text-h-16-medium tracking-normal text-gray-500">
@@ -815,7 +815,7 @@ function WorkerTagDetailPanel({
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-[minmax(0,1fr)_124px_124px] gap-3">
+        <div className="mt-5 grid shrink-0 grid-cols-[minmax(0,1fr)_124px_124px] gap-3">
           <label className="block">
             <span className="text-h-18-semibold text-gray-900">태그명</span>
             <Input
@@ -854,7 +854,7 @@ function WorkerTagDetailPanel({
           </label>
         </div>
 
-        <div className="mt-6">
+        <div className="mt-6 shrink-0">
           <div className="flex items-center gap-2">
             <h3 className="text-h-18-semibold text-gray-900">
               {editable ? "적용 대상" : "현재 적용된 조교"}
@@ -876,7 +876,7 @@ function WorkerTagDetailPanel({
         </div>
 
         <div
-          className="mt-4 max-h-70 overflow-y-auto rounded-[8px] border border-gray-100"
+          className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-[8px] border border-gray-100"
           data-testid="worker-tags-assignment-list"
         >
           {assignmentLoading ? (
@@ -911,7 +911,7 @@ function WorkerTagDetailPanel({
 
         {confirmingDelete && tag ? (
           <div
-            className="mt-4 rounded-[8px] border border-red-100 bg-red-50 p-4"
+            className="mt-4 shrink-0 rounded-[8px] border border-red-100 bg-red-50 p-4"
             data-testid="worker-tags-delete-confirm"
           >
             <h3 className="text-h-18-semibold text-red-500">
@@ -946,7 +946,10 @@ function WorkerTagDetailPanel({
         ) : null}
       </div>
 
-      <div className="mt-auto flex h-16 shrink-0 items-center justify-end gap-3 px-4 pb-4 pt-4">
+      <div
+        className="mt-auto flex h-16 shrink-0 items-center justify-end gap-3 px-4 pb-4 pt-4"
+        data-testid="worker-tags-detail-actions"
+      >
         {mode === "view" && tag ? (
           <>
             <Button

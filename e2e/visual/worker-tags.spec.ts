@@ -38,6 +38,27 @@ test(`WKR-06 edit-tag-panel ${desktop}`, async ({ page }) => {
     "overflow-y",
     "auto",
   );
+  const assignmentListGap = await panel.evaluate((root) => {
+    const assignmentList = root.querySelector(
+      '[data-testid="worker-tags-assignment-list"]',
+    );
+    const actions = root.querySelector(
+      '[data-testid="worker-tags-detail-actions"]',
+    );
+
+    if (
+      !(assignmentList instanceof HTMLElement) ||
+      !(actions instanceof HTMLElement)
+    ) {
+      throw new Error("worker tag assignment layout nodes not found");
+    }
+
+    return Math.round(
+      actions.getBoundingClientRect().top -
+        assignmentList.getBoundingClientRect().bottom,
+    );
+  });
+  expect(assignmentListGap).toBeLessThanOrEqual(1);
 
   const controlHeights = await panel.evaluate((root) => {
     const controls = ["태그명", "색상", "상태"].map((label) => {
