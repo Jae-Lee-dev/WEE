@@ -51,6 +51,7 @@ type AdminShellAccount = {
   managerEmail: string | null;
   managerName: string;
   managerRole: string;
+  workspaceCode: string | null;
   workspaceName: string;
 };
 
@@ -58,18 +59,20 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "/";
   const currentSection = findSectionByPath(pathname);
   const workerDetail = isWorkerDetailPath(pathname);
+  const account = useAdminShellAccount();
 
   return (
     <div
       className="flex h-screen min-w-[1040px] overflow-hidden bg-gray-100 text-gray-900"
       data-admin-shell="compact"
     >
-      <AdminSidebar currentSection={currentSection} />
+      <AdminSidebar account={account} currentSection={currentSection} />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-gray-100">
         <AdminHeader
           title={workerDetail ? "조교 상세" : currentSection.label}
           backHref={workerDetail ? "/workers" : undefined}
-          showInviteCodeAction={currentSection.key === "workers"}
+          inviteCode={account.workspaceCode}
+          isInviteCodeLoading={account.isLoading}
         />
         {workerDetail ? null : (
           <SectionTabs pathname={pathname} tabs={currentSection.tabs} />
@@ -94,12 +97,13 @@ function isWorkerDetailPath(pathname: string) {
 }
 
 function AdminSidebar({
+  account,
   currentSection,
 }: {
+  account: AdminShellAccount;
   currentSection: AdminSection;
 }) {
   const router = useRouter();
-  const account = useAdminShellAccount();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   async function handleLogout() {
@@ -240,6 +244,7 @@ function useAdminShellAccount() {
     managerEmail: null,
     managerName: loadingManagerName,
     managerRole: managerRoleLabel,
+    workspaceCode: null,
     workspaceName: loadingWorkspaceName,
   });
 
@@ -256,6 +261,7 @@ function useAdminShellAccount() {
         managerEmail: authProfile.managerEmail,
         managerName: authProfile.managerName,
         managerRole: managerRoleLabel,
+        workspaceCode: null,
         workspaceName: loadingWorkspaceName,
       });
 
@@ -273,6 +279,7 @@ function useAdminShellAccount() {
               normalizeDisplayText(workspace.managerName) ??
               authProfile.managerName,
             managerRole: managerRoleLabel,
+            workspaceCode: normalizeDisplayText(workspace.code),
             workspaceName:
               normalizeDisplayText(workspace.name) ?? fallbackWorkspaceName,
           });
@@ -287,6 +294,7 @@ function useAdminShellAccount() {
             managerEmail: authProfile.managerEmail,
             managerName: authProfile.managerName,
             managerRole: managerRoleLabel,
+            workspaceCode: null,
             workspaceName: fallbackWorkspaceName,
           });
         });
@@ -399,12 +407,57 @@ function SidebarIcon({ name }: { name: AdminIconName }) {
 function AdminHeader({
   title,
   backHref,
-  showInviteCodeAction,
+  inviteCode,
+  isInviteCodeLoading,
 }: {
   title: string;
   backHref?: string;
-  showInviteCodeAction: boolean;
+  inviteCode: string | null;
+  isInviteCodeLoading: boolean;
 }) {
+  const [inviteCodeCopyStatus, setInviteCodeCopyStatus] = useState<{
+    code: string | null;
+    result: "idle" | "copied" | "failed";
+  }>({ code: null, result: "idle" });
+  const canCopyInviteCode = Boolean(inviteCode) && !isInviteCodeLoading;
+  const currentInviteCodeCopyResult =
+    inviteCodeCopyStatus.code === inviteCode
+      ? inviteCodeCopyStatus.result
+      : "idle";
+
+  useEffect(() => {
+    if (currentInviteCodeCopyResult === "idle") {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setInviteCodeCopyStatus({ code: null, result: "idle" });
+    }, 1600);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [currentInviteCodeCopyResult]);
+
+  async function handleInviteCodeCopy() {
+    if (!inviteCode || isInviteCodeLoading) {
+      return;
+    }
+
+    const copied = await copyTextToClipboard(inviteCode);
+    setInviteCodeCopyStatus({
+      code: inviteCode,
+      result: copied ? "copied" : "failed",
+    });
+  }
+
+  const inviteCodeButtonLabel =
+    currentInviteCodeCopyResult === "copied"
+      ? "복사됨"
+      : currentInviteCodeCopyResult === "failed"
+        ? "복사 실패"
+        : "참여 코드 복사";
+
   return (
     <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4">
       <div className="flex items-center gap-3">
@@ -420,18 +473,60 @@ function AdminHeader({
         <h1 className="text-h-18-semibold text-gray-900">{title}</h1>
       </div>
       <div className="flex items-center gap-4">
-        {showInviteCodeAction ? (
-          <button
-            type="button"
-            className="flex h-9 items-center justify-center rounded-full border border-gray-200 bg-white px-3.5 text-h-16-medium text-gray-700 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
-          >
-            참여 코드 복사
-          </button>
-        ) : null}
+        <button
+          type="button"
+          aria-disabled={canCopyInviteCode ? undefined : true}
+          aria-live="polite"
+          className={`flex h-9 items-center justify-center rounded-full border border-gray-200 bg-white px-3.5 text-h-16-medium text-gray-700 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 ${
+            canCopyInviteCode
+              ? "hover:border-gray-300 hover:bg-gray-50"
+              : "cursor-not-allowed opacity-60"
+          }`}
+          data-testid="admin-header-invite-code-copy"
+          disabled={!canCopyInviteCode}
+          onClick={() => {
+            void handleInviteCodeCopy();
+          }}
+        >
+          {inviteCodeButtonLabel}
+        </button>
         <HeaderNotificationSlot />
       </div>
     </header>
   );
+}
+
+async function copyTextToClipboard(text: string) {
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall through to the textarea fallback below.
+    }
+  }
+
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.left = "-9999px";
+  textarea.style.position = "fixed";
+  textarea.style.top = "0";
+  document.body.append(textarea);
+  textarea.focus();
+  textarea.select();
+
+  try {
+    return document.execCommand("copy");
+  } catch {
+    return false;
+  } finally {
+    textarea.remove();
+  }
 }
 
 function SectionTabs({

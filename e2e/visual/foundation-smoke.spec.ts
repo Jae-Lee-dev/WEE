@@ -138,3 +138,31 @@ test("admin shell account menu can log out", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/login$/);
 });
+
+test("admin shell copies invite code from topbar outside workers", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window.navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (text: string) => {
+          window.localStorage.setItem("wee.test.clipboard", text);
+        },
+      },
+    });
+  });
+  await prepareVisualPage({ page, path: "/dashboard", viewport: "laptop-1366" });
+
+  const copyButton = page.getByTestId("admin-header-invite-code-copy");
+  await expect(copyButton).toBeEnabled();
+  await expect(copyButton).toHaveText("참여 코드 복사");
+  await copyButton.click();
+
+  await expect(copyButton).toHaveText("복사됨");
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.localStorage.getItem("wee.test.clipboard")),
+    )
+    .toBe("WEE-ABC123");
+});
