@@ -567,34 +567,15 @@ function AdminHeader({
         >
           <span
             aria-hidden="true"
-            className="relative size-4 shrink-0 overflow-visible"
+            className="flex size-4 shrink-0 items-center justify-center"
           >
-            <Copy
-              className={`absolute inset-0 size-4 transform-gpu ${
-                currentInviteCodeCopyResult === "copied"
-                  ? "admin-invite-copy-success-out"
-                  : currentInviteCodeCopyResult === "failed"
-                    ? "admin-invite-copy-failure-out"
-                    : "scale-100 rotate-0 opacity-100"
-              }`}
-              strokeWidth={2.2}
-            />
-            <Check
-              className={`absolute inset-0 size-4 transform-gpu text-green-400 ${
-                currentInviteCodeCopyResult === "copied"
-                  ? "admin-invite-check-spin-in"
-                  : "scale-0 -rotate-180 opacity-0"
-              }`}
-              strokeWidth={2.6}
-            />
-            <X
-              className={`absolute inset-0 size-4 transform-gpu text-red-500 ${
-                currentInviteCodeCopyResult === "failed"
-                  ? "admin-invite-x-spin-in"
-                  : "scale-0 rotate-180 opacity-0"
-              }`}
-              strokeWidth={2.6}
-            />
+            {currentInviteCodeCopyResult === "copied" ? (
+              <Check className="size-4 text-green-400" strokeWidth={2.6} />
+            ) : currentInviteCodeCopyResult === "failed" ? (
+              <X className="size-4 text-red-500" strokeWidth={2.6} />
+            ) : (
+              <Copy className="size-4" strokeWidth={2.2} />
+            )}
           </span>
           <span>참여 코드 복사</span>
         </button>
