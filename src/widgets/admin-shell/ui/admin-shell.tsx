@@ -481,30 +481,30 @@ function AdminHeader({
             void handleInviteCodeCopy();
           }}
         >
-          <span>참여 코드 복사</span>
           <span
             aria-hidden="true"
-            className="relative size-4 shrink-0 overflow-hidden"
+            className="relative size-4 shrink-0 overflow-visible"
           >
             <Copy
-              className={`absolute inset-0 size-4 transition-all duration-200 ease-out ${
+              className={`absolute inset-0 size-4 transform-gpu transition-[opacity,transform] duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none ${
                 currentInviteCodeCopyResult === "copied"
-                  ? "scale-75 rotate-6 opacity-0"
+                  ? "scale-0 rotate-180 opacity-0"
                   : currentInviteCodeCopyResult === "failed"
-                    ? "scale-100 text-red-500 opacity-100"
+                    ? "scale-100 rotate-0 text-red-500 opacity-100"
                     : "scale-100 rotate-0 opacity-100"
               }`}
               strokeWidth={2.2}
             />
             <Check
-              className={`absolute inset-0 size-4 text-green-400 transition-all duration-200 ease-out ${
+              className={`absolute inset-0 size-4 transform-gpu text-green-400 transition-[opacity,transform] duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none ${
                 currentInviteCodeCopyResult === "copied"
                   ? "scale-100 rotate-0 opacity-100"
-                  : "scale-50 -rotate-12 opacity-0"
+                  : "scale-0 -rotate-180 opacity-0"
               }`}
               strokeWidth={2.6}
             />
           </span>
+          <span>참여 코드 복사</span>
         </button>
         <span
           aria-live="polite"
