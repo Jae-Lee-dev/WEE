@@ -746,7 +746,7 @@ function WorkerTagDetailPanel({
 
   if (loading) {
     return (
-      <aside className="flex min-w-0 items-center justify-center rounded-[8px] border border-gray-200 bg-white px-6 text-center">
+      <aside className="flex min-w-0 items-center justify-center rounded-[8px] bg-white px-6 text-center">
         <p className="text-h-18-regular text-gray-400">
           태그 정보를 불러오는 중입니다.
         </p>
@@ -756,7 +756,7 @@ function WorkerTagDetailPanel({
 
   if (!tag) {
     return (
-      <aside className="flex min-w-0 items-center justify-center rounded-[8px] border border-gray-200 bg-white px-6 text-center">
+      <aside className="flex min-w-0 items-center justify-center rounded-[8px] bg-white px-6 text-center">
         <p className="text-h-18-regular text-gray-400">
           태그를 선택하면 상세와 적용 조교가 표시됩니다.
         </p>
@@ -803,7 +803,7 @@ function WorkerTagDetailPanel({
   return (
     <>
       <aside
-        className="flex min-w-0 flex-col overflow-hidden rounded-[8px] border border-gray-200 bg-white"
+        className="flex min-w-0 flex-col overflow-hidden rounded-[8px] bg-white"
         data-testid="worker-tags-detail-panel"
         data-worker-tags-panel-mode={mode}
       >

@@ -32,6 +32,11 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
       );
     });
     expect(statusColumnOffset).toBeLessThanOrEqual(1);
+    const detailPanel = page.getByTestId("worker-tags-detail-panel");
+    await expect(detailPanel).toHaveCSS("border-top-width", "0px");
+    await expect(detailPanel).toHaveCSS("border-right-width", "0px");
+    await expect(detailPanel).toHaveCSS("border-bottom-width", "0px");
+    await expect(detailPanel).toHaveCSS("border-left-width", "0px");
 
     await captureActualScreenshot({
       page,
