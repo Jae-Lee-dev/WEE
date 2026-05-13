@@ -46,15 +46,11 @@ function WeeToastSurface({
     <div
       data-slot="wee-toast"
       className={cn(
-        "relative inline-flex items-center justify-center overflow-hidden rounded-full px-4 py-2 shadow-[0_0_7px_rgba(0,0,0,0.05)]",
+        "relative inline-flex items-center justify-center overflow-hidden rounded-full bg-green-400 px-4 py-2 text-white shadow-[0_0_7px_rgba(0,0,0,0.05)]",
         className,
       )}
       {...props}
     >
-      <span
-        aria-hidden="true"
-        className="absolute inset-0 rounded-full bg-gray-500 mix-blend-multiply backdrop-blur-[4px]"
-      />
       <span className="relative whitespace-nowrap text-body-14-medium text-white">
         {children}
       </span>
@@ -100,7 +96,7 @@ function showWeeCompactToast({
     {
       duration,
       id: WEE_COMPACT_TOAST_ID,
-      position: "bottom-center",
+      position: "top-right",
       testId: "wee-toast",
       ...options,
     }

@@ -17,6 +17,7 @@ const Toaster = ({ style, toastOptions, ...props }: ToasterProps) => {
       closeButton
       containerAriaLabel="알림"
       duration={DEFAULT_TOAST_DURATION_MS}
+      position="top-right"
       visibleToasts={1}
       icons={{
         success: (

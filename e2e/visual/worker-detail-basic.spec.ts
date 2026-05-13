@@ -204,8 +204,19 @@ test("WKR-03 edits worker info in dialog", async ({ page }) => {
   await saveButton.click();
 
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByTestId("wee-toast")).toContainText(
+  const toast = page.getByTestId("wee-toast");
+  await expect(toast).toContainText(
     "조교 정보를 수정했습니다.",
+  );
+  await expect(toast).toHaveAttribute("data-x-position", "right");
+  await expect(toast).toHaveAttribute("data-y-position", "top");
+  await expect(toast.locator("[data-slot='wee-toast']")).toHaveCSS(
+    "background-color",
+    "rgb(48, 193, 121)",
+  );
+  await expect(toast.locator("[data-slot='wee-toast']")).toHaveCSS(
+    "color",
+    "rgb(254, 254, 254)",
   );
   await expect(page.getByTestId("worker-detail-basic-screen")).toContainText(
     "김서연 수정",
