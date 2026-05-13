@@ -25,6 +25,8 @@ type BadgeToneConfig = {
   style?: CSSProperties;
 };
 
+type WorkerTagPanelMode = "view" | "edit" | "create";
+
 const tagToneConfig: Record<WorkerTagTone, BadgeToneConfig> = {
   green: {
     variant: "green",
@@ -65,20 +67,21 @@ export function WorkerTagsScreen({
 } = {}) {
   const fallbackDataSource = useMemo(() => createWorkerTagsDataSource(), []);
   const dataSource = dataSourceProp ?? fallbackDataSource;
-  const [rows, setRows] = useState<readonly WorkerTagRow[]>(
-    dataSource.initialRows ?? emptyWorkerTagRows,
+  const initialRows = dataSource.initialRows ?? emptyWorkerTagRows;
+  const [rows, setRows] = useState<readonly WorkerTagRow[]>(initialRows);
+  const [selectedTagId, setSelectedTagId] = useState<string | null>(
+    initialRows[0]?.id ?? null,
   );
-  const [editingTag, setEditingTag] = useState<WorkerTagRow | "create" | null>(
-    null,
-  );
-  const [deleteCandidate, setDeleteCandidate] = useState<WorkerTagRow | null>(
-    null,
+  const [panelMode, setPanelMode] = useState<WorkerTagPanelMode>(
+    dataSource.initialRows ? (initialRows[0] ? "view" : "create") : "view",
   );
   const [loading, setLoading] = useState(!dataSource.initialRows);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+  const selectedTag =
+    rows.find((row) => row.id === selectedTagId) ?? rows[0] ?? null;
 
   useEffect(() => {
     let active = true;
@@ -91,6 +94,20 @@ export function WorkerTagsScreen({
         }
 
         setRows(nextRows);
+        setSelectedTagId((currentId) => {
+          if (currentId && nextRows.some((row) => row.id === currentId)) {
+            return currentId;
+          }
+
+          return nextRows[0]?.id ?? null;
+        });
+        setPanelMode((currentMode) => {
+          if (currentMode === "create" && !nextRows.length) {
+            return "create";
+          }
+
+          return nextRows.length > 0 ? "view" : "create";
+        });
         setErrorMessage("");
         setLoading(false);
       })
@@ -108,6 +125,57 @@ export function WorkerTagsScreen({
     };
   }, [dataSource]);
 
+  const handleSelectTag = (tag: WorkerTagRow) => {
+    if (saving || deleting) {
+      return;
+    }
+
+    setSelectedTagId(tag.id);
+    setPanelMode("view");
+    setStatusMessage("");
+    setErrorMessage("");
+  };
+
+  const handleStartCreate = () => {
+    if (saving || deleting) {
+      return;
+    }
+
+    setSelectedTagId(null);
+    setPanelMode("create");
+    setStatusMessage("");
+    setErrorMessage("");
+  };
+
+  const handleStartEdit = () => {
+    if (!selectedTag || saving || deleting) {
+      return;
+    }
+
+    setSelectedTagId(selectedTag.id);
+    setPanelMode("edit");
+    setStatusMessage("");
+    setErrorMessage("");
+  };
+
+  const handleCancelPanel = () => {
+    if (saving || deleting) {
+      return;
+    }
+
+    setStatusMessage("");
+    setErrorMessage("");
+
+    if (selectedTag) {
+      setSelectedTagId(selectedTag.id);
+      setPanelMode("view");
+      return;
+    }
+
+    setSelectedTagId(rows[0]?.id ?? null);
+    setPanelMode(rows[0] ? "view" : "create");
+  };
+
   const handleSaveTag = async (
     input: WorkerTagSaveInput,
     currentTag?: WorkerTagRow,
@@ -123,15 +191,17 @@ export function WorkerTagsScreen({
         setRows((currentRows) =>
           currentRows.map((row) => (row.id === tag.id ? tag : row)),
         );
+        setSelectedTagId(tag.id);
+        setPanelMode("view");
         setStatusMessage(`${tag.label} 근무자 태그를 수정했습니다.`);
       } else {
         const tag = await dataSource.createWorkerTag(input);
 
         setRows((currentRows) => [tag, ...currentRows]);
+        setSelectedTagId(tag.id);
+        setPanelMode("view");
         setStatusMessage(`${tag.label} 근무자 태그를 추가했습니다.`);
       }
-
-      setEditingTag(null);
     } catch {
       setErrorMessage("근무자 태그를 저장하지 못했습니다.");
     } finally {
@@ -146,9 +216,13 @@ export function WorkerTagsScreen({
 
     try {
       await dataSource.deleteWorkerTag(tag);
-      setRows((currentRows) => currentRows.filter((row) => row.id !== tag.id));
+
+      const nextRows = rows.filter((row) => row.id !== tag.id);
+
+      setRows(nextRows);
+      setSelectedTagId(nextRows[0]?.id ?? null);
+      setPanelMode(nextRows[0] ? "view" : "create");
       setStatusMessage(`${tag.label} 근무자 태그를 삭제했습니다.`);
-      setDeleteCandidate(null);
     } catch {
       setErrorMessage("근무자 태그를 삭제하지 못했습니다.");
     } finally {
@@ -157,26 +231,15 @@ export function WorkerTagsScreen({
   };
 
   return (
-    <section className="min-h-[560px] rounded-[8px] bg-white p-4">
-      <div className="flex h-9 items-center justify-between">
-        <h2 className="text-h-20 text-gray-900">근무자 태그 관리</h2>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => {
-            setStatusMessage("");
-            setEditingTag("create");
-          }}
-          className="h-9 rounded-full px-4"
-        >
-          태그 추가
-        </Button>
-      </div>
-
+    <section
+      aria-label="근무자 태그 관리"
+      className="flex h-[calc(100vh-144px)] min-h-[560px] w-full flex-col gap-4"
+      data-testid="worker-tags-screen"
+    >
       {statusMessage || errorMessage ? (
         <div
           className={cn(
-            "mt-4 min-h-9 rounded-[8px] border px-4 py-2.5 text-body-14-medium tracking-normal",
+            "min-h-9 rounded-[8px] border px-4 py-2.5 text-body-14-medium tracking-normal",
             statusMessage
               ? "border-green-100 bg-green-50 text-green-500"
               : "border-red-100 bg-red-50 text-red-500",
@@ -187,53 +250,127 @@ export function WorkerTagsScreen({
         </div>
       ) : null}
 
-      <div className="mt-5 flex flex-col gap-4">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(430px,1fr)_minmax(380px,520px)] gap-4">
+        <WorkerTagListPanel
+          loading={loading}
+          rows={rows}
+          selectedTagId={selectedTagId}
+          onCreate={handleStartCreate}
+          onSelect={handleSelectTag}
+        />
+        <WorkerTagDetailPanel
+          key={`${panelMode}:${panelMode === "create" ? "new" : selectedTag?.id ?? "empty"}`}
+          dataSource={dataSource}
+          deleting={deleting}
+          firstSelected={rows[0]?.id === selectedTag?.id}
+          loading={loading}
+          mode={panelMode}
+          saving={saving}
+          tag={panelMode === "create" ? null : selectedTag}
+          onCancel={handleCancelPanel}
+          onDelete={handleDeleteTag}
+          onSave={handleSaveTag}
+          onStartEdit={handleStartEdit}
+        />
+      </div>
+    </section>
+  );
+}
+
+function WorkerTagListPanel({
+  loading,
+  rows,
+  selectedTagId,
+  onCreate,
+  onSelect,
+}: {
+  loading: boolean;
+  rows: readonly WorkerTagRow[];
+  selectedTagId: string | null;
+  onCreate: () => void;
+  onSelect: (tag: WorkerTagRow) => void;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col overflow-hidden rounded-[8px] bg-white">
+      <div className="flex h-[56px] shrink-0 items-center justify-between gap-3 px-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <h2 className="text-h-20 text-gray-900">근무자 태그 관리</h2>
+          <Badge variant="grey" size="M">
+            {rows.length}개
+          </Badge>
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={onCreate}
+          className="h-9 rounded-full px-4 text-label-18 font-medium tracking-normal"
+        >
+          태그 추가
+        </Button>
+      </div>
+
+      <div className="grid h-9 shrink-0 grid-cols-[minmax(0,1fr)_128px_88px] items-center border-b border-gray-300 px-4 text-h-18-regular text-gray-500">
+        <div>태그</div>
+        <div>대상 수</div>
+        <div className="text-right">상태</div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {loading ? (
           <WorkerTagListState label="근무자 태그를 불러오는 중입니다." />
-        ) : errorMessage ? (
-          <WorkerTagListState label={errorMessage} role="alert" />
         ) : rows.length > 0 ? (
-          rows.map((tag, index) => (
-            <WorkerTagCard
-              key={tag.id}
-              tag={tag}
-              first={index === 0}
-              onEdit={() => setEditingTag(tag)}
-              onDelete={() => setDeleteCandidate(tag)}
-            />
-          ))
+          rows.map((tag, index) => {
+            const selected = tag.id === selectedTagId;
+
+            return (
+              <WorkerTagListRow
+                key={tag.id}
+                first={index === 0}
+                selected={selected}
+                tag={tag}
+                onSelect={() => onSelect(tag)}
+              />
+            );
+          })
         ) : (
           <WorkerTagListState label="표시할 근무자 태그가 없습니다." />
         )}
       </div>
+    </div>
+  );
+}
 
-      {editingTag ? (
-        <WorkerTagEditDialog
-          dataSource={dataSource}
-          onClose={() => {
-            if (!saving) {
-              setEditingTag(null);
-            }
-          }}
-          onSave={handleSaveTag}
-          saving={saving}
-          tag={editingTag === "create" ? null : editingTag}
-        />
-      ) : null}
-
-      {deleteCandidate ? (
-        <WorkerTagDeleteDialog
-          deleting={deleting}
-          onClose={() => {
-            if (!deleting) {
-              setDeleteCandidate(null);
-            }
-          }}
-          onConfirm={handleDeleteTag}
-          tag={deleteCandidate}
-        />
-      ) : null}
-    </section>
+function WorkerTagListRow({
+  first,
+  selected,
+  tag,
+  onSelect,
+}: {
+  first: boolean;
+  selected: boolean;
+  tag: WorkerTagRow;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      aria-label={`${tag.label} 근무자 태그 조회`}
+      data-testid={first ? "worker-tags-row-first" : undefined}
+      onClick={onSelect}
+      className={cn(
+        "grid min-h-14 w-full grid-cols-[minmax(0,1fr)_128px_88px] items-center border-b border-gray-100 px-4 text-left text-h-18-regular tracking-normal text-gray-900 transition-colors duration-150 ease-out last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200",
+        selected && "bg-green-50 ring-2 ring-inset ring-green-400 hover:bg-green-50",
+      )}
+    >
+      <div className="min-w-0">
+        <WorkerTagBadge tag={tag} />
+      </div>
+      <div className="min-w-0 truncate text-gray-700">{tag.countText}</div>
+      <div className="flex justify-end">
+        {tag.statusText ? <WorkerTagStatusBadge label={tag.statusText} /> : null}
+      </div>
+    </button>
   );
 }
 
@@ -246,7 +383,7 @@ function WorkerTagListState({
 }) {
   return (
     <div
-      className="flex min-h-[220px] items-center justify-center rounded-[8px] border border-gray-100 px-4 text-center text-h-18-regular text-gray-500"
+      className="flex min-h-[220px] items-center justify-center px-4 text-center text-h-18-regular text-gray-500"
       role={role}
     >
       {label}
@@ -254,43 +391,434 @@ function WorkerTagListState({
   );
 }
 
-function WorkerTagCard({
+function WorkerTagDetailPanel({
+  dataSource,
+  deleting,
+  firstSelected,
+  loading,
+  mode,
+  saving,
   tag,
-  first,
+  onCancel,
   onDelete,
-  onEdit,
+  onSave,
+  onStartEdit,
 }: {
-  tag: WorkerTagRow;
-  first: boolean;
-  onDelete: () => void;
-  onEdit: () => void;
+  dataSource: WorkerTagsDataSource;
+  deleting: boolean;
+  firstSelected: boolean;
+  loading: boolean;
+  mode: WorkerTagPanelMode;
+  saving: boolean;
+  tag: WorkerTagRow | null;
+  onCancel: () => void;
+  onDelete: (tag: WorkerTagRow) => Promise<void>;
+  onSave: (input: WorkerTagSaveInput, currentTag?: WorkerTagRow) => Promise<void>;
+  onStartEdit: () => void;
+}) {
+  const editable = mode !== "view";
+  const shouldLoadAssignments = !loading && (mode === "create" || Boolean(tag));
+  const [label, setLabel] = useState(tag?.label ?? "");
+  const [tone, setTone] = useState<WorkerTagTone>(tag?.tone ?? "green");
+  const [status, setStatus] = useState<WorkerTagStatus>(
+    getWorkerTagStatusValue(tag),
+  );
+  const [workers, setWorkers] = useState<readonly WorkerTagDialogWorker[]>([]);
+  const [selectedWorkerIds, setSelectedWorkerIds] = useState<readonly string[]>(
+    [],
+  );
+  const [searchText, setSearchText] = useState("");
+  const [assignmentLoading, setAssignmentLoading] =
+    useState(shouldLoadAssignments);
+  const [assignmentError, setAssignmentError] = useState("");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const normalizedSearchText = searchText.trim().toLocaleLowerCase("ko-KR");
+  const selectedWorkers = workers.filter((worker) =>
+    selectedWorkerIds.includes(worker.id),
+  );
+  const visibleWorkers = (editable ? workers : selectedWorkers).filter((worker) =>
+    normalizedSearchText
+      ? worker.name.toLocaleLowerCase("ko-KR").includes(normalizedSearchText)
+      : true,
+  );
+  const currentCountText = assignmentLoading
+    ? tag?.countText ?? "0명"
+    : `${selectedWorkerIds.length}명`;
+  const title =
+    mode === "create"
+      ? "근무자 태그 추가"
+      : mode === "edit"
+        ? "근무자 태그 수정"
+        : "근무자 태그 상세";
+  const canSave = label.trim().length > 0 && !saving && !assignmentLoading;
+
+  useEffect(() => {
+    let active = true;
+
+    if (!shouldLoadAssignments) {
+      return () => {
+        active = false;
+      };
+    }
+
+    void dataSource
+      .listWorkerTagAssignments(mode === "create" ? null : tag)
+      .then((nextWorkers) => {
+        if (!active) {
+          return;
+        }
+
+        setWorkers(nextWorkers);
+        setSelectedWorkerIds(
+          nextWorkers
+            .filter((worker) => worker.checked)
+            .map((worker) => worker.id),
+        );
+        setAssignmentLoading(false);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setWorkers([]);
+        setSelectedWorkerIds([]);
+        setAssignmentError("조교 배정 정보를 불러오지 못했습니다.");
+        setAssignmentLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [dataSource, mode, shouldLoadAssignments, tag]);
+
+  if (loading) {
+    return (
+      <aside className="flex min-w-0 items-center justify-center rounded-[8px] border border-gray-200 bg-white px-6 text-center">
+        <p className="text-h-18-regular text-gray-400">
+          태그 정보를 불러오는 중입니다.
+        </p>
+      </aside>
+    );
+  }
+
+  if (mode === "view" && !tag) {
+    return (
+      <aside className="flex min-w-0 items-center justify-center rounded-[8px] border border-gray-200 bg-white px-6 text-center">
+        <p className="text-h-18-regular text-gray-400">
+          태그를 선택하면 상세와 적용 조교가 표시됩니다.
+        </p>
+      </aside>
+    );
+  }
+
+  const toggleWorker = (worker: WorkerTagDialogWorker) => {
+    if (!editable || worker.disabled || saving) {
+      return;
+    }
+
+    setSelectedWorkerIds((currentIds) =>
+      currentIds.includes(worker.id)
+        ? currentIds.filter((workerId) => workerId !== worker.id)
+        : [...currentIds, worker.id],
+    );
+  };
+
+  const handleSave = () => {
+    if (!canSave) {
+      return;
+    }
+
+    void onSave(
+      {
+        assignedWorkerIds: selectedWorkerIds,
+        label: label.trim(),
+        status,
+        tone,
+      },
+      tag ?? undefined,
+    );
+  };
+
+  return (
+    <aside
+      className="flex min-w-0 flex-col overflow-hidden rounded-[8px] border border-gray-200 bg-white"
+      data-testid="worker-tags-detail-panel"
+      data-worker-tags-panel-mode={mode}
+    >
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-h-20 text-gray-900">{title}</h2>
+            <p className="mt-1 text-h-16-medium tracking-normal text-gray-500">
+              {editable
+                ? "태그 정보와 적용 조교를 저장합니다."
+                : "태그 정보와 현재 적용된 조교를 확인합니다."}
+            </p>
+          </div>
+          {tag ? <WorkerTagBadge tag={tag} /> : null}
+        </div>
+
+        <div className="mt-5 grid grid-cols-[minmax(0,1fr)_132px] gap-3">
+          <label className="block">
+            <span className="text-h-18-semibold text-gray-900">태그명</span>
+            <input
+              aria-label="태그명"
+              disabled={!editable || saving}
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+              className="mt-3 h-11 w-full rounded-[8px] border border-gray-200 bg-white px-4 text-h-18-regular text-gray-900 outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:bg-gray-50 disabled:text-gray-700"
+            />
+          </label>
+          <label className="block">
+            <span className="text-h-18-semibold text-gray-900">색상</span>
+            <OptionSelect
+              value={tone}
+              disabled={!editable || saving}
+              onValueChange={(value) => setTone(value as WorkerTagTone)}
+              options={[...workerTagToneOptions]}
+              triggerAriaLabel="색상"
+              triggerClassName="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-white px-4 text-h-18-regular"
+              contentClassName="z-[70]"
+              itemClassName="text-h-16-medium tracking-normal"
+            />
+          </label>
+        </div>
+
+        <div className="mt-5 grid grid-cols-[132px_minmax(0,1fr)] gap-3">
+          <label className="block">
+            <span className="text-h-18-semibold text-gray-900">상태</span>
+            <OptionSelect
+              value={status}
+              disabled={!editable || saving}
+              onValueChange={(value) => setStatus(value as WorkerTagStatus)}
+              options={[...workerTagStatusOptions]}
+              triggerAriaLabel="상태"
+              triggerClassName="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-white px-4 text-h-18-regular"
+              contentClassName="z-[70]"
+              itemClassName="text-h-16-medium tracking-normal"
+            />
+          </label>
+          <div>
+            <span className="text-h-18-semibold text-gray-900">적용 조교</span>
+            <div className="mt-3 flex h-11 items-center rounded-[8px] border border-gray-100 bg-gray-50 px-4 text-h-18-semibold text-gray-900">
+              {currentCountText}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-h-18-semibold text-gray-900">
+              {editable ? "적용할 조교" : "현재 적용된 조교"}
+            </h3>
+            {mode === "view" && tag?.statusText ? (
+              <WorkerTagStatusBadge label={tag.statusText} />
+            ) : null}
+          </div>
+          <label className="mt-3 flex h-11 items-center gap-3 rounded-[8px] border border-gray-200 bg-white px-4">
+            <span className="sr-only">조교 이름 검색</span>
+            <input
+              value={searchText}
+              disabled={saving}
+              onChange={(event) => setSearchText(event.target.value)}
+              placeholder={workerTagEditDialog.searchPlaceholder}
+              className="min-w-0 flex-1 bg-transparent text-h-18-regular text-gray-900 outline-none placeholder:text-gray-400 disabled:text-gray-500"
+            />
+            <IconSearch className="size-6 shrink-0 text-green-400" />
+          </label>
+        </div>
+
+        <div className="mt-4 overflow-hidden rounded-[8px] border border-gray-100">
+          {assignmentLoading ? (
+            <WorkerTagAssignmentState label="조교 목록을 불러오는 중입니다." />
+          ) : assignmentError ? (
+            <WorkerTagAssignmentState label={assignmentError} role="alert" />
+          ) : visibleWorkers.length > 0 ? (
+            visibleWorkers.map((worker) => {
+              const checked = selectedWorkerIds.includes(worker.id);
+
+              return (
+                <WorkerTagAssignmentRow
+                  key={worker.id}
+                  checked={checked}
+                  editable={editable}
+                  saving={saving}
+                  worker={worker}
+                  onToggle={() => toggleWorker(worker)}
+                />
+              );
+            })
+          ) : (
+            <WorkerTagAssignmentState
+              label={
+                editable
+                  ? "표시할 조교가 없습니다."
+                  : "현재 적용된 조교가 없습니다."
+              }
+            />
+          )}
+        </div>
+
+        {confirmingDelete && tag ? (
+          <div
+            className="mt-4 rounded-[8px] border border-red-100 bg-red-50 p-4"
+            data-testid="worker-tags-delete-confirm"
+          >
+            <h3 className="text-h-18-semibold text-red-500">근무자 태그 삭제</h3>
+            <p className="mt-2 text-h-16-medium leading-[1.5] tracking-normal text-red-500">
+              {tag.label} 태그를 삭제하고 적용된 조교에서 이 태그를 제거합니다.
+            </p>
+            <div className="mt-4 flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={deleting}
+                onClick={() => setConfirmingDelete(false)}
+                className="h-9 rounded-full px-4 text-label-18 font-medium tracking-normal"
+              >
+                취소
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                disabled={deleting}
+                onClick={() => {
+                  void onDelete(tag);
+                }}
+                className="h-9 rounded-full px-4 text-label-18 font-medium tracking-normal"
+              >
+                {deleting ? "삭제 중" : "삭제"}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="mt-auto flex h-16 shrink-0 items-center justify-end gap-3 px-4 pb-4 pt-4">
+        {mode === "view" && tag ? (
+          <>
+            <Button
+              type="button"
+              variant="danger"
+              disabled={deleting || saving}
+              onClick={() => setConfirmingDelete(true)}
+              className="h-11 rounded-[8px] px-6 text-h-16-semibold"
+            >
+              삭제
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              data-testid={
+                firstSelected ? "worker-tags-edit-trigger-first" : undefined
+              }
+              disabled={deleting || saving}
+              onClick={onStartEdit}
+              className="h-11 rounded-[8px] px-6 text-h-16-semibold"
+            >
+              수정
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={saving}
+              onClick={onCancel}
+              className="h-11 rounded-[8px] px-6 text-h-16-semibold"
+            >
+              취소
+            </Button>
+            <Button
+              type="button"
+              disabled={!canSave}
+              onClick={handleSave}
+              className="h-11 rounded-[8px] px-7 text-h-16-semibold"
+            >
+              {saving ? "저장 중" : "저장"}
+            </Button>
+          </>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+function WorkerTagAssignmentRow({
+  checked,
+  editable,
+  saving,
+  worker,
+  onToggle,
+}: {
+  checked: boolean;
+  editable: boolean;
+  saving: boolean;
+  worker: WorkerTagDialogWorker;
+  onToggle: () => void;
+}) {
+  const content = (
+    <>
+      <span
+        className={cn(
+          "min-w-0 truncate text-h-18-semibold text-gray-900",
+          worker.disabled && "text-gray-500",
+        )}
+      >
+        {worker.name}
+      </span>
+      <span
+        aria-hidden="true"
+        className={cn(
+          "flex size-5 items-center justify-center rounded-[2px]",
+          worker.disabled
+            ? "bg-gray-200 text-white"
+            : checked
+              ? "bg-green-400 text-white"
+              : "border border-gray-200 bg-white text-white",
+        )}
+      >
+        {checked ? <IconCheck className="size-4" /> : null}
+      </span>
+    </>
+  );
+
+  if (!editable) {
+    return (
+      <div className="flex h-11 w-full items-center justify-between border-b border-gray-100 px-4 last:border-b-0">
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      aria-pressed={checked}
+      disabled={worker.disabled || saving}
+      onClick={onToggle}
+      className="flex h-11 w-full items-center justify-between border-b border-gray-100 px-4 text-left last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:bg-gray-50"
+    >
+      {content}
+    </button>
+  );
+}
+
+function WorkerTagAssignmentState({
+  label,
+  role = "status",
+}: {
+  label: string;
+  role?: "alert" | "status";
 }) {
   return (
-    <div className="flex h-[68px] items-center justify-between rounded-[8px] border border-gray-100 px-4">
-      <div className="flex items-center gap-3">
-        <WorkerTagBadge tag={tag} />
-        <span className="text-h-18-semibold text-gray-900">{tag.countText}</span>
-        {tag.statusText ? <WorkerTagStatusBadge label={tag.statusText} /> : null}
-      </div>
-      <div className="flex items-center gap-3">
-        <Button
-          type="button"
-          variant="danger"
-          onClick={onDelete}
-          className="h-11 rounded-[8px] px-6"
-        >
-          삭제
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          data-testid={first ? "worker-tags-edit-trigger-first" : undefined}
-          onClick={onEdit}
-          className="h-11 rounded-[8px] px-6"
-        >
-          수정
-        </Button>
-      </div>
+    <div
+      className="flex h-24 items-center justify-center px-4 text-center text-h-18-regular text-gray-500"
+      role={role}
+    >
+      {label}
     </div>
   );
 }
@@ -319,288 +847,6 @@ function WorkerTagBadge({ tag }: { tag: WorkerTagRow }) {
   );
 }
 
-function WorkerTagEditDialog({
-  dataSource,
-  onClose,
-  onSave,
-  saving,
-  tag,
-}: {
-  dataSource: WorkerTagsDataSource;
-  onClose: () => void;
-  onSave: (input: WorkerTagSaveInput, currentTag?: WorkerTagRow) => Promise<void>;
-  saving: boolean;
-  tag: WorkerTagRow | null;
-}) {
-  const [label, setLabel] = useState(tag?.label ?? "");
-  const [tone, setTone] = useState<WorkerTagTone>(tag?.tone ?? "green");
-  const [status, setStatus] = useState<WorkerTagStatus>(
-    tag?.statusText === "비활성" ? "inactive" : "active",
-  );
-  const [workers, setWorkers] = useState<readonly WorkerTagDialogWorker[]>([]);
-  const [selectedWorkerIds, setSelectedWorkerIds] = useState<readonly string[]>(
-    [],
-  );
-  const [searchText, setSearchText] = useState("");
-  const [assignmentLoading, setAssignmentLoading] = useState(true);
-  const normalizedSearchText = searchText.trim().toLocaleLowerCase("ko-KR");
-  const visibleWorkers = workers.filter((worker) =>
-    normalizedSearchText
-      ? worker.name.toLocaleLowerCase("ko-KR").includes(normalizedSearchText)
-      : true,
-  );
-  const currentCountText = `${selectedWorkerIds.length}명`;
-  const title = tag ? "근무자 태그 수정" : "근무자 태그 추가";
-  const canSave = label.trim().length > 0 && !saving && !assignmentLoading;
-
-  useEffect(() => {
-    let active = true;
-
-    void dataSource
-      .listWorkerTagAssignments(tag)
-      .then((nextWorkers) => {
-        if (!active) {
-          return;
-        }
-
-        setWorkers(nextWorkers);
-        setSelectedWorkerIds(
-          nextWorkers
-            .filter((worker) => worker.checked)
-            .map((worker) => worker.id),
-        );
-        setAssignmentLoading(false);
-      })
-      .catch(() => {
-        if (!active) {
-          return;
-        }
-
-        setWorkers([]);
-        setSelectedWorkerIds([]);
-        setAssignmentLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [dataSource, tag]);
-
-  const toggleWorker = (worker: WorkerTagDialogWorker) => {
-    if (worker.disabled || saving) {
-      return;
-    }
-
-    setSelectedWorkerIds((currentIds) =>
-      currentIds.includes(worker.id)
-        ? currentIds.filter((workerId) => workerId !== worker.id)
-        : [...currentIds, worker.id],
-    );
-  };
-
-  const handleSave = () => {
-    if (!canSave) {
-      return;
-    }
-
-    void onSave(
-      {
-        assignedWorkerIds: selectedWorkerIds,
-        label: label.trim(),
-        status,
-        tone,
-      },
-      tag ?? undefined,
-    );
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="worker-tags-dialog-title"
-        data-testid="worker-tags-edit-dialog"
-        className="flex max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] max-w-[620px] flex-col rounded-[8px] bg-white p-8 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
-      >
-        <h2 id="worker-tags-dialog-title" className="text-h-20 text-gray-900">
-          {title}
-        </h2>
-
-        <div className="mt-8 grid grid-cols-[1fr_140px_140px] gap-3">
-          <label className="block">
-            <span className="text-h-18-semibold text-gray-900">태그명</span>
-            <input
-              aria-label="태그명"
-              disabled={saving}
-              value={label}
-              onChange={(event) => setLabel(event.target.value)}
-              className="mt-3 h-11 w-full rounded-[8px] border border-gray-200 bg-white px-4 text-h-18-regular text-gray-900 outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:bg-gray-50 disabled:text-gray-500"
-            />
-          </label>
-          <label className="block">
-            <span className="text-h-18-semibold text-gray-900">색상</span>
-            <OptionSelect
-              value={tone}
-              disabled={saving}
-              onValueChange={(value) => setTone(value as WorkerTagTone)}
-              options={[...workerTagToneOptions]}
-              triggerAriaLabel="색상"
-              triggerClassName="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-white px-4 text-h-18-regular"
-              contentClassName="z-[70]"
-              itemClassName="text-h-16-medium tracking-normal"
-            />
-          </label>
-          <label className="block">
-            <span className="text-h-18-semibold text-gray-900">상태</span>
-            <OptionSelect
-              value={status}
-              disabled={saving}
-              onValueChange={(value) => setStatus(value as WorkerTagStatus)}
-              options={[...workerTagStatusOptions]}
-              triggerAriaLabel="상태"
-              triggerClassName="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-white px-4 text-h-18-regular"
-              contentClassName="z-[70]"
-              itemClassName="text-h-16-medium tracking-normal"
-            />
-          </label>
-        </div>
-
-        <div className="mt-8">
-          <div className="flex items-center gap-2">
-            <h3 className="text-h-18-semibold text-gray-900">현재 받고 있는 조교</h3>
-            <Badge variant="grey" size="M">
-              {currentCountText}
-            </Badge>
-          </div>
-          <label className="mt-3 flex h-11 items-center gap-3 rounded-[8px] border border-gray-200 bg-white px-4">
-            <span className="sr-only">조교 이름 검색</span>
-            <input
-              value={searchText}
-              disabled={saving}
-              onChange={(event) => setSearchText(event.target.value)}
-              placeholder={workerTagEditDialog.searchPlaceholder}
-              className="min-w-0 flex-1 bg-transparent text-h-18-regular text-gray-900 outline-none placeholder:text-gray-400 disabled:text-gray-500"
-            />
-            <IconSearch className="size-6 shrink-0 text-green-400" />
-          </label>
-        </div>
-
-        <div className="mt-6 min-h-0 overflow-y-auto rounded-[8px] border border-gray-100">
-          {assignmentLoading ? (
-            <div className="flex h-24 items-center justify-center text-h-18-regular text-gray-500">
-              조교 목록을 불러오는 중입니다.
-            </div>
-          ) : visibleWorkers.length > 0 ? (
-            visibleWorkers.map((worker) => {
-              const checked = selectedWorkerIds.includes(worker.id);
-
-              return (
-                <button
-                  key={worker.id}
-                  type="button"
-                  disabled={worker.disabled || saving}
-                  onClick={() => toggleWorker(worker)}
-                  className="flex h-11 w-full items-center justify-between border-b border-gray-100 px-4 text-left last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:bg-gray-50"
-                >
-                  <span className="text-h-18-semibold text-gray-900">
-                    {worker.name}
-                  </span>
-                  <span
-                    aria-hidden="true"
-                    className={cn(
-                      "flex size-5 items-center justify-center rounded-[2px]",
-                      worker.disabled
-                        ? "bg-gray-200 text-white"
-                        : checked
-                          ? "bg-green-400 text-white"
-                          : "border border-gray-200 bg-white text-white",
-                    )}
-                  >
-                    {checked ? <IconCheck className="size-4" /> : null}
-                  </span>
-                </button>
-              );
-            })
-          ) : (
-            <div className="flex h-24 items-center justify-center text-h-18-regular text-gray-500">
-              표시할 조교가 없습니다.
-            </div>
-          )}
-        </div>
-
-        <div className="mt-auto flex justify-end gap-3">
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={saving}
-            onClick={onClose}
-            className="h-11 rounded-[8px] px-6"
-          >
-            취소
-          </Button>
-          <Button
-            type="button"
-            disabled={!canSave}
-            onClick={handleSave}
-            className="h-11 rounded-[8px] px-7"
-          >
-            {saving ? "저장 중" : "저장"}
-          </Button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function WorkerTagDeleteDialog({
-  deleting,
-  onClose,
-  onConfirm,
-  tag,
-}: {
-  deleting: boolean;
-  onClose: () => void;
-  onConfirm: (tag: WorkerTagRow) => Promise<void>;
-  tag: WorkerTagRow;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="worker-tags-delete-dialog-title"
-        className="w-[calc(100vw-32px)] max-w-[420px] rounded-[8px] bg-white p-6 shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
-      >
-        <h2 id="worker-tags-delete-dialog-title" className="text-h-20 text-gray-900">
-          근무자 태그 삭제
-        </h2>
-        <p className="mt-4 text-h-18-regular leading-[1.5] text-gray-700">
-          {tag.label} 태그를 삭제하고 적용된 조교에서 이 태그를 제거합니다.
-        </p>
-        <div className="mt-6 flex justify-end gap-3">
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={deleting}
-            onClick={onClose}
-            className="h-11 rounded-[8px] px-6"
-          >
-            취소
-          </Button>
-          <Button
-            type="button"
-            variant="danger"
-            disabled={deleting}
-            onClick={() => {
-              void onConfirm(tag);
-            }}
-            className="h-11 rounded-[8px] px-6"
-          >
-            {deleting ? "삭제 중" : "삭제"}
-          </Button>
-        </div>
-      </section>
-    </div>
-  );
+function getWorkerTagStatusValue(tag: WorkerTagRow | null): WorkerTagStatus {
+  return tag?.statusText === "비활성" ? "inactive" : "active";
 }
