@@ -250,7 +250,7 @@ test("WKR-03 switches withholding through shared segment", async ({ page }) => {
   await expect(dialog.getByRole("button", { name: "저장" })).toBeEnabled();
 });
 
-test("WKR-03 warns before closing dirty edit dialog", async ({ page }) => {
+test("WKR-03 confirms before closing dirty edit dialog", async ({ page }) => {
   await prepareVisualPage({
     page,
     path: routePath,
@@ -261,16 +261,29 @@ test("WKR-03 warns before closing dirty edit dialog", async ({ page }) => {
   const editDialog = page.getByTestId("worker-edit-info-dialog");
   await editDialog.getByLabel("이름").fill("김서연 수정");
 
-  let alertMessage = "";
+  let dismissedConfirmMessage = "";
   page.once("dialog", async (browserDialog) => {
-    alertMessage = browserDialog.message();
+    expect(browserDialog.type()).toBe("confirm");
+    dismissedConfirmMessage = browserDialog.message();
+    await browserDialog.dismiss();
+  });
+
+  await editDialog.getByRole("button", { name: "취소" }).click();
+
+  expect(dismissedConfirmMessage).toContain("저장하지 않은 수정사항");
+  await expect(editDialog).toBeVisible();
+
+  let acceptedConfirmMessage = "";
+  page.once("dialog", async (browserDialog) => {
+    expect(browserDialog.type()).toBe("confirm");
+    acceptedConfirmMessage = browserDialog.message();
     await browserDialog.accept();
   });
 
   await editDialog.getByRole("button", { name: "취소" }).click();
 
-  expect(alertMessage).toContain("저장하지 않은 수정사항");
-  await expect(editDialog).toBeVisible();
+  expect(acceptedConfirmMessage).toContain("저장하지 않은 수정사항");
+  await expect(editDialog).toHaveCount(0);
 });
 
 test(`WKR-03 delete-blocked-dialog ${desktop}`, async ({ page }) => {

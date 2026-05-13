@@ -462,9 +462,11 @@ function EditInfoDialog({
     () => tagOptions.map(mapWorkerDetailTagOption),
     [tagOptions],
   );
-  const showUnsavedChangesAlert = useCallback(() => {
-    // TODO: alert는 추후 토스트 기반 안내로 개선한다.
-    window.alert("저장하지 않은 수정사항이 있습니다. 저장하거나 취소해 주세요.");
+  const confirmUnsavedChangesClose = useCallback(() => {
+    // TODO: confirm은 추후 토스트 기반 안내로 개선한다.
+    return window.confirm(
+      "저장하지 않은 수정사항이 있습니다. 저장하지 않고 닫을까요?",
+    );
   }, []);
 
   useEffect(() => {
@@ -526,8 +528,9 @@ function EditInfoDialog({
     }
 
     if (hasChanges) {
-      showUnsavedChangesAlert();
-      return;
+      if (!confirmUnsavedChangesClose()) {
+        return;
+      }
     }
 
     onClose();
