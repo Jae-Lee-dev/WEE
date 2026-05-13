@@ -840,13 +840,7 @@ function createWorkers(workspaceId, managerUid) {
     updatedAt: seedGeneratedAt,
     workspaceId,
   }));
-  const pending = {
-    ...worker("worker_yang_pending", "worker-auth-yang", "양도현", ["worker_tag_new"], "2026-05-10T14:10:00+09:00"),
-    membershipStatus: "pending",
-    status: "pending",
-    updatedAt: ts("2026-05-10T14:10:00+09:00"),
-    workspaceId,
-  };
+  const pending = createAffiliationApplicationWorkers(workspaceId);
   const rejected = {
     ...worker("worker_oh_rejected", "worker-auth-oh", "오지훈", ["worker_tag_watch"], "2026-04-18T12:40:00+09:00"),
     membershipStatus: "rejected",
@@ -855,7 +849,7 @@ function createWorkers(workspaceId, managerUid) {
     updatedAt: ts("2026-04-18T16:00:00+09:00"),
     workspaceId,
   };
-  const all = [...active, pending, rejected];
+  const all = [...active, ...pending, rejected];
   const memberships = [
     ...active.map((item) => ({
       id: `membership_${item.id}`,
@@ -869,16 +863,7 @@ function createWorkers(workspaceId, managerUid) {
       workerUid: item.workerUid,
       workspaceId,
     })),
-    {
-      id: "membership_worker_yang_pending",
-      appliedAt: pending.appliedAt,
-      createdAt: pending.appliedAt,
-      status: "pending",
-      workerId: pending.id,
-      workerName: pending.name,
-      workerUid: pending.workerUid,
-      workspaceId,
-    },
+    ...pending.map((item) => pendingMembership(item, workspaceId)),
     {
       id: "membership_worker_oh_rejected",
       appliedAt: rejected.appliedAt,
@@ -895,6 +880,132 @@ function createWorkers(workspaceId, managerUid) {
   ];
 
   return { active, all, memberships, pending, rejected };
+}
+
+function createAffiliationApplicationWorkers(workspaceId) {
+  return [
+    applicationWorker(
+      "worker_yang_pending",
+      "worker-auth-yang",
+      "양도현",
+      ["worker_tag_new"],
+      "2026-05-10T14:10:00+09:00",
+      { requestedHourlyRate: 9800 },
+    ),
+    applicationWorker(
+      "worker_han_pending",
+      "worker-auth-han",
+      "한지우",
+      ["worker_tag_grade12"],
+      "2026-05-11T09:35:00+09:00",
+      {
+        bankbookDownloadUrl: "https://example.com/seed/worker-han-bankbook.png",
+        requestedHourlyRate: 10500,
+      },
+    ),
+    applicationWorker(
+      "worker_seo_pending",
+      "worker-auth-seo",
+      "서민아",
+      ["worker_tag_weekend"],
+      "2026-05-11T11:20:00+09:00",
+      {
+        bankbookMissing: true,
+        requestedMonthlySalary: 1650000,
+      },
+    ),
+    applicationWorker(
+      "worker_lim_pending",
+      "worker-auth-lim",
+      "임태준",
+      ["worker_tag_new", "worker_tag_weekend"],
+      "2026-05-12T08:50:00+09:00",
+      { requestedHourlyRate: 11200 },
+    ),
+  ].map((item) => ({
+    ...item,
+    membershipStatus: "pending",
+    status: "pending",
+    updatedAt: item.appliedAt,
+    workspaceId,
+  }));
+}
+
+function applicationWorker(id, workerUid, name, tagIds, appliedIso, options = {}) {
+  const appliedAt = ts(appliedIso);
+  const account = {
+    bankName: "국민은행",
+    holderName: name,
+    numberLast4: id.endsWith("yang_pending")
+      ? "1107"
+      : id.length.toString().padStart(4, "0").slice(-4),
+  };
+
+  if (!options.bankbookMissing && !options.bankbookDownloadUrl) {
+    account.storagePath = `seed/bankbooks/${id}.png`;
+  }
+
+  return {
+    id,
+    account,
+    appliedAt,
+    bankbookStatus: options.bankbookMissing ? "미업로드" : "업로드 완료",
+    ...(options.bankbookDownloadUrl
+      ? { bankbookDownloadUrl: options.bankbookDownloadUrl }
+      : {}),
+    ...(options.requestedHourlyRate
+      ? { requestedHourlyRate: options.requestedHourlyRate }
+      : {}),
+    ...(options.requestedMonthlySalary
+      ? { requestedMonthlySalary: options.requestedMonthlySalary }
+      : {}),
+    contact: `010-${id.length.toString().padStart(4, "0")}-2026`,
+    createdAt: appliedAt,
+    name,
+    nameKey: name.toLocaleLowerCase("ko-KR"),
+    tagIds,
+    workerUid,
+  };
+}
+
+function pendingMembership(worker, workspaceId) {
+  return {
+    id: membershipDocumentId(worker),
+    appliedAt: worker.appliedAt,
+    bankbookStatus: worker.bankbookStatus,
+    createdAt: worker.appliedAt,
+    requestedHourlyRate: worker.requestedHourlyRate ?? null,
+    requestedMonthlySalary: worker.requestedMonthlySalary ?? null,
+    status: "pending",
+    workerId: worker.id,
+    workerName: worker.name,
+    workerUid: worker.workerUid,
+    workspaceId,
+  };
+}
+
+function membershipDocumentId(worker) {
+  return `membership_${worker.id}`;
+}
+
+function pendingMembershipNotificationId(worker) {
+  if (worker.id === "worker_yang_pending") {
+    return "ntf_manager_membership_pending";
+  }
+
+  return `ntf_manager_membership_pending_${pendingWorkerIdSuffix(worker)}`;
+}
+
+function pendingMembershipInboxId(worker) {
+  if (worker.id === "worker_yang_pending") {
+    return "inbox_membership_pending";
+  }
+
+  return `inbox_membership_pending_${pendingWorkerIdSuffix(worker)}`;
+}
+
+function pendingWorkerIdSuffix(worker) {
+  return worker.id.replace(/^worker_/, "");
 }
 
 function worker(id, workerUid, name, tagIds, approvedIso) {
@@ -1673,7 +1784,22 @@ function createNotifications(context) {
     });
   };
 
-  add("ntf_manager_membership_pending", "manager", managerUid, "web", "membership_submitted", "2026-05-10T14:11:00+09:00", "membership", "membership_worker_yang_pending", { targetScreen: "WKR-01" });
+  for (const worker of workers.pending) {
+    const membershipId = membershipDocumentId(worker);
+
+    add(
+      pendingMembershipNotificationId(worker),
+      "manager",
+      managerUid,
+      "web",
+      "membership_submitted",
+      isoPlus(worker.appliedAt, 60 * 1000),
+      "membership",
+      membershipId,
+      { targetFocusId: membershipId, targetScreen: "WKR-01" },
+    );
+  }
+
   add("ntf_worker_membership_approved_kim", "worker", "worker_kim", "fcm", "membership_approved", "2026-04-14T10:31:00+09:00", "membership", "membership_worker_kim", { targetScreen: "worker_home" });
   add("ntf_worker_membership_rejected_oh", "worker", "worker_oh_rejected", "fcm", "membership_rejected", "2026-04-18T16:01:00+09:00", "membership", "membership_worker_oh_rejected", { reason: "계좌 정보 확인 불가" });
   add("ntf_manager_schedule_submitted_park", "manager", managerUid, "web", "schedule_submitted", "2026-05-09T20:11:00+09:00", "scheduleRequest", "schedule_change_worker_park_pending", { targetScreen: "SCH-01" });
@@ -1725,8 +1851,24 @@ function createNotifications(context) {
 function createProjections(context) {
   const { anomalies, corrections, overtime, payroll, recordChanges, workers, workspaceId } = context;
   const workerById = Object.fromEntries(workers.active.map((worker) => [worker.id, worker]));
+  const pendingMembershipInboxItems = workers.pending.map((worker) => {
+    const membershipId = membershipDocumentId(worker);
+
+    return inbox(
+      pendingMembershipInboxId(worker),
+      "membership_pending",
+      "membership",
+      membershipId,
+      "submitted",
+      isoPlus(worker.appliedAt, 0),
+      worker.id,
+      worker.name,
+      "WKR-01",
+      membershipId,
+    );
+  });
   const operationalInboxItems = [
-    inbox("inbox_membership_pending", "membership_pending", "membership", "membership_worker_yang_pending", "submitted", "2026-05-10T14:10:00+09:00", "worker_yang_pending", "양도현", "WKR-01", "membership_worker_yang_pending"),
+    ...pendingMembershipInboxItems,
     inbox("inbox_schedule_pending", "schedule_pending", "scheduleRequest", "schedule_change_worker_park_pending", "submitted", "2026-05-09T20:10:00+09:00", "worker_park", "박정훈", "SCH-01", "schedule_change_worker_park_pending"),
     inbox("inbox_overtime_pending", "overtime_pending", "overtimeWork", "ot_kim_20260505_submitted", "submitted", "2026-05-05T21:20:00+09:00", "worker_kim", "김서연", "REC-01", "wr_worker_kim_20260505_duty_self_tue"),
     inbox("inbox_correction_pending", "correction_pending", "correctionRequest", "cr_kim_20260504_submitted", "submitted", "2026-05-06T18:00:00+09:00", "worker_kim", "김서연", "REC-01", "wr_worker_kim_20260504_duty_math_mon"),
