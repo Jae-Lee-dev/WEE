@@ -73,6 +73,9 @@ const workerTagStatusOptions = [
   { label: "비활성", value: "inactive" },
 ] as const satisfies readonly SelectOption[];
 
+const workerTagFormControlClassName =
+  "mt-3 !h-[var(--admin-control-height)] !min-h-[var(--admin-control-height)] w-full !rounded-[8px] border-gray-200 bg-white !px-4 !py-0 text-h-18-regular text-gray-900 disabled:bg-gray-50 disabled:text-gray-700";
+
 export function WorkerTagsScreen({
   dataSource: dataSourceProp,
 }: {
@@ -265,7 +268,7 @@ export function WorkerTagsScreen({
           onSelect={handleSelectTag}
         />
         <WorkerTagDetailPanel
-          key={`${panelMode}:${selectedTag?.id ?? "empty"}`}
+          key={selectedTag?.id ?? "empty"}
           dataSource={dataSource}
           deleting={deleting}
           firstSelected={rows[0]?.id === selectedTag?.id}
@@ -525,7 +528,7 @@ function WorkerTagCreateDialog({
                 disabled={saving}
                 value={label}
                 onChange={(event) => setLabel(event.target.value)}
-                className="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-white px-4 text-h-18-regular text-gray-900 disabled:bg-gray-50 disabled:text-gray-700"
+                className={workerTagFormControlClassName}
               />
             </label>
             <label className="block">
@@ -536,7 +539,7 @@ function WorkerTagCreateDialog({
                 onValueChange={(value) => setTone(value as WorkerTagTone)}
                 options={[...workerTagToneOptions]}
                 triggerAriaLabel="색상"
-                triggerClassName="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-white px-4 text-h-18-regular"
+                triggerClassName={workerTagFormControlClassName}
                 contentClassName="z-[90]"
                 itemClassName="text-h-16-medium tracking-normal"
               />
@@ -549,7 +552,7 @@ function WorkerTagCreateDialog({
                 onValueChange={(value) => setStatus(value as WorkerTagStatus)}
                 options={[...workerTagStatusOptions]}
                 triggerAriaLabel="상태"
-                triggerClassName="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-white px-4 text-h-18-regular"
+                triggerClassName={workerTagFormControlClassName}
                 contentClassName="z-[90]"
                 itemClassName="text-h-16-medium tracking-normal"
               />
@@ -666,6 +669,9 @@ function WorkerTagDetailPanel({
   const [selectedWorkerIds, setSelectedWorkerIds] = useState<readonly string[]>(
     [],
   );
+  const [committedWorkerIds, setCommittedWorkerIds] = useState<readonly string[]>(
+    [],
+  );
   const [searchText, setSearchText] = useState("");
   const [debouncedSearchText, setDebouncedSearchText] = useState("");
   const [assignmentLoading, setAssignmentLoading] = useState(
@@ -685,7 +691,11 @@ function WorkerTagDetailPanel({
         ? worker.name.toLocaleLowerCase("ko-KR").includes(normalizedSearchText)
         : true,
   );
-  const currentCountText = `${selectedWorkerIds.length}명`;
+  const fallbackCountText = getWorkerTagAppliedCountText(tag);
+  const currentCountText =
+    assignmentError || (assignmentLoading && selectedWorkerIds.length === 0)
+      ? fallbackCountText
+      : `${selectedWorkerIds.length}명`;
   const title = mode === "edit" ? "근무자 태그 수정" : "근무자 태그 상세";
   const canSave = label.trim().length > 0 && !saving && !assignmentLoading;
 
@@ -705,12 +715,13 @@ function WorkerTagDetailPanel({
           return;
         }
 
+        const assignedWorkerIds = nextWorkers
+          .filter((worker) => worker.checked)
+          .map((worker) => worker.id);
+
         setWorkers(nextWorkers);
-        setSelectedWorkerIds(
-          nextWorkers
-            .filter((worker) => worker.checked)
-            .map((worker) => worker.id),
-        );
+        setSelectedWorkerIds(assignedWorkerIds);
+        setCommittedWorkerIds(assignedWorkerIds);
         setAssignmentLoading(false);
       })
       .catch(() => {
@@ -720,6 +731,7 @@ function WorkerTagDetailPanel({
 
         setWorkers([]);
         setSelectedWorkerIds([]);
+        setCommittedWorkerIds([]);
         setAssignmentError("조교 배정 정보를 불러오지 못했습니다.");
         setAssignmentLoading(false);
       });
@@ -727,7 +739,7 @@ function WorkerTagDetailPanel({
     return () => {
       active = false;
     };
-  }, [dataSource, mode, shouldLoadAssignments, tag]);
+  }, [dataSource, shouldLoadAssignments, tag]);
 
   if (loading) {
     return (
@@ -759,6 +771,14 @@ function WorkerTagDetailPanel({
         ? currentIds.filter((workerId) => workerId !== worker.id)
         : [...currentIds, worker.id],
     );
+  };
+
+  const resetDraftToTag = () => {
+    setLabel(tag.label);
+    setTone(tag.tone);
+    setStatus(getWorkerTagStatusValue(tag));
+    setSelectedWorkerIds(committedWorkerIds);
+    setConfirmingDelete(false);
   };
 
   const handleSave = () => {
@@ -803,7 +823,7 @@ function WorkerTagDetailPanel({
               disabled={!editable || saving}
               value={label}
               onChange={(event) => setLabel(event.target.value)}
-              className="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-white text-h-18-regular text-gray-900 disabled:text-gray-700"
+              className={workerTagFormControlClassName}
             />
           </label>
           <label className="block">
@@ -814,7 +834,7 @@ function WorkerTagDetailPanel({
               onValueChange={(value) => setTone(value as WorkerTagTone)}
               options={[...workerTagToneOptions]}
               triggerAriaLabel="색상"
-              triggerClassName="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-white px-4 text-h-18-regular"
+              triggerClassName={workerTagFormControlClassName}
               contentClassName="z-[70]"
               itemClassName="text-h-16-medium tracking-normal"
             />
@@ -827,7 +847,7 @@ function WorkerTagDetailPanel({
               onValueChange={(value) => setStatus(value as WorkerTagStatus)}
               options={[...workerTagStatusOptions]}
               triggerAriaLabel="상태"
-              triggerClassName="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-white px-4 text-h-18-regular"
+              triggerClassName={workerTagFormControlClassName}
               contentClassName="z-[70]"
               itemClassName="text-h-16-medium tracking-normal"
             />
@@ -839,11 +859,9 @@ function WorkerTagDetailPanel({
             <h3 className="text-h-18-semibold text-gray-900">
               {editable ? "적용할 조교" : "현재 적용된 조교"}
             </h3>
-            {!assignmentLoading && !assignmentError ? (
-              <Badge variant="grey" size="M">
-                {currentCountText}
-              </Badge>
-            ) : null}
+            <Badge variant="grey" size="M" className="min-w-10 tabular-nums">
+              {currentCountText}
+            </Badge>
           </div>
           <SearchField
             aria-label="조교 이름 검색"
@@ -944,7 +962,10 @@ function WorkerTagDetailPanel({
                 firstSelected ? "worker-tags-edit-trigger-first" : undefined
               }
               disabled={deleting || saving}
-              onClick={onStartEdit}
+              onClick={() => {
+                setConfirmingDelete(false);
+                onStartEdit();
+              }}
               className="h-11 rounded-[8px] px-6 text-h-16-semibold"
             >
               수정
@@ -956,7 +977,10 @@ function WorkerTagDetailPanel({
               type="button"
               variant="secondary"
               disabled={saving}
-              onClick={onCancel}
+              onClick={() => {
+                resetDraftToTag();
+                onCancel();
+              }}
               className="h-11 rounded-[8px] px-6 text-h-16-semibold"
             >
               취소
@@ -1081,4 +1105,10 @@ function WorkerTagBadge({ tag }: { tag: WorkerTagRow }) {
 
 function getWorkerTagStatusValue(tag: WorkerTagRow | null): WorkerTagStatus {
   return tag?.statusText === "비활성" ? "inactive" : "active";
+}
+
+function getWorkerTagAppliedCountText(tag: WorkerTagRow | null) {
+  const count = tag?.countText.match(/\d+/)?.[0];
+
+  return `${count ?? 0}명`;
 }

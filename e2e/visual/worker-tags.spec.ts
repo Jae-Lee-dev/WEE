@@ -26,10 +26,29 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
 test(`WKR-06 edit-tag-panel ${desktop}`, async ({ page }) => {
   await prepareVisualPage({ page, path: "/workers/tags", viewport: desktop });
   await page.evaluate(() => document.fonts.ready);
+  const panel = page.getByTestId("worker-tags-detail-panel");
+
+  await expect(panel.getByText("3명")).toBeVisible();
   await page.getByTestId("worker-tags-edit-trigger-first").click();
-  await expect(page.getByTestId("worker-tags-detail-panel")).toHaveAttribute(
-    "data-worker-tags-panel-mode",
-    "edit",
+  await expect(panel).toHaveAttribute("data-worker-tags-panel-mode", "edit");
+  await expect(panel.getByText("3명")).toBeVisible();
+  await expect(panel.getByText("조교 목록을 불러오는 중입니다.")).toHaveCount(0);
+
+  const controlHeights = await panel.evaluate((root) => {
+    const controls = ["태그명", "색상", "상태"].map((label) => {
+      const control = root.querySelector(`[aria-label="${label}"]`);
+
+      if (!(control instanceof HTMLElement)) {
+        throw new Error(`${label} control not found`);
+      }
+
+      return control.getBoundingClientRect().height;
+    });
+
+    return controls;
+  });
+  expect(Math.max(...controlHeights) - Math.min(...controlHeights)).toBeLessThanOrEqual(
+    1,
   );
 
   await captureActualScreenshot({
