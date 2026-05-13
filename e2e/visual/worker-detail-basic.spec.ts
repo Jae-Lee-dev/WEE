@@ -53,6 +53,12 @@ test(`WKR-03 edit-info-dialog ${desktop}`, async ({ page }) => {
   await expect(dialog).toContainText("급여 타입");
   await expect(dialog).toContainText("원천징수");
   await expect(dialog).toContainText("급여 설정 변경은 해당 월 1일부터 소급 적용됩니다");
+  await expect(
+    dialog.getByRole("combobox", { name: "근무자 태그 검색" }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "베테랑 태그 제거" }),
+  ).toBeVisible();
   await expect(dialog.getByRole("tab", { name: "시급" })).toHaveAttribute(
     "aria-selected",
     "true",
@@ -64,10 +70,16 @@ test(`WKR-03 edit-info-dialog ${desktop}`, async ({ page }) => {
   await expect(dialog.getByText("세율 방식")).toHaveCount(0);
   await expect(dialog.getByLabel("세율", { exact: true })).toHaveCount(0);
   const payInput = dialog.getByLabel("급여 금액");
+  const payTypeControl = dialog
+    .getByTestId("worker-edit-pay-type-control")
+    .locator("[data-slot='tabs-list']");
   const withholdingControl = dialog
     .getByTestId("worker-edit-withholding-control")
     .locator("[data-slot='tabs-list']");
   const payrollRowMetrics = {
+    payTypeHeight: await payTypeControl.evaluate((element) =>
+      Math.round(element.getBoundingClientRect().height),
+    ),
     inputHeight: await payInput.evaluate((element) =>
       Math.round(element.getBoundingClientRect().height),
     ),
@@ -81,8 +93,11 @@ test(`WKR-03 edit-info-dialog ${desktop}`, async ({ page }) => {
       Math.round(element.getBoundingClientRect().top),
     ),
   };
-  expect(payrollRowMetrics.inputHeight).toBe(48);
-  expect(payrollRowMetrics.withholdingHeight).toBe(48);
+  expect(payrollRowMetrics.payTypeHeight).toBe(44);
+  expect(payrollRowMetrics.inputHeight).toBe(payrollRowMetrics.payTypeHeight);
+  expect(payrollRowMetrics.withholdingHeight).toBe(
+    payrollRowMetrics.payTypeHeight,
+  );
   expect(payrollRowMetrics.inputTop).toBe(payrollRowMetrics.withholdingTop);
   await expect(dialog.getByRole("button", { name: "저장" })).toBeDisabled();
 

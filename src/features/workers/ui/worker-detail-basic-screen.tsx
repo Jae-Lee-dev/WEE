@@ -18,6 +18,10 @@ import {
 import { Input } from "@/shared/ui/input";
 import { Segment } from "@/shared/ui/segment";
 import { OptionSelect, type SelectOption } from "@/shared/ui/select";
+import {
+  TagSearchPicker,
+  type TagSearchPickerOption,
+} from "@/shared/ui/tag-search-picker";
 import { cn } from "@/shared/lib/utils";
 import {
   WorkerDetailSubsection,
@@ -453,6 +457,10 @@ function EditInfoDialog({
   const errors = getEditInfoFormErrors(form);
   const hasChanges = !areEditInfoFormsEqual(form, initialForm);
   const selectedTagCount = form.tagIds.length;
+  const tagPickerOptions = useMemo(
+    () => tagOptions.map(mapWorkerDetailTagOption),
+    [tagOptions],
+  );
   const showUnsavedChangesAlert = useCallback(() => {
     // TODO: alert는 추후 토스트 기반 안내로 개선한다.
     window.alert("저장하지 않은 수정사항이 있습니다. 저장하거나 취소해 주세요.");
@@ -494,15 +502,6 @@ function EditInfoDialog({
       ...current,
       payAmount: current.payAmount || (payrollType === "hourly" ? "10000" : "1000000"),
       payrollType,
-    }));
-  };
-
-  const toggleTag = (tagId: string) => {
-    setForm((current) => ({
-      ...current,
-      tagIds: current.tagIds.includes(tagId)
-        ? current.tagIds.filter((currentTagId) => currentTagId !== tagId)
-        : [...current.tagIds, tagId],
     }));
   };
 
@@ -590,41 +589,28 @@ function EditInfoDialog({
             <span className="text-h-18-semibold text-gray-900">
               {dialog.tagLabel}
             </span>
-            <div className="flex min-h-11 flex-wrap items-center gap-2 rounded-[8px] border border-gray-100 bg-gray-50 px-3 py-2">
-              {tagOptions.length > 0 ? (
-                tagOptions.map((tag) => {
-                  const selected = form.tagIds.includes(tag.id);
-
-                  return (
-                    <button
-                      key={tag.id}
-                      type="button"
-                      aria-pressed={selected}
-                      disabled={saving}
-                      onClick={() => toggleTag(tag.id)}
-                      className={cn(
-                        "rounded-[4px] px-2.5 py-1 text-h-16-medium transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:opacity-60",
-                        selected
-                          ? "bg-green-400 text-white"
-                          : "bg-white text-gray-700 ring-1 ring-inset ring-gray-200",
-                      )}
-                    >
-                      {tag.label}
-                    </button>
-                  );
-                })
-              ) : (
-                <span className="text-h-16-regular text-gray-500">
-                  등록된 근무자 태그가 없습니다.
-                </span>
-              )}
-            </div>
+            <TagSearchPicker
+              closeOnSelect
+              data-testid="worker-edit-tag-picker"
+              disabled={saving}
+              emptyMessage="등록된 근무자 태그가 없습니다."
+              inputAriaLabel="근무자 태그 검색"
+              listboxClassName="z-[70]"
+              options={tagPickerOptions}
+              placeholder="태그를 검색하세요"
+              triggerClassName="min-h-11 rounded-[8px] border-gray-200 px-4"
+              value={form.tagIds}
+              onValueChange={(value) => setFormValue("tagIds", value)}
+            />
             <p className="text-detail-16-regular text-gray-600">
               선택된 태그 {selectedTagCount}개
             </p>
           </div>
 
-          <div className="mt-5 flex flex-col gap-2">
+          <div
+            className="mt-5 flex flex-col gap-2"
+            data-testid="worker-edit-pay-type-control"
+          >
             <span className="text-h-18-semibold text-gray-900">
               {dialog.payTypeLabel}
             </span>
@@ -647,7 +633,7 @@ function EditInfoDialog({
             <EditTextField
               error={submitted ? errors.payAmount : undefined}
               inputMode="numeric"
-              inputClassName="!h-12 !min-h-12 !rounded-[8px] !px-4"
+              inputClassName="!h-11 !min-h-11 !rounded-[8px] !px-4"
               label="급여 금액"
               value={form.payAmount}
               disabled={saving}
@@ -657,7 +643,7 @@ function EditInfoDialog({
             <div data-testid="worker-edit-withholding-control">
               <span className="text-h-18-semibold text-gray-900">원천징수</span>
               <Segment
-                className="mt-3 grid h-12 w-full grid-cols-2 [&_[data-slot=tabs-trigger]]:h-10 [&_[data-slot=tabs-trigger]]:rounded-[8px] [&_[data-slot=tabs-trigger]]:px-2 [&_[data-slot=tabs-trigger]]:py-0 [&_[data-slot=tabs-trigger]]:text-h-16-semibold"
+                className="mt-3 grid h-11 w-full grid-cols-2 [&_[data-slot=tabs-trigger]]:h-9 [&_[data-slot=tabs-trigger]]:rounded-[8px] [&_[data-slot=tabs-trigger]]:px-2 [&_[data-slot=tabs-trigger]]:py-0 [&_[data-slot=tabs-trigger]]:text-h-16-semibold"
                 options={[
                   { value: "none", label: "없음" },
                   {
@@ -753,6 +739,15 @@ function EditTextField({
       </span>
     </label>
   );
+}
+
+function mapWorkerDetailTagOption(
+  option: WorkerDetailTagOption,
+): TagSearchPickerOption {
+  return {
+    label: option.label,
+    value: option.id,
+  };
 }
 
 function DeleteBlockedDialog({
