@@ -75,7 +75,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <SectionTabs pathname={pathname} tabs={currentSection.tabs} />
         )}
         <main
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-3 pt-3"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-3 pt-3 [scrollbar-gutter:stable]"
           data-testid="admin-shell-content-scroll"
         >
           {children}

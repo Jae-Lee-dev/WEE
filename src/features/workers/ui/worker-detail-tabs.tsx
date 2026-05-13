@@ -66,11 +66,11 @@ function WorkerDetailTabs({ tabs }: WorkerDetailTabsProps) {
             href={tab.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "relative z-10 flex h-9 items-start border-b-2 text-h-20 transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
+              "relative z-10 flex h-9 items-start border-b-2 px-3 text-h-20 transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
               active
                 ? "border-transparent text-gray-500 hover:text-gray-800 active:text-gray-900"
                 : "border-transparent text-gray-500 hover:border-gray-200 hover:text-gray-800 active:text-gray-900",
-              tab.id === "basic" ? "" : "ml-8",
+              tab.id === "basic" ? "" : "ml-2",
             )}
             {...{ [slidingTabValueAttribute]: tab.id }}
           >

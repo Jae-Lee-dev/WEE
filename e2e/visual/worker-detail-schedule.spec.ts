@@ -24,7 +24,15 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
       name: "조교 상세 탭",
     });
 
+    await expect(page.getByTestId("admin-shell-content-scroll")).toHaveCSS(
+      "scrollbar-gutter",
+      /stable/,
+    );
     await expect(detailTabs).toHaveCSS("padding-left", "16px");
+    await expect(detailTabs.getByRole("link", { name: "시간표" })).toHaveCSS(
+      "padding-left",
+      "12px",
+    );
     await expect(detailTabs.getByRole("link", { name: "시간표" })).toHaveAttribute(
       "aria-current",
       "page",
