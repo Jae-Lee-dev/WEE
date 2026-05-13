@@ -220,16 +220,7 @@ service cloud.firestore {
     function isNotificationSettingsBase(workspaceId) {
       let data = request.resource.data;
 
-      return data.keys().hasOnly([
-          'kakaoAlimtalk',
-          'kakaoAlimtalkEnabled',
-          'managerWeb',
-          'managerWebEnabled',
-          'updatedAt',
-          'workerFcmEnabled',
-          'workspaceId'
-        ])
-        && data.workspaceId == workspaceId
+      return data.workspaceId == workspaceId
         && data.kakaoAlimtalkEnabled is bool
         && data.managerWebEnabled is bool
         && isNotificationEventMap(data.kakaoAlimtalk)
@@ -238,7 +229,27 @@ service cloud.firestore {
     }
 
     function isNotificationSettingsCreate(workspaceId) {
-      return isNotificationSettingsBase(workspaceId);
+      let data = request.resource.data;
+
+      return data.keys().hasOnly([
+          'kakaoAlimtalk',
+          'kakaoAlimtalkEnabled',
+          'managerWeb',
+          'managerWebEnabled',
+          'updatedAt',
+          'workerFcmEnabled',
+          'workerPush',
+          'workspaceId'
+        ])
+        && isNotificationSettingsBase(workspaceId)
+        && (
+          !data.keys().hasAny(['workerFcmEnabled']) ||
+          data.workerFcmEnabled is bool
+        )
+        && (
+          !data.keys().hasAny(['workerPush']) ||
+          data.workerPush is bool
+        );
     }
 
     function isNotificationSettingsEdit(workspaceId) {
