@@ -230,6 +230,25 @@ test(`DSH-03 tag-science ${desktop}`, async ({ page }) => {
   });
 });
 
+test("DSH-03 weekly trend uses Sunday to Saturday order", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/dashboard/workers",
+    viewport: desktop,
+  });
+  await page.evaluate(() => document.fonts.ready);
+  await selectOption(page, "dashboard-worker-period-select", "최근 1주");
+
+  const labels = await page
+    .getByRole("region", { name: "근무시간 추이" })
+    .getByRole("listitem")
+    .evaluateAll((items) =>
+      items.map((item) => item.getAttribute("aria-label")?.split(" ")[0] ?? ""),
+    );
+
+  expect(labels).toEqual(["일", "월", "화", "수", "목", "금", "토"]);
+});
+
 test("DSH-03 detail panel owns vertical scroll", async ({ page }) => {
   await prepareVisualPage({
     page,

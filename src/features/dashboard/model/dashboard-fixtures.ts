@@ -842,11 +842,11 @@ export const dashboardWorkerPeriodOptions = [
 
 export const dashboardWorkerPeriodProfiles = {
   week: {
-    labels: ["월", "화", "수", "목", "금", "토", "일"],
+    labels: ["일", "월", "화", "수", "목", "금", "토"],
     hoursFactor: 0.26,
     payFactor: 0.24,
-    hourParts: [0.12, 0.15, 0.14, 0.18, 0.17, 0.12, 0.12],
-    payParts: [0.11, 0.15, 0.15, 0.18, 0.17, 0.12, 0.12],
+    hourParts: [0.12, 0.12, 0.15, 0.14, 0.18, 0.17, 0.12],
+    payParts: [0.12, 0.11, 0.15, 0.15, 0.18, 0.17, 0.12],
     flagDelta: -1,
     lateDelta: -1.6,
   },
