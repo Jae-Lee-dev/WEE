@@ -21,7 +21,8 @@ const badgeVariants = cva(
       size: {
         M: "px-1.5 py-0.5 text-detail-16-semibold",
         L: "px-2.5 py-1 text-h-18-semibold",
-        count: "h-6 min-w-6 px-2 py-0 text-detail-16-semibold [line-height:1]",
+        count:
+          "h-6 min-w-6 px-2 py-0 text-detail-16-semibold tabular-nums [line-height:1]",
       },
       shape: {
         default: "rounded-[4px]",
