@@ -185,7 +185,7 @@ function ApprovalWaitingList({
           승인 대기 목록
         </h2>
         <Badge variant="grey" size="M">
-          {summary.listCountText}
+          {summary.listCountText}건
         </Badge>
       </div>
 

@@ -14,7 +14,7 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await expect(
       page.getByRole("heading", { name: "승인 대기 목록" }),
     ).toBeVisible();
-    await expect(page.getByText("17").first()).toBeVisible();
+    await expect(page.getByText("17건").first()).toBeVisible();
 
     await captureActualScreenshot({
       page,
