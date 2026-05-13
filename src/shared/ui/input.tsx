@@ -11,6 +11,7 @@ const inputSizeClassName: Record<ControlSize, string> = {
   sm: "h-9 min-h-9 px-2 py-0 text-label-14-medium",
   default: "h-[42px] min-h-[42px] px-4 py-0 text-h-18-regular",
   lg: "h-11 min-h-11 px-4 py-0 text-h-18-regular",
+  xl: "h-12 min-h-12 px-4 py-0 text-body-16-regular",
 };
 
 function Input({ className, size = "default", type, ...props }: InputProps) {
@@ -34,7 +35,7 @@ function Input({ className, size = "default", type, ...props }: InputProps) {
 }
 
 function isControlSize(size: InputProps["size"]): size is ControlSize {
-  return size === "sm" || size === "default" || size === "lg";
+  return size === "sm" || size === "default" || size === "lg" || size === "xl";
 }
 
 export { Input };

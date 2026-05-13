@@ -1,3 +1,3 @@
-type ControlSize = "sm" | "default" | "lg";
+type ControlSize = "sm" | "default" | "lg" | "xl";
 
 export type { ControlSize };

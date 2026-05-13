@@ -22,7 +22,7 @@ const statusOptions = [
   { value: "active", label: "활성" },
   { value: "inactive", label: "비활성" },
 ];
-const sizes: ControlSize[] = ["sm", "default", "lg"];
+const sizes: ControlSize[] = ["sm", "default", "lg", "xl"];
 
 export const Status: Story = {
   args: {

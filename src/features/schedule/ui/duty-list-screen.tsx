@@ -1354,13 +1354,14 @@ function CreateDutyTextField({
       </span>
       <Input
         id={inputId}
+        size="lg"
         value={value}
         placeholder={field.placeholder}
         disabled={disabled}
         onChange={onChange}
         aria-describedby={error ? errorId : undefined}
         aria-invalid={Boolean(error)}
-        className="mt-3 h-11 rounded-[8px] border-gray-200 bg-gray-50 text-h-18-regular tracking-normal text-gray-900 placeholder:text-gray-400"
+        className="mt-3 rounded-[8px] border-gray-200 bg-gray-50 tracking-normal text-gray-900 placeholder:text-gray-400"
       />
       {error ? (
         <p id={errorId} className="mt-2 text-label-12-medium text-red-500">
@@ -1398,6 +1399,7 @@ function CreateDutyLocationField({
       </span>
       <OptionSelect
         value={value || undefined}
+        size="lg"
         disabled={saving || locations.length === 0}
         onValueChange={onChange}
         options={locationOptions}
@@ -1409,7 +1411,7 @@ function CreateDutyLocationField({
         triggerAriaDescribedBy={error ? errorId : undefined}
         triggerAriaInvalid={Boolean(error)}
         triggerAriaLabel="근무지"
-        triggerClassName="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-gray-50 px-4 text-h-18-regular tracking-normal text-gray-900"
+        triggerClassName="mt-3 w-full rounded-[8px] border-gray-200 bg-gray-50 tracking-normal text-gray-900"
         contentClassName="z-[70]"
         itemClassName="text-h-16-medium tracking-normal"
       />

@@ -288,6 +288,7 @@ body:has([data-admin-shell="compact"]) {
   --admin-control-height: 38px;
   --admin-control-height-sm: 34px;
   --admin-control-height-lg: 44px;
+  --admin-control-height-xl: 48px;
   --admin-card-radius: 8px;
 }
 
@@ -331,6 +332,13 @@ body:has([data-admin-shell="compact"]) [data-slot="input"][data-size="lg"] {
   padding: 0 16px;
 }
 
+body:has([data-admin-shell="compact"]) [data-slot="input"][data-size="xl"] {
+  min-height: var(--admin-control-height-xl);
+  height: var(--admin-control-height-xl);
+  border-radius: var(--admin-card-radius);
+  padding: 0 16px;
+}
+
 body:has([data-admin-shell="compact"]) [data-slot="select-trigger"] {
   min-height: var(--admin-control-height);
   height: var(--admin-control-height);
@@ -349,6 +357,14 @@ body:has([data-admin-shell="compact"])
   [data-slot="select-trigger"][data-size="lg"] {
   min-height: var(--admin-control-height-lg);
   height: var(--admin-control-height-lg);
+  border-radius: var(--admin-card-radius);
+  padding: 0 16px;
+}
+
+body:has([data-admin-shell="compact"])
+  [data-slot="select-trigger"][data-size="xl"] {
+  min-height: var(--admin-control-height-xl);
+  height: var(--admin-control-height-xl);
   border-radius: var(--admin-card-radius);
   padding: 0 16px;
 }

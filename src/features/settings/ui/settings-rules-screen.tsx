@@ -307,6 +307,7 @@ function SettingsRuleInputField({
       <span className="mt-2 flex items-center gap-2">
         {field.kind === "select" ? (
           <OptionSelect
+            size="lg"
             disabled={disabled}
             onValueChange={onChange}
             options={(field.options ?? []).map((option) => ({
@@ -314,12 +315,13 @@ function SettingsRuleInputField({
               value: option.value,
             }))}
             triggerAriaLabel={field.label}
-            triggerClassName="h-11 w-[260px] justify-between rounded-[8px] border-gray-400 px-3 text-h-18-regular font-normal tracking-normal text-gray-900 focus-visible:ring-green-200"
+            triggerClassName="w-[260px] justify-between rounded-[8px] border-gray-400 font-normal tracking-normal text-gray-900 focus-visible:ring-green-200"
             value={value}
           />
         ) : (
           <Input
             aria-label={field.label}
+            size="lg"
             disabled={disabled}
             inputMode="numeric"
             min={field.id === "regular-payment-day" ? 1 : 0}
@@ -327,7 +329,7 @@ function SettingsRuleInputField({
             type="number"
             value={value}
             onChange={(event) => onChange(event.target.value)}
-            className="h-11 w-[260px] rounded-[8px] border-gray-200 bg-gray-50 text-right text-h-18-regular tracking-normal text-gray-900"
+            className="w-[260px] rounded-[8px] border-gray-200 bg-gray-50 text-right tracking-normal text-gray-900"
           />
         )}
         {field.suffix ? (

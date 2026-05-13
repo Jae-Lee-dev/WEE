@@ -16,7 +16,7 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-const sizes: ControlSize[] = ["sm", "default", "lg"];
+const sizes: ControlSize[] = ["sm", "default", "lg", "xl"];
 
 export const Playground: Story = {};
 

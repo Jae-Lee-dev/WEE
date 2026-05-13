@@ -367,9 +367,10 @@ function SignupTextField({
       </label>
       <Input
         id={id}
+        size="xl"
         aria-describedby={error ? errorId : undefined}
         aria-invalid={error ? true : undefined}
-        className="h-12 rounded-[8px] border-gray-200 text-body-16-regular tracking-normal"
+        className="rounded-[8px] border-gray-200 tracking-normal"
         {...props}
       />
       <SignupFieldError id={errorId} message={error} />
@@ -448,9 +449,10 @@ function SignupEmailField({
       >
         <Input
           id={id}
+          size="xl"
           aria-describedby={error ? errorId : undefined}
           aria-invalid={error ? true : undefined}
-          className="h-12 rounded-[8px] border-gray-200 text-body-16-regular tracking-normal focus-visible:border-gray-300 focus-visible:ring-gray-100"
+          className="rounded-[8px] border-gray-200 tracking-normal focus-visible:border-gray-300 focus-visible:ring-gray-100"
           type="text"
           value={localPart}
           disabled={disabled}
@@ -462,12 +464,13 @@ function SignupEmailField({
         {isCustomDomain ? (
           <div className="col-start-3 grid min-w-0 grid-cols-[minmax(0,1fr)_48px]">
             <Input
+              size="xl"
               aria-describedby={error ? errorId : undefined}
               aria-invalid={error ? true : undefined}
               aria-label="이메일 도메인 직접 입력"
               autoCapitalize="none"
               autoComplete="off"
-              className="h-12 rounded-r-none border-gray-200 text-body-16-regular tracking-normal focus-visible:border-gray-300 focus-visible:ring-gray-100"
+              className="rounded-r-none border-gray-200 tracking-normal focus-visible:border-gray-300 focus-visible:ring-gray-100"
               disabled={disabled}
               inputMode="email"
               onBlur={onCustomDomainBlur}
@@ -483,8 +486,9 @@ function SignupEmailField({
               value={domain}
             >
               <SelectTrigger
+                size="xl"
                 aria-label="이메일 도메인 선택"
-                className="flex h-12 min-h-12 w-12 items-center justify-center gap-0 rounded-l-none rounded-r-[8px] border-l-0 border-gray-200 p-0 focus-visible:border-gray-300 focus-visible:ring-gray-100 [&_svg]:mx-0 [&_svg]:text-gray-400"
+                className="flex w-12 items-center justify-center gap-0 rounded-l-none rounded-r-[8px] border-l-0 border-gray-200 p-0 focus-visible:border-gray-300 focus-visible:ring-gray-100 [&_svg]:mx-0 [&_svg]:text-gray-400"
               />
               <SelectContent>
                 {emailDomainOptions.map((option) => (
@@ -502,6 +506,7 @@ function SignupEmailField({
           </div>
         ) : (
           <OptionSelect
+            size="xl"
             disabled={disabled}
             itemClassName="py-2 text-body-14-medium"
             onValueChange={handleDomainOptionChange}
@@ -510,7 +515,7 @@ function SignupEmailField({
             triggerAriaDescribedBy={error ? errorId : undefined}
             triggerAriaInvalid={error ? true : undefined}
             triggerAriaLabel="이메일 도메인 선택"
-            triggerClassName="h-12 min-h-12 w-full rounded-[8px] border-gray-200 px-3 text-body-14-medium tracking-normal focus-visible:border-gray-300 focus-visible:ring-gray-100 data-placeholder:text-gray-400 [&_svg]:text-gray-400"
+            triggerClassName="w-full rounded-[8px] border-gray-200 text-body-14-medium tracking-normal focus-visible:border-gray-300 focus-visible:ring-gray-100 data-placeholder:text-gray-400 [&_svg]:text-gray-400"
             value={domain}
           />
         )}

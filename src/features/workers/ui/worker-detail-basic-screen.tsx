@@ -617,6 +617,7 @@ function EditInfoDialog({
               {dialog.payTypeLabel}
             </span>
             <Segment
+              size="lg"
               options={[
                 { value: "hourly", label: dialog.payTypeOptions[0] },
                 { value: "monthly", label: dialog.payTypeOptions[1] },
@@ -624,7 +625,7 @@ function EditInfoDialog({
               value={form.payrollType}
               onChange={handlePayrollTypeChange}
               disabled={saving}
-              className="h-11 w-full"
+              className="grid w-full grid-cols-2"
             />
             <p className="text-detail-16-regular text-gray-600">
               {dialog.payTypeNote}
@@ -644,7 +645,8 @@ function EditInfoDialog({
             <div data-testid="worker-edit-withholding-control">
               <span className="text-h-18-semibold text-gray-900">원천징수</span>
               <Segment
-                className="mt-3 grid h-11 w-full grid-cols-2 [&_[data-slot=tabs-trigger]]:h-9 [&_[data-slot=tabs-trigger]]:rounded-[8px] [&_[data-slot=tabs-trigger]]:px-2 [&_[data-slot=tabs-trigger]]:py-0 [&_[data-slot=tabs-trigger]]:text-h-16-semibold"
+                size="lg"
+                className="mt-3 grid w-full grid-cols-2"
                 options={[
                   { value: "none", label: "없음" },
                   {

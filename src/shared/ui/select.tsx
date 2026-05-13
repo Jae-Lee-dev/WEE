@@ -127,6 +127,7 @@ const selectTriggerSizeClassName: Record<ControlSize, string> = {
   sm: "h-9 min-h-9 px-2 py-0 text-label-14-medium",
   default: "h-[42px] min-h-[42px] px-2.5 py-0 text-label-18",
   lg: "h-11 min-h-11 px-4 py-0 text-h-18-regular",
+  xl: "h-12 min-h-12 px-4 py-0 text-body-16-regular",
 }
 
 function SelectTriggerSizer({ options }: { options: SelectOption[] }) {
