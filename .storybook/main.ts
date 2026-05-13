@@ -21,6 +21,12 @@ const config: StorybookConfig = {
       {
         resolve: {
           alias: {
+            "@/app": resolve(storybookDir, "../src/app"),
+            "@/pages": resolve(storybookDir, "../src/pages"),
+            "@/widgets": resolve(storybookDir, "../src/widgets"),
+            "@/features": resolve(storybookDir, "../src/features"),
+            "@/entities": resolve(storybookDir, "../src/entities"),
+            "@/shared": resolve(storybookDir, "../src/shared"),
             "@": resolve(storybookDir, "../src"),
           },
         },

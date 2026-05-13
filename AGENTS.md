@@ -61,9 +61,9 @@ This version has breaking changes. APIs, conventions, and file structure may dif
 
 ## UI Rules
 
-- Reuse existing tokens in `src/app/globals.css`; do not invent raw colors when a token exists.
+- Reuse existing tokens in `src/app/styles/globals.css`; do not invent raw colors when a token exists.
 - Match Figma-derived components before creating new variants.
-- Base icon exports in `src/components/icons.tsx` use Figma-aligned inline SVGs; sidebar shell assets live under `public/admin-shell/*`.
+- Base icon exports in `src/shared/ui/icons.tsx` use Figma-aligned inline SVGs; sidebar shell assets live under `public/admin-shell/*`.
 - The root `/` route redirects to `/dashboard`; use `/design-system` for token/component showcase work.
 - Storybook stories should document component states and use realistic Korean admin-domain labels.
 

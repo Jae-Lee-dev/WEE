@@ -97,7 +97,7 @@ function writeFixtureFile(root, file, content) {
 function createFixture(name, setup) {
   const root = join(tempRoot, name);
 
-  mkdirSync(join(root, "src/app"), { recursive: true });
+  mkdirSync(join(root, "app"), { recursive: true });
   mkdirSync(join(root, "e2e"), { recursive: true });
   writeFixtureFile(
     root,
@@ -111,7 +111,7 @@ function createFixture(name, setup) {
 
   writeFixtureFile(
     root,
-    "src/app/_config/admin-navigation.ts",
+    "src/shared/config/admin-navigation.ts",
     defaultAdminNavigationContent(),
   );
 
@@ -647,9 +647,9 @@ const cases = [
     setup(root) {
       writeFixtureFile(
         root,
-        "src/app/(admin)/dashboard/locations/page.tsx",
-        `import { AdminRoutePage } from "@/app/_components/AdminRoutePage";
-import { findScreenByHref } from "@/app/_config/admin-navigation";
+        "app/(admin)/dashboard/locations/page.tsx",
+        `import { AdminRoutePage } from "@/pages/admin-route-placeholder";
+import { findScreenByHref } from "@/shared/config/admin-navigation";
 
 export default function LocationsDashboardPage() {
   return <AdminRoutePage screen={findScreenByHref("/dashboard/locations")} />;
@@ -666,9 +666,9 @@ export default function LocationsDashboardPage() {
     setup(root) {
       writeFixtureFile(
         root,
-        "src/app/(admin)/dashboard/page.tsx",
-        `import { AdminRoutePage } from "@/app/_components/AdminRoutePage";
-import { findScreenByHref } from "@/app/_config/admin-navigation";
+        "app/(admin)/dashboard/page.tsx",
+        `import { AdminRoutePage } from "@/pages/admin-route-placeholder";
+import { findScreenByHref } from "@/shared/config/admin-navigation";
 
 export default function DashboardPage() {
   return <AdminRoutePage screen={findScreenByHref("/dashboard")} />;
@@ -685,9 +685,9 @@ export default function DashboardPage() {
     setup(root) {
       writeFixtureFile(
         root,
-        "src/app/(admin)/dashboard/page.tsx",
-        `import { AdminRoutePage } from "@/app/_components/AdminRoutePage";
-import { findScreenByHref } from "@/app/_config/admin-navigation";
+        "app/(admin)/dashboard/page.tsx",
+        `import { AdminRoutePage } from "@/pages/admin-route-placeholder";
+import { findScreenByHref } from "@/shared/config/admin-navigation";
 
 export default function DashboardPage() {
   return <AdminRoutePage screen={findScreenByHref("/dashboard/locations")} />;
@@ -703,9 +703,9 @@ export default function DashboardPage() {
     setup(root) {
       writeFixtureFile(
         root,
-        "src/app/(admin)/dashboard/locations/page.tsx",
-        `import { AdminRoutePage } from "@/app/_components/AdminRoutePage";
-import { findScreenByHref } from "@/app/_config/admin-navigation";
+        "app/(admin)/dashboard/locations/page.tsx",
+        `import { AdminRoutePage } from "@/pages/admin-route-placeholder";
+import { findScreenByHref } from "@/shared/config/admin-navigation";
 
 export default function LocationsDashboardPage() {
   return <AdminRoutePage screen={findScreenByHref("/dashboard/workers")} />;
@@ -722,9 +722,9 @@ export default function LocationsDashboardPage() {
     setup(root) {
       writeFixtureFile(
         root,
-        "src/app/(admin)/dashboard/locations/page.tsx",
-        `import { AdminRoutePage } from "@/app/_components/AdminRoutePage";
-import { findScreenByHref } from "@/app/_config/admin-navigation";
+        "app/(admin)/dashboard/locations/page.tsx",
+        `import { AdminRoutePage } from "@/pages/admin-route-placeholder";
+import { findScreenByHref } from "@/shared/config/admin-navigation";
 
 export default function LocationsDashboardPage() {
   const screen = findScreenByHref("/dashboard/locations");
@@ -741,7 +741,7 @@ export default function LocationsDashboardPage() {
     setup(root) {
       writeFixtureFile(
         root,
-        "src/app/_config/admin-navigation.ts",
+        "src/shared/config/admin-navigation.ts",
         defaultAdminNavigationContent().replace(
           `href: "/dashboard/locations",
     figmaBacked: false,
@@ -759,8 +759,8 @@ export default function LocationsDashboardPage() {
     setup(root) {
       writeFixtureFile(
         root,
-        "src/app/(entry)/login/page.tsx",
-        `import { EntryRoutePage } from "@/app/_components/EntryRoutePage";
+        "app/(entry)/login/page.tsx",
+        `import { EntryRoutePage } from "@/shared/ui/entry-route-page";
 
 export default function LoginPage() {
   return (
@@ -785,8 +785,8 @@ export default function LoginPage() {
     setup(root) {
       writeFixtureFile(
         root,
-        "src/app/(admin)/dashboard/page.tsx",
-        `import { EntryRoutePage } from "@/app/_components/EntryRoutePage";
+        "app/(admin)/dashboard/page.tsx",
+        `import { EntryRoutePage } from "@/shared/ui/entry-route-page";
 
 export default function DashboardPage() {
   return (
@@ -811,8 +811,8 @@ export default function DashboardPage() {
     setup(root) {
       writeFixtureFile(
         root,
-        "src/app/(entry)/login/LoginPlaceholder.tsx",
-        `import { EntryRoutePage } from "@/app/_components/EntryRoutePage";
+        "app/(entry)/login/LoginPlaceholder.tsx",
+        `import { EntryRoutePage } from "@/shared/ui/entry-route-page";
 
 export function LoginPlaceholder() {
   return (
@@ -838,7 +838,7 @@ export function LoginPlaceholder() {
       writeFixtureFile(
         root,
         "src/features/auth/LoginPlaceholder.tsx",
-        `import { EntryRoutePage } from "@/app/_components/EntryRoutePage";
+        `import { EntryRoutePage } from "@/shared/ui/entry-route-page";
 
 export function LoginPlaceholder() {
   return (
@@ -862,7 +862,7 @@ export function LoginPlaceholder() {
     setup(root) {
       writeFixtureFile(
         root,
-        "src/app/_config/admin-navigation.ts",
+        "src/shared/config/admin-navigation.ts",
         defaultAdminNavigationContent().replace(
           `href: "/login",
     figmaBacked: false,
@@ -881,7 +881,7 @@ export function LoginPlaceholder() {
     setup(root) {
       writeFixtureFile(
         root,
-        "src/app/api/example/route.js",
+        "app/api/example/route.js",
         "export async function GET() { return Response.json({ ok: true }); }",
       );
     },
@@ -912,7 +912,7 @@ export function LoginPlaceholder() {
       );
       writeFixtureFile(
         root,
-        "src/lib/firebase/client.ts",
+        "src/shared/api/firebase/client.ts",
         `import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
@@ -926,12 +926,12 @@ export function getFirebaseAuth() {
       );
       writeFixtureFile(
         root,
-        "src/features/entry/signup-form.tsx",
+        "src/features/entry/ui/signup-form.tsx",
         `"use client";
 
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { getFirebaseAuth } from "@/lib/firebase/client";
+import { getFirebaseAuth } from "@/shared/api/firebase/client";
 
 export function SignupForm() {
   const router = useRouter();
@@ -958,7 +958,7 @@ export function SignupForm() {
     setup(root) {
       writeFixtureFile(
         root,
-        "src/features/entry/entry-screens.tsx",
+        "src/features/entry/ui/entry-screens.tsx",
         `export function WorkspaceOnboardingScreen() {
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -974,7 +974,7 @@ export function SignupForm() {
       );
       writeFixtureFile(
         root,
-        "src/features/settings/settings-locations-screen.tsx",
+        "src/features/settings/ui/settings-locations-screen.tsx",
         `export function SettingsLocationsScreen() {
   const [locations, setLocations] = useState([]);
 
@@ -993,7 +993,7 @@ export function SignupForm() {
       );
       writeFixtureFile(
         root,
-        "src/features/entry/workspace-data-source.ts",
+        "src/entities/workspace/api/workspace-data-source.ts",
         `import { doc, runTransaction, setDoc } from "firebase/firestore";
 
 export async function createWorkspace(db, uid) {
@@ -1007,7 +1007,7 @@ export async function createWorkspace(db, uid) {
       );
       writeFixtureFile(
         root,
-        "src/features/settings/settings-locations-data-source.ts",
+        "src/features/settings/api/settings-locations-data-source.ts",
         `import { collection, doc, writeBatch } from "firebase/firestore";
 
 export function createLocation(db, workspaceId, input) {

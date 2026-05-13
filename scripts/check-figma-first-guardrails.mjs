@@ -3,7 +3,7 @@ import { join, relative } from "node:path";
 
 const root = process.cwd();
 
-const codeRoots = ["src", "e2e"];
+const codeRoots = ["app", "src", "e2e"];
 const rootFiles = [
   "next.config.ts",
   "playwright.config.ts",
@@ -14,9 +14,9 @@ const rootFiles = [
 ];
 const artifactRoot = "../../artifacts";
 const disallowedRepositoryArtifactDirs = ["artifacts", "public/artifacts"];
-const adminRoutePageFile = "src/app/_components/AdminRoutePage.tsx";
-const entryRoutePageFile = "src/app/_components/EntryRoutePage.tsx";
-const adminNavigationRegistryFile = "src/app/_config/admin-navigation.ts";
+const adminRoutePageFile = "src/pages/admin-route-placeholder/ui/admin-route-page.tsx";
+const entryRoutePageFile = "src/shared/ui/entry-route-page.tsx";
+const adminNavigationRegistryFile = "src/shared/config/admin-navigation.ts";
 const allowedAdminRoutePageDeferredHrefs = [
   "/dashboard/locations",
   "/dashboard/workers",
@@ -30,69 +30,69 @@ const allowedEntryRoutePageDeferredHrefs = [
   "/onboarding/setup",
 ];
 const allowedFirebaseAuthTransitionFiles = new Set([
-  "src/app/_components/AdminShell.tsx",
-  "src/features/dashboard/dashboard-data-source.ts",
-  "src/features/dashboard/dashboard-summary-data-source.ts",
-  "src/features/entry/login-form.tsx",
-  "src/features/entry/signup-form.tsx",
-  "src/features/entry/workspace-data-source.ts",
-  "src/features/entry/workspace-setup-data-source.ts",
-  "src/features/handover/handover-data-source.ts",
-  "src/features/payroll/payroll-data-source.ts",
-  "src/features/records/records-data-source.ts",
-  "src/features/schedule/schedule-approval-data-source.ts",
-  "src/features/schedule/duty-data-source.ts",
-  "src/features/schedule/duty-tags-data-source.ts",
-  "src/features/schedule/schedule-timeline-data-source.ts",
-  "src/features/settings/settings-support-data-source.ts",
-  "src/features/settings/settings-locations-data-source.ts",
-  "src/features/settings/settings-workspace-data-source.ts",
-  "src/features/workers/worker-applications-data-source.ts",
-  "src/features/workers/worker-detail-basic-data-source.ts",
-  "src/features/workers/worker-detail-payroll-data-source.ts",
-  "src/features/workers/worker-detail-schedule-data-source.ts",
-  "src/features/workers/worker-tags-data-source.ts",
-  "src/features/workers/workers-list-data-source.ts",
-  "src/lib/firebase/client.ts",
+  "src/widgets/admin-shell/ui/admin-shell.tsx",
+  "src/features/dashboard/api/dashboard-data-source.ts",
+  "src/features/dashboard/api/dashboard-summary-data-source.ts",
+  "src/features/entry/ui/login-form.tsx",
+  "src/features/entry/ui/signup-form.tsx",
+  "src/entities/workspace/api/workspace-data-source.ts",
+  "src/features/entry/api/workspace-setup-data-source.ts",
+  "src/features/handover/api/handover-data-source.ts",
+  "src/features/payroll/api/payroll-data-source.ts",
+  "src/features/records/api/records-data-source.ts",
+  "src/features/schedule/api/schedule-approval-data-source.ts",
+  "src/features/schedule/api/duty-data-source.ts",
+  "src/features/schedule/api/duty-tags-data-source.ts",
+  "src/features/schedule/api/schedule-timeline-data-source.ts",
+  "src/features/settings/api/settings-support-data-source.ts",
+  "src/features/settings/api/settings-locations-data-source.ts",
+  "src/entities/workspace/api/settings-workspace-data-source.ts",
+  "src/features/workers/api/worker-applications-data-source.ts",
+  "src/features/workers/api/worker-detail-basic-data-source.ts",
+  "src/features/workers/api/worker-detail-payroll-data-source.ts",
+  "src/features/workers/api/worker-detail-schedule-data-source.ts",
+  "src/features/workers/api/worker-tags-data-source.ts",
+  "src/features/workers/api/workers-list-data-source.ts",
+  "src/shared/api/firebase/client.ts",
 ]);
 const allowedFirestoreTransitionFiles = new Set([
-  "src/features/dashboard/dashboard-data-source.ts",
-  "src/features/dashboard/dashboard-summary-data-source.ts",
-  "src/features/entry/workspace-data-source.ts",
-  "src/features/handover/handover-data-source.ts",
-  "src/features/payroll/payroll-data-source.ts",
-  "src/features/records/records-data-source.ts",
-  "src/features/schedule/schedule-approval-data-source.ts",
-  "src/features/schedule/duty-data-source.ts",
-  "src/features/schedule/duty-tags-data-source.ts",
-  "src/features/schedule/schedule-timeline-data-source.ts",
-  "src/features/settings/settings-locations-data-source.ts",
-  "src/features/settings/settings-support-data-source.ts",
-  "src/features/settings/settings-workspace-data-source.ts",
-  "src/features/workers/worker-applications-data-source.ts",
-  "src/features/workers/worker-detail-basic-data-source.ts",
-  "src/features/workers/worker-detail-payroll-data-source.ts",
-  "src/features/workers/worker-detail-schedule-data-source.ts",
-  "src/features/workers/worker-tags-data-source.ts",
-  "src/features/workers/workers-list-data-source.ts",
+  "src/features/dashboard/api/dashboard-data-source.ts",
+  "src/features/dashboard/api/dashboard-summary-data-source.ts",
+  "src/entities/workspace/api/workspace-data-source.ts",
+  "src/features/handover/api/handover-data-source.ts",
+  "src/features/payroll/api/payroll-data-source.ts",
+  "src/features/records/api/records-data-source.ts",
+  "src/features/schedule/api/schedule-approval-data-source.ts",
+  "src/features/schedule/api/duty-data-source.ts",
+  "src/features/schedule/api/duty-tags-data-source.ts",
+  "src/features/schedule/api/schedule-timeline-data-source.ts",
+  "src/features/settings/api/settings-locations-data-source.ts",
+  "src/features/settings/api/settings-support-data-source.ts",
+  "src/entities/workspace/api/settings-workspace-data-source.ts",
+  "src/features/workers/api/worker-applications-data-source.ts",
+  "src/features/workers/api/worker-detail-basic-data-source.ts",
+  "src/features/workers/api/worker-detail-payroll-data-source.ts",
+  "src/features/workers/api/worker-detail-schedule-data-source.ts",
+  "src/features/workers/api/worker-tags-data-source.ts",
+  "src/features/workers/api/workers-list-data-source.ts",
 ]);
 const allowedSubmitDrivenTransitionFiles = new Set([
-  "src/features/entry/entry-screens.tsx",
-  "src/features/entry/login-form.tsx",
-  "src/features/entry/signup-form.tsx",
-  "src/features/schedule/duty-list-screen.tsx",
-  "src/features/settings/settings-locations-screen.tsx",
-  "src/features/settings/settings-workspace-screen.tsx",
+  "src/features/entry/ui/entry-screens.tsx",
+  "src/features/entry/ui/login-form.tsx",
+  "src/features/entry/ui/signup-form.tsx",
+  "src/features/schedule/ui/duty-list-screen.tsx",
+  "src/features/settings/ui/settings-locations-screen.tsx",
+  "src/features/settings/ui/settings-workspace-screen.tsx",
 ]);
 const allowedLocalArrayMutationTransitionFiles = new Set([
-  "src/features/entry/signup-form.tsx",
-  "src/features/schedule/duty-list-screen.tsx",
-  "src/features/schedule/duty-tags-screen.tsx",
-  "src/features/settings/settings-locations-screen.tsx",
-  "src/features/workers/worker-tags-screen.tsx",
+  "src/features/entry/ui/signup-form.tsx",
+  "src/features/schedule/ui/duty-list-screen.tsx",
+  "src/features/schedule/ui/duty-tags-screen.tsx",
+  "src/features/settings/ui/settings-locations-screen.tsx",
+  "src/features/workers/ui/worker-tags-screen.tsx",
 ]);
 const allowedRuntimeEnvTransitionFiles = new Set([
-  "src/lib/firebase/client.ts",
+  "src/shared/api/firebase/client.ts",
 ]);
 const allowedDependencies = new Set(["firebase"]);
 const codeExtensions = new Set([
@@ -466,11 +466,11 @@ function getAppRouteHrefFromPageFile(rel) {
   const parts = rel.split("/");
   const filename = parts.at(-1) ?? "";
 
-  if (parts[0] !== "src" || parts[1] !== "app" || !/^page\.(?:cjs|cts|js|jsx|mjs|mts|ts|tsx)$/.test(filename)) {
+  if (parts[0] !== "app" || !/^page\.(?:cjs|cts|js|jsx|mjs|mts|ts|tsx)$/.test(filename)) {
     return null;
   }
 
-  const routeSegments = parts.slice(2, -1).filter((segment) => {
+  const routeSegments = parts.slice(1, -1).filter((segment) => {
     return !(segment.startsWith("(") && segment.endsWith(")")) && !segment.startsWith("@");
   });
 
@@ -480,7 +480,7 @@ function getAppRouteHrefFromPageFile(rel) {
 function auditAdminRoutePageUsage(file, content) {
   const rel = relative(root, file);
 
-  if (!rel.startsWith("src/app/") || rel === adminRoutePageFile) {
+  if (!rel.startsWith("app/") || rel === adminRoutePageFile) {
     return;
   }
 
@@ -496,7 +496,7 @@ function auditAdminRoutePageUsage(file, content) {
     addFinding(
       "AdminRoutePage usage must live in a literal App Router page file",
       file,
-      "expected src/app/.../page.tsx",
+      "expected app/.../page.tsx",
     );
     return;
   }
@@ -547,7 +547,7 @@ function auditAdminRoutePageUsage(file, content) {
 function auditEntryRoutePageUsage(file, content) {
   const rel = relative(root, file);
 
-  if (!rel.startsWith("src/") || rel === entryRoutePageFile) {
+  if (!(rel.startsWith("app/") || rel.startsWith("src/")) || rel === entryRoutePageFile) {
     return;
   }
 
@@ -563,7 +563,7 @@ function auditEntryRoutePageUsage(file, content) {
     addFinding(
       "EntryRoutePage usage must live in a literal App Router page file",
       file,
-      "expected src/app/.../page.tsx",
+      "expected app/.../page.tsx",
     );
     return;
   }
@@ -585,7 +585,7 @@ for (const codeRoot of codeRoots) {
     const rel = relative(root, file);
     const filename = rel.split("/").at(-1);
 
-    if (rel.startsWith("src/app/") && disallowedRouteFiles.has(filename)) {
+    if (rel.startsWith("app/") && disallowedRouteFiles.has(filename)) {
       addFinding("Disallowed App Router backend file", file, filename);
     }
 

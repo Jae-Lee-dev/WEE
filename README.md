@@ -38,7 +38,7 @@ pnpm build-storybook
 
 ## Design Tokens
 
-디자인 토큰은 `src/app/globals.css`의 `@theme` 블록에 정의된다. 토큰 명세 reference 문서는 본 repo 밖 (`WEE/docs/wee-design-tokens-v1.0.md`) 에서 별도 공유된다.
+디자인 토큰은 `src/app/styles/globals.css`의 `@theme` 블록에 정의된다.
 
 루트(`/`)는 `/dashboard`로 redirect된다. 토큰·컴포넌트 쇼케이스는 `/design-system`과 Storybook에서 확인한다.
 

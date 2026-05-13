@@ -1,6 +1,6 @@
 import type { Preview } from '@storybook/nextjs-vite'
 import { createElement } from 'react'
-import '../src/app/globals.css'
+import '../src/app/styles/globals.css'
 
 const preview: Preview = {
   decorators: [

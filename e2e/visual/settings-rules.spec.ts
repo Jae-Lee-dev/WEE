@@ -33,7 +33,7 @@ test(`SET-03 rules-dialog ${desktop}`, async ({ page }) => {
   await expect(page.getByTestId("settings-rules-dialog")).toBeVisible();
   await expect(page.getByLabel("시간 이상 허용 오차")).toHaveValue("5");
   await expect(page.getByLabel("근무 시간 올림 단위")).toHaveValue("6");
-  await expect(page.getByLabel("급여 올림 단위")).toHaveValue("원 단위");
+  await expect(page.getByLabel("급여 올림 단위")).toHaveValue("1");
 
   await captureActualScreenshot({
     page,
