@@ -54,6 +54,13 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await expect(page.getByTestId("dashboard-filter-affiliation")).toHaveCount(
       0,
     );
+    await expect
+      .poll(async () =>
+        page.getByTestId("dashboard-inbox-table-scroll").evaluate((element) =>
+          element.scrollWidth <= element.clientWidth + 1,
+        ),
+      )
+      .toBe(true);
 
     await captureActualScreenshot({
       page,

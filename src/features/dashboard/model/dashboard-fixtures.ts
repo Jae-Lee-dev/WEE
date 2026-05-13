@@ -52,7 +52,6 @@ export type DashboardInboxRow = {
   type: string;
   target: string;
   location: string;
-  content: string;
   date: string;
   status: string;
   href?: string;
@@ -173,34 +172,29 @@ const defaultInboxTargets = [
     target: "김서연",
     targetId: "worker_kim_seoyeon",
     location: "대치 A학원",
-    content: "신규 조교 승인 필요",
     date: "04.15",
   },
   {
     target: "이민재",
     targetId: "worker_lee_minjae",
     location: "강남 B학원",
-    content: "시간표 변경 검토 필요",
     date: "04.14",
   },
   {
     target: "박지훈",
     targetId: "worker_park_jihun",
     location: "서초 C학원",
-    content: "근무기록 확인 필요",
     date: "04.13",
   },
   {
     target: "최민준",
     targetId: "worker_choi_minjun",
     location: "잠실 C학원",
-    content: "급여 산정 재확인 필요",
     date: "04.12",
   },
 ] as const;
 
 function inboxRow({
-  content,
   date,
   filter,
   id,
@@ -213,7 +207,6 @@ function inboxRow({
   target: string;
   targetId: string;
   location: string;
-  content: string;
   date: string;
 }): DashboardInboxRow {
   const metric = dashboardMetrics.find((item) => item.id === filter);
@@ -225,7 +218,6 @@ function inboxRow({
     type: metric?.inboxType ?? "확인 필요",
     target,
     location,
-    content,
     date,
     status: "확인 필요",
     action: {
@@ -247,7 +239,6 @@ const repeatedDefaultRows: DashboardInboxRow[] = Array.from(
         target: target.target,
         targetId: target.targetId,
         location: target.location,
-        content: target.content,
         date: target.date,
       });
     }),
@@ -264,7 +255,6 @@ const detailRowsByFilter: Record<
       target: "김서연",
       targetId: "worker_kim_seoyeon",
       location: "대치 A학원",
-      content: "신규 조교 승인 필요",
       date: "04.15",
     }),
     inboxRow({
@@ -273,7 +263,6 @@ const detailRowsByFilter: Record<
       target: "이민재",
       targetId: "worker_lee_minjae",
       location: "강남 B학원",
-      content: "소속 변경 사유 검토 중",
       date: "04.11",
     }),
     inboxRow({
@@ -282,7 +271,6 @@ const detailRowsByFilter: Record<
       target: "박지훈",
       targetId: "worker_park_jihun",
       location: "서초 C학원",
-      content: "소속 해지 승인 대기",
       date: "04.09",
     }),
     inboxRow({
@@ -291,7 +279,6 @@ const detailRowsByFilter: Record<
       target: "윤지아",
       targetId: "worker_yoon_jia",
       location: "송파 E학원",
-      content: "초대 코드 가입 확인 필요",
       date: "04.08",
     }),
   ],
@@ -302,7 +289,6 @@ const detailRowsByFilter: Record<
       target: "김서연",
       targetId: "worker_kim_seoyeon",
       location: "대치 A학원",
-      content: "4월 3주차 시간표 최초 제출",
       date: "04.15",
     }),
     inboxRow({
@@ -311,7 +297,6 @@ const detailRowsByFilter: Record<
       target: "강태우",
       targetId: "worker_kang_taewoo",
       location: "대치 A학원",
-      content: "야간자습 블록 교체 요청",
       date: "04.14",
     }),
     inboxRow({
@@ -320,7 +305,6 @@ const detailRowsByFilter: Record<
       target: "한소희",
       targetId: "worker_han_sohee",
       location: "서초 C학원",
-      content: "목요일 보강 시간표 추가",
       date: "04.12",
     }),
     inboxRow({
@@ -329,7 +313,6 @@ const detailRowsByFilter: Record<
       target: "임수빈",
       targetId: "worker_im_subin",
       location: "잠실 C학원",
-      content: "주말 특강 배정 승인 필요",
       date: "04.10",
     }),
   ],
@@ -340,7 +323,6 @@ const detailRowsByFilter: Record<
       target: "이하은",
       targetId: "worker_lee_haeun",
       location: "대치 A학원",
-      content: "시험대비 보강 추가근무",
       date: "04.15",
     }),
     inboxRow({
@@ -349,7 +331,6 @@ const detailRowsByFilter: Record<
       target: "최민준",
       targetId: "worker_choi_minjun",
       location: "잠실 C학원",
-      content: "마감 정산 연장 근무",
       date: "04.14",
     }),
     inboxRow({
@@ -358,7 +339,6 @@ const detailRowsByFilter: Record<
       target: "윤지아",
       targetId: "worker_yoon_jia",
       location: "송파 E학원",
-      content: "질문조교 대체 투입",
       date: "04.12",
     }),
     inboxRow({
@@ -367,7 +347,6 @@ const detailRowsByFilter: Record<
       target: "조영민",
       targetId: "worker_jo_youngmin",
       location: "강남 B학원",
-      content: "특강 자료 정리 추가근무",
       date: "04.10",
     }),
   ],
@@ -378,7 +357,6 @@ const detailRowsByFilter: Record<
       target: "김서연",
       targetId: "worker_kim_seoyeon",
       location: "대치 A학원",
-      content: "4/15 퇴근시간 수정 이의신청",
       date: "04.15",
     }),
     inboxRow({
@@ -387,7 +365,6 @@ const detailRowsByFilter: Record<
       target: "박지훈",
       targetId: "worker_park_jihun",
       location: "잠실 C학원",
-      content: "위치이상 사유 검토 요청",
       date: "04.13",
     }),
     inboxRow({
@@ -396,7 +373,6 @@ const detailRowsByFilter: Record<
       target: "한소희",
       targetId: "worker_han_sohee",
       location: "서초 C학원",
-      content: "근무시간 누락 정정 요청",
       date: "04.12",
     }),
     inboxRow({
@@ -405,7 +381,6 @@ const detailRowsByFilter: Record<
       target: "임수빈",
       targetId: "worker_im_subin",
       location: "강남 B학원",
-      content: "휴게시간 반영 확인 필요",
       date: "04.11",
     }),
   ],
@@ -416,7 +391,6 @@ const detailRowsByFilter: Record<
       target: "정수현",
       targetId: "worker_jung_suhyun",
       location: "대치 A학원",
-      content: "퇴근미처리 3회 누적",
       date: "04.15",
     }),
     inboxRow({
@@ -425,7 +399,6 @@ const detailRowsByFilter: Record<
       target: "최민준",
       targetId: "worker_choi_minjun",
       location: "잠실 C학원",
-      content: "위치이상 플래그 재확인",
       date: "04.14",
     }),
     inboxRow({
@@ -434,7 +407,6 @@ const detailRowsByFilter: Record<
       target: "강태우",
       targetId: "worker_kang_taewoo",
       location: "대치 A학원",
-      content: "지각 후보 2회 발생",
       date: "04.12",
     }),
     inboxRow({
@@ -443,7 +415,6 @@ const detailRowsByFilter: Record<
       target: "윤지아",
       targetId: "worker_yoon_jia",
       location: "송파 E학원",
-      content: "출근 로그 위치 불일치",
       date: "04.09",
     }),
   ],
@@ -454,7 +425,6 @@ const detailRowsByFilter: Record<
       target: "최민준",
       targetId: "worker_choi_minjun",
       location: "잠실 C학원",
-      content: "추가근무 반영 후 재확정 필요",
       date: "04.15",
     }),
     inboxRow({
@@ -463,7 +433,6 @@ const detailRowsByFilter: Record<
       target: "김서연",
       targetId: "worker_kim_seoyeon",
       location: "대치 A학원",
-      content: "이의신청 승인 후 산정 확인",
       date: "04.14",
     }),
     inboxRow({
@@ -472,7 +441,6 @@ const detailRowsByFilter: Record<
       target: "한소희",
       targetId: "worker_han_sohee",
       location: "서초 C학원",
-      content: "지급 전 명세 상태 확인",
       date: "04.12",
     }),
     inboxRow({
@@ -481,7 +449,6 @@ const detailRowsByFilter: Record<
       target: "임수빈",
       targetId: "worker_im_subin",
       location: "강남 B학원",
-      content: "보너스 반영 후 재확정",
       date: "04.10",
     }),
   ],

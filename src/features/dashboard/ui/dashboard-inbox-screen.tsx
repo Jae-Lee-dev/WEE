@@ -17,6 +17,8 @@ import {
 
 const dashboardBadgeClassName =
   "text-detail-16-semibold tracking-normal";
+const inboxTableGridClassName =
+  "grid-cols-[1.35fr_1fr_1.35fr_0.65fr_0.8fr]";
 
 const toneClassNames: Record<
   DashboardTone,
@@ -260,13 +262,20 @@ function InboxTable({
           {countLabel}
         </Badge>
       </div>
-      <div className="overflow-x-auto">
-        <div className="min-w-[1540px]">
-          <div className="grid h-9 grid-cols-[260px_200px_260px_380px_200px_240px] items-center border-b border-gray-300 px-4 text-h-18-regular text-gray-500">
+      <div
+        className="overflow-x-auto"
+        data-testid="dashboard-inbox-table-scroll"
+      >
+        <div className="w-full min-w-[880px]">
+          <div
+            className={cn(
+              "grid h-9 items-center border-b border-gray-300 px-4 text-h-18-regular text-gray-500",
+              inboxTableGridClassName,
+            )}
+          >
             <div>유형</div>
             <div>대상</div>
             <div>근무지</div>
-            <div>내용</div>
             <div>일시</div>
             <div>상태</div>
           </div>
@@ -283,7 +292,10 @@ function InboxTable({
                   data-action-type={row.action.actionType}
                   data-target-id={row.action.targetId}
                   data-record-type={row.action.recordType}
-                  className="grid h-[42px] grid-cols-[260px_200px_260px_380px_200px_240px] items-center border-b border-gray-100 px-4 text-left text-h-18-regular text-gray-900 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200"
+                  className={cn(
+                    "grid h-[42px] items-center border-b border-gray-100 px-4 text-left text-h-18-regular text-gray-900 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200",
+                    inboxTableGridClassName,
+                  )}
                 >
                   <InboxRowCells row={row} />
                 </Link>
@@ -294,7 +306,10 @@ function InboxTable({
                   data-action-type={row.action.actionType}
                   data-target-id={row.action.targetId}
                   data-record-type={row.action.recordType}
-                  className="grid h-[42px] w-full grid-cols-[260px_200px_260px_380px_200px_240px] items-center border-b border-gray-100 px-4 text-left text-h-18-regular text-gray-900 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200"
+                  className={cn(
+                    "grid h-[42px] w-full items-center border-b border-gray-100 px-4 text-left text-h-18-regular text-gray-900 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200",
+                    inboxTableGridClassName,
+                  )}
                 >
                   <InboxRowCells row={row} />
                 </button>
@@ -334,7 +349,6 @@ function InboxRowCells({ row }: { row: DashboardInboxRow }) {
       </div>
       <div>{row.target}</div>
       <div>{row.location}</div>
-      <div>{row.content}</div>
       <div>{row.date}</div>
       <div>
         <Badge variant="grey" size="M">
@@ -356,7 +370,7 @@ function filterInboxRows(
   }
 
   return rows.filter((row) =>
-    [row.type, row.target, row.location, row.content, row.date, row.status]
+    [row.type, row.target, row.location, row.date, row.status]
       .join(" ")
       .toLowerCase()
       .includes(query),

@@ -158,7 +158,6 @@ function mapOperationalInboxItem(
     type: metric?.inboxType ?? readItemTypeLabel(item.itemType),
     target: item.workerNameSnapshot || item.workerId || "-",
     location: "-",
-    content: readContentLabel(item),
     date: formatShortDate(item.sortAt),
     status: readStatusLabel(item.status),
     href: createTargetHref(item),
@@ -227,25 +226,6 @@ function readFilterFromSourceType(
       return "payroll";
     default:
       return null;
-  }
-}
-
-function readContentLabel(item: OperationalInboxItem) {
-  switch (item.itemType) {
-    case "membership_pending":
-      return "신규 조교 승인 필요";
-    case "schedule_pending":
-      return "시간표 변경 검토 필요";
-    case "overtime_pending":
-      return "추가근무 승인 필요";
-    case "correction_pending":
-      return "이의신청 처리 필요";
-    case "anomaly_unresolved":
-      return "근무기록 이상 플래그 확인 필요";
-    case "payroll_reconfirmation":
-      return "급여 산정 재확인 필요";
-    default:
-      return readItemTypeLabel(item.itemType);
   }
 }
 
