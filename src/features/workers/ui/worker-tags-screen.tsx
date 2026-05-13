@@ -453,9 +453,7 @@ function WorkerTagDetailPanel({
         ? worker.name.toLocaleLowerCase("ko-KR").includes(normalizedSearchText)
         : true,
   );
-  const currentCountText = assignmentLoading
-    ? (tag?.countText ?? "0명")
-    : `${selectedWorkerIds.length}명`;
+  const currentCountText = `${selectedWorkerIds.length}명`;
   const title =
     mode === "create"
       ? "근무자 태그 추가"
@@ -614,9 +612,11 @@ function WorkerTagDetailPanel({
             <h3 className="text-h-18-semibold text-gray-900">
               {editable ? "적용할 조교" : "현재 적용된 조교"}
             </h3>
-            <Badge variant="grey" size="M">
-              {currentCountText}
-            </Badge>
+            {!assignmentLoading && !assignmentError ? (
+              <Badge variant="grey" size="M">
+                {currentCountText}
+              </Badge>
+            ) : null}
           </div>
           <SearchField
             aria-label="조교 이름 검색"

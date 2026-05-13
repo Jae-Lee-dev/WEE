@@ -249,19 +249,29 @@ function createFirestoreWorkerTagsDataSource(): WorkerTagsDataSource {
     },
     async listWorkerTags() {
       const workspaceId = await requireActiveWorkspaceId();
-      const snapshot = await getDocs(getWorkerTagsCollection(workspaceId));
+      const [tagsSnapshot, workersSnapshot] = await Promise.all([
+        getDocs(getWorkerTagsCollection(workspaceId)),
+        getDocs(getWorkersCollection(workspaceId)),
+      ]);
+      const actualUsageCountByTagId = countWorkerTagAssignments(
+        workersSnapshot.docs,
+      );
 
-      return snapshot.docs
+      return tagsSnapshot.docs
         .map(mapWorkerTagDocument)
         .filter((tag) => tag.status !== "deleted")
         .sort(compareWorkerTags)
-        .map((tag) => ({
-          id: tag.id,
-          label: tag.label,
-          countText: tag.countText,
-          tone: tag.tone,
-          statusText: tag.statusText,
-        }));
+        .map((tag) => {
+          const usageCount = actualUsageCountByTagId.get(tag.id) ?? 0;
+
+          return {
+            id: tag.id,
+            label: tag.label,
+            countText: toWorkerTagCountText(usageCount),
+            tone: tag.tone,
+            statusText: tag.statusText,
+          };
+        });
     },
     async updateWorkerTag(tag, input) {
       const workspaceId = await requireActiveWorkspaceId();
@@ -349,7 +359,7 @@ function mapWorkerTagDocument(
   return {
     id: snapshot.id,
     label: readString(data.name, readString(data.label, "태그 없음")),
-    countText: `적용 조교 ${usageCount}명`,
+    countText: toWorkerTagCountText(usageCount),
     tone: readWorkerTagTone(data.color ?? data.tone),
     statusText: readStatusLabel(status),
     createdAt: readDate(data.createdAt),
@@ -372,12 +382,30 @@ function toWorkerTagRow({
   usageCount: number;
 }): WorkerTagRow {
   return {
-    countText: `적용 조교 ${usageCount}명`,
+    countText: toWorkerTagCountText(usageCount),
     id,
     label,
     statusText: readStatusLabel(status),
     tone,
   };
+}
+
+function countWorkerTagAssignments(
+  workers: readonly QueryDocumentSnapshot<DocumentData>[],
+) {
+  const usageCountByTagId = new Map<string, number>();
+
+  for (const worker of workers) {
+    for (const tagId of readStringArray(worker.data().tagIds)) {
+      usageCountByTagId.set(tagId, (usageCountByTagId.get(tagId) ?? 0) + 1);
+    }
+  }
+
+  return usageCountByTagId;
+}
+
+function toWorkerTagCountText(usageCount: number) {
+  return `적용 조교 ${usageCount}명`;
 }
 
 function compareWorkerTags(left: WorkerTagModel, right: WorkerTagModel) {
