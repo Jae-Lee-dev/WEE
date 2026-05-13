@@ -73,9 +73,7 @@ export function WorkerTagsScreen({
   const [selectedTagId, setSelectedTagId] = useState<string | null>(
     initialRows[0]?.id ?? null,
   );
-  const [panelMode, setPanelMode] = useState<WorkerTagPanelMode>(
-    "view",
-  );
+  const [panelMode, setPanelMode] = useState<WorkerTagPanelMode>("view");
   const [loading, setLoading] = useState(!dataSource.initialRows);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -229,7 +227,7 @@ export function WorkerTagsScreen({
   return (
     <section
       aria-label="근무자 태그 관리"
-      className="flex h-[calc(100vh-144px)] min-h-[560px] w-full flex-col gap-4"
+      className="flex h-[calc(100vh-144px)] min-h-140 w-full flex-col gap-4"
       data-testid="worker-tags-screen"
     >
       {statusMessage || errorMessage ? (
@@ -297,7 +295,7 @@ function WorkerTagListPanel({
 }) {
   return (
     <div className="flex min-w-0 flex-col overflow-hidden rounded-[8px] bg-white">
-      <div className="flex h-[56px] shrink-0 items-center justify-between gap-3 px-4">
+      <div className="flex h-14 shrink-0 items-center justify-between gap-3 px-4">
         <div className="flex min-w-0 items-center gap-3">
           <h2 className="text-h-20 text-gray-900">근무자 태그 관리</h2>
           <Badge variant="grey" size="M">
@@ -391,7 +389,7 @@ function WorkerTagListState({
 }) {
   return (
     <div
-      className="flex min-h-[220px] items-center justify-center px-4 text-center text-h-18-regular text-gray-500"
+      className="flex min-h-55 items-center justify-center px-4 text-center text-h-18-regular text-gray-500"
       role={role}
     >
       {label}
@@ -491,12 +489,12 @@ function WorkerTagCreateDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-4 py-6">
+    <div className="fixed inset-0 z-80 flex items-center justify-center bg-black/40 px-4 py-6">
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="worker-tags-create-title"
-        className="flex max-h-[calc(100vh-48px)] w-full max-w-[640px] flex-col overflow-hidden rounded-[8px] bg-white shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
+        className="flex max-h-[calc(100vh-48px)] w-full max-w-160 flex-col overflow-hidden rounded-[8px] bg-white shadow-[0px_16px_44px_rgba(17,24,39,0.18)]"
         data-testid="worker-tags-create-dialog"
       >
         <div className="shrink-0 px-6 pt-6">
@@ -569,7 +567,7 @@ function WorkerTagCreateDialog({
             />
           </div>
 
-          <div className="mt-4 max-h-[280px] overflow-y-auto rounded-[8px] border border-gray-100">
+          <div className="mt-4 max-h-70 overflow-y-auto rounded-[8px] border border-gray-100">
             {assignmentLoading ? (
               <WorkerTagAssignmentState label="조교 목록을 불러오는 중입니다." />
             ) : assignmentError ? (
@@ -678,8 +676,7 @@ function WorkerTagDetailPanel({
         : true,
   );
   const currentCountText = `${selectedWorkerIds.length}명`;
-  const title =
-    mode === "edit" ? "근무자 태그 수정" : "근무자 태그 상세";
+  const title = mode === "edit" ? "근무자 태그 수정" : "근무자 태그 상세";
   const canSave = label.trim().length > 0 && !saving && !assignmentLoading;
 
   useEffect(() => {
@@ -889,7 +886,7 @@ function WorkerTagDetailPanel({
             <h3 className="text-h-18-semibold text-red-500">
               근무자 태그 삭제
             </h3>
-            <p className="mt-2 text-h-16-medium leading-[1.5] tracking-normal text-red-500">
+            <p className="mt-2 text-h-16-medium leading-normal tracking-normal text-red-500">
               {tag.label} 태그를 삭제하고 적용된 조교에서 이 태그를 제거합니다.
             </p>
             <div className="mt-4 flex justify-end gap-3">
@@ -996,7 +993,7 @@ function WorkerTagAssignmentRow({
         <span
           aria-hidden="true"
           className={cn(
-            "flex size-5 items-center justify-center rounded-[2px]",
+            "flex size-5 items-center justify-center rounded-xs",
             worker.disabled
               ? "bg-gray-200 text-white"
               : checked
