@@ -460,7 +460,7 @@ function SectionTabs({
     <div className="sticky top-0 z-30 bg-gray-100 px-4 pt-3">
       <nav
         ref={listRef}
-        className="group/section-tabs relative isolate flex h-9 items-end gap-6 overflow-hidden border-b border-gray-200"
+        className="group/section-tabs relative isolate flex h-9 items-end overflow-hidden border-b border-gray-200"
       >
         <span
           aria-hidden="true"
@@ -487,7 +487,7 @@ function SectionTabs({
               href={tab.href}
               aria-current={active ? "page" : undefined}
               {...{ [slidingTabValueAttribute]: tab.href }}
-              className={`relative z-10 flex h-9 items-start border-b-2 text-h-16-semibold transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 ${
+              className={`relative z-10 flex h-9 items-start border-b-2 px-3 text-h-16-semibold transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 ${
                 active
                   ? "border-transparent text-gray-500 hover:text-gray-800 active:text-gray-900"
                   : "border-transparent text-gray-500 hover:border-gray-200 hover:text-gray-800 active:text-gray-900"
