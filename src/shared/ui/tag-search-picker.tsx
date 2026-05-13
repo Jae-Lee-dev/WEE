@@ -92,6 +92,7 @@ function TagSearchPicker({
   const listboxId = `${inputId}-listbox`;
   const rootRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const isComposingRef = React.useRef(false);
   const isValueControlled = value !== undefined;
   const isInputControlled = inputValue !== undefined;
   const isOpenControlled = open !== undefined;
@@ -329,6 +330,7 @@ function TagSearchPicker({
 
   const handleInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (disabled) return;
+    if (isImeComposingKeyDown(event, isComposingRef.current)) return;
 
     if (event.key === "ArrowDown") {
       setOpenState(true);
@@ -429,6 +431,14 @@ function TagSearchPicker({
             id={inputId}
             role="combobox"
             value={query}
+            onCompositionEnd={() => {
+              window.setTimeout(() => {
+                isComposingRef.current = false;
+              }, 0);
+            }}
+            onCompositionStart={() => {
+              isComposingRef.current = true;
+            }}
             onChange={(event) => {
               setQuery(event.target.value);
               setOpenState(true);
@@ -648,6 +658,18 @@ function mergeOptions(
 
 function normalizeTagSearchText(value: string) {
   return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("ko-KR");
+}
+
+function isImeComposingKeyDown(
+  event: React.KeyboardEvent<HTMLInputElement>,
+  isComposing: boolean,
+) {
+  return (
+    isComposing ||
+    event.nativeEvent.isComposing ||
+    event.nativeEvent.keyCode === 229 ||
+    event.key === "Process"
+  );
 }
 
 function uniqueValues(values: readonly string[] | undefined) {

@@ -90,6 +90,57 @@ test(`WKR-01 tag-added ${desktop}`, async ({ page }) => {
   });
 });
 
+test("WKR-01 tag picker ignores Enter while IME is composing", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/workers/applications",
+    viewport: desktop,
+  });
+  await page.getByTestId("worker-application-row-1").click();
+  const tagInput = page.getByRole("combobox", { name: "근무자 태그 검색" });
+
+  await tagInput.fill("문서 검토");
+  await expect(
+    page.getByRole("option", { name: "새 태그 문서 검토 선택" }),
+  ).toBeVisible();
+
+  await tagInput.evaluate((input) => {
+    input.dispatchEvent(
+      new CompositionEvent("compositionstart", {
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        code: "Enter",
+        key: "Enter",
+      }),
+    );
+  });
+
+  await expect(
+    page.getByRole("button", { name: "문서 검토 태그 제거" }),
+  ).toHaveCount(0);
+  await expect(tagInput).toHaveValue("문서 검토");
+
+  await tagInput.evaluate((input) => {
+    input.dispatchEvent(
+      new CompositionEvent("compositionend", {
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  });
+  await page.waitForTimeout(20);
+  await tagInput.press("Enter");
+  await expect(
+    page.getByRole("button", { name: "문서 검토 태그 제거" }),
+  ).toBeVisible();
+});
+
 test(`WKR-01 monthly-pay-selected ${desktop}`, async ({ page }) => {
   await prepareVisualPage({
     page,
