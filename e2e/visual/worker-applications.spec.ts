@@ -96,9 +96,10 @@ test(`WKR-01 monthly-pay-selected ${desktop}`, async ({ page }) => {
   await page.getByTestId("worker-application-tag-option-first").click();
   await page.getByTestId("worker-application-pay-monthly").click();
   await expect(page.getByTestId("worker-application-pay-monthly")).toHaveAttribute(
-    "aria-pressed",
+    "aria-selected",
     "true",
   );
+  await expect(page.getByLabel("세율 직접 입력")).toHaveCount(0);
   await page.waitForTimeout(segmentAnimationMs);
 
   await captureActualScreenshot({

@@ -5,7 +5,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { useSlidingTabIndicator } from "@/shared/ui/use-sliding-tab-indicator";
 import { cn } from "@/shared/lib/utils";
 
-type Option<T extends string> = { value: T; label: string };
+type Option<T extends string> = { value: T; label: string; testId?: string };
 
 type SegmentProps<T extends string> = {
   options: Option<T>[];
@@ -56,6 +56,7 @@ function Segment<T extends string>({
             variant="segment"
             value={option.value}
             disabled={disabled}
+            data-testid={option.testId}
             {...{ [slidingTabValueAttribute]: option.value }}
           >
             <SlidingTabTextMask

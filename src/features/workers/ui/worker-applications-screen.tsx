@@ -13,6 +13,7 @@ import {
 } from "@/shared/ui/dialog";
 import { IconCheck, IconSearch } from "@/shared/ui/icons";
 import { Input } from "@/shared/ui/input";
+import { Segment } from "@/shared/ui/segment";
 import { Textarea } from "@/shared/ui/textarea";
 import { cn } from "@/shared/lib/utils";
 import {
@@ -30,6 +31,8 @@ import {
   type WorkerApplicationRow,
   type WorkerApplicationTag,
 } from "../model/worker-applications-fixtures";
+
+const fixedWorkerApplicationTaxRatePercent = 3.3;
 
 export function WorkerApplicationsScreen({
   dataSource: dataSourceProp,
@@ -301,7 +304,6 @@ function ApplicationDecisionPanel({
   const [customTagText, setCustomTagText] = useState("");
   const [customTagLabels, setCustomTagLabels] = useState<readonly string[]>([]);
   const [payAmount, setPayAmount] = useState(extractFirstNumber(requested));
-  const [taxRateText, setTaxRateText] = useState("3.3");
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -311,16 +313,14 @@ function ApplicationDecisionPanel({
     ...customTagLabels,
   ];
   const normalizedPayAmount = parsePositiveInt(payAmount);
-  const normalizedTaxRate = parseNullablePercent(taxRateText);
   const canApprove =
     Boolean(selectedApplication?.workerId ?? selectedApplication?.id) &&
     allSelectedTagLabels.length > 0 &&
-    normalizedPayAmount !== null &&
-    normalizedTaxRate !== undefined;
+    normalizedPayAmount !== null;
 
   if (!selectedApplication) {
     return (
-      <aside className="flex min-w-0 items-center justify-center rounded-[8px] border border-gray-300 bg-white px-6 text-center">
+      <aside className="flex min-w-0 items-center justify-center rounded-[8px] border border-transparent bg-white px-6 text-center">
         <p className="text-h-18-regular text-gray-400">
           신청 건을 선택하면
           <br />
@@ -331,7 +331,7 @@ function ApplicationDecisionPanel({
   }
 
   return (
-    <aside className="flex min-w-0 flex-col overflow-hidden rounded-[8px] border border-gray-300 bg-white">
+    <aside className="flex min-w-0 flex-col overflow-hidden rounded-[8px] border border-transparent bg-white">
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4">
         <h2 className="text-h-20 text-gray-900">소속 승인</h2>
         <div className="mt-5 flex flex-col gap-4">
@@ -373,11 +373,8 @@ function ApplicationDecisionPanel({
             amount={payAmount}
             amountError={submitted && normalizedPayAmount === null}
             payKind={payKind}
-            taxRateText={taxRateText}
-            taxError={submitted && normalizedTaxRate === undefined}
             onAmountChange={setPayAmount}
             onSelectPayKind={onSelectPayKind}
-            onTaxRateChange={setTaxRateText}
           />
           {statusMessage || errorMessage ? (
             <p
@@ -422,7 +419,7 @@ function ApplicationDecisionPanel({
               newTagLabels: customTagLabels,
               payrollType: payKind,
               tagIds: selectedTagIds,
-              taxRatePercent: normalizedTaxRate ?? null,
+              taxRatePercent: fixedWorkerApplicationTaxRatePercent,
               workerId: selectedApplication.workerId ?? selectedApplication.id,
               workerName: selectedApplication.name,
             });
@@ -720,20 +717,14 @@ function PaySettingCard({
   amount,
   amountError,
   payKind,
-  taxError,
-  taxRateText,
   onAmountChange,
   onSelectPayKind,
-  onTaxRateChange,
 }: {
   amount: string;
   amountError: boolean;
   payKind: WorkerApplicationPayKind;
-  taxError: boolean;
-  taxRateText: string;
   onAmountChange: (value: string) => void;
   onSelectPayKind: (payKind: WorkerApplicationPayKind) => void;
-  onTaxRateChange: (value: string) => void;
 }) {
   const setting = workerApplicationPaySettings[payKind];
 
@@ -742,20 +733,23 @@ function PaySettingCard({
       <h3 className="text-h-18-semibold text-gray-900">
         급여 설정 <span className="text-red-500">*</span>
       </h3>
-      <div className="mt-3 grid h-[56px] grid-cols-2 overflow-hidden rounded-[8px] border border-gray-200 bg-white p-1">
-        <PayKindButton
-          active={payKind === "hourly"}
-          label="시급"
-          testId="worker-application-pay-hourly"
-          onClick={() => onSelectPayKind("hourly")}
-        />
-        <PayKindButton
-          active={payKind === "monthly"}
-          label="월급"
-          testId="worker-application-pay-monthly"
-          onClick={() => onSelectPayKind("monthly")}
-        />
-      </div>
+      <Segment
+        className="mt-3 grid h-[56px] w-full grid-cols-2"
+        options={[
+          {
+            value: "hourly",
+            label: "시급",
+            testId: "worker-application-pay-hourly",
+          },
+          {
+            value: "monthly",
+            label: "월급",
+            testId: "worker-application-pay-monthly",
+          },
+        ]}
+        value={payKind}
+        onChange={onSelectPayKind}
+      />
 
       <div className="mt-4 flex items-center gap-3">
         <Input
@@ -775,32 +769,17 @@ function PaySettingCard({
       <div className="mt-4 flex min-h-[48px] items-center gap-3 border-t border-gray-100 pt-4">
         <span className="shrink-0 text-h-18-semibold text-gray-800">세율</span>
         <Badge
-          variant="green"
+          variant="greenSolid"
           size="L"
-          className="rounded-full bg-green-400 px-4"
-          style={{ color: "var(--color-white)" }}
+          shape="pill"
+          className="px-4"
         >
-          3.3%
+          {fixedWorkerApplicationTaxRatePercent}%
         </Badge>
-        <button
-          type="button"
-          onClick={() => onTaxRateChange("")}
-          className="h-9 rounded-full border border-gray-200 bg-white px-4 text-h-16-medium text-gray-700 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
-        >
-          직접 입력 (%)
-        </button>
-        <Input
-          aria-label="세율 직접 입력"
-          inputMode="decimal"
-          value={taxRateText}
-          onChange={(event) => onTaxRateChange(event.target.value)}
-          aria-invalid={taxError}
-          className="h-9 w-20 rounded-full border-gray-200 bg-white px-3 text-center text-h-16-medium text-gray-900"
-        />
       </div>
-      {amountError || taxError ? (
+      {amountError ? (
         <p className="mt-2 text-label-12-medium text-red-500">
-          급여 금액과 세율을 확인해 주세요.
+          급여 금액을 입력해 주세요.
         </p>
       ) : null}
     </section>
@@ -867,33 +846,6 @@ function ApplicationRejectDialog({
   );
 }
 
-function PayKindButton({
-  active,
-  label,
-  testId,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  testId: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      data-testid={testId}
-      onClick={onClick}
-      className={cn(
-        "rounded-[7px] text-h-18-semibold transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
-        active ? "bg-green-400 text-white" : "bg-white text-gray-800",
-      )}
-    >
-      {label}
-    </button>
-  );
-}
-
 function extractFirstNumber(value: string) {
   return value.replace(/[^\d]/g, "");
 }
@@ -922,16 +874,4 @@ function parsePositiveInt(value: string) {
   const parsed = Number(value.replace(/[^\d]/g, ""));
 
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-}
-
-function parseNullablePercent(value: string) {
-  if (!value.trim()) {
-    return null;
-  }
-
-  const parsed = Number(value);
-
-  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 100
-    ? parsed
-    : undefined;
 }
