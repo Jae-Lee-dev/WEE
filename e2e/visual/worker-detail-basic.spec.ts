@@ -52,7 +52,9 @@ test(`WKR-03 edit-info-dialog ${desktop}`, async ({ page }) => {
   await expect(dialog).toContainText("조교 정보 수정");
   await expect(dialog).toContainText("급여 타입");
   await expect(dialog).toContainText("원천징수");
-  await expect(dialog).toContainText("급여 설정 변경은 해당 월 1일부터 소급 적용됩니다");
+  await expect(dialog).toContainText(
+    "급여 설정 변경은 적용월부터 반영되며 지난 월에는 자동 소급되지 않습니다",
+  );
   await expect(
     dialog.getByRole("combobox", { name: "근무자 태그 검색" }),
   ).toBeVisible();

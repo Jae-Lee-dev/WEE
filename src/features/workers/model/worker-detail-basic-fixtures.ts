@@ -114,7 +114,7 @@ export const workerDetailBasicFixture = {
     addTagLabel: "태그 추가 +",
     payTypeLabel: "급여 타입",
     payTypeOptions: ["시급", "월급"],
-    payTypeNote: "급여 설정 변경은 해당 월 1일부터 소급 적용됩니다 (확정된 월 제외)",
+    payTypeNote: "급여 설정 변경은 적용월부터 반영되며 지난 월에는 자동 소급되지 않습니다",
     cancelLabel: "취소",
     saveLabel: "저장",
   },

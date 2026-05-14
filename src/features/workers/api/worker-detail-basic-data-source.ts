@@ -26,6 +26,8 @@ import {
   type PayrollSettingRow,
 } from "../model/worker-detail-basic-fixtures";
 
+const defaultWithholdingTaxRatePercent = 3.3;
+
 export type WorkerDetailBasicData = {
   bankbookDownloadUrl: string | null;
   editValues: WorkerDetailBasicEditValues;
@@ -78,6 +80,7 @@ type PayrollSetting = {
   taxRatePercent: number | null;
   taxType: string;
   workerId: string;
+  workerName: string;
 };
 
 type WorkerTagDocument = {
@@ -149,7 +152,8 @@ function createFirestoreWorkerDetailBasicDataSource(): WorkerDetailBasicDataSour
     },
     async updateWorkerDetail(workerId, input) {
       const workspaceId = await requireActiveWorkspaceId();
-      const { payrollSetting } = await readWorkerDetailDocuments(workerId);
+      const { payrollSetting, payrollSettings } =
+        await readWorkerDetailDocuments(workerId);
       const db = getFirebaseDb();
       const batch = writeBatch(db);
       const name = input.name.trim();
@@ -165,11 +169,12 @@ function createFirestoreWorkerDetailBasicDataSource(): WorkerDetailBasicDataSour
         updatedAt: serverTimestamp(),
       });
 
-      const payrollRef = payrollSetting
-        ? doc(db, "workspaces", workspaceId, "payrollSettings", payrollSetting.id)
-        : doc(getPayrollSettingsCollection(workspaceId), `payroll_${workerId}`);
+      const payrollChanged = hasPayrollSettingChanges(payrollSetting, input);
+      const payrollEffectiveFrom = resolvePayrollChangeEffectiveFrom(
+        input.effectiveFrom,
+      );
       const payrollUpdate = {
-        effectiveFrom: input.effectiveFrom,
+        effectiveFrom: payrollEffectiveFrom,
         hourlyRate: input.payrollType === "hourly" ? input.hourlyRate : null,
         monthlySalary:
           input.payrollType === "monthly" ? input.monthlySalary : null,
@@ -184,13 +189,42 @@ function createFirestoreWorkerDetailBasicDataSource(): WorkerDetailBasicDataSour
         workspaceId,
       };
 
-      if (payrollSetting) {
-        batch.update(payrollRef, payrollUpdate);
-      } else {
-        batch.set(payrollRef, {
-          ...payrollUpdate,
-          createdAt: serverTimestamp(),
-        });
+      if (payrollChanged) {
+        const effectiveSetting = payrollSettings.find(
+          (setting) => setting.effectiveFrom === payrollEffectiveFrom,
+        );
+        const payrollRef = effectiveSetting
+          ? doc(
+              db,
+              "workspaces",
+              workspaceId,
+              "payrollSettings",
+              effectiveSetting.id,
+            )
+          : doc(getPayrollSettingsCollection(workspaceId));
+
+        if (effectiveSetting) {
+          batch.update(payrollRef, payrollUpdate);
+        } else {
+          batch.set(payrollRef, {
+            ...payrollUpdate,
+            createdAt: serverTimestamp(),
+          });
+        }
+      } else if (payrollSetting && payrollSetting.workerName !== name) {
+        batch.update(
+          doc(
+            db,
+            "workspaces",
+            workspaceId,
+            "payrollSettings",
+            payrollSetting.id,
+          ),
+          {
+            updatedAt: serverTimestamp(),
+            workerName: name,
+          },
+        );
       }
 
       await batch.commit();
@@ -219,13 +253,14 @@ async function readWorkerDetailDocuments(workerId: string) {
     .map(mapWorkerTagDocument)
     .filter((tag) => tag.status !== "deleted");
   const tagById = new Map(workerTags.map((tag) => [tag.id, tag]));
-  const payrollSetting = payrollSettingsSnapshot.docs
+  const payrollSettings = payrollSettingsSnapshot.docs
     .map(mapPayrollSettingDocument)
     .filter(
       (setting): setting is PayrollSetting =>
         setting !== null && setting.workerId === workerId,
     )
-    .sort(comparePayrollSettings)[0];
+    .sort(comparePayrollSettings);
+  const payrollSetting = payrollSettings[0];
   const tagOptions = workerTags
     .filter((tag) => tag.status === "active")
     .sort((left, right) => left.label.localeCompare(right.label, "ko-KR"))
@@ -233,6 +268,7 @@ async function readWorkerDetailDocuments(workerId: string) {
 
   return {
     payrollSetting,
+    payrollSettings,
     tagById,
     tagOptions,
     workerData: workerSnapshot.data(),
@@ -417,9 +453,49 @@ function createEditValues({
     payrollType,
     status,
     tagIds: readStringArray(data.tagIds),
-    taxRatePercent: payrollSetting?.taxRatePercent ?? 3.3,
+    taxRatePercent:
+      payrollSetting?.taxRatePercent ?? defaultWithholdingTaxRatePercent,
     taxType: payrollSetting?.taxType === "none" ? "none" : "custom",
   };
+}
+
+function hasPayrollSettingChanges(
+  setting: PayrollSetting | undefined,
+  input: WorkerDetailBasicSaveInput,
+) {
+  if (!setting) {
+    return true;
+  }
+
+  const settingPayrollType = readPayrollTypeValue(setting);
+  const settingTaxType = setting.taxType === "none" ? "none" : "custom";
+  const settingTaxRatePercent =
+    settingTaxType === "custom"
+      ? (setting.taxRatePercent ?? defaultWithholdingTaxRatePercent)
+      : null;
+  const inputTaxRatePercent =
+    input.taxType === "custom" ? input.taxRatePercent : null;
+
+  return (
+    setting.effectiveFrom !== input.effectiveFrom ||
+    setting.hourlyRate !== input.hourlyRate ||
+    setting.monthlySalary !== input.monthlySalary ||
+    settingPayrollType !== input.payrollType ||
+    settingTaxRatePercent !== inputTaxRatePercent ||
+    settingTaxType !== input.taxType
+  );
+}
+
+function resolvePayrollChangeEffectiveFrom(value: string) {
+  const selectedMonthStart = getMonthStartDateKey(value);
+  const currentMonthStart = getCurrentKoreanMonthStartDateKey();
+
+  // Payroll edits are versioned from a month boundary and must not rewrite past months.
+  if (!selectedMonthStart || selectedMonthStart < currentMonthStart) {
+    return currentMonthStart;
+  }
+
+  return selectedMonthStart;
 }
 
 function createWorkerDetailDataFromValues({
@@ -453,6 +529,7 @@ function createWorkerDetailDataFromValues({
     taxRatePercent: input.taxType === "custom" ? input.taxRatePercent : null,
     taxType: input.taxType,
     workerId: "fixture-worker",
+    workerName: input.name,
   });
   const paySummary = readProfilePaySummary({
     createdAt: new Date(),
@@ -465,6 +542,7 @@ function createWorkerDetailDataFromValues({
     taxRatePercent: input.taxType === "custom" ? input.taxRatePercent : null,
     taxType: input.taxType,
     workerId: "fixture-worker",
+    workerName: input.name,
   });
   const fixture = createDetailFixture({
     account: workerDetailBasicFixture.personalRows.find((row) => row.id === "account")
@@ -587,6 +665,7 @@ function mapPayrollSettingDocument(
     taxRatePercent: readOptionalNumber(data.taxRatePercent),
     taxType: readString(data.taxType, ""),
     workerId,
+    workerName: readString(data.workerName, ""),
   };
 }
 
@@ -850,6 +929,12 @@ function getCurrentKoreanMonthStartDateKey() {
   const month = partByType.get("month") ?? "01";
 
   return `${year}-${month}-01`;
+}
+
+function getMonthStartDateKey(value: string) {
+  const match = /^(\d{4})-(\d{2})-\d{2}$/.exec(value);
+
+  return match ? `${match[1]}-${match[2]}-01` : null;
 }
 
 function formatWon(value: number) {
