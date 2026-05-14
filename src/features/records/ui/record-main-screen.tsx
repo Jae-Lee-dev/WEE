@@ -33,6 +33,7 @@ import {
 import {
   recordMainFixtureViewModel,
   type RecordDetailAction,
+  type RecordDetailLine,
   type RecordDetailState,
   type RecordDetailStateId,
   type RecordMainViewModel,
@@ -823,6 +824,36 @@ function RecordActionSuccessMessage({ message }: { message: string }) {
   );
 }
 
+function RecordDetailLineList({
+  compact = false,
+  lines,
+}: {
+  compact?: boolean;
+  lines: readonly RecordDetailLine[];
+}) {
+  return (
+    <div className={compact ? "mt-2" : undefined}>
+      {lines.map((line) => (
+        <div
+          className={cn(
+            "flex items-center justify-between border-b border-gray-200 text-h-18-regular tracking-normal last:border-b-0",
+            compact ? "h-11" : "h-14",
+          )}
+          key={line.id}
+        >
+          <span className="text-gray-500">{line.label}</span>
+          <span
+            className="text-right text-gray-900"
+            style={line.tone ? toneTextStyles[line.tone] : undefined}
+          >
+            {line.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function SelectedDetail({
   actionSaving,
   onConfirmRecordAction,
@@ -866,22 +897,20 @@ function SelectedDetail({
             </h2>
           ) : null}
 
-          {state.lines ? (
-            <div className="mt-7">
-              {state.lines.map((line) => (
-                <div
-                  className="flex h-14 items-center justify-between border-b border-gray-200 text-h-18-regular tracking-normal last:border-b-0"
-                  key={line.id}
-                >
-                  <span className="text-gray-500">{line.label}</span>
-                  <span
-                    className="text-right text-gray-900"
-                    style={line.tone ? toneTextStyles[line.tone] : undefined}
-                  >
-                    {line.value}
-                  </span>
-                </div>
+          {state.lineSections ? (
+            <div className="mt-6 space-y-5">
+              {state.lineSections.map((section) => (
+                <section key={section.id}>
+                  <h3 className="text-h-16-semibold tracking-normal text-gray-900">
+                    {section.title}
+                  </h3>
+                  <RecordDetailLineList compact lines={section.lines} />
+                </section>
               ))}
+            </div>
+          ) : state.lines ? (
+            <div className="mt-7">
+              <RecordDetailLineList lines={state.lines} />
             </div>
           ) : null}
 

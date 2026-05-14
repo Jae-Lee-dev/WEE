@@ -60,6 +60,12 @@ test(`REC-01 normal-selected ${desktop}`, async ({ page }) => {
   await page.evaluate(() => document.fonts.ready);
   await page.locator("[data-record-block-id='record-lee-haeun-english-c-mon']").click();
   await expect(page.getByText("이하은 · 영어 C반")).toBeVisible();
+  const detail = page.getByTestId("record-detail-panel");
+  await expect(detail.getByText("근무기록")).toBeVisible();
+  await expect(detail.getByText("근무 시작")).toBeVisible();
+  await expect(detail.getByText("근무 종료")).toBeVisible();
+  await expect(detail.getByText("연결된 출퇴근 로그")).toBeVisible();
+  await expect(detail.getByText("출근 로그")).toBeVisible();
 
   await captureActualScreenshot({
     page,
@@ -80,8 +86,8 @@ test("REC-01 uses shared selects and edits selected records", async ({ page }) =
 
   const detail = page.getByTestId("record-detail-panel");
 
-  await detail.getByLabel("수정 사유").fill("출퇴근 시간 확인");
-  await detail.getByLabel("출근 시간").fill("14:10");
+  await detail.getByLabel("수정 사유").fill("근무 시간 확인");
+  await detail.getByLabel("근무 시작").fill("19:10");
   await detail.getByRole("button", { name: "확인" }).click();
   const dialog = page.getByTestId("record-action-confirm-dialog");
   await expect(dialog).toBeVisible();

@@ -91,6 +91,12 @@ export type RecordDetailLine = {
   tone?: RecordsTone;
 };
 
+export type RecordDetailLineSection = {
+  id: string;
+  title: string;
+  lines: readonly RecordDetailLine[];
+};
+
 export type RecordDetailAction = {
   id: string;
   label: string;
@@ -112,6 +118,7 @@ export type RecordDetailState = {
   statusLabel?: string;
   statusTone?: RecordsTone;
   title?: string;
+  lineSections?: readonly RecordDetailLineSection[];
   lines?: readonly RecordDetailLine[];
   alertText?: string;
   actions?: readonly RecordDetailAction[];
@@ -439,11 +446,13 @@ export const recordDetailStates = {
     statusLabel: "정상",
     statusTone: "green",
     title: "이하은 · 영어 C반",
-    lines: [
-      detailLine("check-in", "출근", "14:02"),
-      detailLine("check-out", "퇴근", "16:05"),
-      detailLine("location", "위치", "정상 (반경 내)"),
-    ],
+    lineSections: recordLineSections({
+      checkIn: "19:02",
+      checkOut: "21:05",
+      logStatus: "정상 (반경 내)",
+      workEnd: "21:00",
+      workStart: "19:00",
+    }),
     actions: [
       { id: "edit", label: "수정" },
       { id: "delete", label: "삭제" },
@@ -454,11 +463,14 @@ export const recordDetailStates = {
     statusLabel: "위치이상",
     statusTone: "pink",
     title: "송현우 · 물리 F반",
-    lines: [
-      detailLine("check-in", "출근", "14:02"),
-      detailLine("check-out", "퇴근", "16:05"),
-      detailLine("location", "위치", "반경 외 152m", "pink"),
-    ],
+    lineSections: recordLineSections({
+      checkIn: "14:02",
+      checkOut: "16:05",
+      logStatus: "반경 외 152m",
+      logTone: "pink",
+      workEnd: "15:00",
+      workStart: "13:00",
+    }),
     alertText: "퇴근 시 근무지 반경(100m) 외부에서 기록되었습니다.",
     actions: [
       { id: "mark-normal", label: "정상 처리" },
@@ -471,11 +483,14 @@ export const recordDetailStates = {
     statusLabel: "위치이상",
     statusTone: "pink",
     title: "송현우 · 물리 F반",
-    lines: [
-      detailLine("check-in", "출근", "14:02"),
-      detailLine("check-out", "퇴근", "16:05"),
-      detailLine("location", "위치", "반경 외 152m", "pink"),
-    ],
+    lineSections: recordLineSections({
+      checkIn: "14:02",
+      checkOut: "16:05",
+      logStatus: "반경 외 152m",
+      logTone: "pink",
+      workEnd: "15:00",
+      workStart: "13:00",
+    }),
     alertText: "퇴근 시 근무지 반경(100m) 외부에서 기록되었습니다.",
     actions: [
       { id: "mark-normal", label: "정상 처리", active: true },
@@ -491,11 +506,14 @@ export const recordDetailStates = {
     statusLabel: "위치이상",
     statusTone: "pink",
     title: "송현우 · 물리 F반",
-    lines: [
-      detailLine("check-in", "출근", "14:02"),
-      detailLine("check-out", "퇴근", "16:05"),
-      detailLine("location", "위치", "반경 외 152m", "pink"),
-    ],
+    lineSections: recordLineSections({
+      checkIn: "14:02",
+      checkOut: "16:05",
+      logStatus: "반경 외 152m",
+      logTone: "pink",
+      workEnd: "15:00",
+      workStart: "13:00",
+    }),
     alertText: "퇴근 시 근무지 반경(100m) 외부에서 기록되었습니다.",
     actions: [
       { id: "mark-normal", label: "정상 처리" },
@@ -507,8 +525,8 @@ export const recordDetailStates = {
       placeholder: "수정 사유를 입력하세요",
     },
     timeFields: [
-      { id: "check-in", label: "출근 시간", value: "오후 02:00" },
-      { id: "check-out", label: "퇴근 시간", value: "오후 03:30" },
+      { id: "check-in", label: "근무 시작", value: "오후 01:00" },
+      { id: "check-out", label: "근무 종료", value: "오후 03:00" },
     ],
     confirmLabel: "확인",
   },
@@ -517,11 +535,14 @@ export const recordDetailStates = {
     statusLabel: "위치이상",
     statusTone: "pink",
     title: "송현우 · 물리 F반",
-    lines: [
-      detailLine("check-in", "출근", "14:02"),
-      detailLine("check-out", "퇴근", "16:05"),
-      detailLine("location", "위치", "반경 외 152m", "pink"),
-    ],
+    lineSections: recordLineSections({
+      checkIn: "14:02",
+      checkOut: "16:05",
+      logStatus: "반경 외 152m",
+      logTone: "pink",
+      workEnd: "15:00",
+      workStart: "13:00",
+    }),
     alertText: "퇴근 시 근무지 반경(100m) 외부에서 기록되었습니다.",
     actions: [
       { id: "mark-normal", label: "정상 처리" },
@@ -555,8 +576,8 @@ const normalRecordDetailStates = {
       placeholder: "수정 사유를 입력하세요",
     },
     timeFields: [
-      { id: "check-in", label: "출근 시간", value: "오후 02:02" },
-      { id: "check-out", label: "퇴근 시간", value: "오후 04:05" },
+      { id: "check-in", label: "근무 시작", value: "오후 07:00" },
+      { id: "check-out", label: "근무 종료", value: "오후 09:00" },
     ],
   },
   "anomaly-step-4": {
@@ -579,13 +600,7 @@ const overtimeRecordDetailStates = {
       { id: "approve-overtime", label: "승인" },
       { id: "reject-overtime", label: "반려" },
     ],
-    lines: [
-      detailLine("check-in", "출근", "10:00"),
-      detailLine("check-out", "퇴근", "12:00"),
-      detailLine("extra-start", "추가 시작", "12:00"),
-      detailLine("extra-end", "추가 종료", "12:30"),
-      detailLine("reason", "신청 사유", "보강 수업 연장"),
-    ],
+    lineSections: overtimeLineSections(),
     statusLabel: "추가근무",
     statusTone: "blue",
     title: "강태우 · 화학 G반",
@@ -603,13 +618,7 @@ const overtimeRecordDetailStates = {
     confirmLabel: "승인",
     helperText: "승인 시 추가근무 시간과 급여 처리 방식을 함께 확정합니다.",
     id: "anomaly-step-3",
-    lines: [
-      detailLine("check-in", "출근", "10:00"),
-      detailLine("check-out", "퇴근", "12:00"),
-      detailLine("extra-start", "추가 시작", "12:00"),
-      detailLine("extra-end", "추가 종료", "12:30"),
-      detailLine("reason", "신청 사유", "보강 수업 연장"),
-    ],
+    lineSections: overtimeLineSections(),
     payrollMode: {
       description: "급여 제외는 산정에 넣지 않고, 보류는 급여 확정 시점에 다시 결정합니다.",
       label: "급여 처리",
@@ -644,6 +653,7 @@ const overtimeRecordDetailStates = {
     ],
     confirmLabel: "반려",
     id: "anomaly-step-4",
+    lineSections: overtimeLineSections(),
     reasonField: {
       label: "반려 사유",
       placeholder: "반려 사유를 입력하세요",
@@ -733,9 +743,9 @@ export const selectedAnomalyHistoryDetail = {
   subtitle: "2026.04.18 근무",
   beforeTitle: "처리 전",
   beforeLines: [
-    detailLine("check-in", "출근", "14:02"),
-    detailLine("check-out", "퇴근", "16:05"),
-    detailLine("location", "위치", "반경 외 118m"),
+    detailLine("work-start", "근무 시작", "14:00"),
+    detailLine("work-end", "근무 종료", "16:00"),
+    detailLine("log-status", "로그 판정", "반경 외 118m"),
   ],
   afterTitle: "처리 후",
   afterLines: [
@@ -816,17 +826,17 @@ export const selectedCorrectionDetail = {
   subtitle: "2026.04.18 근무",
   reasonTitle: "조교 사유",
   reasonText:
-    "학생 질문 응대를 16:10부터 시작했는데 관리자 수정으로 16:20 출근으로 반영되었습니다.",
+    "학생 질문 응대를 16:10부터 시작했는데 관리자 수정으로 근무 시작이 16:20으로 반영되었습니다.",
   originalTitle: "당시 기록",
   originalLines: [
-    detailLine("check-in", "출근", "16:20"),
-    detailLine("check-out", "퇴근", "18:00"),
+    detailLine("work-start", "근무 시작", "16:20"),
+    detailLine("work-end", "근무 종료", "18:00"),
     detailLine("manager-action", "관리자 처리", "10분 차감"),
   ],
   approvedTitle: "승인 결과",
   approvedLines: [
-    detailLine("check-in", "출근", "16:10", "green"),
-    detailLine("check-out", "퇴근", "18:00"),
+    detailLine("work-start", "근무 시작", "16:10", "green"),
+    detailLine("work-end", "근무 종료", "18:00"),
     detailLine("payroll", "급여 반영", "즉시", "green"),
   ],
   noteText: "CCTV 확인 결과 16:10 이전 강의실 입실이 확인되어 승인했습니다.",
@@ -907,6 +917,66 @@ function timelineBlock(
     tone,
     selectedStateId,
   };
+}
+
+function recordLineSections({
+  checkIn,
+  checkOut,
+  locationName = "대치 A학원",
+  logStatus,
+  logTone,
+  workEnd,
+  workStart,
+}: {
+  checkIn: string;
+  checkOut: string;
+  locationName?: string;
+  logStatus: string;
+  logTone?: RecordsTone;
+  workEnd: string;
+  workStart: string;
+}): readonly RecordDetailLineSection[] {
+  return [
+    {
+      id: "work-record",
+      title: "근무기록",
+      lines: [
+        detailLine("work-start", "근무 시작", workStart),
+        detailLine("work-end", "근무 종료", workEnd),
+        detailLine("work-location", "근무지", locationName),
+      ],
+    },
+    {
+      id: "attendance-log",
+      title: "연결된 출퇴근 로그",
+      lines: [
+        detailLine("check-in", "출근 로그", checkIn),
+        detailLine("check-out", "퇴근 로그", checkOut),
+        detailLine("log-status", "로그 판정", logStatus, logTone),
+      ],
+    },
+  ];
+}
+
+function overtimeLineSections(): readonly RecordDetailLineSection[] {
+  return [
+    ...recordLineSections({
+      checkIn: "10:00",
+      checkOut: "12:00",
+      logStatus: "정상 (반경 내)",
+      workEnd: "12:00",
+      workStart: "10:00",
+    }),
+    {
+      id: "overtime-work",
+      title: "추가근무 신청",
+      lines: [
+        detailLine("overtime-start", "추가근무 시작", "12:00"),
+        detailLine("overtime-end", "추가근무 종료", "12:30"),
+        detailLine("reason", "신청 사유", "보강 수업 연장"),
+      ],
+    },
+  ];
 }
 
 function detailLine(

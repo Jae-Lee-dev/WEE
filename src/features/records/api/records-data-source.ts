@@ -38,6 +38,7 @@ import {
   type CorrectionStatus,
   type RecordDetailAction,
   type RecordDetailLine,
+  type RecordDetailLineSection,
   type RecordDetailState,
   type RecordDetailStateId,
   type RecordMainViewModel,
@@ -1929,12 +1930,12 @@ function createDetailStates({
       timeFields: [
         {
           id: "check-in",
-          label: "출근 시간",
+          label: "근무 시작",
           value: formatKoreanTime(record.effectiveStartAt ?? record.plannedStartAt),
         },
         {
           id: "check-out",
-          label: "퇴근 시간",
+          label: "근무 종료",
           value: formatKoreanTime(record.effectiveEndAt ?? record.plannedEndAt),
         },
       ],
@@ -2002,12 +2003,12 @@ function createCorrectionDetailStates(
     timeFields: [
       {
         id: "check-in",
-        label: overtimeCorrection ? "추가 시작" : "출근 시간",
+        label: overtimeCorrection ? "추가근무 시작" : "근무 시작",
         value: formatKoreanTime(afterStartAt),
       },
       {
         id: "check-out",
-        label: overtimeCorrection ? "추가 종료" : "퇴근 시간",
+        label: overtimeCorrection ? "추가근무 종료" : "근무 종료",
         value: formatKoreanTime(afterEndAt),
       },
     ],
@@ -2066,12 +2067,7 @@ function createOvertimeDetailStates(
 ): Record<RecordDetailStateId, RecordDetailState> {
   const base = {
     ...createRecordActionDetailBase(record, attendance),
-    lines: [
-      ...createRecordDetailLines(record, attendance, false),
-      detailLine("extra-start", "추가 시작", formatTime(overtime.extraStartAt)),
-      detailLine("extra-end", "추가 종료", formatTime(overtime.extraEndAt)),
-      detailLine("reason", "신청 사유", overtime.reason),
-    ],
+    lineSections: createOvertimeDetailLineSections(record, attendance, overtime),
     statusLabel: "추가근무",
     statusTone: "blue" as const,
   };
@@ -2173,7 +2169,7 @@ function createNormalDetailState(
   return {
     actions: createRecordActionButtons(false),
     id: "normal-selected",
-    lines: createRecordDetailLines(record, attendance, false),
+    lineSections: createRecordDetailLineSections(record, attendance, false),
     statusLabel: "정상",
     statusTone: "green",
     title: `${record.workerName} · ${record.dutyName}`,
@@ -2187,7 +2183,7 @@ function createRecordActionDetailBase(
   return {
     actions: createRecordActionButtons(false),
     id: "normal-selected",
-    lines: createRecordDetailLines(record, attendance, false),
+    lineSections: createRecordDetailLineSections(record, attendance, false),
     statusLabel: "정상",
     statusTone: "green",
     title: `${record.workerName} · ${record.dutyName}`,
@@ -2222,7 +2218,7 @@ function createAnomalyDetailBase(
     ],
     alertText: getAnomalyAlertText(anomalyType),
     id: "anomaly-step-1",
-    lines: createRecordDetailLines(record, attendance, true),
+    lineSections: createRecordDetailLineSections(record, attendance, true),
     statusLabel: getAnomalyTypeLabel(anomalyType),
     statusTone: "pink",
     title: `${record.workerName} · ${record.dutyName}`,
@@ -2261,20 +2257,78 @@ function createRecordDetailLines(
   attendance: AttendanceLogModel | null,
   anomaly: boolean,
 ): readonly RecordDetailLine[] {
+  return createRecordDetailLineSections(record, attendance, anomaly).flatMap(
+    (section) => section.lines,
+  );
+}
+
+function createRecordDetailLineSections(
+  record: WorkRecordModel,
+  attendance: AttendanceLogModel | null,
+  anomaly: boolean,
+): readonly RecordDetailLineSection[] {
+  return [
+    {
+      id: "work-record",
+      title: "근무기록",
+      lines: createWorkRecordDetailLines(record),
+    },
+    {
+      id: "attendance-log",
+      title: "연결된 출퇴근 로그",
+      lines: createAttendanceLogDetailLines(record, attendance, anomaly),
+    },
+  ];
+}
+
+function createOvertimeDetailLineSections(
+  record: WorkRecordModel,
+  attendance: AttendanceLogModel | null,
+  overtime: OvertimeWorkModel,
+): readonly RecordDetailLineSection[] {
+  return [
+    ...createRecordDetailLineSections(record, attendance, false),
+    {
+      id: "overtime-work",
+      title: "추가근무 신청",
+      lines: [
+        detailLine("overtime-start", "추가근무 시작", formatTime(overtime.extraStartAt)),
+        detailLine("overtime-end", "추가근무 종료", formatTime(overtime.extraEndAt)),
+        detailLine("reason", "신청 사유", overtime.reason),
+      ],
+    },
+  ];
+}
+
+function createWorkRecordDetailLines(
+  record: WorkRecordModel,
+): readonly RecordDetailLine[] {
   return [
     detailLine(
-      "check-in",
-      "출근",
-      formatTime(attendance?.checkInAt ?? record.effectiveStartAt),
+      "work-start",
+      "근무 시작",
+      formatTime(record.effectiveStartAt ?? record.plannedStartAt),
     ),
     detailLine(
-      "check-out",
-      "퇴근",
-      formatTime(attendance?.checkOutAt ?? record.effectiveEndAt),
+      "work-end",
+      "근무 종료",
+      formatTime(record.effectiveEndAt ?? record.plannedEndAt),
     ),
+    detailLine("work-location", "근무지", record.locationName),
+  ];
+}
+
+function createAttendanceLogDetailLines(
+  record: WorkRecordModel,
+  attendance: AttendanceLogModel | null,
+  anomaly: boolean,
+): readonly RecordDetailLine[] {
+  return [
+    detailLine("check-in", "출근 로그", formatTime(attendance?.checkInAt)),
+    detailLine("check-out", "퇴근 로그", formatTime(attendance?.checkOutAt)),
     detailLine(
-      "location",
-      "위치",
+      "log-status",
+      "로그 판정",
       anomaly ? getLocationAnomalyText(record, attendance) : "정상 (반경 내)",
       anomaly ? "pink" : undefined,
     ),
@@ -2323,9 +2377,9 @@ function mapAnomalyHistoryDetail(
     beforeLines: record
       ? createRecordDetailLines(record, null, true)
       : [
-          detailLine("check-in", "출근", "미기록"),
-          detailLine("check-out", "퇴근", "미기록"),
-          detailLine("location", "위치", getAnomalyTypeLabel(flag.anomalyType), "pink"),
+          detailLine("work-start", "근무 시작", "미기록"),
+          detailLine("work-end", "근무 종료", "미기록"),
+          detailLine("log-status", "로그 판정", getAnomalyTypeLabel(flag.anomalyType), "pink"),
         ],
     beforeTitle: "처리 전",
     id: flag.id,
@@ -2518,8 +2572,8 @@ function createSnapshotLines(
   const payrollTone: RecordsTone | undefined = mode === "after" ? "green" : undefined;
 
   return [
-    detailLine("check-in", "출근", formatTime(startAt), payrollTone),
-    detailLine("check-out", "퇴근", formatTime(endAt)),
+    detailLine("work-start", "근무 시작", formatTime(startAt), payrollTone),
+    detailLine("work-end", "근무 종료", formatTime(endAt)),
     detailLine(
       "manager-action",
       mode === "after" ? "처리" : "관리자 처리",
