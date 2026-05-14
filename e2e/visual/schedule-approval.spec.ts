@@ -80,6 +80,27 @@ test(`SCH-01 selected-request focus changes by row ${desktop}`, async ({
   ).toContainText("19:00~21:00");
 });
 
+test(`SCH-01 selected-request focus changes by snapshot block ${desktop}`, async ({
+  page,
+}) => {
+  await prepareVisualPage({ page, path: "/schedule", viewport: desktop });
+  await page.evaluate(() => document.fonts.ready);
+  await page.getByTestId("schedule-approval-first-detail").click();
+
+  await expect(
+    page.getByTestId("schedule-approval-selected-timeline-block"),
+  ).toContainText("수학 B반");
+  await page.getByRole("button", { name: "질문 16:00~18:00" }).click();
+  await expect(
+    page.getByTestId("schedule-approval-selected-timeline-block"),
+  ).toContainText("질문");
+  await expect(
+    page.getByTestId("schedule-approval-selected-timeline-block"),
+  ).toContainText("16:00~18:00");
+  await expect(page.locator('input[type="time"]').first()).toHaveValue("16:00");
+  await expect(page.locator('input[type="time"]').nth(1)).toHaveValue("18:00");
+});
+
 test(`SCH-01 reject-dialog ${desktop}`, async ({ page }) => {
   await prepareVisualPage({ page, path: "/schedule", viewport: desktop });
   await page.evaluate(() => document.fonts.ready);

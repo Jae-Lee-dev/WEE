@@ -120,6 +120,18 @@ type ScheduleApprovalRequestSeedRow = Omit<
 
 const selectedApprovalBaseTimelineBlocks = [
   block(
+    "approval-shared-tue-question",
+    "tue",
+    "질문",
+    "김서연",
+    "16:00~18:00",
+    16,
+    18,
+    "대치 A학원",
+    "green",
+    "질문",
+  ),
+  block(
     "approval-kim-mon-math-b",
     "mon",
     "수학 B반",
@@ -610,7 +622,6 @@ function createApprovalRequestDetail(
     row.requestedTime.split("~");
   const requestedBlock = createRequestedApprovalBlock(row);
   const timelineBlocks = [
-    requestedBlock,
     ...selectedApprovalBaseTimelineBlocks.filter(
       (block) =>
         !(
@@ -620,6 +631,7 @@ function createApprovalRequestDetail(
           block.locationName === requestedBlock.locationName
         ),
     ),
+    requestedBlock,
   ];
 
   return {

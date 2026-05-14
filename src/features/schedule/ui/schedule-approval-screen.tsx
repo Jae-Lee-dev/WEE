@@ -314,13 +314,22 @@ function SelectedApprovalState({
   onReject: (reason: string) => void;
 }) {
   const detail = request.selectedDetail;
-  const selectedBlock = getRequestedDutyBlock(detail);
+  const requestedBlock = getRequestedDutyBlock(detail);
+  const [selectedBlockId, setSelectedBlockId] = useState(requestedBlock?.id);
+  const selectedBlock =
+    detail.timelineBlocks.find((block) => block.id === selectedBlockId) ??
+    requestedBlock;
+  const [selectedStartTime, selectedEndTime] = getTimelineBlockTimeParts(
+    selectedBlock,
+    detail,
+  );
   const [adjustmentStartTime, setAdjustmentStartTime] = useState(
-    detail.adjustmentStartTime,
+    selectedStartTime,
   );
   const [adjustmentEndTime, setAdjustmentEndTime] = useState(
-    detail.adjustmentEndTime,
+    selectedEndTime,
   );
+
   const slotEdit =
     selectedBlock?.sourceSlotIndex == null
       ? undefined
@@ -333,6 +342,18 @@ function SelectedApprovalState({
     !adjustmentStartTime ||
     !adjustmentEndTime ||
     adjustmentStartTime >= adjustmentEndTime;
+
+  const handleSelectBlock = (blockId: string) => {
+    const nextBlock = detail.timelineBlocks.find((block) => block.id === blockId);
+    const [nextStartTime, nextEndTime] = getTimelineBlockTimeParts(
+      nextBlock,
+      detail,
+    );
+
+    setSelectedBlockId(blockId);
+    setAdjustmentStartTime(nextStartTime);
+    setAdjustmentEndTime(nextEndTime);
+  };
 
   return (
     <section
@@ -397,8 +418,9 @@ function SelectedApprovalState({
             <section className="flex min-h-0 min-w-0 flex-col gap-4">
               <ApprovalSummaryCards detail={detail} />
               <ApprovalTimelineGrid
-                detail={detail}
                 blocks={detail.timelineBlocks}
+                selectedBlockId={selectedBlock?.id}
+                onSelectBlock={handleSelectBlock}
               />
             </section>
 
@@ -409,8 +431,8 @@ function SelectedApprovalState({
               startTime={adjustmentStartTime}
               timeInvalid={timeInvalid}
               onReset={() => {
-                setAdjustmentStartTime(detail.adjustmentStartTime);
-                setAdjustmentEndTime(detail.adjustmentEndTime);
+                setAdjustmentStartTime(selectedStartTime);
+                setAdjustmentEndTime(selectedEndTime);
               }}
               onConfirm={() => {
                 if (timeInvalid) {
@@ -424,6 +446,7 @@ function SelectedApprovalState({
               }}
               onUpdateEndTime={setAdjustmentEndTime}
               onUpdateStartTime={setAdjustmentStartTime}
+              selectedBlock={selectedBlock}
             />
           </div>
         </div>
@@ -550,12 +573,13 @@ function ApprovalSummaryCards({
 
 function ApprovalTimelineGrid({
   blocks,
-  detail,
+  onSelectBlock,
+  selectedBlockId,
 }: {
   blocks: readonly ScheduleTimelineBlock[];
-  detail: ScheduleApprovalRequestDetail;
+  onSelectBlock: (blockId: string) => void;
+  selectedBlockId: string | undefined;
 }) {
-  const selectedBlockId = getRequestedDutyBlock(detail)?.id;
   const { dayLayouts } = parseTimelineBlocks({
     blocks,
     days: visibleTimelineDays,
@@ -581,6 +605,7 @@ function ApprovalTimelineGrid({
         return parsedBlocks.map((parsedBlock) => (
           <TimelineBlock
             key={parsedBlock.block.id}
+            onSelectBlock={onSelectBlock}
             parsedBlock={parsedBlock}
           />
         ));
@@ -588,6 +613,18 @@ function ApprovalTimelineGrid({
       timeSlots={scheduleTimelineTimeSlots}
     />
   );
+}
+
+function getTimelineBlockTimeParts(
+  block: ScheduleTimelineBlock | undefined,
+  detail: ScheduleApprovalRequestDetail,
+) {
+  const [startTime = "", endTime = ""] = block?.time.split("~") ?? [];
+
+  return [
+    startTime || detail.adjustmentStartTime,
+    endTime || detail.adjustmentEndTime,
+  ] as const;
 }
 
 function getRequestedDutyBlock(detail: ScheduleApprovalRequestDetail) {
@@ -625,22 +662,31 @@ function matchesAdjustmentDay(
   );
 }
 
-function TimelineBlock({ parsedBlock }: { parsedBlock: ParsedTimelineBlock }) {
+function TimelineBlock({
+  onSelectBlock,
+  parsedBlock,
+}: {
+  onSelectBlock: (blockId: string) => void;
+  parsedBlock: ParsedTimelineBlock;
+}) {
   const { block, selected, style } = parsedBlock;
 
   return (
-    <div
+    <button
+      type="button"
       aria-label={`${block.label} ${block.time}`}
+      aria-pressed={selected}
       className={cn(
-        "absolute top-0 z-10 flex h-[46px] min-w-0 flex-col justify-center overflow-hidden rounded-[6px] border px-1.5 py-1 text-left tracking-normal",
+        "absolute top-0 z-10 flex h-[46px] min-w-0 cursor-pointer flex-col justify-center overflow-hidden rounded-[6px] border px-1.5 py-1 text-left tracking-normal transition-colors duration-150 ease-out hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 focus-visible:ring-offset-1",
         selected
           ? "border-green-400 bg-green-400 text-white"
           : "border-green-400 bg-green-100 text-gray-900",
       )}
+      data-schedule-approval-block-id={block.id}
       data-testid={
         selected ? "schedule-approval-selected-timeline-block" : undefined
       }
-      role="gridcell"
+      onClick={() => onSelectBlock(block.id)}
       style={style}
     >
       <TimelineBlockText
@@ -648,7 +694,7 @@ function TimelineBlock({ parsedBlock }: { parsedBlock: ParsedTimelineBlock }) {
         subtitle={block.time}
         title={block.label}
       />
-    </div>
+    </button>
   );
 }
 
@@ -661,6 +707,7 @@ function TimeAdjustmentPanel({
   onUpdateStartTime,
   saving,
   startTime,
+  selectedBlock,
   timeInvalid,
 }: {
   detail: ScheduleApprovalRequestDetail;
@@ -671,20 +718,28 @@ function TimeAdjustmentPanel({
   onUpdateStartTime: (value: string) => void;
   saving: boolean;
   startTime: string;
+  selectedBlock: ScheduleTimelineBlock | undefined;
   timeInvalid: boolean;
 }) {
+  const selectedDayText = selectedBlock
+    ? getTimelineDayFullLabel(selectedBlock.dayId)
+    : detail.adjustmentDayText;
+
   return (
     <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[8px] bg-white p-4">
       <h2 className="text-h-20 tracking-normal text-gray-900">시간 조정</h2>
 
       <section className="mt-5 rounded-[8px] bg-gray-50 px-4 py-4">
         <h3 className="text-h-18-semibold tracking-normal text-gray-900">
-          {detail.adjustmentDutyName}
+          {selectedBlock?.label ?? detail.adjustmentDutyName}
         </h3>
         <dl className="mt-4 space-y-4 text-h-18-regular tracking-normal text-gray-900">
-          <InfoRow label="근무일" value={detail.adjustmentDayText} />
-          <InfoRow label="장소" value={detail.adjustmentLocationName} />
-          <InfoRow label="시간" value={detail.adjustmentTimeText} />
+          <InfoRow label="근무일" value={selectedDayText} />
+          <InfoRow
+            label="장소"
+            value={selectedBlock?.locationName ?? detail.adjustmentLocationName}
+          />
+          <InfoRow label="시간" value={selectedBlock?.time ?? detail.adjustmentTimeText} />
         </dl>
       </section>
 
@@ -740,6 +795,13 @@ function TimeAdjustmentPanel({
         </Button>
       </div>
     </aside>
+  );
+}
+
+function getTimelineDayFullLabel(dayId: ScheduleTimelineBlock["dayId"]) {
+  return (
+    scheduleTimelineDays.find((day) => day.id === dayId)?.fullLabel ??
+    "근무일 미지정"
   );
 }
 

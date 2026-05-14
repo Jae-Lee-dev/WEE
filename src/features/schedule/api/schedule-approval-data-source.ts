@@ -94,6 +94,15 @@ type ScheduleRequestModel = {
   workerName: string;
 };
 
+type ScheduleVersionModel = {
+  createdAt: Date | null;
+  id: string;
+  slots: readonly ScheduleRequestSlot[];
+  status: string;
+  versionNo: number;
+  workerId: string;
+};
+
 type ScheduleRequestSlot = {
   dutyId: string;
   endTime: string;
@@ -156,10 +165,11 @@ function createFixtureScheduleApprovalDataSource(): ScheduleApprovalDataSource {
 function createFirestoreScheduleApprovalDataSource(): ScheduleApprovalDataSource {
   async function listApprovalRequests() {
     const workspaceId = await requireActiveWorkspaceId();
-    const [requests, duties, locations, workers, workerTags] = await Promise.all([
+    const [requests, duties, locations, versions, workers, workerTags] = await Promise.all([
       readWorkspaceCollection(workspaceId, "scheduleRequests"),
       readWorkspaceCollection(workspaceId, "duties"),
       readWorkspaceCollection(workspaceId, "locations"),
+      readWorkspaceCollection(workspaceId, "scheduleVersions"),
       readWorkspaceCollection(workspaceId, "workers"),
       readWorkspaceCollection(workspaceId, "workerTags"),
     ]);
@@ -182,12 +192,16 @@ function createFirestoreScheduleApprovalDataSource(): ScheduleApprovalDataSource
     const workerTagById = new Map(
       workerTags.map(mapWorkerTagDocument).map((tag) => [tag.id, tag]),
     );
+    const activeVersionByWorkerId = getActiveVersionByWorkerId(
+      versions.map(mapScheduleVersionDocument),
+    );
     const rows = requests
       .map(mapScheduleRequestDocument)
       .filter((request) => isPendingScheduleRequest(request.status))
       .sort(compareRequests)
       .map((request) =>
         mapRequestRow({
+          activeVersion: activeVersionByWorkerId.get(request.workerId),
           dutyById,
           request,
           worker: workerById.get(request.workerId),
@@ -395,12 +409,29 @@ function mapScheduleRequestDocument(
   };
 }
 
+function mapScheduleVersionDocument(
+  document: FirestoreDocument,
+): ScheduleVersionModel {
+  const data = document.data;
+
+  return {
+    createdAt: readDate(data.createdAt),
+    id: document.id,
+    slots: readSlots(data.slots),
+    status: readString(data.status, ""),
+    versionNo: readNumber(data.versionNo, 0),
+    workerId: readString(data.workerId, ""),
+  };
+}
+
 function mapRequestRow({
+  activeVersion,
   dutyById,
   request,
   worker,
   workerTagById,
 }: {
+  activeVersion: ScheduleVersionModel | undefined;
   dutyById: ReadonlyMap<string, DutyModel>;
   request: ScheduleRequestModel;
   worker: WorkerModel | undefined;
@@ -416,7 +447,14 @@ function mapRequestRow({
       }),
     )
     .filter((block): block is ScheduleTimelineBlock => block !== null);
-  const firstBlock = blocks[0];
+  const focusSlotIndex = findChangedSnapshotSlotIndex({
+    activeVersion,
+    dutyById,
+    request,
+  });
+  const focusBlock =
+    blocks.find((block) => block.sourceSlotIndex === focusSlotIndex) ??
+    blocks[0];
   const submittedAt = request.submittedAt ?? request.createdAt;
   const requestKindText = request.requestType === "initial" ? "최초" : "변경";
   const workerName = worker?.name ?? request.workerName;
@@ -426,7 +464,7 @@ function mapRequestRow({
       .find((label): label is string => Boolean(label)) ?? "태그 없음";
   const detail = createRequestDetail({
     blocks,
-    firstBlock,
+    focusBlock,
     request,
     requestKindText,
     submittedAt,
@@ -437,12 +475,14 @@ function mapRequestRow({
 
   return {
     id: request.id,
-    dutyName: firstBlock?.label ?? "근무 미지정",
-    reasonText: firstBlock ? `${firstBlock.label} ${requestKindText}` : "시간표 변경 요청",
+    dutyName: focusBlock?.label ?? "근무 미지정",
+    reasonText: focusBlock
+      ? `${focusBlock.label} ${requestKindText}`
+      : "시간표 변경 요청",
     requestDate: formatShortDate(submittedAt),
     requestKind: request.requestType,
     requestKindText,
-    requestedTime: firstBlock?.time ?? "-",
+    requestedTime: focusBlock?.time ?? "-",
     selectedDetail: detail,
     statusText: "승인 대기",
     workerName,
@@ -488,7 +528,7 @@ function mapTimelineBlock({
 
 function createRequestDetail({
   blocks,
-  firstBlock,
+  focusBlock,
   request,
   requestKindText,
   submittedAt,
@@ -497,7 +537,7 @@ function createRequestDetail({
   workerTag,
 }: {
   blocks: readonly ScheduleTimelineBlock[];
-  firstBlock: ScheduleTimelineBlock | undefined;
+  focusBlock: ScheduleTimelineBlock | undefined;
   request: ScheduleRequestModel;
   requestKindText: string;
   submittedAt: Date | null;
@@ -506,17 +546,17 @@ function createRequestDetail({
   workerTag: string;
 }): ScheduleApprovalRequestDetail {
   const [adjustmentStartTime = "", adjustmentEndTime = ""] =
-    firstBlock?.time.split("~") ?? [];
+    focusBlock?.time.split("~") ?? [];
 
   return {
-    adjustmentDayText: firstBlock
-      ? getKoreanDayLabel(firstBlock.dayId)
+    adjustmentDayText: focusBlock
+      ? getKoreanDayLabel(focusBlock.dayId)
       : "근무일 미지정",
-    adjustmentDutyName: firstBlock?.label ?? "근무 미지정",
+    adjustmentDutyName: focusBlock?.label ?? "근무 미지정",
     adjustmentEndTime,
-    adjustmentLocationName: firstBlock?.locationName ?? "근무지 미지정",
+    adjustmentLocationName: focusBlock?.locationName ?? "근무지 미지정",
     adjustmentStartTime,
-    adjustmentTimeText: firstBlock?.time ?? "-",
+    adjustmentTimeText: focusBlock?.time ?? "-",
     correctionStatusText: "없음",
     rejectDialog: {
       confirmLabel: "반려 확정하기",
@@ -532,6 +572,94 @@ function createRequestDetail({
     workerStatusText,
     workerTag,
   };
+}
+
+function getActiveVersionByWorkerId(
+  versions: readonly ScheduleVersionModel[],
+) {
+  const activeVersionByWorkerId = new Map<string, ScheduleVersionModel>();
+
+  versions
+    .filter((version) => version.status === "active")
+    .forEach((version) => {
+      const current = activeVersionByWorkerId.get(version.workerId);
+
+      if (!current || compareScheduleVersions(version, current) > 0) {
+        activeVersionByWorkerId.set(version.workerId, version);
+      }
+    });
+
+  return activeVersionByWorkerId;
+}
+
+function compareScheduleVersions(
+  left: ScheduleVersionModel,
+  right: ScheduleVersionModel,
+) {
+  if (left.versionNo !== right.versionNo) {
+    return left.versionNo - right.versionNo;
+  }
+
+  return getTime(left.createdAt) - getTime(right.createdAt);
+}
+
+function findChangedSnapshotSlotIndex({
+  activeVersion,
+  dutyById,
+  request,
+}: {
+  activeVersion: ScheduleVersionModel | undefined;
+  dutyById: ReadonlyMap<string, DutyModel>;
+  request: ScheduleRequestModel;
+}) {
+  if (request.requestType === "initial" || !activeVersion) {
+    return 0;
+  }
+
+  const activeSlotCounts = createSlotFingerprintCounts(
+    activeVersion.slots,
+    dutyById,
+  );
+
+  for (let index = 0; index < request.slots.length; index += 1) {
+    const fingerprint = createSlotFingerprint(request.slots[index], dutyById);
+    const count = activeSlotCounts.get(fingerprint) ?? 0;
+
+    if (count === 0) {
+      return index;
+    }
+
+    activeSlotCounts.set(fingerprint, count - 1);
+  }
+
+  return 0;
+}
+
+function createSlotFingerprintCounts(
+  slots: readonly ScheduleRequestSlot[],
+  dutyById: ReadonlyMap<string, DutyModel>,
+) {
+  const counts = new Map<string, number>();
+
+  slots.forEach((slot) => {
+    const fingerprint = createSlotFingerprint(slot, dutyById);
+
+    counts.set(fingerprint, (counts.get(fingerprint) ?? 0) + 1);
+  });
+
+  return counts;
+}
+
+function createSlotFingerprint(
+  slot: ScheduleRequestSlot,
+  dutyById: ReadonlyMap<string, DutyModel>,
+) {
+  const duty = dutyById.get(slot.dutyId);
+  const weekday = duty?.weekday || slot.weekday;
+  const startTime = slot.startTime || duty?.startTime || "";
+  const endTime = slot.endTime || duty?.endTime || "";
+
+  return [slot.dutyId, weekday, startTime, endTime].join("|");
 }
 
 async function requireActiveWorkspaceId() {
