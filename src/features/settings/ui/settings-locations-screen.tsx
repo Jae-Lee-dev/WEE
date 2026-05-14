@@ -1,13 +1,24 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ChangeEvent,
   type ComponentProps,
   type FormEvent,
 } from "react";
+import { useDebouncedValue } from "@/shared/lib";
+import {
+  getKakaoMapJavaScriptKey,
+  loadKakaoMapsSdk,
+  type KakaoCircle,
+  type KakaoMap,
+  type KakaoMapsSdk,
+  type KakaoMarker,
+} from "@/shared/lib/kakao-maps";
 import { Button } from "@/shared/ui/button";
 import {
   Dialog,
@@ -25,15 +36,18 @@ import {
 import { settingsLocationsFixture } from "../model/settings-locations-fixtures";
 import {
   type CreateSettingsLocationInput,
+  defaultLocationRadiusMeters,
   formatRadiusMeters,
   getLocationGeocodingStatusLabel,
   getSettingsLocationFormErrors,
   hasSettingsLocationFormErrors,
   initialSettingsLocationForm,
+  normalizeLocationText,
   normalizeRadiusInput,
   toCreateSettingsLocationInput,
   toSettingsLocationFormState,
   type SettingsLocation,
+  type SettingsLocationCoordinate,
   type SettingsLocationFormField,
   type SettingsLocationFormState,
 } from "../model/settings-locations-model";
@@ -41,6 +55,24 @@ import {
 type SettingsLocationsScreenProps = {
   dataSource?: SettingsLocationsDataSource;
 };
+
+type LocationLookupState = {
+  message: string;
+  status: "idle" | "loading" | "resolved" | "failed" | "unavailable";
+};
+
+type ResolvedLocationCoordinate = {
+  address: string;
+  coordinate: SettingsLocationCoordinate;
+};
+
+const kakaoMapJavaScriptKey =
+  getKakaoMapJavaScriptKey();
+
+const defaultMapCoordinate = {
+  lat: 37.4979,
+  lng: 127.0276,
+} satisfies SettingsLocationCoordinate;
 
 export function SettingsLocationsScreen({
   dataSource: dataSourceProp,
@@ -366,19 +398,80 @@ function LocationDialog({
       : initialSettingsLocationForm,
   );
   const [submitted, setSubmitted] = useState(false);
+  const [resolvedLocation, setResolvedLocation] =
+    useState<ResolvedLocationCoordinate | null>(() =>
+      location?.coordinate
+        ? {
+            address: normalizeLocationText(location.roadAddress),
+            coordinate: location.coordinate,
+          }
+        : null,
+    );
+  const [lookupState, setLookupState] = useState<LocationLookupState>(() =>
+    location?.coordinate
+      ? { message: "위치 확인 완료", status: "resolved" }
+      : { message: "도로명 주소를 입력하면 위치를 확인합니다.", status: "idle" },
+  );
   const errors = getSettingsLocationFormErrors(form, locations, location?.id);
+  const normalizedRoadAddress = normalizeLocationText(form.roadAddress);
+  const resolvedCoordinate =
+    resolvedLocation?.address === normalizedRoadAddress
+      ? resolvedLocation.coordinate
+      : null;
+  const radiusMeters =
+    Number(normalizeRadiusInput(form.radiusMeters)) ||
+    defaultLocationRadiusMeters;
+  const saveButtonLabel =
+    lookupState.status === "loading"
+      ? "주소 확인 중"
+      : saving
+        ? "저장 중"
+        : location
+          ? dialog.saveLabel
+          : dialog.addLabel;
 
   const handleFieldChange =
     (field: SettingsLocationFormField) =>
     (event: ChangeEvent<HTMLInputElement>) => {
+      const nextValue =
+        field === "radiusMeters"
+          ? normalizeRadiusInput(event.target.value)
+          : event.target.value;
+
+      if (field === "roadAddress") {
+        const nextAddress = normalizeLocationText(nextValue);
+
+        setResolvedLocation((current) =>
+          current?.address === nextAddress ? current : null,
+        );
+        setLookupState((current) =>
+          current.status === "unavailable"
+            ? current
+            : {
+                message: nextAddress
+                  ? "주소 확인 대기"
+                  : "도로명 주소를 입력하면 위치를 확인합니다.",
+                status: "idle",
+              },
+        );
+      }
+
       setForm((current) => ({
         ...current,
-        [field]:
-          field === "radiusMeters"
-            ? normalizeRadiusInput(event.target.value)
-            : event.target.value,
+        [field]: nextValue,
       }));
     };
+
+  const handleCoordinateResolve = useCallback(
+    (nextResolvedLocation: ResolvedLocationCoordinate) => {
+      setResolvedLocation(nextResolvedLocation);
+    },
+    [],
+  );
+
+  const handleLookupStateChange = useCallback((state: LocationLookupState) => {
+    setLookupState(state);
+  }, []);
 
   const handleSave = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -388,8 +481,23 @@ function LocationDialog({
       return;
     }
 
+    if (!resolvedCoordinate) {
+      setLookupState((current) =>
+        current.status === "loading"
+          ? current
+          : {
+              message:
+                current.status === "unavailable"
+                  ? current.message
+                  : "도로명 주소 위치를 확인한 뒤 저장해 주세요.",
+              status: current.status === "unavailable" ? "unavailable" : "failed",
+            },
+      );
+      return;
+    }
+
     void onSaveLocation(
-      toCreateSettingsLocationInput(form),
+      toCreateSettingsLocationInput(form, resolvedCoordinate),
       location ?? undefined,
     );
   };
@@ -446,7 +554,21 @@ function LocationDialog({
               value={form.radiusMeters}
             />
 
-            <StaticRadiusMap />
+            <KakaoRadiusMap
+              address={normalizedRoadAddress}
+              coordinate={resolvedCoordinate}
+              lookupState={lookupState}
+              onCoordinateResolve={handleCoordinateResolve}
+              onLookupStateChange={handleLookupStateChange}
+              radiusMeters={radiusMeters}
+            />
+            {submitted && !resolvedCoordinate ? (
+              <p className="mt-2 text-label-12-medium text-red-500">
+                {lookupState.status === "loading"
+                  ? "주소 위치를 확인 중입니다."
+                  : lookupState.message}
+              </p>
+            ) : null}
           </div>
 
           <DialogFooter className="-mx-0 -mb-0 mt-6 flex-row justify-end gap-2.5 rounded-none border-t border-gray-100 bg-transparent p-0 pt-4">
@@ -461,14 +583,10 @@ function LocationDialog({
             </Button>
             <Button
               type="submit"
-              disabled={saving}
+              disabled={saving || lookupState.status === "loading"}
               className="h-10 rounded-[8px] px-4 text-h-16-semibold tracking-normal text-white"
             >
-              {saving
-                ? "저장 중"
-                : location
-                  ? dialog.saveLabel
-                  : dialog.addLabel}
+              {saveButtonLabel}
             </Button>
           </DialogFooter>
         </form>
@@ -627,13 +745,265 @@ function LocationRadiusField({
   );
 }
 
-function StaticRadiusMap() {
+function KakaoRadiusMap({
+  address,
+  coordinate,
+  lookupState,
+  onCoordinateResolve,
+  onLookupStateChange,
+  radiusMeters,
+}: {
+  address: string;
+  coordinate: SettingsLocationCoordinate | null;
+  lookupState: LocationLookupState;
+  onCoordinateResolve: (location: ResolvedLocationCoordinate) => void;
+  onLookupStateChange: (state: LocationLookupState) => void;
+  radiusMeters: number;
+}) {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const sdkRef = useRef<KakaoMapsSdk | null>(null);
+  const mapRef = useRef<KakaoMap | null>(null);
+  const markerRef = useRef<KakaoMarker | null>(null);
+  const circleRef = useRef<KakaoCircle | null>(null);
+  const debouncedAddress = useDebouncedValue(address, 450);
+  const [sdkStatus, setSdkStatus] = useState<
+    "idle" | "loading" | "ready" | "failed" | "missing-key"
+  >(kakaoMapJavaScriptKey ? "loading" : "missing-key");
+
+  useEffect(() => {
+    if (!kakaoMapJavaScriptKey) {
+      onLookupStateChange({
+        message: "카카오 지도 키를 확인해 주세요.",
+        status: "unavailable",
+      });
+      return;
+    }
+
+    let active = true;
+
+    onLookupStateChange({
+      message: "지도 준비 중",
+      status: "loading",
+    });
+
+    void loadKakaoMapsSdk(kakaoMapJavaScriptKey)
+      .then((sdk) => {
+        if (!active) {
+          return;
+        }
+
+        sdkRef.current = sdk;
+        setSdkStatus("ready");
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setSdkStatus("failed");
+        onLookupStateChange({
+          message: "카카오 지도를 불러오지 못했습니다.",
+          status: "unavailable",
+        });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [onLookupStateChange]);
+
+  useEffect(() => {
+    const sdk = sdkRef.current;
+    const container = mapContainerRef.current;
+
+    if (!sdk || !container || sdkStatus !== "ready") {
+      return;
+    }
+
+    const center = toKakaoLatLng(sdk, coordinate ?? defaultMapCoordinate);
+
+    if (!mapRef.current) {
+      mapRef.current = new sdk.Map(container, {
+        center,
+        level: coordinate ? 3 : 5,
+      });
+    }
+
+    const map = mapRef.current;
+
+    window.requestAnimationFrame(() => {
+      map.relayout();
+      map.setCenter(center);
+      map.setLevel(coordinate ? 3 : 5);
+    });
+  }, [coordinate, sdkStatus]);
+
+  useEffect(() => {
+    const sdk = sdkRef.current;
+    const map = mapRef.current;
+
+    if (!sdk || !map || sdkStatus !== "ready") {
+      return;
+    }
+
+    if (!coordinate) {
+      markerRef.current?.setMap(null);
+      circleRef.current?.setMap(null);
+      return;
+    }
+
+    const center = toKakaoLatLng(sdk, coordinate);
+
+    if (!markerRef.current) {
+      markerRef.current = new sdk.Marker({
+        map,
+        position: center,
+      });
+    } else {
+      markerRef.current.setPosition(center);
+      markerRef.current.setMap(map);
+    }
+
+    if (!circleRef.current) {
+      circleRef.current = new sdk.Circle({
+        center,
+        fillColor: "#83daa6",
+        fillOpacity: 0.32,
+        map,
+        radius: radiusMeters,
+        strokeColor: "#30c179",
+        strokeOpacity: 0.95,
+        strokeWeight: 2,
+      });
+    } else {
+      circleRef.current.setOptions({
+        center,
+        radius: radiusMeters,
+      });
+      circleRef.current.setMap(map);
+    }
+
+    map.setCenter(center);
+  }, [coordinate, radiusMeters, sdkStatus]);
+
+  useEffect(() => {
+    const sdk = sdkRef.current;
+
+    if (sdkStatus !== "ready" || !sdk) {
+      return;
+    }
+
+    if (!debouncedAddress) {
+      onLookupStateChange({
+        message: "도로명 주소를 입력하면 위치를 확인합니다.",
+        status: "idle",
+      });
+      return;
+    }
+
+    let active = true;
+    const geocoder = new sdk.services.Geocoder();
+
+    onLookupStateChange({
+      message: "주소 확인 중",
+      status: "loading",
+    });
+
+    geocoder.addressSearch(debouncedAddress, (result, status) => {
+      if (!active) {
+        return;
+      }
+
+      const firstResult = result[0];
+
+      if (status !== sdk.services.Status.OK || !firstResult) {
+        onLookupStateChange({
+          message: "주소를 찾을 수 없습니다.",
+          status: "failed",
+        });
+        return;
+      }
+
+      const nextCoordinate = {
+        lat: Number(firstResult.y),
+        lng: Number(firstResult.x),
+      };
+
+      if (
+        !Number.isFinite(nextCoordinate.lat) ||
+        !Number.isFinite(nextCoordinate.lng)
+      ) {
+        onLookupStateChange({
+          message: "주소 좌표를 확인하지 못했습니다.",
+          status: "failed",
+        });
+        return;
+      }
+
+      onCoordinateResolve({
+        address: debouncedAddress,
+        coordinate: nextCoordinate,
+      });
+      onLookupStateChange({
+        message: "위치 확인 완료",
+        status: "resolved",
+      });
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    debouncedAddress,
+    onCoordinateResolve,
+    onLookupStateChange,
+    sdkStatus,
+  ]);
+
+  return (
+    <div className="mt-8">
+      <div
+        role="img"
+        aria-label="출퇴근 허용 반경 지도"
+        className="relative h-64 w-full overflow-hidden rounded-[8px] border border-gray-100 bg-gray-50"
+        data-testid="settings-location-map"
+      >
+        <div
+          ref={mapContainerRef}
+          className="absolute inset-0"
+          aria-hidden={sdkStatus !== "ready"}
+        />
+        {sdkStatus === "ready" ? null : <StaticRadiusMapFallback />}
+      </div>
+      <p
+        className={`mt-2 text-label-12-medium ${
+          lookupState.status === "resolved"
+            ? "text-green-500"
+            : lookupState.status === "failed" ||
+                lookupState.status === "unavailable"
+              ? "text-red-500"
+              : "text-gray-500"
+        }`}
+        data-testid="settings-location-map-status"
+      >
+        {lookupState.message}
+      </p>
+    </div>
+  );
+}
+
+function toKakaoLatLng(
+  sdk: KakaoMapsSdk,
+  coordinate: SettingsLocationCoordinate,
+) {
+  return new sdk.LatLng(coordinate.lat, coordinate.lng);
+}
+
+function StaticRadiusMapFallback() {
   return (
     <svg
-      role="img"
-      aria-label="출퇴근 허용 반경 지도"
-      className="mt-8 h-64 w-full overflow-hidden rounded-[8px] bg-blue-50"
-      data-testid="settings-location-map"
+      aria-hidden="true"
+      className="absolute inset-0 h-full w-full bg-blue-50"
       viewBox="0 0 600 260"
     >
       <rect width="600" height="260" fill="#eff6ff" />

@@ -93,6 +93,7 @@ const allowedLocalArrayMutationTransitionFiles = new Set([
 ]);
 const allowedRuntimeEnvTransitionFiles = new Set([
   "src/shared/api/firebase/client.ts",
+  "src/shared/lib/kakao-maps.ts",
 ]);
 const allowedDependencies = new Set(["firebase"]);
 const codeExtensions = new Set([

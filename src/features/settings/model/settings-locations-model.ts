@@ -93,6 +93,7 @@ export function hasSettingsLocationFormErrors(
 
 export function toCreateSettingsLocationInput(
   form: SettingsLocationFormState,
+  coordinate: SettingsLocationCoordinate,
 ): CreateSettingsLocationInput {
   const name = normalizeLocationText(form.name);
   const roadAddress = normalizeLocationText(form.roadAddress);
@@ -105,7 +106,7 @@ export function toCreateSettingsLocationInput(
     roadAddress,
     addressText: roadAddress,
     radiusMeters,
-    coordinate: createDemoLocationCoordinate(`${name} ${roadAddress}`),
+    coordinate,
     geocodingStatus: "resolved",
   };
 }
@@ -166,7 +167,7 @@ function parseRadiusMeters(value: string) {
   return radiusMeters;
 }
 
-function normalizeLocationText(value: string) {
+export function normalizeLocationText(value: string) {
   return value.trim().replace(/\s+/g, " ");
 }
 
