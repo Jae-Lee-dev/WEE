@@ -597,7 +597,6 @@ function RecordTimelineGrid({
       ariaLabel="주간 근무기록"
       className="h-full"
       days={timeline.dayLabels}
-      minWidthClassName="min-w-[964px]"
       renderBlocks={(day) =>
         dayLayouts
           .find(({ day: layoutDay }) => layoutDay.id === day.id)

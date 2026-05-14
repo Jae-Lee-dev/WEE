@@ -288,6 +288,8 @@ export const recordTimelineFixture = {
     "22",
     "23",
     "00",
+    "01",
+    "02",
   ],
   filters: {
     location: [

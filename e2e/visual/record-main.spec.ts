@@ -17,11 +17,12 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     const grid = page.getByRole("grid", { name: "주간 근무기록" });
     await expect(grid).toBeVisible();
     const timelineHeaders = grid.getByRole("columnheader");
-    await expect(timelineHeaders).toHaveCount(17);
+    await expect(timelineHeaders).toHaveCount(19);
     await expect(timelineHeaders.first()).toContainText("08");
     await expect(timelineHeaders.nth(15)).toContainText("23");
     await expect(timelineHeaders.nth(16)).toContainText("00");
     await expect(timelineHeaders.last()).not.toContainText("익일");
+    await expect(timelineHeaders.last()).toContainText("02");
     const nextDayBoundaryMarkers = grid.getByTestId("timeline-next-day-boundary");
     await expect(nextDayBoundaryMarkers).toHaveCount(8);
     await expect(grid.getByRole("rowheader", { name: "일" })).toHaveClass(
