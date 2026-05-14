@@ -9,11 +9,12 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await expect(page.getByTestId("handover-screen")).toBeVisible();
     await expect(page.getByTestId("handover-editor")).toBeVisible();
     await expect(page.getByTestId("handover-chat-panel")).toBeVisible();
+    const editor = page
+      .getByTestId("handover-editor")
+      .locator(".handover-tiptap-prosemirror");
     const toolbar = page.getByTestId("handover-editor-toolbar");
 
-    await expect(page.getByRole("textbox", { name: "제목" }).first()).toHaveValue(
-      "업무 공통 안내",
-    );
+    await expect(editor.locator("h1").first()).toHaveText("업무 공통 안내");
     await expect(page.getByText("AI 수정 요청")).toBeVisible();
     await expect(toolbar.getByRole("button", { name: "본문" })).toBeVisible();
     await expect(toolbar.getByRole("button", { name: "H1" })).toBeVisible();
@@ -56,32 +57,30 @@ test("HO-01 editor formats blocks and deletes dividers", async ({ page }) => {
   });
   await page.evaluate(() => document.fonts.ready);
 
-  const paragraph = page.getByRole("textbox", { name: "문단" }).first();
-  const paragraphValue = await paragraph.inputValue();
+  const editor = page
+    .getByTestId("handover-editor")
+    .locator(".handover-tiptap-prosemirror");
+  const paragraph = editor
+    .locator("p")
+    .filter({ hasText: "반드시 앱에서 출근 처리를 완료해주세요." })
+    .first();
+  const paragraphValue = await paragraph.textContent();
   const toolbar = page.getByTestId("handover-editor-toolbar");
 
-  await paragraph.focus();
+  await paragraph.click();
   await toolbar.getByRole("button", { exact: true, name: "목록" }).click();
 
-  const listItemValues = await page
-    .getByRole("textbox", { name: "목록 항목" })
-    .evaluateAll((elements) =>
-      elements.map((element) => (element as HTMLTextAreaElement).value),
-    );
+  await expect(
+    editor.locator("li").filter({ hasText: paragraphValue ?? "" }),
+  ).toBeVisible();
 
-  expect(listItemValues).toContain(paragraphValue);
-
-  const dividerCount = await page.getByTestId("handover-divider-block").count();
+  const dividerCount = await editor.locator("hr").count();
 
   await toolbar.getByRole("button", { name: "구분선" }).click();
-  await expect(page.getByTestId("handover-divider-block")).toHaveCount(
-    dividerCount + 1,
-  );
+  await expect(editor.locator("hr")).toHaveCount(dividerCount + 1);
 
-  await toolbar.getByRole("button", { name: "삭제" }).click();
-  await expect(page.getByTestId("handover-divider-block")).toHaveCount(
-    dividerCount,
-  );
+  await page.keyboard.press("Backspace");
+  await expect(editor.locator("hr")).toHaveCount(dividerCount);
 });
 
 test("HO-01 enter creates and backspace removes an explicit editor block", async ({
@@ -94,25 +93,23 @@ test("HO-01 enter creates and backspace removes an explicit editor block", async
   });
   await page.evaluate(() => document.fonts.ready);
 
-  const textboxCount = await page.getByRole("textbox").count();
-  const paragraph = page.getByRole("textbox", { name: "문단" }).first();
+  const editor = page
+    .getByTestId("handover-editor")
+    .locator(".handover-tiptap-prosemirror");
+  const paragraphCount = await editor.locator("p").count();
+  const paragraph = editor
+    .locator("p")
+    .filter({ hasText: "반드시 앱에서 출근 처리를 완료해주세요." })
+    .first();
 
-  await paragraph.focus();
-  await paragraph.press("Enter");
+  await paragraph.click();
+  await page.keyboard.press("End");
+  await page.keyboard.press("Enter");
 
-  await expect(page.getByRole("textbox")).toHaveCount(textboxCount + 1);
-  await expect(page.locator("textarea:focus")).toHaveAttribute(
-    "aria-label",
-    "빈 줄",
-  );
+  await expect(editor.locator("p")).toHaveCount(paragraphCount + 1);
 
   await page.keyboard.press("Backspace");
-
-  await expect(page.getByRole("textbox")).toHaveCount(textboxCount);
-  await expect(page.locator("textarea:focus")).toHaveAttribute(
-    "aria-label",
-    "문단",
-  );
+  await expect(editor.locator("p")).toHaveCount(paragraphCount);
 });
 
 test("HO-01 AI proposal blocks changed rows until review", async ({ page }) => {
@@ -137,12 +134,12 @@ test("HO-01 AI proposal blocks changed rows until review", async ({ page }) => {
   await proposal.getByRole("button", { name: "반영" }).click();
 
   await expect(page.getByTestId("handover-proposal-block")).toHaveCount(0);
-  const listItems = await page
-    .getByRole("textbox", { name: "목록 항목" })
-    .evaluateAll((elements) =>
-      elements.map((element) => (element as HTMLTextAreaElement).value),
-    );
-  expect(listItems).toContain("보강 자료 프린트 준비");
+  await expect(
+    page
+      .getByTestId("handover-editor")
+      .locator("li")
+      .filter({ hasText: "보강 자료 프린트 준비" }),
+  ).toBeVisible();
   await expect(page.getByPlaceholder("수정 요청을 입력하세요...")).toBeEnabled();
 });
 
@@ -176,9 +173,12 @@ test("HO-01 blocks screen navigation when unpublished edits exist", async ({
   await page.evaluate(() => document.fonts.ready);
 
   await page
-    .getByRole("textbox", { name: "제목" })
+    .getByTestId("handover-editor")
+    .locator(".handover-tiptap-prosemirror h1")
     .first()
-    .fill("업무 공통 안내 수정");
+    .click();
+  await page.keyboard.press("End");
+  await page.keyboard.insertText(" 수정");
   await page.getByTestId("admin-sidebar-item-dashboard").click();
 
   const dialog = page.getByTestId("handover-unsaved-navigation-dialog");
