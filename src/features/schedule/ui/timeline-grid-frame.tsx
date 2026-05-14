@@ -5,6 +5,8 @@ export {
   orderTimelineDaysSundayFirst,
   TimelineBlockText,
   timelineDefaultBlockHeight,
+  timelineDefaultLaneGap,
+  timelineDefaultLaneStride,
   timelineDefaultRowHeight,
   TimelineGridFrame,
   type TimelineGridDay,

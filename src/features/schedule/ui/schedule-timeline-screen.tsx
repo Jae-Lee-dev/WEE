@@ -31,6 +31,8 @@ import {
   getTimelineRowHeight,
   orderTimelineDaysSundayFirst,
   TimelineBlockText,
+  timelineDefaultBlockHeight,
+  timelineDefaultLaneStride,
   timelineDefaultRowHeight,
   TimelineGridFrame,
 } from "./timeline-grid-frame";
@@ -47,8 +49,8 @@ type AssignmentTagTone = {
   style?: CSSProperties;
 };
 
-const timelineLaneHeight = 46;
-const timelineLaneStride = 48;
+const timelineLaneHeight = timelineDefaultBlockHeight;
+const timelineLaneStride = timelineDefaultLaneStride;
 const timelineDays = orderTimelineDaysSundayFirst(scheduleTimelineDays);
 
 const blockToneClassNames: Record<ScheduleTimelineTone, string> = {

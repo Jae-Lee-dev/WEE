@@ -45,7 +45,8 @@ export const initialDutyFilters = {
 const timelineStartHour = Number(scheduleTimelineTimeSlots[0]);
 const timelineColumnCount = scheduleTimelineTimeSlots.length;
 const timelineLaneHeight = 46;
-const timelineLaneStride = 48;
+const timelineLaneGap = 2;
+const timelineLaneStride = timelineLaneHeight + timelineLaneGap;
 
 const weekdayDayIdMap: Record<DutyWeekday, ScheduleTimelineDayId> = {
   월: "mon",

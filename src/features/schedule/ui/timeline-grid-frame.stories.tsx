@@ -9,6 +9,8 @@ import {
   getTimelineRowHeight,
   orderTimelineDaysSundayFirst,
   TimelineBlockText,
+  timelineDefaultBlockHeight,
+  timelineDefaultLaneStride,
   timelineDefaultRowHeight,
   TimelineGridFrame,
 } from "./timeline-grid-frame";
@@ -95,6 +97,17 @@ const storyBlocks = [
     worker: "미배정",
   },
   {
+    id: "biology-b",
+    dayId: "mon",
+    label: "생명 B반",
+    locationName: "대치 A학원",
+    tone: "blue",
+    time: "14:00~16:00",
+    startHour: 14,
+    endHour: 16,
+    worker: "미배정",
+  },
+  {
     id: "english-c",
     dayId: "mon",
     label: "영어 C반",
@@ -131,8 +144,8 @@ export const WeeklyDutyTimeline: Story = {
       blocks: storyBlocks,
       days: storyDays,
       layout: {
-        blockHeight: 46,
-        laneStride: 48,
+        blockHeight: timelineDefaultBlockHeight,
+        laneStride: timelineDefaultLaneStride,
         topOffset: 1,
         xInset: 1,
       },
