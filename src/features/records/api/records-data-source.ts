@@ -1488,6 +1488,14 @@ function mapRecordMainView(
     overtimeWorks.filter((work) => work.status === "submitted"),
     (work) => work.workRecordId,
   );
+  const getAttendanceForRecord = (record: WorkRecordModel | null) =>
+    record?.attendanceLogId
+      ? (attendanceById.get(record.attendanceLogId) ?? null)
+      : null;
+  const getAttendanceForOvertime = (overtime: OvertimeWorkModel | null) =>
+    overtime?.attendanceLogId
+      ? (attendanceById.get(overtime.attendanceLogId) ?? null)
+      : null;
   const pendingCorrectionIds = new Set(correctionIdsByRecordId.keys());
   const pendingOvertimeIds = new Set(overtimeIdsByRecordId.keys());
   const weekNavigation = createWeekNavigation(records);
@@ -1517,22 +1525,22 @@ function mapRecordMainView(
     flagsByRecordId,
     getPayrollSetting,
   });
+  const selectedOvertime = selectedRecord
+    ? (pendingOvertimeByRecordId.get(selectedRecord.id) ?? null)
+    : null;
 
   return {
     blocks,
     detailStates: createDetailStates({
-      attendance: selectedRecord?.attendanceLogId
-        ? (attendanceById.get(selectedRecord.attendanceLogId) ?? null)
-        : null,
+      attendance: getAttendanceForRecord(selectedRecord),
       correction: selectedRecord
         ? (pendingCorrectionByRecordId.get(selectedRecord.id) ?? null)
         : null,
       flag: selectedRecord
         ? (flagsByRecordId.get(selectedRecord.id) ?? null)
         : null,
-      overtime: selectedRecord
-        ? (pendingOvertimeByRecordId.get(selectedRecord.id) ?? null)
-        : null,
+      overtime: selectedOvertime,
+      overtimeAttendance: getAttendanceForOvertime(selectedOvertime),
       payrollSetting: selectedRecord
         ? (getPayrollSetting(selectedRecord) ?? null)
         : null,
@@ -1953,13 +1961,18 @@ function createDetailStatesByBlockId(
   > = {};
 
   for (const record of records) {
+    const overtime = options.pendingOvertimeByRecordId.get(record.id) ?? null;
+
     detailStatesByBlockId[record.id] = createDetailStates({
       attendance: record.attendanceLogId
         ? (options.attendanceById.get(record.attendanceLogId) ?? null)
         : null,
       correction: options.pendingCorrectionByRecordId.get(record.id) ?? null,
       flag: options.flagsByRecordId.get(record.id) ?? null,
-      overtime: options.pendingOvertimeByRecordId.get(record.id) ?? null,
+      overtime,
+      overtimeAttendance: overtime?.attendanceLogId
+        ? (options.attendanceById.get(overtime.attendanceLogId) ?? null)
+        : null,
       payrollSetting: options.getPayrollSetting(record) ?? null,
       record,
     });
@@ -2011,6 +2024,7 @@ function createDetailStates({
   correction,
   flag,
   overtime,
+  overtimeAttendance,
   payrollSetting,
   record,
 }: {
@@ -2018,6 +2032,7 @@ function createDetailStates({
   correction: CorrectionRequestModel | null;
   flag: AnomalyFlagModel | null;
   overtime: OvertimeWorkModel | null;
+  overtimeAttendance: AttendanceLogModel | null;
   payrollSetting: PayrollSettingModel | null;
   record: WorkRecordModel | null;
 }): Record<RecordDetailStateId, RecordDetailState> {
@@ -2057,7 +2072,7 @@ function createDetailStates({
   if (overtime) {
     return createOvertimeDetailStates(
       record,
-      attendance,
+      overtimeAttendance ?? attendance,
       overtime,
       payrollSetting,
       empty,

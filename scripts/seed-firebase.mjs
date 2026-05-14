@@ -175,7 +175,7 @@ Usage:
 Options:
   --dry-run             Print the planned write summary only. Default.
   --confirm             Write to Firestore.
-  --cleanup             Delete previous documents with the same seed.batchId before writing.
+  --cleanup             Delete previous documents written by this seed version before writing.
   --allow-production    Required for writes when FIRESTORE_EMULATOR_HOST is not set.
   --project-id <id>     Firebase project id. Defaults to GCLOUD_PROJECT/GOOGLE_CLOUD_PROJECT.
   --service-account <p> Service account JSON path. Defaults to GOOGLE_APPLICATION_CREDENTIALS.
@@ -292,9 +292,9 @@ async function cleanupSeededDocuments(firestore, options) {
             from: [{ collectionId: collectionName }],
             where: {
               fieldFilter: {
-                field: { fieldPath: "seed.batchId" },
+                field: { fieldPath: "seed.version" },
                 op: "EQUAL",
-                value: { stringValue: options.batchId },
+                value: { stringValue: seedVersion },
               },
             },
           },
@@ -720,6 +720,7 @@ function createSeedPlan(options) {
 
   assertions.push(
     "Admin/import/service-account REST path required; this seed writes historical timestamps and collections not allowed by current client rules.",
+    "Cleanup removes every previous document with seed.version, including locations and duties, before writing a fresh linked seed graph.",
     "4월 paid worker-months have no source changes after paidAt.",
     "needsReconfirmation=true is manager-only; no worker reconfirmation notification is generated.",
     "workerPayStatements omit needsReconfirmation and manager-only calculation diffs.",
@@ -1345,7 +1346,117 @@ function createAttendanceAndWorkRecords(workspaceId, managerUid, workers, duties
     }
   }
 
+  attendanceLogs.push(
+    ...createStandaloneOvertimeAttendanceLogs(workspaceId, workerById),
+  );
+
   return { attendanceLogs, workRecords };
+}
+
+function createStandaloneOvertimeAttendanceLogs(workspaceId, workerById) {
+  const rows = [
+    {
+      id: "att_ot_kim_20260428_question_extension",
+      checkInIso: "2026-04-28T20:55:00+09:00",
+      checkOutIso: "2026-04-28T21:36:00+09:00",
+      date: "2026-04-28",
+      locationId: "loc_annex",
+      locationName: "별관 자습실",
+      workerId: "worker_kim",
+    },
+    {
+      id: "att_ot_lee_20260422_admin_wrapup",
+      checkInIso: "2026-04-22T18:00:00+09:00",
+      checkOutIso: "2026-04-22T18:42:00+09:00",
+      date: "2026-04-22",
+      locationId: "loc_main",
+      locationName: "본원 3층",
+      workerId: "worker_lee",
+    },
+    {
+      id: "att_ot_park_20260502_grading_extension",
+      checkInIso: "2026-05-02T16:00:00+09:00",
+      checkOutIso: "2026-05-02T16:34:00+09:00",
+      date: "2026-05-02",
+      locationId: "loc_main",
+      locationName: "본원 3층",
+      workerId: "worker_park",
+    },
+    {
+      id: "att_ot_choi_20260418_exam_wrapup",
+      checkInIso: "2026-04-18T19:00:00+09:00",
+      checkOutIso: "2026-04-18T19:32:00+09:00",
+      date: "2026-04-18",
+      locationId: "loc_exam",
+      locationName: "시험대비 교실",
+      workerId: "worker_choi",
+    },
+    {
+      id: "att_ot_jung_20260429_night_questions",
+      checkInIso: "2026-04-29T22:00:00+09:00",
+      checkOutIso: "2026-04-29T22:48:00+09:00",
+      date: "2026-04-29",
+      locationId: "loc_exam",
+      locationName: "시험대비 교실",
+      workerId: "worker_jung",
+    },
+    {
+      id: "att_ot_kim_20260508_makeup_review",
+      checkInIso: "2026-05-08T18:20:00+09:00",
+      checkOutIso: "2026-05-08T19:12:00+09:00",
+      date: "2026-05-08",
+      locationId: "loc_main",
+      locationName: "본원 3층",
+      workerId: "worker_kim",
+    },
+    {
+      id: "att_ot_lee_20260506_admin_wrapup",
+      checkInIso: "2026-05-06T18:00:00+09:00",
+      checkOutIso: "2026-05-06T18:55:00+09:00",
+      date: "2026-05-06",
+      locationId: "loc_main",
+      locationName: "본원 3층",
+      workerId: "worker_lee",
+    },
+    {
+      id: "att_ot_park_20260507_parent_call",
+      checkInIso: "2026-05-07T18:00:00+09:00",
+      checkOutIso: "2026-05-07T18:48:00+09:00",
+      date: "2026-05-07",
+      locationId: "loc_main",
+      locationName: "본원 3층",
+      workerId: "worker_park",
+    },
+  ];
+
+  return rows.map((row) => {
+    const worker = workerById[row.workerId];
+    const locationSeed = { locationId: row.locationId };
+    const checkInAt = ts(row.checkInIso);
+    const checkOutAt = row.checkOutIso ? ts(row.checkOutIso) : null;
+
+    return {
+      id: row.id,
+      anomalyType: "none",
+      checkInAt,
+      checkInLocation: locationForScenario(locationSeed, "in", { type: "normal" }),
+      checkOutAt,
+      checkOutLocation: checkOutAt
+        ? locationForScenario(locationSeed, "out", { type: "normal" })
+        : null,
+      createdAt: shiftTimestamp(checkInAt, -2 * 60 * 1000),
+      date: row.date,
+      dutyId: null,
+      dutyName: "추가근무",
+      locationId: row.locationId,
+      locationName: row.locationName,
+      source: "worker_app",
+      status: "matched",
+      workerId: row.workerId,
+      workerName: worker.name,
+      workspaceId,
+    };
+  });
 }
 
 function resolveRecordScenario(workerId, date, dutyId) {
@@ -1484,40 +1595,154 @@ function createAnomalies(workspaceId, managerUid, workRecords) {
 
 function createOvertimeWorks(workspaceId, managerUid, workRecords, attendanceLogs) {
   const byRecord = Object.fromEntries(workRecords.map((record) => [record.id, record]));
-  const attendanceByRecord = Object.fromEntries(
-    attendanceLogs.map((log) => [log.id.replace(/^att_/, ""), log]),
+  const attendanceById = Object.fromEntries(
+    attendanceLogs.map((log) => [log.id, log]),
   );
   const rows = [
-    ["ot_kim_20260505_submitted", "wr_worker_kim_20260505_duty_self_tue", "submitted", null, "confirmed", "2026-05-05T21:20:00+09:00"],
-    ["ot_lee_20260422_approved", "wr_worker_lee_20260422_duty_admin_wed", "approved", "confirmed", "confirmed", "2026-04-22T18:20:00+09:00"],
-    ["ot_park_20260502_rejected", "wr_worker_park_20260502_duty_sat_grading", "rejected", null, "none", "2026-05-02T16:15:00+09:00"],
-    ["ot_choi_20260418_withdrawn", "wr_worker_choi_20260418_duty_sat_exam", "withdrawn", null, "none", "2026-04-18T19:15:00+09:00"],
-    ["ot_jung_20260429_held", "wr_worker_jung_20260429_duty_night_wed", "approved", "held", "held", "2026-04-29T22:15:00+09:00"],
-    ["ot_kim_20260425_approved", "wr_worker_kim_20260425_duty_sat_morning", "approved", "confirmed", "confirmed", "2026-04-25T13:20:00+09:00"],
-    ["ot_lee_20260506_approved", "wr_worker_lee_20260506_duty_admin_wed", "approved", "confirmed", "confirmed", "2026-05-06T18:30:00+09:00"],
+    {
+      id: "ot_kim_20260428_submitted",
+      amount: null,
+      attendanceLogId: "att_ot_kim_20260428_question_extension",
+      extraEndIso: "2026-04-28T21:30:00+09:00",
+      extraStartIso: "2026-04-28T21:00:00+09:00",
+      payrollEffect: null,
+      payrollPayMode: null,
+      payrollStatus: "pending",
+      reason: "자습실 질문 응대 연장",
+      status: "submitted",
+      submittedIso: "2026-04-28T21:25:00+09:00",
+      workRecordId: "wr_worker_kim_20260428_duty_self_tue",
+    },
+    {
+      id: "ot_park_20260507_submitted",
+      amount: null,
+      attendanceLogId: "att_ot_park_20260507_parent_call",
+      extraEndIso: "2026-05-07T18:40:00+09:00",
+      extraStartIso: "2026-05-07T18:00:00+09:00",
+      payrollEffect: null,
+      payrollPayMode: null,
+      payrollStatus: "pending",
+      reason: "보강 후 학부모 상담 대응",
+      status: "submitted",
+      submittedIso: "2026-05-07T18:42:00+09:00",
+      workRecordId: "wr_worker_park_20260507_duty_question_thu",
+    },
+    {
+      id: "ot_lee_20260422_approved",
+      amount: 8000,
+      attendanceLogId: "att_ot_lee_20260422_admin_wrapup",
+      extraEndIso: "2026-04-22T18:30:00+09:00",
+      extraStartIso: "2026-04-22T18:00:00+09:00",
+      payrollEffect: "immediate",
+      payrollPayMode: "fixed",
+      payrollStatus: "confirmed",
+      reason: "행정 마감 정리",
+      status: "approved",
+      submittedIso: "2026-04-22T18:20:00+09:00",
+      workRecordId: "wr_worker_lee_20260422_duty_admin_wed",
+    },
+    {
+      id: "ot_park_20260502_rejected",
+      amount: null,
+      attendanceLogId: "att_ot_park_20260502_grading_extension",
+      extraEndIso: "2026-05-02T16:30:00+09:00",
+      extraStartIso: "2026-05-02T16:00:00+09:00",
+      payrollEffect: "none",
+      payrollPayMode: null,
+      payrollStatus: "none",
+      reason: "채점 마무리 시간 요청",
+      rejectedReason: "사전 승인 범위를 초과하지 않음",
+      status: "rejected",
+      submittedIso: "2026-05-02T16:15:00+09:00",
+      workRecordId: "wr_worker_park_20260502_duty_sat_grading",
+    },
+    {
+      id: "ot_choi_20260418_withdrawn",
+      amount: null,
+      attendanceLogId: "att_ot_choi_20260418_exam_wrapup",
+      extraEndIso: "2026-04-18T19:30:00+09:00",
+      extraStartIso: "2026-04-18T19:00:00+09:00",
+      payrollEffect: "none",
+      payrollPayMode: null,
+      payrollStatus: "none",
+      reason: "시험지 정리 지원",
+      status: "withdrawn",
+      submittedIso: "2026-04-18T19:15:00+09:00",
+      workRecordId: "wr_worker_choi_20260418_duty_sat_exam",
+    },
+    {
+      id: "ot_jung_20260429_held",
+      amount: 12000,
+      attendanceLogId: "att_ot_jung_20260429_night_questions",
+      extraEndIso: "2026-04-29T22:45:00+09:00",
+      extraStartIso: "2026-04-29T22:00:00+09:00",
+      payrollEffect: "hold",
+      payrollPayMode: "fixed",
+      payrollStatus: "held",
+      reason: "야간 질의응답 연장",
+      status: "approved",
+      submittedIso: "2026-04-29T22:15:00+09:00",
+      workRecordId: "wr_worker_jung_20260429_duty_night_wed",
+    },
+    {
+      id: "ot_kim_20260508_approved",
+      amount: 10000,
+      attendanceLogId: "att_ot_kim_20260508_makeup_review",
+      extraEndIso: "2026-05-08T19:10:00+09:00",
+      extraStartIso: "2026-05-08T18:20:00+09:00",
+      payrollEffect: "immediate",
+      payrollPayMode: "fixed",
+      payrollStatus: "confirmed",
+      reason: "보강 복습 자료 정리",
+      status: "approved",
+      submittedIso: "2026-05-08T19:00:00+09:00",
+      workRecordId: null,
+    },
+    {
+      id: "ot_lee_20260506_approved",
+      amount: 9000,
+      attendanceLogId: "att_ot_lee_20260506_admin_wrapup",
+      extraEndIso: "2026-05-06T18:45:00+09:00",
+      extraStartIso: "2026-05-06T18:00:00+09:00",
+      payrollEffect: "immediate",
+      payrollPayMode: "fixed",
+      payrollStatus: "confirmed",
+      reason: "출결 자료 마감",
+      status: "approved",
+      submittedIso: "2026-05-06T18:30:00+09:00",
+      workRecordId: "wr_worker_lee_20260506_duty_admin_wed",
+    },
   ];
 
-  return rows.map(([id, workRecordId, status, payrollEffect, payrollStatus, submittedIso], index) => {
-    const record = byRecord[workRecordId];
+  return rows.map((row) => {
+    const record = row.workRecordId ? byRecord[row.workRecordId] : null;
+    const attendance = attendanceById[row.attendanceLogId];
+    const workerId = record?.workerId ?? attendance.workerId;
+    const workerName = record?.workerName ?? attendance.workerName;
+    const submittedAt = ts(row.submittedIso);
 
     return {
-      id,
-      approvedAt: status === "approved" ? shiftTimestamp(ts(submittedIso), 2 * 60 * 60 * 1000) : null,
-      attendanceLogId: attendanceByRecord[workRecordId]?.id ?? null,
-      createdAt: ts(submittedIso),
-      decidedBy: status === "approved" || status === "rejected" ? managerUid : null,
-      extraEndAt: shiftTimestamp(record.plannedEndAt, (index + 1) * 30 * 60 * 1000),
-      extraStartAt: record.plannedEndAt,
-      monthKey: record.monthKey,
-      payrollEffect,
-      payrollStatus,
-      reason: "질문 응대 연장",
-      rejectedReason: status === "rejected" ? "사전 승인 범위를 초과하지 않음" : null,
-      status,
-      submittedAt: ts(submittedIso),
-      workRecordId,
-      workerId: record.workerId,
-      workerName: record.workerName,
+      id: row.id,
+      amount: row.amount,
+      approvedAt: row.status === "approved" ? shiftTimestamp(submittedAt, 2 * 60 * 60 * 1000) : null,
+      attendanceLogId: row.attendanceLogId,
+      createdAt: submittedAt,
+      decidedBy: row.status === "approved" || row.status === "rejected" ? managerUid : null,
+      extraEndAt: ts(row.extraEndIso),
+      extraStartAt: ts(row.extraStartIso),
+      managerNote: row.status === "approved" ? "추가근무 시간과 사유 확인" : null,
+      monthKey: row.extraStartIso.slice(0, 7),
+      payrollEffect: row.payrollEffect,
+      payrollPayMode: row.payrollPayMode,
+      payrollStatus: row.payrollStatus,
+      reason: row.reason,
+      rejectedReason: row.rejectedReason ?? null,
+      status: row.status,
+      submittedAt,
+      updatedAt: row.status === "submitted" ? submittedAt : shiftTimestamp(submittedAt, 2 * 60 * 60 * 1000),
+      workRecordId: row.workRecordId,
+      workerId,
+      workerName,
       workspaceId,
     };
   });
@@ -1819,11 +2044,11 @@ function createNotifications(context) {
 
   for (const work of overtime) {
     if (work.status === "submitted") {
-      add(`ntf_manager_overtime_${work.id}`, "manager", managerUid, "web", "overtime_submitted", isoPlus(work.submittedAt, 60), "overtimeWork", work.id, { targetScreen: "REC-01", targetFocusId: work.workRecordId });
+      add(`ntf_manager_overtime_${work.id}`, "manager", managerUid, "web", "overtime_submitted", isoPlus(work.submittedAt, 60), "overtimeWork", work.id, { targetScreen: "REC-01", targetFocusId: work.workRecordId ?? work.id });
     }
 
     if (work.status === "approved" || work.status === "rejected") {
-      add(`ntf_worker_overtime_${work.id}`, "worker", work.workerId, "fcm", work.status === "approved" ? "overtime_approved" : "overtime_rejected", "2026-05-06T19:00:00+09:00", "overtimeWork", work.id, { payrollEffect: work.payrollEffect });
+      add(`ntf_worker_overtime_${work.id}`, "worker", work.workerId, "fcm", work.status === "approved" ? "overtime_approved" : "overtime_rejected", "2026-05-06T19:00:00+09:00", "overtimeWork", work.id, { payrollEffect: work.payrollEffect, targetFocusId: work.workRecordId ?? work.id });
     }
   }
 
@@ -1878,7 +2103,22 @@ function createProjections(context) {
   const operationalInboxItems = [
     ...pendingMembershipInboxItems,
     inbox("inbox_schedule_pending", "schedule_pending", "scheduleRequest", "schedule_change_worker_park_pending", "submitted", "2026-05-09T20:10:00+09:00", "worker_park", "박정훈", "SCH-01", "schedule_change_worker_park_pending"),
-    inbox("inbox_overtime_pending", "overtime_pending", "overtimeWork", "ot_kim_20260505_submitted", "submitted", "2026-05-05T21:20:00+09:00", "worker_kim", "김서연", "REC-01", "wr_worker_kim_20260505_duty_self_tue"),
+    ...overtime
+      .filter((work) => work.status === "submitted")
+      .map((work) =>
+        inbox(
+          `inbox_overtime_pending_${work.id.replace(/^ot_/, "")}`,
+          "overtime_pending",
+          "overtimeWork",
+          work.id,
+          "submitted",
+          work.submittedAt.toISOString(),
+          work.workerId,
+          work.workerName,
+          "REC-01",
+          work.workRecordId ?? work.id,
+        ),
+      ),
     inbox("inbox_correction_pending", "correction_pending", "correctionRequest", "cr_kim_20260504_submitted", "submitted", "2026-05-06T18:00:00+09:00", "worker_kim", "김서연", "REC-01", "wr_worker_kim_20260504_duty_math_mon"),
     inbox("inbox_anomaly_unresolved", "anomaly_unresolved", "anomalyFlag", "flag_wr_worker_kim_20260505_duty_self_tue", "unresolved", "2026-05-05T23:30:00+09:00", "worker_kim", "김서연", "REC-01", "wr_worker_kim_20260505_duty_self_tue"),
     inbox("inbox_payroll_reconfirmation", "payroll_reconfirmation", "payStatement", "pay_202604_worker_lee", "needs_reconfirmation", "2026-05-04T10:00:00+09:00", "worker_lee", "이민지", "PAY-01", "pay_202604_worker_lee"),
@@ -2013,8 +2253,14 @@ function validateSeedPlan(writes) {
   const managerStatements = docs.filter((doc) => doc.collectionName === "payStatements");
   const workerStatements = docs.filter((doc) => doc.collectionName === "workerPayStatements");
   const notifications = docs.filter((doc) => doc.collectionName === "notifications");
+  const overtimeWorks = docs.filter((doc) => doc.collectionName === "overtimeWorks");
   const payrollRows = docs.filter((doc) => doc.collectionName === "payrollWorkerMonthRows");
   const correctionRequests = docs.filter((doc) => doc.collectionName === "correctionRequests");
+  const attendanceById = new Map(
+    docs
+      .filter((doc) => doc.collectionName === "attendanceLogs")
+      .map((doc) => [doc.id, doc]),
+  );
   const forbiddenWorkerKeys = [
     "anomalyFlags",
     "managerOnly",
@@ -2040,6 +2286,20 @@ function validateSeedPlan(writes) {
   for (const notification of notifications.filter((item) => item.eventType === "work_record_changed")) {
     assertWorkerSafeSnapshot(notification.payload?.beforeSnapshot, `notification ${notification.id} beforeSnapshot`, forbiddenWorkerKeys);
     assertWorkerSafeSnapshot(notification.payload?.afterSnapshot, `notification ${notification.id} afterSnapshot`, forbiddenWorkerKeys);
+  }
+
+  if (overtimeWorks.length < 8) {
+    throw new Error(`expected at least 8 overtime seed rows, got ${overtimeWorks.length}`);
+  }
+
+  for (const work of overtimeWorks) {
+    if (!work.attendanceLogId || !attendanceById.has(work.attendanceLogId)) {
+      throw new Error(`overtimeWork ${work.id} must reference an attendanceLogId.`);
+    }
+
+    if (!work.extraStartAt || !work.extraEndAt || millis(work.extraEndAt) <= millis(work.extraStartAt)) {
+      throw new Error(`overtimeWork ${work.id} has an invalid extra time range.`);
+    }
   }
 
   for (const statement of managerStatements.filter((item) => item.status === "paid")) {
