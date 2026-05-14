@@ -730,12 +730,20 @@ function queueCorrectionAction({
     );
     const nextExtraStartAt = resolveActionTimestamp({
       dateKey,
-      fallback: readDate(overtime.data.extraStartAt) ?? getRecordStartDate(recordData),
+      fallback:
+        readDate(afterRequestSnapshot.extraStartAt) ??
+        readDate(afterRequestSnapshot.overtimeStartAt) ??
+        readDate(overtime.data.extraStartAt) ??
+        getRecordStartDate(recordData),
       timeValue: input.startTime,
     });
     const nextExtraEndAt = resolveActionTimestamp({
       dateKey,
-      fallback: readDate(overtime.data.extraEndAt) ?? getRecordEndDate(recordData),
+      fallback:
+        readDate(afterRequestSnapshot.extraEndAt) ??
+        readDate(afterRequestSnapshot.overtimeEndAt) ??
+        readDate(overtime.data.extraEndAt) ??
+        getRecordEndDate(recordData),
       timeValue: input.endTime,
     });
     const payMode = getConfirmedOvertimePayMode(input);
@@ -821,12 +829,18 @@ function queueCorrectionAction({
   };
   const nextStartAt = resolveActionTimestamp({
     dateKey,
-    fallback: getRecordStartDate(recordData),
+    fallback:
+      readDate(afterRequestSnapshot.effectiveStartAt) ??
+      readDate(afterRequestSnapshot.plannedStartAt) ??
+      getRecordStartDate(recordData),
     timeValue: input.startTime,
   });
   const nextEndAt = resolveActionTimestamp({
     dateKey,
-    fallback: getRecordEndDate(recordData),
+    fallback:
+      readDate(afterRequestSnapshot.effectiveEndAt) ??
+      readDate(afterRequestSnapshot.plannedEndAt) ??
+      getRecordEndDate(recordData),
     timeValue: input.endTime,
   });
   const recordUpdate: Record<string, unknown> = {
@@ -2143,17 +2157,39 @@ function createCorrectionDetailStates(
 ): Record<RecordDetailStateId, RecordDetailState> {
   const base = createRecordActionDetailBase(record, attendance);
   const overtimeCorrection = isCorrectionForOvertime(correction);
-  const editableStartAt = overtimeCorrection
-    ? (overtime?.extraStartAt ?? record.effectiveStartAt ?? record.plannedStartAt)
-    : (record.effectiveStartAt ?? record.plannedStartAt);
-  const editableEndAt = overtimeCorrection
-    ? (overtime?.extraEndAt ?? record.effectiveEndAt ?? record.plannedEndAt)
-    : (record.effectiveEndAt ?? record.plannedEndAt);
+  const requestedStartAt = overtimeCorrection
+    ? (readDate(correction.afterSnapshot.extraStartAt) ??
+      readDate(correction.afterSnapshot.overtimeStartAt) ??
+      overtime?.extraStartAt ??
+      record.effectiveStartAt ??
+      record.plannedStartAt)
+    : (readDate(correction.afterSnapshot.effectiveStartAt) ??
+      readDate(correction.afterSnapshot.plannedStartAt) ??
+      record.effectiveStartAt ??
+      record.plannedStartAt);
+  const requestedEndAt = overtimeCorrection
+    ? (readDate(correction.afterSnapshot.extraEndAt) ??
+      readDate(correction.afterSnapshot.overtimeEndAt) ??
+      overtime?.extraEndAt ??
+      record.effectiveEndAt ??
+      record.plannedEndAt)
+    : (readDate(correction.afterSnapshot.effectiveEndAt) ??
+      readDate(correction.afterSnapshot.plannedEndAt) ??
+      record.effectiveEndAt ??
+      record.plannedEndAt);
+  const correctionLineSections = [
+    ...(base.lineSections ?? []),
+    createCorrectionRequestLineSection({
+      overtimeCorrection,
+      requestedEndAt,
+      requestedStartAt,
+    }),
+  ];
   const approveConfirmTitle = overtimeCorrection
     ? "추가근무 이의신청을 승인할까요?"
     : "이의신청을 승인하고 근무기록을 수정할까요?";
   const approveConfirmDescription = overtimeCorrection
-    ? "조교가 보낸 이의 사유를 검토하고, 입력한 추가근무 시간과 급여 처리값으로 반영합니다."
+    ? "요청 시간을 기본값으로 불러오며, 입력한 추가근무 시간과 급여 처리값으로 반영합니다."
     : getRegularCorrectionApprovalDescription(payrollSetting);
   const approveState: RecordDetailState = {
     ...base,
@@ -2165,9 +2201,10 @@ function createCorrectionDetailStates(
     confirmLabel: "승인",
     confirmTitle: approveConfirmTitle,
     helperText: overtimeCorrection
-      ? "승인 시 관리자가 입력한 추가근무 시간으로 갱신합니다."
-      : "승인 시 관리자가 입력한 값으로 근무기록을 갱신합니다.",
+      ? "승인 시 요청 시간을 기본값으로 추가근무 시간을 갱신합니다."
+      : "승인 시 요청 시간을 기본값으로 근무기록을 갱신합니다.",
     id: "anomaly-step-3",
+    lineSections: correctionLineSections,
     reasonField: {
       label: overtimeCorrection ? "처리 메모" : "수정 사유",
       placeholder: overtimeCorrection
@@ -2181,12 +2218,12 @@ function createCorrectionDetailStates(
       {
         id: "check-in",
         label: overtimeCorrection ? "추가근무 시작" : "근무 시작",
-        value: formatKoreanTime(editableStartAt),
+        value: formatKoreanTime(requestedStartAt),
       },
       {
         id: "check-out",
         label: overtimeCorrection ? "추가근무 종료" : "근무 종료",
-        value: formatKoreanTime(editableEndAt),
+        value: formatKoreanTime(requestedEndAt),
       },
     ],
     ...(overtimeCorrection
@@ -2210,6 +2247,7 @@ function createCorrectionDetailStates(
         { id: "reject-correction", label: "반려" },
       ],
       alertText: correction.reason,
+      lineSections: correctionLineSections,
       statusLabel: "이의신청",
       statusTone: "orange",
     },
@@ -2227,6 +2265,7 @@ function createCorrectionDetailStates(
         "이의신청을 반려로 종료하고 근무기록과 급여 산정값은 변경하지 않습니다.",
       confirmTitle: "이의신청을 반려할까요?",
       id: "anomaly-step-4",
+      lineSections: correctionLineSections,
       reasonField: {
         label: "반려 사유",
         placeholder: "반려 사유를 입력하세요",
@@ -2235,6 +2274,33 @@ function createCorrectionDetailStates(
       statusTone: "orange",
       submitAction: "reject-correction",
     },
+  };
+}
+
+function createCorrectionRequestLineSection({
+  overtimeCorrection,
+  requestedEndAt,
+  requestedStartAt,
+}: {
+  overtimeCorrection: boolean;
+  requestedEndAt: Date | null;
+  requestedStartAt: Date | null;
+}): RecordDetailLineSection {
+  return {
+    id: "correction-request",
+    lines: [
+      detailLine(
+        "requested-start",
+        overtimeCorrection ? "요청 추가근무 시작" : "요청 근무 시작",
+        formatTime(requestedStartAt),
+      ),
+      detailLine(
+        "requested-end",
+        overtimeCorrection ? "요청 추가근무 종료" : "요청 근무 종료",
+        formatTime(requestedEndAt),
+      ),
+    ],
+    title: "이의신청 요청",
   };
 }
 
@@ -2308,14 +2374,14 @@ function getRegularCorrectionApprovalDescription(
   payrollSetting: PayrollSettingModel | null,
 ) {
   if (payrollSetting?.payrollType === "hourly") {
-    return "시급제 조교의 일반근무 시간을 수정하고 변경된 근무시간을 급여 산정에 반영합니다.";
+    return "요청 시간을 기본값으로 불러오며, 시급제 조교의 변경된 근무시간을 급여 산정에 반영합니다.";
   }
 
   if (payrollSetting?.payrollType === "monthly") {
-    return "월급제 조교의 일반근무 시간을 수정하고 필요한 급여 보정 항목을 반영합니다.";
+    return "요청 시간을 기본값으로 불러오며, 월급제 조교의 필요한 급여 보정 항목을 반영합니다.";
   }
 
-  return "일반근무 시간을 수정하고 변경된 값을 급여 산정에 반영합니다.";
+  return "요청 시간을 기본값으로 불러오며, 변경된 일반근무 시간을 급여 산정에 반영합니다.";
 }
 
 function createOvertimePayrollMode(): NonNullable<
