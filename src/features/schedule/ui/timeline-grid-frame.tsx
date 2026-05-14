@@ -24,6 +24,7 @@ const sundayFirstDayOrder: readonly ScheduleTimelineDay["id"][] = [
   "fri",
   "sat",
 ];
+const emphasizedTimelineBoundaryColor = "var(--color-gray-300)";
 
 export function orderTimelineDaysSundayFirst(
   days: readonly ScheduleTimelineDay[],
@@ -51,7 +52,7 @@ export function TimelineGridFrame({
   testId,
   timeSlots,
 }: TimelineGridFrameProps) {
-  const timelineStartHour = Number(timeSlots[0]);
+  const nextDayBoundaryIndex = getNextDayBoundaryIndex(timeSlots);
 
   return (
     <div
@@ -69,44 +70,38 @@ export function TimelineGridFrame({
           <div
             aria-hidden="true"
             className="sticky left-0 top-0 z-40 border-r border-b border-gray-200 bg-white"
-            style={{ height: headerHeight }}
+            style={{
+              borderBottomColor: emphasizedTimelineBoundaryColor,
+              borderRightColor: emphasizedTimelineBoundaryColor,
+              height: headerHeight,
+            }}
           />
           <div
             className="sticky top-0 z-30 grid border-b border-gray-200 bg-white"
             style={{
+              borderBottomColor: emphasizedTimelineBoundaryColor,
               gridTemplateColumns: `repeat(${timeSlots.length}, minmax(0, 1fr))`,
               height: headerHeight,
             }}
           >
-            {timeSlots.map((slot, index) => {
-              const slotHour = Number(slot);
-              const isNextDaySlot =
-                Number.isFinite(timelineStartHour) &&
-                Number.isFinite(slotHour) &&
-                slotHour < timelineStartHour;
-
-              return (
-                <div
-                  className={cn(
-                    "flex min-w-0 items-center justify-center border-r border-gray-100 px-1 text-h-14-regular tracking-normal text-gray-500",
-                    index === timeSlots.length - 1 && "border-r-0",
-                  )}
-                  key={slot}
-                  role="columnheader"
-                >
-                  {isNextDaySlot ? (
-                    <span className="flex min-w-0 flex-col items-center justify-center leading-none tracking-normal">
-                      <span className="text-detail-12 tracking-normal text-gray-400">
-                        익일
-                      </span>
-                      <span className="tracking-normal">{slot}</span>
-                    </span>
-                  ) : (
-                    <span className="truncate">{slot}</span>
-                  )}
-                </div>
-              );
-            })}
+            {timeSlots.map((slot, index) => (
+              <div
+                className={cn(
+                  "flex min-w-0 items-center justify-center border-r border-gray-100 px-1 text-h-14-regular tracking-normal text-gray-500",
+                  index === timeSlots.length - 1 && "border-r-0",
+                )}
+                key={slot}
+                role="columnheader"
+                style={{
+                  borderRightColor:
+                    index === nextDayBoundaryIndex
+                      ? emphasizedTimelineBoundaryColor
+                      : undefined,
+                }}
+              >
+                <span className="truncate">{slot}</span>
+              </div>
+            ))}
           </div>
 
           {days.map((day, dayIndex) => {
@@ -121,7 +116,10 @@ export function TimelineGridFrame({
                     !isLastDay && "border-b border-gray-100",
                   )}
                   role="rowheader"
-                  style={{ height: rowHeight }}
+                  style={{
+                    borderRightColor: emphasizedTimelineBoundaryColor,
+                    height: rowHeight,
+                  }}
                 >
                   {day.label}
                 </div>
@@ -147,6 +145,12 @@ export function TimelineGridFrame({
                           index === timeSlots.length - 1 && "border-r-0",
                         )}
                         key={`${day.id}-${slot}`}
+                        style={{
+                          borderRightColor:
+                            index === nextDayBoundaryIndex
+                              ? emphasizedTimelineBoundaryColor
+                              : undefined,
+                        }}
                       />
                     ))}
                   </div>
@@ -160,6 +164,25 @@ export function TimelineGridFrame({
       </div>
     </div>
   );
+}
+
+function getNextDayBoundaryIndex(timeSlots: readonly string[]) {
+  const boundaryIndex = timeSlots.findIndex((slot, index) => {
+    if (index === 0) {
+      return false;
+    }
+
+    const previousHour = Number(timeSlots[index - 1]);
+    const currentHour = Number(slot);
+
+    return (
+      Number.isFinite(previousHour) &&
+      Number.isFinite(currentHour) &&
+      currentHour < previousHour
+    );
+  });
+
+  return boundaryIndex === -1 ? -1 : boundaryIndex - 1;
 }
 
 type TimelineBlockTextProps = {
