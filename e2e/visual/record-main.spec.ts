@@ -88,6 +88,8 @@ test(`REC-01 normal-selected ${desktop}`, async ({ page }) => {
   await expect(detail.getByText("근무 종료")).toBeVisible();
   await expect(detail.getByText("출퇴근 기록")).toBeVisible();
   await expect(detail.getByText("출근 시각")).toBeVisible();
+  await expect(detail.getByText("로그 판정")).toHaveCount(0);
+  await expect(detail.getByText("정상 (반경 내)")).toHaveCount(0);
 
   await captureActualScreenshot({
     page,
@@ -205,6 +207,9 @@ test(`REC-01 anomaly-step-1 ${desktop}`, async ({ page }) => {
   await page.evaluate(() => document.fonts.ready);
   await page.getByTestId("record-block-anomaly").click();
   await expect(page.getByText("송현우 · 물리 F반")).toBeVisible();
+  const detail = page.getByTestId("record-detail-panel");
+  await expect(detail.getByText("로그 판정")).toBeVisible();
+  await expect(detail.getByText("반경 외 152m")).toBeVisible();
 
   await captureActualScreenshot({
     page,

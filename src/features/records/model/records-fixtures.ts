@@ -505,7 +505,7 @@ export const recordDetailStates = {
     lineSections: recordLineSections({
       checkIn: "19:02",
       checkOut: "21:05",
-      logStatus: "정상 (반경 내)",
+      logStatus: null,
       workEnd: "21:00",
       workStart: "19:00",
     }),
@@ -1140,7 +1140,7 @@ function recordLineSections({
   checkIn: string;
   checkOut: string;
   locationName?: string;
-  logStatus: string;
+  logStatus?: string | null;
   logTone?: RecordsTone;
   workEnd: string;
   workStart: string;
@@ -1161,7 +1161,7 @@ function overtimeLineSections(): readonly RecordDetailLineSection[] {
     ...recordLineSections({
       checkIn: "10:00",
       checkOut: "12:00",
-      logStatus: "정상 (반경 내)",
+      logStatus: null,
       workEnd: "12:00",
       workStart: "10:00",
     }),

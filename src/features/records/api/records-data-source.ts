@@ -2455,9 +2455,7 @@ function createRecordDetailLineSections(
     checkIn: formatTime(attendance?.checkInAt),
     checkOut: formatTime(attendance?.checkOutAt),
     locationName: record.locationName,
-    logStatus: anomaly
-      ? getLocationAnomalyText(record, attendance)
-      : "정상 (반경 내)",
+    logStatus: anomaly ? getLocationAnomalyText(record, attendance) : null,
     logTone: anomaly ? "pink" : undefined,
     workEnd: formatTime(record.effectiveEndAt ?? record.plannedEndAt),
     workStart: formatTime(record.effectiveStartAt ?? record.plannedStartAt),

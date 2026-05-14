@@ -8,7 +8,7 @@ export type RecordLineSectionValues = {
   checkIn: string;
   checkOut: string;
   locationName: string;
-  logStatus: string;
+  logStatus?: string | null;
   logTone?: RecordsTone;
   workEnd: string;
   workStart: string;
@@ -57,12 +57,16 @@ export function createRecordLineSections(
       lines: [
         createRecordDetailLine("check-in", "출근 시각", values.checkIn),
         createRecordDetailLine("check-out", "퇴근 시각", values.checkOut),
-        createRecordDetailLine(
-          "log-status",
-          "로그 판정",
-          values.logStatus,
-          values.logTone,
-        ),
+        ...(values.logStatus
+          ? [
+              createRecordDetailLine(
+                "log-status",
+                "로그 판정",
+                values.logStatus,
+                values.logTone,
+              ),
+            ]
+          : []),
       ],
     },
   ];
