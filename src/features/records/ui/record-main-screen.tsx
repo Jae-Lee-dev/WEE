@@ -864,6 +864,7 @@ function SelectedDetail({
 }) {
   const compactForm = state.id === "anomaly-step-3";
   const action = getRecordActionFromState(state.id, state);
+  const inlineReasonField = action === "edit" ? undefined : state.reasonField;
   const inlineTimeFields = action === "edit" ? undefined : state.timeFields;
   const [reason, setReason] = useState("");
   const [timeValues, setTimeValues] = useState<Record<string, string>>(() =>
@@ -940,18 +941,18 @@ function SelectedDetail({
             </p>
           ) : null}
 
-          {state.reasonField ? (
+          {inlineReasonField ? (
             <label className={cn("block", compactForm ? "mt-4" : "mt-5")}>
               <span className="text-h-18-semibold tracking-normal text-gray-900">
-                {state.reasonField.label}
+                {inlineReasonField.label}
               </span>
               <Textarea
-                aria-label={state.reasonField.label}
+                aria-label={inlineReasonField.label}
                 className={cn(
                   "mt-3 w-full rounded-[8px] border-gray-200 bg-white py-4 text-h-18-regular tracking-normal text-gray-800",
                   compactForm ? "h-[76px]" : "h-[84px]",
                 )}
-                placeholder={state.reasonField.placeholder}
+                placeholder={inlineReasonField.placeholder}
                 value={reason}
                 onChange={(event) => setReason(event.target.value)}
               />
@@ -1146,11 +1147,6 @@ function createPendingRecordActionInput({
 
   setSaveErrorMessage("");
 
-  if (action === "edit" && !reason.trim()) {
-    setSaveErrorMessage("수정 사유를 입력해 주세요.");
-    return null;
-  }
-
   if (action === "reject-correction" && !reason.trim()) {
     setSaveErrorMessage("반려 사유를 입력해 주세요.");
     return null;
@@ -1195,6 +1191,7 @@ function RecordActionConfirmDialog({
   const [payrollEffect, setPayrollEffect] = useState(initialPayrollEffect);
   const [payMode, setPayMode] = useState(initialPayMode);
   const [amountText, setAmountText] = useState("");
+  const [reasonText, setReasonText] = useState(input.reason);
   const [timeValues, setTimeValues] = useState<Record<string, string>>(() =>
     createTimeInputValues(state.timeFields),
   );
@@ -1202,6 +1199,7 @@ function RecordActionConfirmDialog({
   const hasPayrollDecision = Boolean(state.payrollMode);
   const showPayMode = hasPayrollDecision && payrollEffect === "immediate";
   const showAmountField = showPayMode && payMode === "fixed" && state.amountField;
+  const editReasonField = input.action === "edit" ? state.reasonField : undefined;
   const showEditTimeFields = input.action === "edit" && Boolean(state.timeFields);
 
   return (
@@ -1243,6 +1241,21 @@ function RecordActionConfirmDialog({
               onChange={setPayrollEffect}
             />
           </section>
+        ) : null}
+
+        {editReasonField ? (
+          <label className="mt-5 block">
+            <span className="text-h-18-semibold tracking-normal text-gray-900">
+              {editReasonField.label}
+            </span>
+            <Textarea
+              aria-label={editReasonField.label}
+              className="mt-3 h-[84px] w-full rounded-[8px] border-gray-200 bg-white py-4 text-h-18-regular tracking-normal text-gray-800"
+              placeholder={editReasonField.placeholder}
+              value={reasonText}
+              onChange={(event) => setReasonText(event.target.value)}
+            />
+          </label>
         ) : null}
 
         {showEditTimeFields ? (
@@ -1344,8 +1357,14 @@ function RecordActionConfirmDialog({
               const endTime = showEditTimeFields
                 ? timeValues["check-out"]
                 : input.endTime;
+              const reason = editReasonField ? reasonText.trim() : input.reason;
 
               setDialogError("");
+              if (editReasonField && !reason) {
+                setDialogError("수정 사유를 입력해 주세요.");
+                return;
+              }
+
               if (
                 showEditTimeFields &&
                 (!isTimeInputValue(startTime) || !isTimeInputValue(endTime))
@@ -1370,6 +1389,7 @@ function RecordActionConfirmDialog({
                     payrollEffect: hasPayrollDecision
                       ? (payrollEffect as RecordMainActionInput["payrollEffect"])
                       : input.payrollEffect,
+                    reason,
                     startTime,
                   });
                   onClose();
