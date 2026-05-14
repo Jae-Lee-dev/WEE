@@ -1368,8 +1368,15 @@ function RecordActionConfirmDialog({
     state.payrollPayMode?.options.find((option) => option.active)?.id ??
     state.payrollPayMode?.options[0]?.id ??
     "fixed";
+  const initialAnomalyResolution =
+    state.anomalyResolutionMode?.options.find((option) => option.active)?.id ??
+    state.anomalyResolutionMode?.options[0]?.id ??
+    "keep";
   const [payrollEffect, setPayrollEffect] = useState(initialPayrollEffect);
   const [payMode, setPayMode] = useState(initialPayMode);
+  const [anomalyResolution, setAnomalyResolution] = useState(
+    initialAnomalyResolution,
+  );
   const [amountText, setAmountText] = useState("");
   const [reasonText, setReasonText] = useState(input.reason);
   const [timeValues, setTimeValues] = useState<Record<string, string>>(() =>
@@ -1381,6 +1388,8 @@ function RecordActionConfirmDialog({
   const showAmountField = showPayMode && payMode === "fixed" && state.amountField;
   const dialogReasonField = getDialogReasonField(input.action, state);
   const showDialogTimeFields = shouldShowDialogTimeFields(input.action, state);
+  const showAnomalyResolutionMode =
+    input.action === "reject-correction" && Boolean(state.anomalyResolutionMode);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -1437,6 +1446,32 @@ function RecordActionConfirmDialog({
               onChange={(event) => setReasonText(event.target.value)}
             />
           </label>
+        ) : null}
+
+        {showAnomalyResolutionMode && state.anomalyResolutionMode ? (
+          <section className="mt-5">
+            <h3 className="text-h-18-semibold tracking-normal text-gray-900">
+              {state.anomalyResolutionMode.label}
+            </h3>
+            {state.anomalyResolutionMode.description ? (
+              <p className="mt-2 text-body-14-regular leading-[1.45] tracking-normal text-gray-500">
+                {state.anomalyResolutionMode.description}
+              </p>
+            ) : null}
+            <Segment
+              size="lg"
+              className={cn(
+                "mt-3 grid w-full rounded-[8px]",
+                getSegmentGridClassName(state.anomalyResolutionMode.options.length),
+              )}
+              options={state.anomalyResolutionMode.options.map((option) => ({
+                label: option.label,
+                value: option.id,
+              }))}
+              value={anomalyResolution}
+              onChange={setAnomalyResolution}
+            />
+          </section>
         ) : null}
 
         {showDialogTimeFields ? (
@@ -1571,6 +1606,9 @@ function RecordActionConfirmDialog({
                       ? (payrollEffect as RecordMainActionInput["payrollEffect"])
                       : input.payrollEffect,
                     reason,
+                    resolveAnomaly: showAnomalyResolutionMode
+                      ? anomalyResolution === "resolve"
+                      : input.resolveAnomaly,
                     startTime,
                   });
                   onClose();

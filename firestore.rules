@@ -686,7 +686,7 @@ service cloud.firestore {
         && data.decidedBy == request.auth.uid
         && data.decision in ['mark_normal', 'modify_record', 'delete_record']
         && data.managerNote is string
-        && data.payrollEffect in ['immediate', 'hold']
+        && data.payrollEffect in ['applied', 'hold', 'immediate', 'unchanged']
         && data.status == 'completed'
         && data.workRecordId is string
         && data.workRecordId.size() > 0

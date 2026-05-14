@@ -72,6 +72,11 @@ export type RecordsDataSource = {
 };
 
 type PayrollEffect = "none" | "hold" | "immediate";
+type AnomalyResolutionPayrollEffect =
+  | "applied"
+  | "hold"
+  | "immediate"
+  | "unchanged";
 type OvertimePayMode = "fixed" | "hourly";
 
 export type RecordMainActionInput = {
@@ -82,6 +87,7 @@ export type RecordMainActionInput = {
   payrollEffect: PayrollEffect;
   reason: string;
   recordId: string;
+  resolveAnomaly?: boolean;
   startTime?: string;
 };
 
@@ -295,7 +301,7 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
         collection(db, "workspaces", workspaceId, "anomalyResolutions"),
       );
       const batch = writeBatch(db);
-      const workRecordPayrollEffect =
+      const workRecordPayrollEffect: AnomalyResolutionPayrollEffect =
         input.action === "mark-normal" ? "unchanged" : "applied";
 
       if (isRecordEditAction(input.action)) {
@@ -377,6 +383,7 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
           collections,
           dateKey,
           db,
+          flag,
           input,
           managerUid,
           monthKey,
@@ -384,6 +391,7 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
           payrollContext,
           recordData,
           recordRef,
+          resolutionId: resolutionRef.id,
           workspaceId,
         });
       } else {
@@ -538,7 +546,7 @@ function queueRecordEditAction({
   flag?: FirestoreDocument;
   input: RecordMainActionInput;
   managerUid: string | null;
-  payrollEffect: string;
+  payrollEffect: AnomalyResolutionPayrollEffect;
   recordData: Record<string, unknown>;
   recordRef: DocumentReference;
   resolutionId: string;
@@ -619,11 +627,79 @@ function queueRecordEditAction({
   };
 }
 
+function queueCorrectionAnomalyResolution({
+  batch,
+  db,
+  decision,
+  flag,
+  managerNote,
+  managerUid,
+  payrollEffect,
+  recordId,
+  resolutionId,
+  workerId,
+  workspaceId,
+}: {
+  batch: WriteBatch;
+  db: ReturnType<typeof getFirebaseDb>;
+  decision: "mark_normal" | "modify_record";
+  flag?: FirestoreDocument;
+  managerNote: string;
+  managerUid: string | null;
+  payrollEffect: AnomalyResolutionPayrollEffect;
+  recordId: string;
+  resolutionId: string;
+  workerId: string;
+  workspaceId: string;
+}): Record<string, unknown> {
+  if (!isUnresolvedFlagDocument(flag)) {
+    return {};
+  }
+
+  batch.update(doc(db, "workspaces", workspaceId, "anomalyFlags", flag.id), {
+    resolvedAt: serverTimestamp(),
+    status: "resolved",
+    updatedAt: serverTimestamp(),
+  });
+  batch.set(
+    doc(db, "workspaces", workspaceId, "anomalyResolutions", resolutionId),
+    {
+      anomalyFlagId: flag.id,
+      createdAt: serverTimestamp(),
+      decidedBy: managerUid,
+      decision,
+      managerNote,
+      payrollEffect,
+      status: "completed",
+      workRecordId: recordId,
+      workerId,
+      workspaceId,
+    },
+  );
+
+  return {
+    "managerOnly.anomalyResolutionId": resolutionId,
+    "managerOnly.payrollApplication": payrollEffect,
+    "managerOnly.reviewedBy": managerUid,
+    hasUnresolvedAnomaly: false,
+    status: "resolved",
+  };
+}
+
+function isUnresolvedFlagDocument(
+  flag?: FirestoreDocument,
+): flag is FirestoreDocument {
+  return Boolean(
+    flag && readString(flag.data.status, "unresolved") === "unresolved",
+  );
+}
+
 function queueCorrectionAction({
   batch,
   collections,
   dateKey,
   db,
+  flag,
   input,
   managerUid,
   monthKey,
@@ -631,12 +707,14 @@ function queueCorrectionAction({
   payrollContext,
   recordData,
   recordRef,
+  resolutionId,
   workspaceId,
 }: {
   batch: WriteBatch;
   collections: RecordsCollections;
   dateKey: string;
   db: ReturnType<typeof getFirebaseDb>;
+  flag?: FirestoreDocument;
   input: RecordMainActionInput;
   managerUid: string | null;
   monthKey: string;
@@ -644,6 +722,7 @@ function queueCorrectionAction({
   payrollContext: WorkerMonthPayrollContext;
   recordData: Record<string, unknown>;
   recordRef: DocumentReference;
+  resolutionId: string;
   workspaceId: string;
 }) {
   const request = collections.correctionRequests.find(
@@ -685,10 +764,31 @@ function queueCorrectionAction({
       status: "rejected",
       updatedAt: serverTimestamp(),
     });
-    batch.update(recordRef, {
+    const recordUpdate: Record<string, unknown> = {
       hasPendingCorrection: false,
       updatedAt: serverTimestamp(),
-    });
+    };
+
+    if (input.resolveAnomaly) {
+      Object.assign(
+        recordUpdate,
+        queueCorrectionAnomalyResolution({
+          batch,
+          db,
+          decision: "mark_normal",
+          flag,
+          managerNote: input.reason,
+          managerUid,
+          payrollEffect: "unchanged",
+          recordId: input.recordId,
+          resolutionId,
+          workerId,
+          workspaceId,
+        }),
+      );
+    }
+
+    batch.update(recordRef, recordUpdate);
     queueWorkerNotification({
       batch,
       db,
@@ -763,10 +863,28 @@ function queueCorrectionAction({
       status: "approved",
       updatedAt: serverTimestamp(),
     });
-    batch.update(recordRef, {
+    const recordUpdate: Record<string, unknown> = {
       hasPendingCorrection: false,
       updatedAt: serverTimestamp(),
-    });
+    };
+    Object.assign(
+      recordUpdate,
+      queueCorrectionAnomalyResolution({
+        batch,
+        db,
+        decision: "mark_normal",
+        flag,
+        managerNote: input.reason,
+        managerUid,
+        payrollEffect: "unchanged",
+        recordId: input.recordId,
+        resolutionId,
+        workerId,
+        workspaceId,
+      }),
+    );
+
+    batch.update(recordRef, recordUpdate);
     batch.update(requestRef, {
       amount: fixedAmount,
       afterSnapshot: {
@@ -852,6 +970,22 @@ function queueCorrectionAction({
     status: "resolved",
     updatedAt: serverTimestamp(),
   };
+  Object.assign(
+    recordUpdate,
+    queueCorrectionAnomalyResolution({
+      batch,
+      db,
+      decision: "modify_record",
+      flag,
+      managerNote: input.reason,
+      managerUid,
+      payrollEffect: "applied",
+      recordId: input.recordId,
+      resolutionId,
+      workerId,
+      workspaceId,
+    }),
+  );
 
   if (nextStartAt) {
     recordUpdate.effectiveStartAt = Timestamp.fromDate(nextStartAt);
@@ -2081,6 +2215,7 @@ function createDetailStates({
       record,
       attendance,
       correction,
+      flag,
       overtime,
       payrollSetting,
       empty,
@@ -2151,11 +2286,22 @@ function createCorrectionDetailStates(
   record: WorkRecordModel,
   attendance: AttendanceLogModel | null,
   correction: CorrectionRequestModel,
+  flag: AnomalyFlagModel | null,
   overtime: OvertimeWorkModel | null,
   payrollSetting: PayrollSettingModel | null,
   empty: RecordDetailState,
 ): Record<RecordDetailStateId, RecordDetailState> {
-  const base = createRecordActionDetailBase(record, attendance);
+  const hasUnresolvedFlag =
+    Boolean(flag) &&
+    isUnresolvedAnomaly(record, new Map([[record.id, flag ?? undefined]]));
+  const base: RecordDetailState = {
+    ...createRecordActionDetailBase(record, attendance),
+    lineSections: createRecordDetailLineSections(
+      record,
+      attendance,
+      hasUnresolvedFlag,
+    ),
+  };
   const overtimeCorrection = isCorrectionForOvertime(correction);
   const requestedStartAt = overtimeCorrection
     ? (readDate(correction.afterSnapshot.extraStartAt) ??
@@ -2189,8 +2335,8 @@ function createCorrectionDetailStates(
     ? "추가근무 이의신청을 승인할까요?"
     : "이의신청을 승인하고 근무기록을 수정할까요?";
   const approveConfirmDescription = overtimeCorrection
-    ? "요청 시간을 기본값으로 불러오며, 입력한 추가근무 시간과 급여 처리값으로 반영합니다."
-    : getRegularCorrectionApprovalDescription(payrollSetting);
+    ? getOvertimeCorrectionApprovalDescription(hasUnresolvedFlag)
+    : getRegularCorrectionApprovalDescription(payrollSetting, hasUnresolvedFlag);
   const approveState: RecordDetailState = {
     ...base,
     actions: [
@@ -2263,9 +2409,16 @@ function createCorrectionDetailStates(
       ],
       confirmLabel: "반려",
       confirmDescription:
-        "이의신청을 반려로 종료하고 근무기록과 급여 산정값은 변경하지 않습니다.",
+        hasUnresolvedFlag
+          ? "이의신청을 반려하고, 이상 플래그는 유지하거나 정상 처리로 함께 종료할 수 있습니다."
+          : "이의신청을 반려로 종료하고 근무기록과 급여 산정값은 변경하지 않습니다.",
       confirmTitle: "이의신청을 반려할까요?",
       id: "anomaly-step-4",
+      ...(hasUnresolvedFlag
+        ? {
+            anomalyResolutionMode: createCorrectionRejectAnomalyResolutionMode(),
+          }
+        : {}),
       lineSections: correctionLineSections,
       reasonField: {
         label: "반려 사유",
@@ -2373,16 +2526,43 @@ function createOvertimeDetailStates(
 
 function getRegularCorrectionApprovalDescription(
   payrollSetting: PayrollSettingModel | null,
+  resolvesAnomaly: boolean,
 ) {
+  const anomalyText = resolvesAnomaly
+    ? " 연결된 이상 플래그도 함께 종료합니다."
+    : "";
+
   if (payrollSetting?.payrollType === "hourly") {
-    return "요청 시간을 기본값으로 불러오며, 시급제 조교의 변경된 근무시간을 급여 산정에 반영합니다.";
+    return `요청 시간을 기본값으로 불러오며, 시급제 조교의 변경된 근무시간을 급여 산정에 반영합니다.${anomalyText}`;
   }
 
   if (payrollSetting?.payrollType === "monthly") {
-    return "요청 시간을 기본값으로 불러오며, 월급제 조교의 필요한 급여 보정 항목을 반영합니다.";
+    return `요청 시간을 기본값으로 불러오며, 월급제 조교의 필요한 급여 보정 항목을 반영합니다.${anomalyText}`;
   }
 
-  return "요청 시간을 기본값으로 불러오며, 변경된 일반근무 시간을 급여 산정에 반영합니다.";
+  return `요청 시간을 기본값으로 불러오며, 변경된 일반근무 시간을 급여 산정에 반영합니다.${anomalyText}`;
+}
+
+function getOvertimeCorrectionApprovalDescription(resolvesAnomaly: boolean) {
+  const anomalyText = resolvesAnomaly
+    ? " 연결된 이상 플래그도 함께 종료합니다."
+    : "";
+
+  return `요청 시간을 기본값으로 불러오며, 입력한 추가근무 시간과 급여 처리값으로 반영합니다.${anomalyText}`;
+}
+
+function createCorrectionRejectAnomalyResolutionMode(): NonNullable<
+  RecordDetailState["anomalyResolutionMode"]
+> {
+  return {
+    description:
+      "반려는 조교의 이의신청만 닫습니다. 이상이 없다고 판단한 경우에만 함께 종료하세요.",
+    label: "이상 플래그 처리",
+    options: [
+      { id: "keep", label: "이상 검토 유지", active: true },
+      { id: "resolve", label: "정상 처리로 종료" },
+    ],
+  };
 }
 
 function createOvertimePayrollMode(): NonNullable<

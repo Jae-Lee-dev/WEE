@@ -151,6 +151,11 @@ export type RecordDetailState = {
     label: string;
     placeholder: string;
   };
+  anomalyResolutionMode?: {
+    description?: string;
+    label: string;
+    options: readonly RecordDetailAction[];
+  };
   payrollMode?: {
     description?: string;
     label: string;
