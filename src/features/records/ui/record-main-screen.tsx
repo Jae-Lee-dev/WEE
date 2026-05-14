@@ -61,6 +61,22 @@ const blockToneClassNames: Record<RecordsTone, string> = {
   grey: "border-gray-500 bg-gray-50 text-gray-900",
 };
 
+const selectedBlockToneClassNames: Record<RecordsTone, string> = {
+  green: "border-green-400 bg-green-400 text-white",
+  orange: "border-orange-400 bg-orange-400 text-gray-900",
+  pink: "border-red-500 bg-red-500 text-white",
+  blue: "border-blue-500 bg-blue-500 text-white",
+  grey: "border-gray-500 bg-gray-500 text-white",
+};
+
+const focusRingToneClassNames: Record<RecordsTone, string> = {
+  green: "focus-visible:ring-green-200",
+  orange: "focus-visible:ring-orange-100",
+  pink: "focus-visible:ring-red-100",
+  blue: "focus-visible:ring-blue-100",
+  grey: "focus-visible:ring-gray-200",
+};
+
 const badgeToneClassNames: Record<RecordsTone, string> = {
   green: "bg-green-100",
   orange: "bg-orange-100",
@@ -628,19 +644,16 @@ function RecordTimelineBlockItem({
   const selectedStateId = block.selectedStateId;
   const selectable = Boolean(selectedStateId);
   const style = getBlockStyle(positionedBlock);
-  const selectedClassName =
-    block.selectedStateId === "normal-selected" || block.kind === "normal"
-      ? "border-green-400 bg-green-400 text-white"
-      : "border-red-500 bg-red-500 text-white";
   const blockClassName = cn(
     "absolute z-10 flex min-w-0 flex-col justify-center overflow-hidden rounded-[6px] border px-2 text-left tracking-normal transition-colors duration-150 ease-out",
     selected
-      ? selectedClassName
-      : selectedStateId === "normal-selected"
-        ? blockToneClassNames.grey
-        : blockToneClassNames[block.tone],
+      ? selectedBlockToneClassNames[block.tone]
+      : blockToneClassNames[block.tone],
     selectable &&
-      "cursor-pointer hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 focus-visible:ring-offset-1",
+      cn(
+        "cursor-pointer hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1",
+        focusRingToneClassNames[block.tone],
+      ),
   );
   const content = (
     <TimelineBlockText
