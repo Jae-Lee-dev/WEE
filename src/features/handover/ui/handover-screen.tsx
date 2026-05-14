@@ -575,9 +575,7 @@ function HandoverChatPanel({
           value={inputValue}
           onChange={(event) => onChangeInput(event.target.value)}
           onCompositionEnd={() => {
-            window.setTimeout(() => {
-              inputComposingRef.current = false;
-            }, 0);
+            inputComposingRef.current = false;
           }}
           onCompositionStart={() => {
             inputComposingRef.current = true;
