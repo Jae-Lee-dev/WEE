@@ -1,7 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import { Button } from "@/shared/ui/button";
 import { Checkbox } from "@/shared/ui/checkbox";
 import {
@@ -200,21 +206,28 @@ export function HandoverScreen() {
     queueNodeFocus(newNodeId);
   }
 
-  function deleteActiveBlock() {
-    if (!activeEditableNode || editorLocked || pendingProposal) {
+  function deleteBlock(nodeId: string) {
+    if (editorLocked || pendingProposal) {
       return;
     }
 
     const fallbackNodeId = createHandoverEditorNodeId("line");
     const nextActiveNodeId =
-      getAdjacentEditableNodeId(editorNodes, activeEditableNode.id) ??
-      fallbackNodeId;
+      getAdjacentEditableNodeId(editorNodes, nodeId) ?? fallbackNodeId;
 
     setEditorNodes((current) =>
-      deleteEditableNode(current, activeEditableNode.id, fallbackNodeId),
+      deleteEditableNode(current, nodeId, fallbackNodeId),
     );
     setActiveNodeId(nextActiveNodeId);
     queueNodeFocus(nextActiveNodeId);
+  }
+
+  function deleteActiveBlock() {
+    if (!activeEditableNode) {
+      return;
+    }
+
+    deleteBlock(activeEditableNode.id);
   }
 
   function sendAiInstruction() {
@@ -323,6 +336,7 @@ export function HandoverScreen() {
                 setActiveNodeId(null);
                 queuedFocusNodeId.current = null;
               }}
+              onDeleteBlock={deleteBlock}
               onInsertBlockAfter={insertBlockAfter}
             />
           </div>
@@ -587,6 +601,7 @@ function HandoverEditor({
   onCancelProposal,
   onChangeNode,
   onConfirmProposal,
+  onDeleteBlock,
   onInsertBlockAfter,
 }: {
   activeNodeId: string | null;
@@ -596,6 +611,7 @@ function HandoverEditor({
   onCancelProposal: (proposalId: string) => void;
   onChangeNode: (nodeId: string, value: string) => void;
   onConfirmProposal: (proposalId: string) => void;
+  onDeleteBlock: (nodeId: string) => void;
   onInsertBlockAfter: (node: HandoverEditableNode, markdown: string) => void;
 }) {
   return (
@@ -625,6 +641,7 @@ function HandoverEditor({
               node={node}
               onActivate={() => onActivateNode(node.id)}
               onChange={(value) => onChangeNode(node.id, value)}
+              onDelete={() => onDeleteBlock(node.id)}
               onInsertAfter={(markdown) => onInsertBlockAfter(node, markdown)}
             />
           ),
@@ -640,6 +657,7 @@ function HandoverEditableLine({
   node,
   onActivate,
   onChange,
+  onDelete,
   onInsertAfter,
 }: {
   active: boolean;
@@ -647,6 +665,7 @@ function HandoverEditableLine({
   node: HandoverEditableNode;
   onActivate: () => void;
   onChange: (value: string) => void;
+  onDelete: () => void;
   onInsertAfter: (markdown: string) => void;
 }) {
   const value = getEditableDisplayText(node);
@@ -662,6 +681,12 @@ function HandoverEditableLine({
         disabled={disabled}
         onClick={onActivate}
         onFocus={onActivate}
+        onKeyDown={(event) => {
+          if (isBlockDeleteKey(event)) {
+            event.preventDefault();
+            onDelete();
+          }
+        }}
         className={cn(
           rowClassName,
           "my-3 flex h-8 w-full items-center px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-200",
@@ -688,6 +713,7 @@ function HandoverEditableLine({
           nodeId={node.id}
           value={value}
           onChange={onChange}
+          onDelete={onDelete}
           onEnter={() => onInsertAfter(value.trim() ? "- " : "")}
           onFocus={onActivate}
         />
@@ -705,6 +731,7 @@ function HandoverEditableLine({
           nodeId={node.id}
           value={value}
           onChange={onChange}
+          onDelete={onDelete}
           onEnter={() => onInsertAfter("")}
           onFocus={onActivate}
         />
@@ -724,6 +751,7 @@ function HandoverEditableLine({
         nodeId={node.id}
         value={value}
         onChange={onChange}
+        onDelete={onDelete}
         onEnter={() => onInsertAfter("")}
         onFocus={onActivate}
       />
@@ -737,6 +765,7 @@ function HandoverLineTextarea({
   disabled,
   nodeId,
   onChange,
+  onDelete,
   onEnter,
   onFocus,
   value,
@@ -746,6 +775,7 @@ function HandoverLineTextarea({
   disabled: boolean;
   nodeId: string;
   onChange: (value: string) => void;
+  onDelete: () => void;
   onEnter: () => void;
   onFocus: () => void;
   value: string;
@@ -770,6 +800,17 @@ function HandoverLineTextarea({
       onFocus={onFocus}
       onInput={(event) => resizeTextarea(event.currentTarget)}
       onKeyDown={(event) => {
+        if (
+          isBlockDeleteKey(event) &&
+          !value.length &&
+          event.currentTarget.selectionStart === 0 &&
+          event.currentTarget.selectionEnd === 0
+        ) {
+          event.preventDefault();
+          onDelete();
+          return;
+        }
+
         if (
           event.key === "Enter" &&
           !event.metaKey &&
@@ -1176,6 +1217,16 @@ function getAdjacentEditableNodeId(
 
 function createHandoverEditorNodeId(prefix: "divider" | "line") {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function isBlockDeleteKey(event: KeyboardEvent<HTMLElement>) {
+  return (
+    (event.key === "Backspace" || event.key === "Delete") &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !event.altKey &&
+    !event.nativeEvent.isComposing
+  );
 }
 
 function getBlockFormatFromNode(

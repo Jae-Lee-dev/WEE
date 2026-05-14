@@ -84,7 +84,9 @@ test("HO-01 editor formats blocks and deletes dividers", async ({ page }) => {
   );
 });
 
-test("HO-01 enter creates an explicit editor block", async ({ page }) => {
+test("HO-01 enter creates and backspace removes an explicit editor block", async ({
+  page,
+}) => {
   await prepareVisualPage({
     page,
     path: "/handover",
@@ -102,6 +104,14 @@ test("HO-01 enter creates an explicit editor block", async ({ page }) => {
   await expect(page.locator("textarea:focus")).toHaveAttribute(
     "aria-label",
     "빈 줄",
+  );
+
+  await page.keyboard.press("Backspace");
+
+  await expect(page.getByRole("textbox")).toHaveCount(textboxCount);
+  await expect(page.locator("textarea:focus")).toHaveAttribute(
+    "aria-label",
+    "문단",
   );
 });
 
