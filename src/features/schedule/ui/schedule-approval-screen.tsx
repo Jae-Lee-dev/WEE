@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
+import { DetailStateHeader } from "@/shared/ui/detail-state-header";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/dialog";
-import { IconChevronLeft, IconNotice } from "@/shared/ui/icons";
+import { IconNotice } from "@/shared/ui/icons";
 import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 import { cn } from "@/shared/lib/utils";
@@ -337,23 +338,23 @@ function SelectedApprovalState({
       className="fixed bottom-0 left-[var(--admin-sidebar-width)] right-0 top-0 z-40 flex min-w-[808px] flex-col bg-gray-100"
       data-testid="schedule-approval-selected-state"
     >
-      <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex h-9 items-center gap-4 rounded-[8px] pr-4 text-h-20 tracking-normal text-gray-900 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
-        >
-          <IconChevronLeft className="size-6 text-gray-800" />
-          <span>목록</span>
-        </button>
-        <button
-          type="button"
-          aria-label="알림"
-          className="flex size-10 items-center justify-center rounded-full text-gray-700 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
-        >
-          <IconNotice className="size-6 [--notice-dot:var(--color-green-400)]" hasNotice />
-        </button>
-      </header>
+      <DetailStateHeader
+        backLabel="승인 대기 목록"
+        title="시간표 승인 상세"
+        onBack={onBack}
+        actions={
+          <button
+            type="button"
+            aria-label="알림"
+            className="flex size-10 items-center justify-center rounded-full text-gray-700 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+          >
+            <IconNotice
+              className="size-6 [--notice-dot:var(--color-green-400)]"
+              hasNotice
+            />
+          </button>
+        }
+      />
 
       <main className="min-h-0 flex-1 overflow-hidden px-4 py-7">
         <div className="flex h-full min-h-0 flex-col gap-7">

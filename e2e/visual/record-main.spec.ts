@@ -13,6 +13,12 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await prepareVisualPage({ page, path: "/records", viewport });
     await page.evaluate(() => document.fonts.ready);
     await expect(page.getByTestId("record-main-screen")).toBeVisible();
+    const breadcrumbs = page.getByTestId("admin-header-breadcrumbs");
+    await expect(breadcrumbs.getByRole("link", { name: "근무 기록" }))
+      .toHaveAttribute("href", "/records");
+    await expect(
+      breadcrumbs.getByRole("heading", { name: "근무 타임라인" }),
+    ).toBeVisible();
     await expect(page.getByText("05.03 (일) ~ 05.09 (토)")).toBeVisible();
     const grid = page.getByRole("grid", { name: "주간 근무기록" });
     await expect(grid).toBeVisible();

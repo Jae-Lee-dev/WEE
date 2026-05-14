@@ -105,7 +105,7 @@ export const adminSections: AdminSection[] = [
     href: "/records",
     icon: "records",
     tabs: [
-      { label: "근무기록", href: "/records", screenId: "REC-01" },
+      { label: "근무 타임라인", href: "/records", screenId: "REC-01" },
       {
         label: "이상감지처리 이력",
         href: "/records/anomaly-history",
@@ -310,7 +310,7 @@ export const adminRouteRegistry: AdminRouteMeta[] = [
   {
     screenId: "REC-01",
     href: "/records",
-    title: "근무기록",
+    title: "근무 타임라인",
     figmaBacked: true,
     status: "figma-backed",
     authoritativeFrameId: "15:4152",

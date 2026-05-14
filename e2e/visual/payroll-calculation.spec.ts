@@ -82,7 +82,10 @@ test(`PAY-01 detail ${desktop}`, async ({ page }) => {
   await expect(
     page.getByTestId("payroll-calculation-state-detail"),
   ).toBeVisible();
-  await expect(page.getByText("급여 산정 목록")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "급여 산정 목록" }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "산정 상세" })).toBeVisible();
   await expect(
     page.getByRole("button", { name: "급여 확정 (미처리 항목 4/4)" }),
   ).toBeDisabled();
@@ -106,6 +109,9 @@ test(`PAY-01 bonus-add ${desktop}`, async ({ page }) => {
   ).toBeVisible();
   await expect(
     page.getByTestId("payroll-calculation-bonus-add-form"),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "보너스/차감 추가" }),
   ).toBeVisible();
   await expect(page.getByPlaceholder("예) 야근수당")).toBeVisible();
 

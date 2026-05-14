@@ -1,10 +1,11 @@
 "use client";
 
-import { ChevronDown, ChevronLeft, Plus, Printer } from "lucide-react";
+import { ChevronDown, Plus, Printer } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
+import { DetailStateHeader } from "@/shared/ui/detail-state-header";
 import {
   Dialog,
   DialogContent,
@@ -513,35 +514,32 @@ function PayrollDetailScreen({
       data-testid="payroll-calculation-detail-state"
       data-payroll-calculation-state={detail.id}
     >
-      <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex h-9 items-center gap-4 rounded-[8px] pr-4 text-h-20 tracking-normal text-gray-900 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
-        >
-          <ChevronLeft className="size-6 text-gray-800" />
-          <span>{detail.headerTitle}</span>
-        </button>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            data-testid="payroll-calculation-show-no-open-items"
-            aria-label="PAY-01 no-open-items visual state"
-            onClick={onShowNoOpenItems}
-            className="size-3 opacity-0 focus-visible:opacity-100"
-          />
-          <button
-            type="button"
-            aria-label="알림"
-            className="flex size-10 items-center justify-center rounded-full text-gray-700 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
-          >
-            <IconNotice
-              className="size-6 [--notice-dot:var(--color-green-400)]"
-              hasNotice
+      <DetailStateHeader
+        backLabel={detail.headerTitle}
+        title={getPayrollCalculationDetailTitle(detail)}
+        onBack={onBack}
+        actions={
+          <>
+            <button
+              type="button"
+              data-testid="payroll-calculation-show-no-open-items"
+              aria-label="PAY-01 no-open-items visual state"
+              onClick={onShowNoOpenItems}
+              className="size-3 opacity-0 focus-visible:opacity-100"
             />
-          </button>
-        </div>
-      </header>
+            <button
+              type="button"
+              aria-label="알림"
+              className="flex size-10 items-center justify-center rounded-full text-gray-700 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+            >
+              <IconNotice
+                className="size-6 [--notice-dot:var(--color-green-400)]"
+                hasNotice
+              />
+            </button>
+          </>
+        }
+      />
 
       <main
         className="flex flex-1 flex-col gap-4 px-4 py-7"
@@ -570,6 +568,14 @@ function PayrollDetailScreen({
       />
     </section>
   );
+}
+
+function getPayrollCalculationDetailTitle(detail: PayrollCalculationDetail) {
+  if (detail.id === "bonus-add") {
+    return "보너스/차감 추가";
+  }
+
+  return "산정 상세";
 }
 
 function PayrollActionStatusBanner({

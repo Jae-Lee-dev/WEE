@@ -2,11 +2,8 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Badge } from "@/shared/ui/badge";
-import {
-  IconChevronDown,
-  IconChevronLeft,
-  IconNotice,
-} from "@/shared/ui/icons";
+import { DetailStateHeader } from "@/shared/ui/detail-state-header";
+import { IconChevronDown, IconNotice } from "@/shared/ui/icons";
 import { cn } from "@/shared/lib/utils";
 import {
   createPayrollDataSource,
@@ -382,31 +379,23 @@ function PayrollStatementDetailState({
       className="fixed bottom-0 left-[var(--admin-sidebar-width)] right-0 top-0 z-40 flex min-w-[808px] flex-col bg-gray-100"
       data-testid="payroll-statements-detail"
     >
-      <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4">
-        <div className="flex items-center gap-2">
+      <DetailStateHeader
+        backLabel={detail.headerTitle}
+        title={`${detail.monthLabel} 명세 상세`}
+        onBack={onBack}
+        actions={
           <button
             type="button"
-            aria-label="급여 명세 목록으로 돌아가기"
-            onClick={onBack}
-            className="flex size-8 items-center justify-center rounded-[8px] text-gray-800 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+            aria-label="알림"
+            className="flex size-10 items-center justify-center rounded-full text-gray-700 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
           >
-            <IconChevronLeft className="size-6" />
+            <IconNotice
+              className="size-6 [--notice-dot:var(--color-green-400)]"
+              hasNotice
+            />
           </button>
-          <h1 className="text-h-20 tracking-normal text-gray-900">
-            {detail.headerTitle}
-          </h1>
-        </div>
-        <button
-          type="button"
-          aria-label="알림"
-          className="flex size-10 items-center justify-center rounded-full text-gray-700 transition-colors duration-150 ease-out hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
-        >
-          <IconNotice
-            className="size-6 [--notice-dot:var(--color-green-400)]"
-            hasNotice
-          />
-        </button>
-      </header>
+        }
+      />
 
       <main className="min-h-0 flex-1 overflow-hidden px-4 py-7">
         <WorkerSummaryCard worker={detail.worker} />
