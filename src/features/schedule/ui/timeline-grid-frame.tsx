@@ -27,7 +27,7 @@ const sundayFirstDayOrder: readonly ScheduleTimelineDay["id"][] = [
 const emphasizedTimelineBoundaryColor = "var(--color-gray-300)";
 const nextDayBoundaryMarkerStyle = {
   backgroundImage:
-    "linear-gradient(to right, var(--color-gray-300) 0, var(--color-gray-300) 1px, transparent 1px, transparent 2px, var(--color-gray-300) 2px, var(--color-gray-300) 3px)",
+    "linear-gradient(to right, var(--color-gray-100) 0, var(--color-gray-100) 1px, transparent 1px, transparent 2px, var(--color-gray-100) 2px, var(--color-gray-100) 3px)",
 } satisfies CSSProperties;
 
 export function orderTimelineDaysSundayFirst(
