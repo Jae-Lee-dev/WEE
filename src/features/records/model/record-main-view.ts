@@ -33,7 +33,11 @@ export const emptyRecordFilterOptions: readonly RecordsFilterOption[] = [];
 const timelineStartHour = Number(
   recordMainFixtureViewModel.timeline.hourLabels[0],
 );
+const timelineHourValues = recordMainFixtureViewModel.timeline.hourLabels.map(
+  Number,
+);
 const timelineColumnCount = recordMainFixtureViewModel.timeline.hourLabels.length;
+const timelineNextDayHourValues = getTimelineNextDayHourValues(timelineHourValues);
 const timelineLaneHeight = 46;
 const timelineLaneGap = 2;
 const timelineLaneStride = timelineLaneHeight + timelineLaneGap;
@@ -399,28 +403,38 @@ function pad2(value: number) {
 }
 
 function getBlockColumnRange(block: RecordTimelineBlock) {
-  const startHour = normalizeHour(block.startHour);
-  const endHour = normalizeHour(block.endHour);
+  const startTime = normalizeTimelineTime(block.startHour, block.startMinute);
+  const endTime = normalizeTimelineTime(block.endHour, block.endMinute);
   const startColumn = clamp(
-    startHour - timelineStartHour,
+    startTime - timelineStartHour,
     0,
     timelineColumnCount - 1,
   );
   const endColumn = clamp(
-    Math.max(endHour - timelineStartHour, startColumn + 1),
-    startColumn + 1,
+    Math.max(endTime - timelineStartHour, startColumn + 1 / 60),
+    startColumn + 1 / 60,
     timelineColumnCount,
   );
 
   return {
     startColumn,
     endColumn,
-    spanColumns: Math.max(1, endColumn - startColumn),
+    spanColumns: Math.max(1 / 60, endColumn - startColumn),
   };
 }
 
-function normalizeHour(hour: number) {
-  return hour === 0 ? 24 : hour;
+function normalizeTimelineTime(hour: number, minute: number) {
+  const normalizedHour = timelineNextDayHourValues.has(hour) ? hour + 24 : hour;
+
+  return normalizedHour + minute / 60;
+}
+
+function getTimelineNextDayHourValues(hours: readonly number[]) {
+  const wrapIndex = hours.findIndex((hour, index) => {
+    return index > 0 && hour < hours[index - 1];
+  });
+
+  return new Set(wrapIndex === -1 ? [] : hours.slice(wrapIndex));
 }
 
 function clamp(value: number, min: number, max: number) {

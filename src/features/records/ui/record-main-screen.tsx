@@ -721,7 +721,7 @@ function RecordTimelineBlockItem({
   const content = (
     <TimelineBlockText
       selected={selected}
-      subtitle={block.dutyName}
+      subtitle={`${block.startTime}~${block.endTime} · ${block.dutyName}`}
       title={block.workerName}
     />
   );

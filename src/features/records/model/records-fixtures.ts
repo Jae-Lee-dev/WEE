@@ -56,7 +56,9 @@ export type RecordTimelineBlock = {
   dutyName: string;
   locationName: string;
   startHour: number;
+  startMinute: number;
   endHour: number;
+  endMinute: number;
   startTime: string;
   endTime: string;
   kind: RecordTimelineBlockKind;
@@ -915,14 +917,21 @@ function timelineBlock(
   tone: RecordsTone,
   selectedStateId?: RecordDetailStateId,
 ): RecordTimelineBlock {
+  const [startHour = 0, startMinute = 0] = startTime
+    .split(":")
+    .map(Number);
+  const [endHour = 0, endMinute = 0] = endTime.split(":").map(Number);
+
   return {
     id,
     dayId,
     workerName,
     dutyName,
     locationName,
-    startHour: Number(startTime.slice(0, 2)),
-    endHour: Number(endTime.slice(0, 2)),
+    endHour,
+    endMinute,
+    startHour,
+    startMinute,
     startTime,
     endTime,
     kind,

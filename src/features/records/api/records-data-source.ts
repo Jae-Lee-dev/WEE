@@ -1811,14 +1811,18 @@ function mapTimelineBlock(
     pendingCorrectionIds: options.pendingCorrectionIds,
     pendingOvertimeIds: options.pendingOvertimeIds,
   });
+  const workStartAt = getRecordWorkStartAt(record);
+  const workEndAt = getRecordWorkEndAt(record);
 
   return {
     id: record.id,
     dateKey: getRecordDateKey(record) || undefined,
     dayId: getRecordDayId(record),
     dutyName: record.dutyName,
-    endHour: getRecordEndHour(record),
-    endTime: formatTime(record.effectiveEndAt ?? record.plannedEndAt),
+    endHour:
+      workEndAt?.getHours() ?? Math.min(getRecordStartHour(record) + 1, 24),
+    endMinute: workEndAt?.getMinutes() ?? 0,
+    endTime: formatTime(workEndAt),
     focusIds: [
       record.attendanceLogId,
       options.flag?.id,
@@ -1829,7 +1833,8 @@ function mapTimelineBlock(
     locationName: record.locationName,
     selectedStateId: hasUnresolvedFlag ? "anomaly-step-1" : "normal-selected",
     startHour: getRecordStartHour(record),
-    startTime: formatTime(record.effectiveStartAt ?? record.plannedStartAt),
+    startMinute: workStartAt?.getMinutes() ?? 0,
+    startTime: formatTime(workStartAt),
     tone: getTimelineBlockTone(kind),
     workerName: record.workerName,
   };
@@ -2942,20 +2947,21 @@ function getPayrollEffectLabel(effect: string) {
 }
 
 function getRecordDayId(record: WorkRecordModel): RecordTimelineDayId {
-  const date = parseDateKey(record.dateKey) ?? record.plannedStartAt;
+  const date = parseDateKey(record.dateKey) ?? getRecordWorkStartAt(record);
 
   return date ? dayIdByDateIndex[date.getDay()] : "mon";
 }
 
-function getRecordStartHour(record: WorkRecordModel) {
-  return (record.plannedStartAt ?? record.effectiveStartAt)?.getHours() ?? 8;
+function getRecordWorkStartAt(record: WorkRecordModel) {
+  return record.effectiveStartAt ?? record.plannedStartAt;
 }
 
-function getRecordEndHour(record: WorkRecordModel) {
-  const endAt = record.plannedEndAt ?? record.effectiveEndAt;
-  const startHour = getRecordStartHour(record);
+function getRecordWorkEndAt(record: WorkRecordModel) {
+  return record.effectiveEndAt ?? record.plannedEndAt;
+}
 
-  return endAt?.getHours() ?? Math.min(startHour + 1, 24);
+function getRecordStartHour(record: WorkRecordModel) {
+  return getRecordWorkStartAt(record)?.getHours() ?? 8;
 }
 
 function createWeekLabel(records: readonly WorkRecordModel[]) {
@@ -2978,11 +2984,7 @@ function getLatestRecordDate(records: readonly WorkRecordModel[]) {
 }
 
 function getRecordDate(record: WorkRecordModel) {
-  return (
-    parseDateKey(record.dateKey) ??
-    record.plannedStartAt ??
-    record.effectiveStartAt
-  );
+  return parseDateKey(record.dateKey) ?? getRecordWorkStartAt(record);
 }
 
 function getRecordDateKey(record: WorkRecordModel) {
@@ -3003,10 +3005,14 @@ function formatDateKey(date: Date) {
 
 function compareRecords(first: WorkRecordModel, second: WorkRecordModel) {
   return (
-    getSortTime(second.plannedStartAt ?? parseDateKey(second.dateKey)) -
-      getSortTime(first.plannedStartAt ?? parseDateKey(first.dateKey)) ||
+    getSortTime(getRecordSortDate(second)) -
+      getSortTime(getRecordSortDate(first)) ||
     first.workerName.localeCompare(second.workerName, "ko-KR")
   );
+}
+
+function getRecordSortDate(record: WorkRecordModel) {
+  return getRecordWorkStartAt(record) ?? parseDateKey(record.dateKey);
 }
 
 function isRecordInWeek(record: WorkRecordModel, weekStartKey: string) {
