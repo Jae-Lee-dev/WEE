@@ -25,13 +25,18 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await expect(timelineHeaders).toHaveCount(19);
     await expect(timelineHeaders.first()).toContainText("08");
     await expect(timelineHeaders.nth(15)).toContainText("23");
-    await expect(timelineHeaders.nth(15)).toHaveCSS(
-      "border-right-color",
-      "rgb(209, 213, 219)",
-    );
     await expect(timelineHeaders.nth(16)).toContainText("00");
     await expect(timelineHeaders.last()).not.toContainText("익일");
     await expect(timelineHeaders.last()).toContainText("02");
+    const nextDayBoundaryMarkers = page
+      .getByRole("grid", { name: "주간 근무 시간표" })
+      .getByTestId("timeline-next-day-boundary");
+    await expect(nextDayBoundaryMarkers).toHaveCount(8);
+    await expect(nextDayBoundaryMarkers.first()).toHaveCSS("width", "3px");
+    await expect(nextDayBoundaryMarkers.first()).toHaveCSS(
+      "background-image",
+      /linear-gradient/,
+    );
 
     await captureActualScreenshot({
       page,

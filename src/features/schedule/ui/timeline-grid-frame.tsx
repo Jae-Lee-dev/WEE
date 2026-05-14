@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 import { cn } from "@/shared/lib/utils";
 import { type ScheduleTimelineDay } from "../model/schedule-fixtures";
 
@@ -25,6 +25,10 @@ const sundayFirstDayOrder: readonly ScheduleTimelineDay["id"][] = [
   "sat",
 ];
 const emphasizedTimelineBoundaryColor = "var(--color-gray-300)";
+const nextDayBoundaryMarkerStyle = {
+  backgroundImage:
+    "linear-gradient(to right, var(--color-gray-300) 0, var(--color-gray-300) 1px, transparent 1px, transparent 2px, var(--color-gray-300) 2px, var(--color-gray-300) 3px)",
+} satisfies CSSProperties;
 
 export function orderTimelineDaysSundayFirst(
   days: readonly ScheduleTimelineDay[],
@@ -88,18 +92,16 @@ export function TimelineGridFrame({
               <div
                 className={cn(
                   "flex min-w-0 items-center justify-center border-r border-gray-100 px-1 text-h-14-regular tracking-normal text-gray-500",
+                  index === nextDayBoundaryIndex && "relative",
                   index === timeSlots.length - 1 && "border-r-0",
                 )}
                 key={slot}
                 role="columnheader"
-                style={{
-                  borderRightColor:
-                    index === nextDayBoundaryIndex
-                      ? emphasizedTimelineBoundaryColor
-                      : undefined,
-                }}
               >
                 <span className="truncate">{slot}</span>
+                {index === nextDayBoundaryIndex && (
+                  <TimelineNextDayBoundaryMarker />
+                )}
               </div>
             ))}
           </div>
@@ -142,16 +144,15 @@ export function TimelineGridFrame({
                       <div
                         className={cn(
                           "border-r border-gray-100",
+                          index === nextDayBoundaryIndex && "relative",
                           index === timeSlots.length - 1 && "border-r-0",
                         )}
                         key={`${day.id}-${slot}`}
-                        style={{
-                          borderRightColor:
-                            index === nextDayBoundaryIndex
-                              ? emphasizedTimelineBoundaryColor
-                              : undefined,
-                        }}
-                      />
+                      >
+                        {index === nextDayBoundaryIndex && (
+                          <TimelineNextDayBoundaryMarker />
+                        )}
+                      </div>
                     ))}
                   </div>
 
@@ -163,6 +164,17 @@ export function TimelineGridFrame({
         </div>
       </div>
     </div>
+  );
+}
+
+function TimelineNextDayBoundaryMarker() {
+  return (
+    <span
+      aria-hidden="true"
+      className="pointer-events-none absolute top-0 right-[-1px] h-full w-[3px]"
+      data-testid="timeline-next-day-boundary"
+      style={nextDayBoundaryMarkerStyle}
+    />
   );
 }
 
