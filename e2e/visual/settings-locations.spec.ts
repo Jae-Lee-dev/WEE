@@ -32,7 +32,7 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await expect(table.locator('[role="columnheader"]')).toHaveText([
       "근무지",
       "주소",
-      "반경",
+      "허용 반경",
       "사용 근무",
       "상세",
     ]);

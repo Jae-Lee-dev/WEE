@@ -1236,7 +1236,7 @@ export function SetupGuideScreen() {
               highlighted={!locationComplete}
               icon={MapPin}
               title="근무지 관리"
-              description="주소와 출퇴근 허용 반경을 등록합니다. 반경은 숫자로 입력하고 m 단위가 붙습니다."
+              description="주소와 출퇴근 허용 반경을 등록합니다. 허용 반경은 숫자로 입력하고 m 단위가 붙습니다."
               href="/settings/locations"
               actionLabel="근무지 관리 열기"
             />
