@@ -2645,7 +2645,10 @@ function mapOvertimeHistoryDetail(
     attendanceTitle: "연결 출퇴근",
     badges: [
       { label: status, tone: getOvertimeHistoryStatusTone(status) },
-      { label: payrollLabel, tone: getOvertimeHistoryPayrollTone(payrollLabel) },
+      {
+        label: payrollLabel,
+        tone: getOvertimeHistoryPayrollTone(payrollLabel),
+      },
     ],
     id: work.id,
     noteText: getOvertimeHistoryNoteText(work, status),

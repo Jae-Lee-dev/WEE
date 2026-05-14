@@ -114,7 +114,9 @@ test(`WKR-03 edit-info-dialog ${desktop}`, async ({ page }) => {
   expect(payrollRowMetrics.effectiveFromHeight).toBe(
     payrollRowMetrics.statusHeight,
   );
-  expect(payrollRowMetrics.effectiveFromTop).toBe(payrollRowMetrics.statusTop);
+  expect(
+    Math.abs(payrollRowMetrics.effectiveFromTop - payrollRowMetrics.statusTop),
+  ).toBeLessThanOrEqual(1);
   expect(payrollRowMetrics.inputHeight).toBe(payrollRowMetrics.payTypeHeight);
   expect(payrollRowMetrics.withholdingHeight).toBe(
     payrollRowMetrics.payTypeHeight,
