@@ -537,6 +537,7 @@ function createSeedPlan(options) {
     managerUid,
     recordChanges,
     attendance.workRecords,
+    overtime,
   );
   const bonusItems = createBonusItems(workspaceId, managerUid);
   const payroll = createPayrollDocuments(
@@ -718,6 +719,7 @@ function createSeedPlan(options) {
     "needsReconfirmation=true is manager-only; no worker reconfirmation notification is generated.",
     "workerPayStatements omit needsReconfirmation and manager-only calculation diffs.",
     "CorrectionRequest snapshots and record-change notification payloads use worker-safe WorkRecord snapshots.",
+    "Seed includes at least three examples for each REC flow case: pure anomaly, correction, correction+anomaly, overtime, overtime+anomaly, and overtime correction.",
     "Seed includes at least five cross-worker same-day overlapping WorkRecords for timeline layout testing.",
     "Seed has no same-worker same-day overlapping WorkRecords.",
     "Unconfirmed worker-months have payrollWorkerMonthRows but no PayStatement document.",
@@ -1428,6 +1430,69 @@ function createStandaloneOvertimeAttendanceLogs(workspaceId, workerById) {
       locationName: "본원 3층",
       workerId: "worker_park",
     },
+    {
+      id: "att_ot_jung_20260506_night_followup",
+      checkInIso: "2026-05-06T22:00:00+09:00",
+      checkOutIso: "2026-05-06T22:36:00+09:00",
+      date: "2026-05-06",
+      locationId: "loc_exam",
+      locationName: "시험대비 교실",
+      workerId: "worker_jung",
+    },
+    {
+      id: "att_ot_lee_20260429_admin_late",
+      checkInIso: "2026-04-29T18:00:00+09:00",
+      checkOutIso: "2026-04-29T18:38:00+09:00",
+      date: "2026-04-29",
+      locationId: "loc_main",
+      locationName: "본원 3층",
+      workerId: "worker_lee",
+    },
+    {
+      id: "att_ot_park_20260430_parent_brief",
+      checkInIso: "2026-04-30T18:00:00+09:00",
+      checkOutIso: "2026-04-30T18:44:00+09:00",
+      date: "2026-04-30",
+      locationId: "loc_main",
+      locationName: "본원 3층",
+      workerId: "worker_park",
+    },
+    {
+      id: "att_ot_lee_20260504_self_followup",
+      checkInIso: "2026-05-04T20:00:00+09:00",
+      checkOutIso: "2026-05-04T20:30:00+09:00",
+      date: "2026-05-04",
+      locationId: "loc_annex",
+      locationName: "별관 자습실",
+      workerId: "worker_lee",
+    },
+    {
+      id: "att_ot_jung_20260501_grading_followup",
+      checkInIso: "2026-05-01T20:00:00+09:00",
+      checkOutIso: "2026-05-01T20:28:00+09:00",
+      date: "2026-05-01",
+      locationId: "loc_main",
+      locationName: "본원 3층",
+      workerId: "worker_jung",
+    },
+    {
+      id: "att_ot_kim_20260505_self_wrapup",
+      checkInIso: "2026-05-05T21:00:00+09:00",
+      checkOutIso: "2026-05-05T21:26:00+09:00",
+      date: "2026-05-05",
+      locationId: "loc_annex",
+      locationName: "별관 자습실",
+      workerId: "worker_kim",
+    },
+    {
+      id: "att_ot_park_20260425_grading_wrapup",
+      checkInIso: "2026-04-25T16:00:00+09:00",
+      checkOutIso: "2026-04-25T16:31:00+09:00",
+      date: "2026-04-25",
+      locationId: "loc_main",
+      locationName: "본원 3층",
+      workerId: "worker_park",
+    },
   ];
 
   return rows.map((row) => {
@@ -1470,6 +1535,14 @@ function resolveRecordScenario(workerId, date, dutyId) {
     type: "normal",
   };
   const scenarios = {
+    "worker_kim|2026-04-28|duty_self_tue": {
+      anomalyType: "location_mismatch",
+      checkoutMissing: false,
+      endOffsetMinutes: -2,
+      startOffsetMinutes: 1,
+      status: "anomaly_unresolved",
+      type: "location_mismatch",
+    },
     "worker_kim|2026-05-05|duty_self_tue": {
       anomalyType: "missing_checkout",
       checkoutMissing: true,
@@ -1502,6 +1575,14 @@ function resolveRecordScenario(workerId, date, dutyId) {
       status: "resolved",
       type: "time_mismatch",
     },
+    "worker_lee|2026-05-11|duty_self_mon": {
+      anomalyType: "time_mismatch",
+      checkoutMissing: false,
+      endOffsetMinutes: 0,
+      startOffsetMinutes: 17,
+      status: "anomaly_unresolved",
+      type: "time_mismatch",
+    },
     "worker_park|2026-05-06|duty_grading_wed": {
       anomalyType: "absence_candidate",
       checkoutMissing: false,
@@ -1509,6 +1590,22 @@ function resolveRecordScenario(workerId, date, dutyId) {
       startOffsetMinutes: null,
       status: "anomaly_unresolved",
       type: "absence_candidate",
+    },
+    "worker_park|2026-05-07|duty_question_thu": {
+      anomalyType: "time_mismatch",
+      checkoutMissing: false,
+      endOffsetMinutes: 0,
+      startOffsetMinutes: 14,
+      status: "anomaly_unresolved",
+      type: "time_mismatch",
+    },
+    "worker_choi|2026-05-01|duty_exam_fri": {
+      anomalyType: "location_unknown",
+      checkoutMissing: false,
+      endOffsetMinutes: 3,
+      startOffsetMinutes: 0,
+      status: "anomaly_unresolved",
+      type: "location_unknown",
     },
     "worker_choi|2026-05-08|duty_exam_fri": {
       anomalyType: "location_unknown",
@@ -1525,6 +1622,22 @@ function resolveRecordScenario(workerId, date, dutyId) {
       startOffsetMinutes: 0,
       status: "anomaly_unresolved",
       type: "time_mismatch",
+    },
+    "worker_jung|2026-05-06|duty_night_wed": {
+      anomalyType: "missing_checkout",
+      checkoutMissing: true,
+      endOffsetMinutes: null,
+      startOffsetMinutes: 0,
+      status: "anomaly_unresolved",
+      type: "missing_checkout",
+    },
+    "worker_jung|2026-05-07|duty_night_thu": {
+      anomalyType: "location_mismatch",
+      checkoutMissing: false,
+      endOffsetMinutes: -4,
+      startOffsetMinutes: 2,
+      status: "anomaly_unresolved",
+      type: "location_mismatch",
     },
   };
 
@@ -1643,6 +1756,20 @@ function createOvertimeWorks(workspaceId, managerUid, workRecords, attendanceLog
       workRecordId: "wr_worker_lee_20260422_duty_admin_wed",
     },
     {
+      id: "ot_jung_20260506_submitted",
+      amount: null,
+      attendanceLogId: "att_ot_jung_20260506_night_followup",
+      extraEndIso: "2026-05-06T22:30:00+09:00",
+      extraStartIso: "2026-05-06T22:00:00+09:00",
+      payrollEffect: null,
+      payrollPayMode: null,
+      payrollStatus: "pending",
+      reason: "야간 질문 응대 연장",
+      status: "submitted",
+      submittedIso: "2026-05-06T22:20:00+09:00",
+      workRecordId: "wr_worker_jung_20260506_duty_night_wed",
+    },
+    {
       id: "ot_park_20260502_rejected",
       amount: null,
       attendanceLogId: "att_ot_park_20260502_grading_extension",
@@ -1686,6 +1813,34 @@ function createOvertimeWorks(workspaceId, managerUid, workRecords, attendanceLog
       workRecordId: "wr_worker_jung_20260429_duty_night_wed",
     },
     {
+      id: "ot_lee_20260429_held",
+      amount: 7000,
+      attendanceLogId: "att_ot_lee_20260429_admin_late",
+      extraEndIso: "2026-04-29T18:35:00+09:00",
+      extraStartIso: "2026-04-29T18:00:00+09:00",
+      payrollEffect: "hold",
+      payrollPayMode: "fixed",
+      payrollStatus: "held",
+      reason: "월말 출결 자료 보정",
+      status: "approved",
+      submittedIso: "2026-04-29T18:25:00+09:00",
+      workRecordId: "wr_worker_lee_20260429_duty_admin_wed",
+    },
+    {
+      id: "ot_park_20260430_held",
+      amount: 9000,
+      attendanceLogId: "att_ot_park_20260430_parent_brief",
+      extraEndIso: "2026-04-30T18:40:00+09:00",
+      extraStartIso: "2026-04-30T18:00:00+09:00",
+      payrollEffect: "hold",
+      payrollPayMode: "fixed",
+      payrollStatus: "held",
+      reason: "학부모 상담 내용 정리",
+      status: "approved",
+      submittedIso: "2026-04-30T18:28:00+09:00",
+      workRecordId: "wr_worker_park_20260430_duty_question_thu",
+    },
+    {
       id: "ot_kim_20260508_approved",
       amount: 10000,
       attendanceLogId: "att_ot_kim_20260508_makeup_review",
@@ -1712,6 +1867,64 @@ function createOvertimeWorks(workspaceId, managerUid, workRecords, attendanceLog
       status: "approved",
       submittedIso: "2026-05-06T18:30:00+09:00",
       workRecordId: "wr_worker_lee_20260506_duty_admin_wed",
+    },
+    {
+      id: "ot_lee_20260504_rejected",
+      amount: null,
+      attendanceLogId: "att_ot_lee_20260504_self_followup",
+      extraEndIso: "2026-05-04T20:25:00+09:00",
+      extraStartIso: "2026-05-04T20:00:00+09:00",
+      payrollEffect: "none",
+      payrollPayMode: null,
+      payrollStatus: "none",
+      reason: "자습실 정리 요청",
+      rejectedReason: "근무 종료 후 자율 정리로 확인",
+      status: "rejected",
+      submittedIso: "2026-05-04T20:10:00+09:00",
+      workRecordId: "wr_worker_lee_20260504_duty_self_mon",
+    },
+    {
+      id: "ot_jung_20260501_rejected",
+      amount: null,
+      attendanceLogId: "att_ot_jung_20260501_grading_followup",
+      extraEndIso: "2026-05-01T20:25:00+09:00",
+      extraStartIso: "2026-05-01T20:00:00+09:00",
+      payrollEffect: "none",
+      payrollPayMode: null,
+      payrollStatus: "none",
+      reason: "채점 마무리 지원",
+      rejectedReason: "기존 근무시간 내 처리로 확인",
+      status: "rejected",
+      submittedIso: "2026-05-01T20:12:00+09:00",
+      workRecordId: "wr_worker_jung_20260501_duty_grading_fri",
+    },
+    {
+      id: "ot_kim_20260505_withdrawn",
+      amount: null,
+      attendanceLogId: "att_ot_kim_20260505_self_wrapup",
+      extraEndIso: "2026-05-05T21:20:00+09:00",
+      extraStartIso: "2026-05-05T21:00:00+09:00",
+      payrollEffect: "none",
+      payrollPayMode: null,
+      payrollStatus: "none",
+      reason: "자습실 마감 정리",
+      status: "withdrawn",
+      submittedIso: "2026-05-05T21:08:00+09:00",
+      workRecordId: "wr_worker_kim_20260505_duty_self_tue",
+    },
+    {
+      id: "ot_park_20260425_withdrawn",
+      amount: null,
+      attendanceLogId: "att_ot_park_20260425_grading_wrapup",
+      extraEndIso: "2026-04-25T16:25:00+09:00",
+      extraStartIso: "2026-04-25T16:00:00+09:00",
+      payrollEffect: "none",
+      payrollPayMode: null,
+      payrollStatus: "none",
+      reason: "채점 정리 지원",
+      status: "withdrawn",
+      submittedIso: "2026-04-25T16:08:00+09:00",
+      workRecordId: "wr_worker_park_20260425_duty_sat_grading",
     },
   ];
 
@@ -1802,46 +2015,268 @@ function createRecordChangeEvents(workspaceId, managerUid, workRecords) {
   });
 }
 
-function createCorrectionRequests(workspaceId, managerUid, recordChanges, workRecords) {
+function createCorrectionRequests(workspaceId, managerUid, recordChanges, workRecords, overtimeWorks) {
   const changeById = Object.fromEntries(recordChanges.map((change) => [change.id, change]));
   const byRecord = Object.fromEntries(workRecords.map((record) => [record.id, record]));
-  const rows = [
-    ["cr_kim_20260504_submitted", "change_kim_20260504", "submitted", null, "none", "2026-05-06T18:00:00+09:00"],
-    ["cr_park_20260423_approved", "change_park_20260423", "approved", "immediate", "applied", "2026-04-24T11:20:00+09:00"],
-    ["cr_jung_20260424_submitted", "change_jung_20260424", "submitted", null, "held", "2026-04-25T08:30:00+09:00"],
-    ["cr_lee_20260506_rejected", null, "rejected", null, "none", "2026-05-07T09:00:00+09:00"],
-    ["cr_choi_20260508_withdrawn", null, "withdrawn", null, "none", "2026-05-09T10:10:00+09:00"],
-  ];
+  const byOvertime = Object.fromEntries(overtimeWorks.map((work) => [work.id, work]));
+  const requests = [];
+  const addRequest = ({
+    afterSnapshot,
+    beforeSnapshot,
+    id,
+    overtimeWorkId = null,
+    payrollEffect = null,
+    payrollStatus = "none",
+    reason = "실제 근무 시간과 다르게 반영된 것 같습니다.",
+    record,
+    source = "calendar",
+    sourceNotificationId = null,
+    status,
+    submittedIso,
+  }) => {
+    const submittedAt = ts(submittedIso);
+    const decided = status === "approved" || status === "rejected";
 
-  return rows.map(([id, changeId, status, payrollEffect, payrollStatus, submittedIso]) => {
-    const change = changeId ? changeById[changeId] : null;
-    const fallbackRecord = id.includes("lee")
-      ? byRecord.wr_worker_lee_20260506_duty_admin_wed
-      : byRecord.wr_worker_choi_20260508_duty_exam_fri;
-    const record = change ? byRecord[change.workRecordId] : fallbackRecord;
-
-    return {
+    requests.push({
       id,
-      afterSnapshot: change?.afterSnapshot ?? workerSafeSnapshotFromRecord(record),
-      beforeSnapshot: change?.beforeSnapshot ?? workerSafeSnapshotFromRecord(record),
-      createdAt: ts(submittedIso),
-      decidedAt: status === "approved" || status === "rejected" ? shiftTimestamp(ts(submittedIso), 24 * 60 * 60 * 1000) : null,
-      decidedBy: status === "approved" || status === "rejected" ? managerUid : null,
+      afterSnapshot,
+      beforeSnapshot,
+      createdAt: submittedAt,
+      decidedAt: decided ? shiftTimestamp(submittedAt, 24 * 60 * 60 * 1000) : null,
+      decidedBy: decided ? managerUid : null,
       managerNote: status === "approved" ? "조교 설명 확인 후 승인" : status === "rejected" ? "출퇴근 원장과 불일치" : null,
       monthKey: record.monthKey,
+      ...(overtimeWorkId ? { overtimeWorkId } : {}),
       payrollEffect,
       payrollStatus,
-      reason: "실제 근무 시간과 다르게 반영된 것 같습니다.",
-      source: change ? "record_change_notification" : "calendar",
-      sourceNotificationId: change ? change.notification.id : null,
+      reason,
+      source,
+      sourceNotificationId,
       status,
-      submittedAt: ts(submittedIso),
+      submittedAt,
       workRecordId: record.id,
       workerId: record.workerId,
       workerName: record.workerName,
       workspaceId,
+    });
+  };
+  const addChangeRequest = ({
+    changeId,
+    id,
+    payrollEffect = null,
+    payrollStatus = "none",
+    status,
+    submittedIso,
+  }) => {
+    const change = changeById[changeId];
+    const record = byRecord[change.workRecordId];
+
+    addRequest({
+      afterSnapshot: change.afterSnapshot,
+      beforeSnapshot: change.beforeSnapshot,
+      id,
+      payrollEffect,
+      payrollStatus,
+      record,
+      source: "record_change_notification",
+      sourceNotificationId: change.notification.id,
+      status,
+      submittedIso,
+    });
+  };
+  const addRegularRequest = ({
+    endDeltaMinutes = 10,
+    id,
+    payrollEffect = null,
+    payrollStatus = "none",
+    reason,
+    recordId,
+    status,
+    submittedIso,
+  }) => {
+    const record = byRecord[recordId];
+    const beforeSnapshot = workerSafeSnapshotFromRecord(record);
+    const afterSnapshot = {
+      ...beforeSnapshot,
+      changeReason: reason,
+      changeType: "modified",
+      effectiveEndAt: shiftTimestamp(record.effectiveEndAt, endDeltaMinutes * 60 * 1000),
     };
+
+    addRequest({
+      afterSnapshot,
+      beforeSnapshot,
+      id,
+      payrollEffect,
+      payrollStatus,
+      reason,
+      record,
+      status,
+      submittedIso,
+    });
+  };
+  const addOvertimeCorrectionRequest = ({
+    endDeltaMinutes = 10,
+    id,
+    overtimeId,
+    submittedIso,
+  }) => {
+    const overtime = byOvertime[overtimeId];
+    const record = byRecord[overtime.workRecordId];
+    const beforeSnapshot = {
+      ...workerSafeSnapshotFromRecord(record),
+      extraEndAt: overtime.extraEndAt,
+      extraStartAt: overtime.extraStartAt,
+      overtimeWorkId: overtime.id,
+      targetType: "overtime",
+    };
+    const afterSnapshot = {
+      ...beforeSnapshot,
+      changeReason: "추가근무 요청 시간 정정",
+      changeType: "modified",
+      extraEndAt: shiftTimestamp(overtime.extraEndAt, endDeltaMinutes * 60 * 1000),
+    };
+
+    addRequest({
+      afterSnapshot,
+      beforeSnapshot,
+      id,
+      overtimeWorkId: overtime.id,
+      payrollStatus: "none",
+      reason: "추가근무 시간이 실제보다 짧게 반영된 것 같습니다.",
+      record,
+      source: "overtime_detail",
+      status: "submitted",
+      submittedIso,
+    });
+  };
+
+  addChangeRequest({
+    changeId: "change_kim_20260504",
+    id: "cr_kim_20260504_submitted",
+    status: "submitted",
+    submittedIso: "2026-05-06T18:00:00+09:00",
   });
+  addChangeRequest({
+    changeId: "change_park_20260423",
+    id: "cr_park_20260423_approved",
+    payrollEffect: "applied",
+    payrollStatus: "applied",
+    status: "approved",
+    submittedIso: "2026-04-24T11:20:00+09:00",
+  });
+  addChangeRequest({
+    changeId: "change_jung_20260424",
+    id: "cr_jung_20260424_submitted",
+    status: "submitted",
+    submittedIso: "2026-04-25T08:30:00+09:00",
+  });
+  addRegularRequest({
+    id: "cr_lee_20260506_rejected",
+    reason: "관리자 확인 시간과 조교 신청 시간이 다릅니다.",
+    recordId: "wr_worker_lee_20260506_duty_admin_wed",
+    status: "rejected",
+    submittedIso: "2026-05-07T09:00:00+09:00",
+  });
+  addRegularRequest({
+    id: "cr_choi_20260508_withdrawn",
+    reason: "조교가 신청 내용을 철회했습니다.",
+    recordId: "wr_worker_choi_20260508_duty_exam_fri",
+    status: "withdrawn",
+    submittedIso: "2026-05-09T10:10:00+09:00",
+  });
+  addRegularRequest({
+    id: "cr_lee_20260504_submitted",
+    reason: "자습 감독 종료 시간이 실제보다 짧게 반영되었습니다.",
+    recordId: "wr_worker_lee_20260504_duty_self_mon",
+    status: "submitted",
+    submittedIso: "2026-05-05T09:20:00+09:00",
+  });
+  addRegularRequest({
+    id: "cr_park_20260505_submitted",
+    reason: "질문 응대 정리 시간이 누락되었습니다.",
+    recordId: "wr_worker_park_20260505_duty_question_tue",
+    status: "submitted",
+    submittedIso: "2026-05-06T09:40:00+09:00",
+  });
+  addRegularRequest({
+    id: "cr_kim_20260505_anomaly_submitted",
+    reason: "퇴근 미기록이지만 실제 근무 종료 시간이 있습니다.",
+    recordId: "wr_worker_kim_20260505_duty_self_tue",
+    status: "submitted",
+    submittedIso: "2026-05-06T10:05:00+09:00",
+  });
+  addRegularRequest({
+    id: "cr_lee_20260511_anomaly_submitted",
+    reason: "출근 시간이 늦게 기록되었지만 정시에 도착했습니다.",
+    recordId: "wr_worker_lee_20260511_duty_self_mon",
+    status: "submitted",
+    submittedIso: "2026-05-12T09:10:00+09:00",
+  });
+  addRegularRequest({
+    id: "cr_lee_20260421_approved",
+    payrollEffect: "applied",
+    payrollStatus: "applied",
+    reason: "질문 응대 종료 시간을 추가 반영했습니다.",
+    recordId: "wr_worker_lee_20260421_duty_overlap_tue_questions",
+    status: "approved",
+    submittedIso: "2026-04-22T10:10:00+09:00",
+  });
+  addRegularRequest({
+    id: "cr_park_20260422_approved",
+    payrollEffect: "applied",
+    payrollStatus: "applied",
+    reason: "채점 종료 시간을 확인해 반영했습니다.",
+    recordId: "wr_worker_park_20260422_duty_grading_wed",
+    status: "approved",
+    submittedIso: "2026-04-23T10:15:00+09:00",
+  });
+  addRegularRequest({
+    id: "cr_lee_20260428_rejected",
+    reason: "출퇴근 기록상 추가 시간이 확인되지 않았습니다.",
+    recordId: "wr_worker_lee_20260428_duty_overlap_tue_questions",
+    status: "rejected",
+    submittedIso: "2026-04-29T09:15:00+09:00",
+  });
+  addRegularRequest({
+    id: "cr_jung_20260507_rejected",
+    reason: "CCTV 확인 결과 예정 시간과 동일합니다.",
+    recordId: "wr_worker_jung_20260507_duty_night_thu",
+    status: "rejected",
+    submittedIso: "2026-05-08T09:35:00+09:00",
+  });
+  addRegularRequest({
+    id: "cr_park_20260430_withdrawn",
+    reason: "조교가 정정 신청을 취소했습니다.",
+    recordId: "wr_worker_park_20260430_duty_question_thu",
+    status: "withdrawn",
+    submittedIso: "2026-05-01T10:00:00+09:00",
+  });
+  addRegularRequest({
+    id: "cr_jung_20260508_withdrawn",
+    reason: "신청 사유 재확인 후 철회했습니다.",
+    recordId: "wr_worker_jung_20260508_duty_grading_fri",
+    status: "withdrawn",
+    submittedIso: "2026-05-09T10:00:00+09:00",
+  });
+  addOvertimeCorrectionRequest({
+    id: "cr_ot_lee_20260422_submitted",
+    overtimeId: "ot_lee_20260422_approved",
+    submittedIso: "2026-04-23T09:30:00+09:00",
+  });
+  addOvertimeCorrectionRequest({
+    endDeltaMinutes: 15,
+    id: "cr_ot_jung_20260429_submitted",
+    overtimeId: "ot_jung_20260429_held",
+    submittedIso: "2026-04-30T09:30:00+09:00",
+  });
+  addOvertimeCorrectionRequest({
+    id: "cr_ot_lee_20260506_submitted",
+    overtimeId: "ot_lee_20260506_approved",
+    submittedIso: "2026-05-07T09:25:00+09:00",
+  });
+
+  return requests;
 }
 
 function createBonusItems(workspaceId, managerUid) {
@@ -2223,8 +2658,38 @@ function createProjections(context) {
           work.workRecordId ?? work.id,
         ),
       ),
-    inbox("inbox_correction_pending", "correction_pending", "correctionRequest", "cr_kim_20260504_submitted", "submitted", "2026-05-06T18:00:00+09:00", "worker_kim", "김서연", "REC-01", "wr_worker_kim_20260504_duty_math_mon"),
-    inbox("inbox_anomaly_unresolved", "anomaly_unresolved", "anomalyFlag", "flag_wr_worker_kim_20260505_duty_self_tue", "unresolved", "2026-05-05T23:30:00+09:00", "worker_kim", "김서연", "REC-01", "wr_worker_kim_20260505_duty_self_tue"),
+    ...corrections
+      .filter((request) => request.status === "submitted")
+      .map((request) =>
+        inbox(
+          `inbox_correction_pending_${request.id.replace(/^cr_/, "")}`,
+          "correction_pending",
+          "correctionRequest",
+          request.id,
+          "submitted",
+          request.submittedAt.toISOString(),
+          request.workerId,
+          request.workerName,
+          "REC-01",
+          request.workRecordId,
+        ),
+      ),
+    ...anomalies.flags
+      .filter((flag) => flag.status === "unresolved")
+      .map((flag) =>
+        inbox(
+          `inbox_anomaly_unresolved_${flag.id.replace(/^flag_/, "")}`,
+          "anomaly_unresolved",
+          "anomalyFlag",
+          flag.id,
+          "unresolved",
+          flag.createdAt.toISOString(),
+          flag.workerId,
+          flag.workerName,
+          "REC-01",
+          flag.workRecordId,
+        ),
+      ),
     inbox("inbox_payroll_reconfirmation", "payroll_reconfirmation", "payStatement", "pay_202604_worker_lee", "needs_reconfirmation", "2026-05-04T10:00:00+09:00", "worker_lee", "이민지", "PAY-01", "pay_202604_worker_lee"),
   ].map((item) => ({ ...item, workspaceId }));
   const payrollWorkerMonthRows = [];
@@ -2357,6 +2822,7 @@ function validateSeedPlan(writes) {
   const managerStatements = docs.filter((doc) => doc.collectionName === "payStatements");
   const workerStatements = docs.filter((doc) => doc.collectionName === "workerPayStatements");
   const notifications = docs.filter((doc) => doc.collectionName === "notifications");
+  const anomalyFlags = docs.filter((doc) => doc.collectionName === "anomalyFlags");
   const overtimeWorks = docs.filter((doc) => doc.collectionName === "overtimeWorks");
   const payrollRows = docs.filter((doc) => doc.collectionName === "payrollWorkerMonthRows");
   const correctionRequests = docs.filter((doc) => doc.collectionName === "correctionRequests");
@@ -2393,9 +2859,7 @@ function validateSeedPlan(writes) {
     assertWorkerSafeSnapshot(notification.payload?.afterSnapshot, `notification ${notification.id} afterSnapshot`, forbiddenWorkerKeys);
   }
 
-  if (overtimeWorks.length < 8) {
-    throw new Error(`expected at least 8 overtime seed rows, got ${overtimeWorks.length}`);
-  }
+  assertAtLeast(overtimeWorks.length, 15, "overtime seed rows");
 
   for (const work of overtimeWorks) {
     if (!work.attendanceLogId || !attendanceById.has(work.attendanceLogId)) {
@@ -2406,6 +2870,12 @@ function validateSeedPlan(writes) {
       throw new Error(`overtimeWork ${work.id} has an invalid extra time range.`);
     }
   }
+
+  assertRecordFlowCoverage({
+    anomalyFlags,
+    correctionRequests,
+    overtimeWorks,
+  });
 
   const sameWorkerOverlapPairs = findSameWorkerOverlappingWorkRecordPairs(workRecords);
 
@@ -2437,6 +2907,129 @@ function validateSeedPlan(writes) {
 
   if (notifications.some((item) => item.eventType === "pay_reconfirmed")) {
     throw new Error("pay_reconfirmed worker notification must not exist without a real reconfirm action.");
+  }
+}
+
+function assertRecordFlowCoverage({ anomalyFlags, correctionRequests, overtimeWorks }) {
+  const unresolvedAnomalyRecordIds = new Set(
+    anomalyFlags
+      .filter((flag) => flag.status === "unresolved" && flag.workRecordId)
+      .map((flag) => flag.workRecordId),
+  );
+  const submittedCorrectionRequests = correctionRequests.filter(
+    (request) => request.status === "submitted",
+  );
+  const submittedCorrectionRecordIds = new Set(
+    submittedCorrectionRequests.map((request) => request.workRecordId),
+  );
+  const submittedOvertimeWorks = overtimeWorks.filter(
+    (work) => work.status === "submitted",
+  );
+  const submittedOvertimeRecordIds = new Set(
+    submittedOvertimeWorks.map((work) => work.workRecordId).filter(Boolean),
+  );
+  const pureAnomalyFlags = anomalyFlags.filter(
+    (flag) =>
+      flag.status === "unresolved" &&
+      flag.workRecordId &&
+      !submittedCorrectionRecordIds.has(flag.workRecordId) &&
+      !submittedOvertimeRecordIds.has(flag.workRecordId),
+  );
+  const submittedRegularCorrections = submittedCorrectionRequests.filter(
+    (request) =>
+      !isOvertimeCorrectionRequest(request) &&
+      !unresolvedAnomalyRecordIds.has(request.workRecordId),
+  );
+  const submittedAnomalyCorrections = submittedCorrectionRequests.filter(
+    (request) =>
+      !isOvertimeCorrectionRequest(request) &&
+      unresolvedAnomalyRecordIds.has(request.workRecordId),
+  );
+  const submittedOvertimeCorrections = submittedCorrectionRequests.filter(
+    isOvertimeCorrectionRequest,
+  );
+  const submittedOvertimeWithAnomaly = submittedOvertimeWorks.filter(
+    (work) => unresolvedAnomalyRecordIds.has(work.workRecordId),
+  );
+
+  assertAtLeast(pureAnomalyFlags.length, 3, "pure unresolved anomaly records");
+  assertAtLeast(
+    submittedRegularCorrections.length,
+    3,
+    "submitted regular correction requests",
+  );
+  assertAtLeast(
+    submittedAnomalyCorrections.length,
+    3,
+    "submitted correction+anomaly records",
+  );
+  assertAtLeast(
+    submittedOvertimeWorks.length,
+    3,
+    "submitted overtime works",
+  );
+  assertAtLeast(
+    submittedOvertimeWithAnomaly.length,
+    3,
+    "submitted overtime+anomaly records",
+  );
+  assertAtLeast(
+    submittedOvertimeCorrections.length,
+    3,
+    "submitted overtime correction requests",
+  );
+  assertAtLeast(
+    overtimeWorks.filter((work) => work.status === "approved" && work.payrollStatus === "confirmed").length,
+    3,
+    "approved confirmed overtime works",
+  );
+  assertAtLeast(
+    overtimeWorks.filter((work) => work.status === "approved" && work.payrollStatus === "held").length,
+    3,
+    "approved held overtime works",
+  );
+  assertAtLeast(
+    overtimeWorks.filter((work) => work.status === "rejected").length,
+    3,
+    "rejected overtime works",
+  );
+  assertAtLeast(
+    overtimeWorks.filter((work) => work.status === "withdrawn").length,
+    3,
+    "withdrawn overtime works",
+  );
+
+  for (const status of ["submitted", "approved", "rejected", "withdrawn"]) {
+    assertAtLeast(
+      correctionRequests.filter((request) => request.status === status).length,
+      3,
+      `${status} correction requests`,
+    );
+  }
+}
+
+function isOvertimeCorrectionRequest(request) {
+  const snapshots = [request.beforeSnapshot, request.afterSnapshot];
+
+  return Boolean(
+    request.overtimeWorkId ||
+      snapshots.some((snapshot) =>
+        Boolean(
+          snapshot?.overtimeWorkId ||
+            snapshot?.overtimeId ||
+            snapshot?.extraStartAt ||
+            snapshot?.extraEndAt ||
+            `${snapshot?.targetType ?? ""} ${snapshot?.recordType ?? ""}`
+              .toLowerCase()
+              .includes("overtime"),
+        ),
+      ),
+  );
+}
+
+function assertAtLeast(actual, expected, label) {
+  if (actual < expected) {
+    throw new Error(`expected at least ${expected} ${label}, got ${actual}`);
   }
 }
 
