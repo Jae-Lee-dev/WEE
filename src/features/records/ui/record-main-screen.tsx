@@ -13,6 +13,7 @@ import {
 import { Input } from "@/shared/ui/input";
 import { Segment } from "@/shared/ui/segment";
 import { OptionSelect, type SelectOption } from "@/shared/ui/select";
+import { useWeeToast } from "@/shared/ui/wee-toast";
 import {
   getTimelineBlockHeight,
   getTimelineLaneTop,
@@ -120,7 +121,7 @@ export function RecordMainScreen({
   const [viewModel, setViewModel] = useState<RecordMainViewModel>(
     fixtureMode
       ? recordMainFixtureViewModel
-      : createEmptyRecordMainViewModel(["근무 기록을 불러오는 중입니다."]),
+      : createEmptyRecordMainViewModel([]),
   );
   const [selectedStateId, setSelectedStateId] =
     useState<RecordDetailStateId>(
@@ -139,11 +140,9 @@ export function RecordMainScreen({
   );
   const [selectedStatusFilterId, setSelectedStatusFilterId] = useState("all");
   const [selectedTypeFilterId, setSelectedTypeFilterId] = useState("all");
-  const [loading, setLoading] = useState(!fixtureMode);
   const [recordActionSaving, setRecordActionSaving] = useState(false);
-  const [recordActionSuccessMessage, setRecordActionSuccessMessage] =
-    useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const weeToast = useWeeToast();
   const activeWeekStartKey =
     selectedWeekStartKey ??
     viewModel.initialWeekStartKey ??
@@ -221,7 +220,6 @@ export function RecordMainScreen({
   }
 
   function handleWorkerFilterChange(workerFilterId: string) {
-    setRecordActionSuccessMessage("");
     setSelectedWorkerFilterId(workerFilterId);
     syncSelectionForFilters({
       statusFilterId: selectedStatusFilterId,
@@ -231,7 +229,6 @@ export function RecordMainScreen({
   }
 
   function handleStatusFilterChange(statusFilterId: string) {
-    setRecordActionSuccessMessage("");
     setSelectedStatusFilterId(statusFilterId);
     syncSelectionForFilters({
       statusFilterId,
@@ -241,7 +238,6 @@ export function RecordMainScreen({
   }
 
   function handleTypeFilterChange(typeFilterId: string) {
-    setRecordActionSuccessMessage("");
     setSelectedTypeFilterId(typeFilterId);
     syncSelectionForFilters({
       statusFilterId: selectedStatusFilterId,
@@ -251,7 +247,6 @@ export function RecordMainScreen({
   }
 
   function handleSelectBlock(block: RecordTimelineBlock) {
-    setRecordActionSuccessMessage("");
     setSelectedBlockId(block.id);
     setSelectedStateId(resolveBlockStateId(block));
 
@@ -271,7 +266,6 @@ export function RecordMainScreen({
       return;
     }
 
-    setRecordActionSuccessMessage("");
     const nextBlock = selectDefaultBlockFromBlocks(
       viewModel.blocks.filter(
         (block) =>
@@ -317,13 +311,16 @@ export function RecordMainScreen({
       setViewModel(nextViewModel);
       setSelectedBlockId(nextBlock?.id ?? null);
       setSelectedStateId(resolveBlockStateId(nextBlock));
-      setRecordActionSuccessMessage(getRecordActionSavedMessage(input.action));
+      weeToast.compact({ title: getRecordActionSavedMessage(input.action) });
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "근무기록 처리 내용을 저장하지 못했습니다.",
-      );
+      weeToast.error({
+        title: "처리 실패",
+        description:
+          error instanceof Error
+            ? error.message
+            : "근무기록 처리 내용을 저장하지 못했습니다.",
+        testId: "wee-toast",
+      });
       throw error;
     } finally {
       setRecordActionSaving(false);
@@ -348,13 +345,11 @@ export function RecordMainScreen({
           nextWorkerFilterId,
         );
 
-        setRecordActionSuccessMessage("");
         setViewModel(nextViewModel);
         setSelectedWorkerFilterId(nextWorkerFilterId);
         setSelectedBlockId(selection.block?.id ?? null);
         setSelectedWeekStartKey(selection.weekStartKey);
         setSelectedStateId(selection.stateId);
-        setLoading(false);
       })
       .catch(() => {
         if (!active) {
@@ -367,9 +362,7 @@ export function RecordMainScreen({
         setSelectedBlockId(null);
         setSelectedWeekStartKey(null);
         setSelectedStateId("empty");
-        setRecordActionSuccessMessage("");
         setErrorMessage("근무 기록을 불러오지 못했습니다.");
-        setLoading(false);
       });
 
     return () => {
@@ -384,17 +377,12 @@ export function RecordMainScreen({
       data-record-main-state={selectedState.id}
       data-testid="record-main-screen"
     >
-      {loading || errorMessage ? (
+      {errorMessage ? (
         <div
-          className={cn(
-            "mb-3 flex min-h-9 items-center rounded-[8px] border px-4 py-2.5 text-body-14-medium tracking-normal",
-            errorMessage
-              ? "border-red-100 bg-red-50 text-red-500"
-              : "border-green-100 bg-green-50 text-green-500",
-          )}
-          role={errorMessage ? "alert" : "status"}
+          className="mb-3 flex min-h-9 items-center rounded-[8px] border border-red-100 bg-red-50 px-4 py-2.5 text-body-14-medium tracking-normal text-red-500"
+          role="alert"
         >
-          {errorMessage || "근무 기록을 불러오는 중입니다."}
+          {errorMessage}
         </div>
       ) : null}
 
@@ -436,10 +424,8 @@ export function RecordMainScreen({
         <RecordDetailPanel
           actionSaving={recordActionSaving}
           onConfirmRecordAction={handleConfirmRecordAction}
-          successMessage={recordActionSuccessMessage}
           state={selectedState}
           onSelectState={(stateId) => {
-            setRecordActionSuccessMessage("");
             setSelectedStateId(stateId);
           }}
         />
@@ -793,7 +779,6 @@ function RecordDetailPanel({
   onConfirmRecordAction,
   onSelectState,
   state,
-  successMessage,
 }: {
   actionSaving: boolean;
   onConfirmRecordAction: (
@@ -801,7 +786,6 @@ function RecordDetailPanel({
   ) => Promise<void>;
   onSelectState: (stateId: RecordDetailStateId) => void;
   state: RecordDetailState;
-  successMessage: string;
 }) {
   return (
     <aside
@@ -809,7 +793,7 @@ function RecordDetailPanel({
       data-testid="record-detail-panel"
     >
       {state.id === "empty" ? (
-        <EmptyDetail state={state} successMessage={successMessage} />
+        <EmptyDetail state={state} />
       ) : (
         <SelectedDetail
           key={`${state.id}:${state.title ?? ""}`}
@@ -817,37 +801,21 @@ function RecordDetailPanel({
           onConfirmRecordAction={onConfirmRecordAction}
           onSelectState={onSelectState}
           state={state}
-          successMessage={successMessage}
         />
       )}
     </aside>
   );
 }
 
-function EmptyDetail({
-  state,
-  successMessage,
-}: {
-  state: RecordDetailState;
-  successMessage: string;
-}) {
+function EmptyDetail({ state }: { state: RecordDetailState }) {
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col">
-      {successMessage ? <RecordActionSuccessMessage message={successMessage} /> : null}
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center text-center text-h-18-regular tracking-normal text-gray-400">
         {(state.emptyText ?? []).map((line) => (
           <span key={line}>{line}</span>
         ))}
       </div>
     </div>
-  );
-}
-
-function RecordActionSuccessMessage({ message }: { message: string }) {
-  return (
-    <p className="mt-4 rounded-[8px] border border-green-100 bg-green-50 px-4 py-3 text-h-16-medium text-green-500">
-      {message}
-    </p>
   );
 }
 
@@ -886,7 +854,6 @@ function SelectedDetail({
   onConfirmRecordAction,
   onSelectState,
   state,
-  successMessage,
 }: {
   actionSaving: boolean;
   onConfirmRecordAction: (
@@ -894,17 +861,13 @@ function SelectedDetail({
   ) => Promise<void>;
   onSelectState: (stateId: RecordDetailStateId) => void;
   state: RecordDetailState;
-  successMessage: string;
 }) {
   const compactForm = state.id === "anomaly-step-3";
+  const action = getRecordActionFromState(state.id, state);
+  const inlineTimeFields = action === "edit" ? undefined : state.timeFields;
   const [reason, setReason] = useState("");
   const [timeValues, setTimeValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      (state.timeFields ?? []).map((field) => [
-        field.id,
-        toTimeInputValue(field.value),
-      ]),
-    ),
+    createTimeInputValues(state.timeFields),
   );
   const [pendingInput, setPendingInput] =
     useState<Omit<RecordMainActionInput, "recordId"> | null>(null);
@@ -995,9 +958,9 @@ function SelectedDetail({
             </label>
           ) : null}
 
-          {state.timeFields ? (
+          {inlineTimeFields ? (
             <div className={cn("grid grid-cols-2 gap-4", compactForm ? "mt-4" : "mt-5")}>
-              {state.timeFields.map((field) => (
+              {inlineTimeFields.map((field) => (
                 <label className="block" key={field.id}>
                   <span className="text-h-18-semibold tracking-normal text-gray-900">
                     {field.label}
@@ -1019,9 +982,6 @@ function SelectedDetail({
             </div>
           ) : null}
 
-          {successMessage ? (
-            <RecordActionSuccessMessage message={successMessage} />
-          ) : null}
           {saveErrorMessage ? (
             <p className="mt-4 rounded-[8px] border border-red-100 bg-red-50 px-4 py-3 text-h-16-medium text-red-500">
               {saveErrorMessage}
@@ -1037,10 +997,10 @@ function SelectedDetail({
             disabled={actionSaving}
             onClick={() => {
               const input = createPendingRecordActionInput({
-                endTime: timeValues["check-out"],
+                endTime: inlineTimeFields ? timeValues["check-out"] : undefined,
                 reason,
                 setSaveErrorMessage,
-                startTime: timeValues["check-in"],
+                startTime: inlineTimeFields ? timeValues["check-in"] : undefined,
                 state,
               });
 
@@ -1149,6 +1109,19 @@ function toTimeInputValue(value: string) {
   return `${String(hour).padStart(2, "0")}:${minute}`;
 }
 
+function createTimeInputValues(timeFields: RecordDetailState["timeFields"]) {
+  return Object.fromEntries(
+    (timeFields ?? []).map((field) => [
+      field.id,
+      toTimeInputValue(field.value),
+    ]),
+  );
+}
+
+function isTimeInputValue(value: string | undefined) {
+  return Boolean(value?.match(/^\d{2}:\d{2}$/));
+}
+
 function parseMoneyInput(value: string) {
   const normalized = value.replace(/[^0-9]/g, "");
   const amount = Number.parseInt(normalized, 10);
@@ -1222,10 +1195,14 @@ function RecordActionConfirmDialog({
   const [payrollEffect, setPayrollEffect] = useState(initialPayrollEffect);
   const [payMode, setPayMode] = useState(initialPayMode);
   const [amountText, setAmountText] = useState("");
+  const [timeValues, setTimeValues] = useState<Record<string, string>>(() =>
+    createTimeInputValues(state.timeFields),
+  );
   const [dialogError, setDialogError] = useState("");
   const hasPayrollDecision = Boolean(state.payrollMode);
   const showPayMode = hasPayrollDecision && payrollEffect === "immediate";
   const showAmountField = showPayMode && payMode === "fixed" && state.amountField;
+  const showEditTimeFields = input.action === "edit" && Boolean(state.timeFields);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -1265,6 +1242,35 @@ function RecordActionConfirmDialog({
               value={payrollEffect}
               onChange={setPayrollEffect}
             />
+          </section>
+        ) : null}
+
+        {showEditTimeFields ? (
+          <section className="mt-5">
+            <h3 className="text-h-18-semibold tracking-normal text-gray-900">
+              변경 예정 시간
+            </h3>
+            <div className="mt-3 grid grid-cols-2 gap-4">
+              {state.timeFields?.map((field) => (
+                <label className="block" key={field.id}>
+                  <span className="text-body-14-medium tracking-normal text-gray-900">
+                    {field.label}
+                  </span>
+                  <Input
+                    type="time"
+                    aria-label={field.label}
+                    value={timeValues[field.id] ?? toTimeInputValue(field.value)}
+                    onChange={(event) =>
+                      setTimeValues((currentValues) => ({
+                        ...currentValues,
+                        [field.id]: event.target.value,
+                      }))
+                    }
+                    className="mt-2 flex h-11 w-full items-center rounded-[8px] border-gray-200 bg-white text-h-18-regular tracking-normal text-gray-800"
+                  />
+                </label>
+              ))}
+            </div>
           </section>
         ) : null}
 
@@ -1332,8 +1338,22 @@ function RecordActionConfirmDialog({
             className="h-11 rounded-[8px] bg-green-400 px-6 text-h-18-semibold tracking-normal text-white transition-colors hover:bg-green-450 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:bg-gray-300"
             onClick={() => {
               const amount = showAmountField ? parseMoneyInput(amountText) : null;
+              const startTime = showEditTimeFields
+                ? timeValues["check-in"]
+                : input.startTime;
+              const endTime = showEditTimeFields
+                ? timeValues["check-out"]
+                : input.endTime;
 
               setDialogError("");
+              if (
+                showEditTimeFields &&
+                (!isTimeInputValue(startTime) || !isTimeInputValue(endTime))
+              ) {
+                setDialogError("변경할 근무 시간을 입력해 주세요.");
+                return;
+              }
+
               if (showAmountField && (!amount || amount <= 0)) {
                 setDialogError("고정 지급액을 입력해 주세요.");
                 return;
@@ -1345,14 +1365,16 @@ function RecordActionConfirmDialog({
                   await onConfirmRecordAction({
                     ...input,
                     amount,
+                    endTime,
                     overtimePayMode: showPayMode ? (payMode as "fixed" | "hourly") : null,
                     payrollEffect: hasPayrollDecision
                       ? (payrollEffect as RecordMainActionInput["payrollEffect"])
                       : input.payrollEffect,
+                    startTime,
                   });
                   onClose();
                 } catch {
-                  setDialogError("근무기록 처리 내용을 저장하지 못했습니다.");
+                  // Failure feedback is shown as a toast by the parent action.
                 }
               })();
             }}

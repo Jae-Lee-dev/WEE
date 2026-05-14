@@ -102,17 +102,25 @@ test("REC-01 uses shared selects and edits selected records", async ({
   const detail = page.getByTestId("record-detail-panel");
 
   await detail.getByLabel("수정 사유").fill("근무 시간 확인");
-  await detail.getByLabel("근무 시작").fill("19:10");
+  await expect(detail.getByLabel("근무 시작")).toHaveCount(0);
   await detail.getByRole("button", { name: "확인" }).click();
   const dialog = page.getByTestId("record-action-confirm-dialog");
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText("수정사항을 저장할까요?")).toBeVisible();
+  await expect(dialog.getByText("변경 예정 시간")).toBeVisible();
+  await dialog.getByLabel("근무 시작").fill("19:10");
   await expect(dialog.getByRole("tab", { name: "보류" })).toHaveCount(0);
   await dialog.getByRole("button", { name: "확인" }).click();
 
   await expect(
+    page.getByTestId("wee-toast"),
+  ).toContainText("근무기록 수정 내용을 적용했습니다.");
+  await expect(
     detail.getByText("근무기록 수정 내용을 적용했습니다."),
-  ).toBeVisible();
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("근무 기록을 불러오는 중입니다."),
+  ).toHaveCount(0);
 });
 
 test("REC-01 workerName query applies worker filter", async ({ page }) => {
