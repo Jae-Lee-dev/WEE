@@ -123,7 +123,18 @@ test("REC-01 uses shared selects and edits selected records", async ({
   await page
     .locator("[data-record-block-id='record-lee-haeun-english-c-mon']")
     .click();
+  const layout = page.getByTestId("record-main-layout-grid");
+  const layoutHeightBeforeEdit = await layout.evaluate((element) =>
+    Math.round(element.getBoundingClientRect().height),
+  );
   await page.getByTestId("record-detail-action-edit").click();
+  await expect
+    .poll(async () =>
+      layout.evaluate((element) =>
+        Math.round(element.getBoundingClientRect().height),
+      ),
+    )
+    .toBe(layoutHeightBeforeEdit);
 
   const detail = page.getByTestId("record-detail-panel");
 

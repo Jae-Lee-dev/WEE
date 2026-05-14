@@ -273,8 +273,6 @@ export function RecordMainScreen({
   const selectedState = selectedVisibleBlockId
     ? selectedDetailStates[selectedStateId] ?? selectedDetailStates.empty
     : viewModel.detailStates.empty;
-  const tallDetailState =
-    Boolean(selectedVisibleBlockId) && selectedStateId === "anomaly-step-3";
 
   function syncSelectionForFilters(nextFilters: RecordFilterState) {
     if (!selectedBlockId) {
@@ -512,12 +510,8 @@ export function RecordMainScreen({
       />
 
       <div
-        className={cn(
-          "mt-4 grid min-h-0 grid-cols-[minmax(760px,1fr)_340px] gap-4 overflow-hidden",
-          tallDetailState
-            ? "h-[640px] min-h-[640px]"
-            : "h-[calc(100vh-196px)] min-h-[520px]",
-        )}
+        className="mt-4 grid h-[calc(100vh-196px)] min-h-[520px] grid-cols-[minmax(760px,1fr)_340px] gap-4 overflow-hidden"
+        data-testid="record-main-layout-grid"
       >
         <RecordTimelineGrid
           blocks={visibleBlocks}
