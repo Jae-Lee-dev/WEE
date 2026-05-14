@@ -348,25 +348,27 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
         }
 
         if (change.affectsPayroll) {
-          queueMonthlyRecordAdjustment({
-            batch,
-            collections,
-            db,
-            input,
-            monthKey,
-            newEndAt: change.newEndAt,
-            newStartAt: change.newStartAt,
-            recordData,
-            sourceId: resolutionRef.id,
-            workspaceId,
-          });
-          queueReconfirmationAlert({
-            batch,
-            db,
-            reason: "근무기록 처리 후 산정 입력 변경",
-            workspaceId,
-            ...payrollContext,
-          });
+          if (payrollApplication === "immediate") {
+            queueMonthlyRecordAdjustment({
+              batch,
+              collections,
+              db,
+              input,
+              monthKey,
+              newEndAt: change.newEndAt,
+              newStartAt: change.newStartAt,
+              recordData,
+              sourceId: resolutionRef.id,
+              workspaceId,
+            });
+            queueReconfirmationAlert({
+              batch,
+              db,
+              reason: "근무기록 처리 후 산정 입력 변경",
+              workspaceId,
+              ...payrollContext,
+            });
+          }
         }
       } else if (
         input.action === "approve-correction" ||
@@ -820,10 +822,12 @@ function queueCorrectionAction({
     return;
   }
 
-  const payrollApplication = "immediate";
+  const payrollApplication = getWorkRecordPayrollApplication(
+    input.payrollEffect,
+  );
   const regularPayrollInput: RecordMainActionInput = {
     ...input,
-    payrollEffect: "immediate",
+    payrollEffect: payrollApplication,
   };
   const nextStartAt = resolveActionTimestamp({
     dateKey,
@@ -870,7 +874,7 @@ function queueCorrectionAction({
     decidedBy: managerUid,
     managerNote: input.reason,
     payrollEffect: payrollApplication,
-    payrollStatus: "applied",
+    payrollStatus: payrollApplication === "hold" ? "held" : "applied",
     status: "approved",
     updatedAt: serverTimestamp(),
   });
@@ -902,13 +906,15 @@ function queueCorrectionAction({
     sourceId: request.id,
     workspaceId,
   });
-  queueReconfirmationAlert({
-    batch,
-    db,
-    reason: "이의신청 승인 후 산정 입력 변경",
-    workspaceId,
-    ...payrollContext,
-  });
+  if (payrollApplication === "immediate") {
+    queueReconfirmationAlert({
+      batch,
+      db,
+      reason: "이의신청 승인 후 산정 입력 변경",
+      workspaceId,
+      ...payrollContext,
+    });
+  }
 }
 
 function queueOvertimeAction({
@@ -2091,6 +2097,7 @@ function createDetailStates({
       id: "anomaly-step-3",
       actions: createRecordActionButtons(hasUnresolvedFlag, "edit"),
       confirmLabel: "확인",
+      payrollMode: createWorkRecordPayrollMode(),
       reasonField: {
         label: "수정 사유",
         placeholder: "수정 사유를 입력하세요",
@@ -2115,8 +2122,23 @@ function createDetailStates({
       id: "anomaly-step-4",
       actions: createRecordActionButtons(hasUnresolvedFlag, "delete"),
       confirmLabel: "확인",
+      payrollMode: createWorkRecordPayrollMode(),
       helperText: "해당 근무기록이 삭제되어 결근으로 처리됩니다.",
     },
+  };
+}
+
+function createWorkRecordPayrollMode(): NonNullable<
+  RecordDetailState["payrollMode"]
+> {
+  return {
+    description:
+      "즉시 반영은 산정 입력에 바로 포함하고, 보류는 급여 확정 시점에 다시 결정합니다.",
+    label: "급여 처리",
+    options: [
+      { id: "immediate", label: "즉시 반영", active: true },
+      { id: "hold", label: "보류" },
+    ],
   };
 }
 
@@ -2168,6 +2190,9 @@ function createCorrectionDetailStates(
     statusLabel: "이의신청",
     statusTone: "orange",
     submitAction: "approve-correction",
+    payrollMode: overtimeCorrection
+      ? createOvertimePayrollMode()
+      : createWorkRecordPayrollMode(),
     timeFields: [
       {
         id: "check-in",
@@ -2186,7 +2211,6 @@ function createCorrectionDetailStates(
             label: "고정 지급액",
             placeholder: "예) 10000",
           },
-          payrollMode: createOvertimePayrollMode(),
           payrollPayMode: createOvertimePayrollPayMode(payrollSetting),
         }
       : {}),
@@ -2552,6 +2576,7 @@ function mapCorrectionRow(
   record: WorkRecordModel | null,
 ): CorrectionRow {
   const status = getCorrectionStatus(request.status);
+  const submittedAt = request.submittedAt ?? request.createdAt;
 
   return {
     detailButtonLabel: "상세보기",
@@ -2564,7 +2589,8 @@ function mapCorrectionRow(
       readString(request.beforeSnapshot.dutyName, "대상 근무기록"),
     result: getCorrectionResultLabel(request),
     status,
-    submittedAt: formatShortDateTime(request.submittedAt ?? request.createdAt),
+    submittedAt: formatShortDateTime(submittedAt),
+    submittedAtMs: submittedAt ? submittedAt.getTime() : undefined,
     workerName: record?.workerName ?? request.workerName,
   };
 }
@@ -2744,6 +2770,7 @@ function createCorrectionFilters(
   return {
     location: createWorkerFilterOptions(rows.map((row) => row.workerName)),
     payroll: correctionHistoryFixtureViewModel.filters.payroll,
+    period: correctionHistoryFixtureViewModel.filters.period,
     status: correctionHistoryFixtureViewModel.filters.status.map((option) =>
       option.id === "rejected"
         ? {

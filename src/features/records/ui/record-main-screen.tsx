@@ -73,6 +73,7 @@ import {
 type RecordMainScreenProps = {
   dataSource?: RecordsDataSource;
   initialFocusId?: string;
+  initialTypeFilterId?: string;
   initialWorkerNameFilter?: string;
 };
 
@@ -173,9 +174,19 @@ const recordTypeFilterVariants: Record<
   grey: { selected: "selected", unselected: "neutral" },
 };
 
+function normalizeRecordTypeFilterId(value: string | undefined) {
+  return value === "anomaly" ||
+    value === "overtime" ||
+    value === "correction" ||
+    value === "normal"
+    ? value
+    : "all";
+}
+
 export function RecordMainScreen({
   dataSource: dataSourceProp,
   initialFocusId,
+  initialTypeFilterId,
   initialWorkerNameFilter,
 }: RecordMainScreenProps = {}) {
   const fixtureMode = shouldUseRecordsFixtureDataSource();
@@ -183,6 +194,7 @@ export function RecordMainScreen({
   const dataSource = dataSourceProp ?? fallbackDataSource;
   const initialWorkerFilterId =
     createWorkerFilterIdFromName(initialWorkerNameFilter);
+  const initialTypeFilter = normalizeRecordTypeFilterId(initialTypeFilterId);
   const [viewModel, setViewModel] = useState<RecordMainViewModel>(
     fixtureMode
       ? recordMainFixtureViewModel
@@ -204,7 +216,8 @@ export function RecordMainScreen({
     initialWorkerFilterId,
   );
   const [selectedStatusFilterId, setSelectedStatusFilterId] = useState("all");
-  const [selectedTypeFilterId, setSelectedTypeFilterId] = useState("all");
+  const [selectedTypeFilterId, setSelectedTypeFilterId] =
+    useState(initialTypeFilter);
   const [recordActionSaving, setRecordActionSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const weeToast = useWeeToast();
@@ -402,17 +415,45 @@ export function RecordMainScreen({
 
         const nextWorkerFilterId =
           createWorkerFilterIdFromName(initialWorkerNameFilter);
-        const selection = resolveInitialRecordSelection(
+        const nextTypeFilterId = normalizeRecordTypeFilterId(initialTypeFilterId);
+        const nextWorkerOptions = createWorkerFilterOptionsWithInitialName(
+          nextViewModel.timeline.filters.location ?? emptyRecordFilterOptions,
+          initialWorkerNameFilter,
+        );
+        const initialSelection = resolveInitialRecordSelection(
           nextViewModel,
           initialFocusId,
           nextWorkerFilterId,
         );
+        const nextFilters: RecordFilterState = {
+          statusFilterId: "all",
+          typeFilterId: nextTypeFilterId,
+          workerFilterId: nextWorkerFilterId,
+        };
+        const selectedBlock =
+          initialSelection.block &&
+          matchesRecordFilters(
+            initialSelection.block,
+            nextFilters,
+            nextWorkerOptions,
+          )
+            ? initialSelection.block
+            : selectDefaultBlockFromBlocks(
+                nextViewModel.blocks.filter((block) =>
+                  matchesRecordFilters(block, nextFilters, nextWorkerOptions),
+                ),
+              );
 
         setViewModel(nextViewModel);
         setSelectedWorkerFilterId(nextWorkerFilterId);
-        setSelectedBlockId(selection.block?.id ?? null);
-        setSelectedWeekStartKey(selection.weekStartKey);
-        setSelectedStateId(selection.stateId);
+        setSelectedTypeFilterId(nextTypeFilterId);
+        setSelectedBlockId(selectedBlock?.id ?? null);
+        setSelectedWeekStartKey(
+          selectedBlock?.dateKey
+            ? getWeekStartKeyFromDateKey(selectedBlock.dateKey)
+            : initialSelection.weekStartKey,
+        );
+        setSelectedStateId(resolveBlockStateId(selectedBlock));
       })
       .catch(() => {
         if (!active) {
@@ -431,7 +472,7 @@ export function RecordMainScreen({
     return () => {
       active = false;
     };
-  }, [dataSource, initialFocusId, initialWorkerNameFilter]);
+  }, [dataSource, initialFocusId, initialTypeFilterId, initialWorkerNameFilter]);
 
   return (
     <section

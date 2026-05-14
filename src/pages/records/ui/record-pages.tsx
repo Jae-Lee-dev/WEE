@@ -9,6 +9,7 @@ import {
 export type RecordsPageSearchParams = {
   focus?: string;
   recordId?: string;
+  type?: string;
   workerName?: string;
 };
 
@@ -20,6 +21,7 @@ export function RecordMainPage({
   return (
     <RecordMainScreen
       initialFocusId={searchParams.focus ?? searchParams.recordId}
+      initialTypeFilterId={searchParams.type}
       initialWorkerNameFilter={searchParams.workerName}
     />
   );

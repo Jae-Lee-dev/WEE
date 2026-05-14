@@ -48,3 +48,23 @@ test(`REC-03 selected-correction ${desktop}`, async ({ page }) => {
     viewport: desktop,
   });
 });
+
+test("REC-03 filters correction rows", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/records/corrections",
+    viewport: desktop,
+  });
+
+  await expect(page.getByTestId("record-corrections-first-detail")).toBeVisible();
+
+  await page
+    .getByRole("combobox", { name: "급여 반영 (전체) 필터" })
+    .click();
+  await page.getByRole("option", { name: "보류" }).click();
+
+  await expect(page.getByTestId("record-corrections-first-detail")).toHaveCount(
+    0,
+  );
+  await expect(page.getByText("표시할 이력이 없습니다.")).toBeVisible();
+});

@@ -182,7 +182,7 @@ export function matchesRecordFilters(
 ) {
   return (
     matchesWorkerFilter(block, filters.workerFilterId, workerOptions) &&
-    matchesBlockKindFilter(block, filters.statusFilterId) &&
+    matchesBlockStatusFilter(block, filters.statusFilterId) &&
     matchesBlockKindFilter(block, filters.typeFilterId)
   );
 }
@@ -326,6 +326,24 @@ function matchesBlockKindFilter(block: RecordTimelineBlock, filterId: string) {
   return block.signalKinds.some(
     (kind) => getBlockKindFilterId(kind) === filterId,
   );
+}
+
+function matchesBlockStatusFilter(block: RecordTimelineBlock, filterId: string) {
+  if (filterId === "all") {
+    return true;
+  }
+
+  const hasOpenSignal = block.signalKinds.some((kind) => kind !== "normal");
+
+  if (filterId === "pending") {
+    return hasOpenSignal;
+  }
+
+  if (filterId === "completed") {
+    return !hasOpenSignal;
+  }
+
+  return matchesBlockKindFilter(block, filterId);
 }
 
 function getBlockKindFilterId(kind: RecordTimelineBlock["kind"]) {

@@ -138,7 +138,9 @@ test("REC-01 uses shared selects and edits selected records", async ({
   await dialog.getByLabel("수정 사유").fill("근무 시간 확인");
   await expect(dialog.getByText("변경 예정 시간")).toBeVisible();
   await dialog.getByLabel("근무 시작").fill("19:10");
-  await expect(dialog.getByRole("tab", { name: "보류" })).toHaveCount(0);
+  await expect(dialog.getByRole("heading", { name: "급여 처리" })).toBeVisible();
+  await expect(dialog.getByRole("tab", { name: "즉시 반영" })).toBeVisible();
+  await expect(dialog.getByRole("tab", { name: "보류" })).toBeVisible();
   await dialog.getByRole("button", { name: "확인" }).click();
 
   await expect(
@@ -167,6 +169,25 @@ test("REC-01 workerName query applies worker filter", async ({ page }) => {
   ).toBeVisible();
   await expect(
     page.locator("[data-record-block-id='record-song-hyunwoo-physics-f-mon']"),
+  ).toHaveCount(0);
+});
+
+test("REC-01 type query applies record type filter", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/records?type=correction",
+    viewport: desktop,
+  });
+
+  await expect(page.getByRole("button", { name: "이의 신청" })).toHaveAttribute(
+    "data-variant",
+    "orangeSelected",
+  );
+  await expect(
+    page.locator("[data-record-block-id='record-song-hyunwoo-physics-f-mon']"),
+  ).toBeVisible();
+  await expect(
+    page.locator("[data-record-block-id='record-lee-haeun-english-c-mon']"),
   ).toHaveCount(0);
 });
 

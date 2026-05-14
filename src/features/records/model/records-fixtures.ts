@@ -195,11 +195,12 @@ export type AnomalyHistoryDetail = {
   infoLines: readonly RecordDetailLine[];
 };
 
-export type CorrectionStatus = "승인" | "처리 대기" | "반려" | "탈퇴" | "철회";
+export type CorrectionStatus = "승인" | "처리 대기" | "반려" | "철회";
 
 export type CorrectionRow = {
   id: string;
   submittedAt: string;
+  submittedAtMs?: number;
   workerName: string;
   recordName: string;
   status: CorrectionStatus;
@@ -382,10 +383,8 @@ export const recordTimelineFixture = {
     ],
     status: [
       { id: "all", label: "상태 (전체)", selected: true },
-      { id: "normal", label: "정상" },
-      { id: "anomaly", label: "이상 플래그" },
-      { id: "overtime", label: "추가근무 신청" },
-      { id: "correction", label: "이의 신청" },
+      { id: "pending", label: "처리 대기" },
+      { id: "completed", label: "처리 완료" },
     ],
     type: [
       { id: "all", label: "전체", selected: true },
@@ -492,6 +491,16 @@ export const recordTimelineBlocks = [
   ),
 ] as const satisfies readonly RecordTimelineBlock[];
 
+const workRecordPayrollMode = {
+  description:
+    "즉시 반영은 산정 입력에 바로 포함하고, 보류는 급여 확정 시점에 다시 결정합니다.",
+  label: "급여 처리",
+  options: [
+    { id: "immediate", label: "즉시 반영", active: true },
+    { id: "hold", label: "보류" },
+  ],
+} as const satisfies NonNullable<RecordDetailState["payrollMode"]>;
+
 export const recordDetailStates = {
   empty: {
     id: "empty",
@@ -576,6 +585,7 @@ export const recordDetailStates = {
       { id: "edit", label: "수정", active: true },
       { id: "delete", label: "삭제" },
     ],
+    payrollMode: workRecordPayrollMode,
     reasonField: {
       label: "수정 사유",
       placeholder: "수정 사유를 입력하세요",
@@ -606,6 +616,7 @@ export const recordDetailStates = {
       { id: "delete", label: "삭제", active: true },
     ],
     helperText: "해당 근무기록이 삭제되어 결근으로 처리됩니다.",
+    payrollMode: workRecordPayrollMode,
     confirmLabel: "확인",
   },
 } as const satisfies Record<RecordDetailStateId, RecordDetailState>;
@@ -627,6 +638,7 @@ const normalRecordDetailStates = {
       { id: "delete", label: "삭제" },
     ],
     confirmLabel: "확인",
+    payrollMode: workRecordPayrollMode,
     reasonField: {
       label: "수정 사유",
       placeholder: "수정 사유를 입력하세요",
@@ -645,6 +657,7 @@ const normalRecordDetailStates = {
     ],
     confirmLabel: "확인",
     helperText: "해당 근무기록이 삭제되어 결근으로 처리됩니다.",
+    payrollMode: workRecordPayrollMode,
   },
 } as const satisfies Record<RecordDetailStateId, RecordDetailState>;
 
@@ -835,12 +848,17 @@ export const correctionFilters = {
     { id: "all", label: "상태 (전체)", selected: true },
     { id: "approved", label: "승인" },
     { id: "pending", label: "처리 대기" },
-    { id: "rejected", label: "반려/탈퇴" },
+    { id: "rejected", label: "반려/철회" },
   ],
   payroll: [
     { id: "all", label: "급여 반영 (전체)", selected: true },
     { id: "immediate", label: "즉시" },
     { id: "hold", label: "보류" },
+  ],
+  period: [
+    { id: "all", label: "기간 (전체)", selected: true },
+    { id: "7d", label: "최근 7일" },
+    { id: "30d", label: "최근 30일" },
   ],
 } as const satisfies Record<string, readonly RecordsFilterOption[]>;
 
@@ -850,7 +868,7 @@ export const correctionMetrics = [
   { id: "approved", label: "승인", value: "5건", tone: "green" },
   {
     id: "rejected-or-withdrawn",
-    label: "반려/탈퇴",
+    label: "반려/철회",
     value: "5건",
     tone: "pink",
   },

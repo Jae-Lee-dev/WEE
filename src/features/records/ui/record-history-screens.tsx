@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { Badge } from "@/shared/ui/badge";
-import { IconChevronDown } from "@/shared/ui/icons";
+import { OptionSelect } from "@/shared/ui/select";
 import { cn } from "@/shared/lib/utils";
 import {
   createRecordsDataSource,
@@ -41,6 +41,8 @@ type BadgeToneConfig = {
   variant: "green" | "orange" | "red" | "blue" | "grey";
   style?: CSSProperties;
 };
+
+type HistoryFilterValues = Record<string, string>;
 
 const toneStyles = {
   green: { color: "var(--color-green-400)" },
@@ -146,7 +148,24 @@ export function RecordCorrectionsScreen({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(!fixtureMode);
   const [errorMessage, setErrorMessage] = useState("");
-  const selectedDetail = selectedId ? viewModel.details[selectedId] : undefined;
+  const [filterValues, setFilterValues] = useState<HistoryFilterValues>({
+    location: "all",
+    payroll: "all",
+    period: "all",
+    status: "all",
+  });
+  const filteredRows = useMemo(
+    () =>
+      getFilteredCorrectionRows(viewModel.rows, filterValues, viewModel.filters),
+    [filterValues, viewModel.filters, viewModel.rows],
+  );
+  const visibleSelectedId =
+    selectedId && filteredRows.some((row) => row.id === selectedId)
+      ? selectedId
+      : null;
+  const selectedDetail = visibleSelectedId
+    ? viewModel.details[visibleSelectedId]
+    : undefined;
 
   useEffect(() => {
     let active = true;
@@ -183,13 +202,21 @@ export function RecordCorrectionsScreen({
       screenTestId="record-corrections-screen"
       errorMessage={errorMessage}
       filters={viewModel.filters}
+      filterValues={filterValues}
       loading={loading}
       loadingMessage="이의신청 이력을 불러오는 중입니다."
-      metrics={viewModel.metrics}
+      metrics={createCorrectionMetrics(filteredRows)}
+      onFilterChange={(filterId, value) => {
+        setSelectedId(null);
+        setFilterValues((current) => ({
+          ...current,
+          [filterId]: value,
+        }));
+      }}
       left={
         <CorrectionTable
-          rows={viewModel.rows}
-          selectedId={selectedId}
+          rows={filteredRows}
+          selectedId={visibleSelectedId}
           onToggleSelected={(rowId) =>
             setSelectedId((current) => (current === rowId ? null : rowId))
           }
@@ -284,18 +311,22 @@ function HistoryScreenShell({
   errorMessage,
   screenTestId,
   filters,
+  filterValues,
   loading,
   loadingMessage,
   metrics,
+  onFilterChange,
   left,
   right,
 }: {
   errorMessage: string;
   screenTestId: string;
   filters: Record<string, readonly RecordsFilterOption[]>;
+  filterValues?: HistoryFilterValues;
   loading: boolean;
   loadingMessage: string;
   metrics: readonly RecordsMetricCard[];
+  onFilterChange?: (filterId: string, value: string) => void;
   left: ReactNode;
   right: ReactNode;
 }) {
@@ -305,7 +336,11 @@ function HistoryScreenShell({
       className="mx-auto flex w-full max-w-[1480px] flex-col gap-4"
       data-testid={screenTestId}
     >
-      <FilterBar filters={filters} />
+      <FilterBar
+        filters={filters}
+        values={filterValues}
+        onChange={onFilterChange}
+      />
 
       {loading || errorMessage ? (
         <div
@@ -336,23 +371,36 @@ function HistoryScreenShell({
 
 function FilterBar({
   filters,
+  onChange,
+  values,
 }: {
   filters: Record<string, readonly RecordsFilterOption[]>;
+  onChange?: (filterId: string, value: string) => void;
+  values?: HistoryFilterValues;
 }) {
   return (
     <div className="flex min-h-9 flex-wrap items-center gap-3">
       {Object.entries(filters).map(([id, options]) => {
-        const selected = options.find((option) => option.selected) ?? options[0];
+        const defaultSelected =
+          options.find((option) => option.selected) ?? options[0];
+        const value = options.some((option) => option.id === values?.[id])
+          ? values?.[id]
+          : defaultSelected?.id;
 
         return (
-          <button
+          <OptionSelect
             key={id}
-            type="button"
-            className="flex h-10 items-center gap-2 rounded-[6px] border border-gray-200 bg-white px-2.5 text-h-18-regular tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
-          >
-            <span>{selected.label}</span>
-            <IconChevronDown className="size-5 shrink-0 text-gray-600" />
-          </button>
+            value={value}
+            onValueChange={(nextValue) => onChange?.(id, nextValue)}
+            options={options.map((option) => ({
+              label: option.label,
+              value: option.id,
+            }))}
+            triggerAriaLabel={`${defaultSelected?.label ?? "필터"} 필터`}
+            triggerClassName="h-10 rounded-[6px] border-gray-200 bg-white px-2.5 text-h-18-regular tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] focus-visible:ring-green-200"
+            contentClassName="z-[70]"
+            itemClassName="text-h-16-medium tracking-normal"
+          />
         );
       })}
     </div>
@@ -522,7 +570,10 @@ function CorrectionTableRow({
       </div>
       <TableCell>{row.result}</TableCell>
       <div>
-        <StatusBadge label={row.payrollResult} tone="green" />
+        <StatusBadge
+          label={row.payrollResult}
+          tone={getCorrectionPayrollTone(row.payrollResult)}
+        />
       </div>
       <div className="flex justify-end">
         <DetailToggleButton
@@ -686,6 +737,18 @@ function StatusBadge({ label, tone }: { label: string; tone: RecordsTone }) {
   );
 }
 
+function getCorrectionPayrollTone(label: string): RecordsTone {
+  if (label === "즉시" || label === "반영") {
+    return "green";
+  }
+
+  if (label === "보류") {
+    return "orange";
+  }
+
+  return "grey";
+}
+
 function getOvertimeStatusTone(
   status: OvertimeHistoryRow["status"],
 ): RecordsTone {
@@ -718,6 +781,149 @@ function getOvertimePayrollTone(label: string): RecordsTone {
 
 function TableCell({ children }: { children: ReactNode }) {
   return <div className="min-w-0 truncate">{children}</div>;
+}
+
+function getFilteredCorrectionRows(
+  rows: readonly CorrectionRow[],
+  filters: HistoryFilterValues,
+  optionsByFilter: Record<string, readonly RecordsFilterOption[]>,
+) {
+  return rows.filter((row) => {
+    return (
+      matchesCorrectionWorker(row, filters.location, optionsByFilter.location) &&
+      matchesCorrectionStatus(row, filters.status) &&
+      matchesCorrectionPayroll(row, filters.payroll) &&
+      matchesCorrectionPeriod(row, filters.period)
+    );
+  });
+}
+
+function matchesCorrectionWorker(
+  row: CorrectionRow,
+  filterId = "all",
+  options: readonly RecordsFilterOption[] = [],
+) {
+  if (filterId === "all") {
+    return true;
+  }
+
+  const option = options.find((candidate) => candidate.id === filterId);
+
+  return option?.label === row.workerName;
+}
+
+function matchesCorrectionStatus(row: CorrectionRow, filterId = "all") {
+  if (filterId === "all") {
+    return true;
+  }
+
+  if (filterId === "approved") {
+    return row.status === "승인";
+  }
+
+  if (filterId === "pending") {
+    return row.status === "처리 대기";
+  }
+
+  if (filterId === "rejected") {
+    return row.status === "반려" || row.status === "철회";
+  }
+
+  return true;
+}
+
+function matchesCorrectionPayroll(row: CorrectionRow, filterId = "all") {
+  if (filterId === "all") {
+    return true;
+  }
+
+  if (filterId === "immediate") {
+    return row.payrollResult === "즉시";
+  }
+
+  if (filterId === "hold") {
+    return row.payrollResult === "보류";
+  }
+
+  return true;
+}
+
+function matchesCorrectionPeriod(row: CorrectionRow, filterId = "all") {
+  if (filterId === "all") {
+    return true;
+  }
+
+  const submittedAtMs = getCorrectionSubmittedAtMs(row);
+
+  if (submittedAtMs == null) {
+    return true;
+  }
+
+  const dayCount = filterId === "7d" ? 7 : filterId === "30d" ? 30 : null;
+
+  if (!dayCount) {
+    return true;
+  }
+
+  return Date.now() - submittedAtMs <= dayCount * 24 * 60 * 60 * 1000;
+}
+
+function getCorrectionSubmittedAtMs(row: CorrectionRow) {
+  if (typeof row.submittedAtMs === "number") {
+    return row.submittedAtMs;
+  }
+
+  const match = row.submittedAt.match(/^(\d{2})\.(\d{2})/);
+
+  if (!match) {
+    return null;
+  }
+
+  const currentYear = new Date().getFullYear();
+  const submittedAt = new Date(
+    currentYear,
+    Number(match[1]) - 1,
+    Number(match[2]),
+  );
+
+  return Number.isNaN(submittedAt.getTime()) ? null : submittedAt.getTime();
+}
+
+function createCorrectionMetrics(
+  rows: readonly CorrectionRow[],
+): readonly RecordsMetricCard[] {
+  const pendingCount = rows.filter((row) => row.status === "처리 대기").length;
+  const approvedCount = rows.filter((row) => row.status === "승인").length;
+  const rejectedOrWithdrawnCount = rows.filter(
+    (row) => row.status === "반려" || row.status === "철회",
+  ).length;
+
+  return [
+    {
+      id: "submitted",
+      label: "제출 유형",
+      value: `${rows.length}건`,
+      tone: "green",
+    },
+    {
+      id: "pending",
+      label: "처리 대기",
+      value: `${pendingCount}건`,
+      tone: "orange",
+    },
+    {
+      id: "approved",
+      label: "승인",
+      value: `${approvedCount}건`,
+      tone: "green",
+    },
+    {
+      id: "rejected-or-withdrawn",
+      label: "반려/철회",
+      value: `${rejectedOrWithdrawnCount}건`,
+      tone: "pink",
+    },
+  ];
 }
 
 function EmptyDetailPanel({ lines }: { lines: readonly string[] }) {
@@ -759,7 +965,7 @@ function createEmptyCorrections(): CorrectionHistoryViewModel {
       { id: "submitted", label: "제출 유형", value: "0건", tone: "green" },
       { id: "pending", label: "처리 대기", value: "0건", tone: "orange" },
       { id: "approved", label: "승인", value: "0건", tone: "green" },
-      { id: "rejected-or-withdrawn", label: "반려/탈퇴", value: "0건", tone: "pink" },
+      { id: "rejected-or-withdrawn", label: "반려/철회", value: "0건", tone: "pink" },
     ],
     rows: [],
   };
