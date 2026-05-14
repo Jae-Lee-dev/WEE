@@ -356,8 +356,8 @@ function SelectedApprovalState({
         }
       />
 
-      <main className="min-h-0 flex-1 overflow-hidden px-4 py-7">
-        <div className="flex h-full min-h-0 flex-col gap-7">
+      <main className="min-h-0 flex-1 overflow-hidden px-4 py-5">
+        <div className="flex h-full min-h-0 flex-col gap-4">
           <SelectedProfileHeader
             approveLabel={approveLabel}
             request={request}
@@ -391,8 +391,8 @@ function SelectedApprovalState({
             </div>
           ) : null}
 
-          <div className="grid min-h-0 flex-1 grid-cols-[minmax(780px,1fr)_360px] gap-4">
-            <section className="min-h-0 overflow-hidden rounded-[8px] bg-white p-4">
+          <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_320px] gap-4">
+            <section className="flex min-h-0 min-w-0 flex-col gap-4">
               <ApprovalSummaryCards detail={detail} />
               <ApprovalTimelineGrid
                 blocks={detail.timelineBlocks}
@@ -459,7 +459,7 @@ function SelectedProfileHeader({
   const detail = request.selectedDetail;
 
   return (
-    <section className="flex min-h-[68px] shrink-0 items-center justify-between gap-6 rounded-[8px] border border-gray-300 bg-white px-4 py-4">
+    <section className="flex min-h-[56px] shrink-0 items-center justify-between gap-6 px-1">
       <div className="min-w-0">
         <div className="flex items-center gap-3">
           <h2 className="text-h-20 tracking-normal text-gray-900">
@@ -472,7 +472,7 @@ function SelectedProfileHeader({
             {detail.workerStatusText}
           </Badge>
         </div>
-        <p className="mt-3 text-h-18-regular tracking-normal text-gray-800">
+        <p className="mt-2 text-h-18-regular tracking-normal text-gray-700">
           {request.requestDate} {detail.submittedKindText}
         </p>
       </div>
@@ -515,16 +515,16 @@ function ApprovalSummaryCards({
   ] as const;
 
   return (
-    <div className="grid grid-cols-4 gap-4">
+    <div className="grid shrink-0 grid-cols-4 gap-3">
       {summaryCards.map((card) => (
         <section
           key={card.label}
-          className="h-[118px] rounded-[8px] border border-gray-200 bg-white px-4 py-4"
+          className="flex min-h-[88px] flex-col justify-center rounded-[8px] bg-white px-4 py-3"
         >
-          <h3 className="text-h-18-semibold tracking-normal text-gray-800">
+          <h3 className="text-h-16-medium tracking-normal text-gray-600">
             {card.label}
           </h3>
-          <p className="mt-5 text-h-24 font-semibold tracking-normal text-green-400">
+          <p className="mt-2 truncate text-h-20 font-semibold tracking-normal text-green-400">
             {card.value}
           </p>
         </section>
@@ -553,7 +553,7 @@ function ApprovalTimelineGrid({
   return (
     <TimelineGridFrame
       ariaLabel="승인 요청 주간 시간표"
-      className="mt-5 max-h-[597px]"
+      className="min-h-0 flex-1"
       dayColumnWidth={48}
       days={visibleTimelineDays}
       headerHeight={47}
@@ -581,7 +581,7 @@ function TimelineBlock({ parsedBlock }: { parsedBlock: ParsedTimelineBlock }) {
     <div
       aria-label={`${block.worker} ${block.label} ${block.time}`}
       className={cn(
-        "absolute top-0 z-10 flex h-[46px] min-w-0 flex-col justify-center overflow-hidden rounded-[6px] border px-1.5 py-1 text-left shadow-[0_1px_2px_rgba(17,24,39,0.04)]",
+        "absolute top-0 z-10 flex h-[46px] min-w-0 flex-col justify-center overflow-hidden rounded-[6px] border px-1.5 py-1 text-left tracking-normal",
         selected
           ? "border-green-400 bg-green-400 text-white"
           : "border-green-400 bg-green-100 text-gray-900",
@@ -620,10 +620,10 @@ function TimeAdjustmentPanel({
   timeInvalid: boolean;
 }) {
   return (
-    <aside className="flex min-h-0 flex-col rounded-[8px] border border-gray-300 bg-white p-4">
+    <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[8px] bg-white p-4">
       <h2 className="text-h-20 tracking-normal text-gray-900">시간 조정</h2>
 
-      <section className="mt-6 rounded-[8px] border border-gray-100 px-4 py-4">
+      <section className="mt-5 rounded-[8px] bg-gray-50 px-4 py-4">
         <h3 className="text-h-18-semibold tracking-normal text-gray-900">
           {detail.adjustmentDutyName}
         </h3>
