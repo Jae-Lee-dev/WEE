@@ -6,6 +6,8 @@ import {
   getDocs,
   serverTimestamp,
   writeBatch,
+  type DocumentReference,
+  type WriteBatch,
 } from "firebase/firestore";
 // TODO(refactor): Before adding more record-processing behavior, split this
 // data source into Firestore adapters, document mappers, record action writers,
@@ -39,6 +41,7 @@ import {
   type RecordDetailState,
   type RecordDetailStateId,
   type RecordMainViewModel,
+  type RecordProcessingAction,
   type RecordsFilterOption,
   type RecordsMetricCard,
   type RecordsTone,
@@ -56,7 +59,8 @@ export type RecordsDataSource = {
 };
 
 export type RecordMainActionInput = {
-  action: "delete" | "edit" | "mark-normal";
+  action: RecordProcessingAction;
+  amount?: number | null;
   endTime?: string;
   payrollEffect: "hold" | "immediate";
   reason: string;
@@ -73,8 +77,12 @@ type RecordsCollections = {
   anomalyFlags: readonly FirestoreDocument[];
   anomalyResolutions: readonly FirestoreDocument[];
   attendanceLogs: readonly FirestoreDocument[];
+  bonusItems: readonly FirestoreDocument[];
   correctionRequests: readonly FirestoreDocument[];
   overtimeWorks: readonly FirestoreDocument[];
+  payStatements: readonly FirestoreDocument[];
+  payrollSettings: readonly FirestoreDocument[];
+  payrollWorkerMonthRows: readonly FirestoreDocument[];
   workRecords: readonly FirestoreDocument[];
 };
 
@@ -90,9 +98,11 @@ type WorkRecordModel = {
   hasUnresolvedAnomaly: boolean;
   id: string;
   locationName: string;
+  managerOnly: Record<string, unknown>;
   plannedEndAt: Date | null;
   plannedStartAt: Date | null;
   status: string;
+  workerId: string;
   workerName: string;
 };
 
@@ -136,11 +146,25 @@ type CorrectionRequestModel = {
 
 type OvertimeWorkModel = {
   createdAt: Date | null;
+  extraEndAt: Date | null;
+  extraStartAt: Date | null;
   id: string;
+  monthKey: string;
   payrollEffect: string;
   payrollStatus: string;
+  reason: string;
   status: string;
   workRecordId: string | null;
+  workerId: string;
+  workerName: string;
+};
+
+type PayrollSettingModel = {
+  effectiveFrom: string | null;
+  hourlyRate: number | null;
+  monthlySalary: number | null;
+  payrollType: string;
+  workerId: string;
 };
 
 type AttendanceLogModel = {
@@ -203,6 +227,7 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
     async applyMainRecordAction(input) {
       const workspaceId = await requireActiveWorkspaceId();
       const db = getFirebaseDb();
+      const managerUid = getFirebaseAuth().currentUser?.uid ?? null;
       const recordRef = doc(
         db,
         "workspaces",
@@ -222,8 +247,18 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
         readString(recordData.date, ""),
       );
       const workerId = readString(recordData.workerId, "");
-      const flags = await readWorkspaceCollection(workspaceId, "anomalyFlags");
-      const flag = flags.find(
+      const monthKey = dateKey.slice(0, 7);
+      const collections = await loadRecordsCollections();
+      const payrollContext = getWorkerMonthPayrollContext(collections, {
+        monthKey,
+        workerId,
+      });
+
+      if (payrollContext.paid) {
+        throw new Error("지급 완료된 월의 근무기록은 수정할 수 없습니다.");
+      }
+
+      const flag = collections.anomalyFlags.find(
         (item) => readString(item.data.workRecordId, "") === input.recordId,
       );
       const resolutionRef = doc(
@@ -232,60 +267,109 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
       const batch = writeBatch(db);
       const payrollApplication =
         input.payrollEffect === "hold" ? "hold" : "immediate";
-      const recordUpdate: Record<string, unknown> = {
-        "managerOnly.anomalyResolutionId": resolutionRef.id,
-        "managerOnly.payrollApplication": payrollApplication,
-        "managerOnly.reviewedBy": getFirebaseAuth().currentUser?.uid ?? null,
-        hasUnresolvedAnomaly: false,
-        status: input.action === "delete" ? "deleted" : "resolved",
-        updatedAt: serverTimestamp(),
-      };
 
-      if (input.action === "edit") {
-        const effectiveStartAt = parseRecordActionTimestamp(
+      if (isRecordEditAction(input.action)) {
+        const change = queueRecordEditAction({
+          batch,
           dateKey,
-          input.startTime,
-        );
-        const effectiveEndAt = parseRecordActionTimestamp(dateKey, input.endTime);
+          db,
+          flag,
+          input,
+          managerUid,
+          payrollApplication,
+          recordData,
+          recordRef,
+          resolutionId: resolutionRef.id,
+          workspaceId,
+        });
 
-        if (effectiveStartAt) {
-          recordUpdate.effectiveStartAt = effectiveStartAt;
+        batch.set(resolutionRef, {
+          anomalyFlagId: flag?.id ?? null,
+          createdAt: serverTimestamp(),
+          decidedBy: managerUid,
+          decision: getRecordActionDecision(input.action),
+          managerNote: input.reason,
+          payrollEffect: payrollApplication,
+          status: "completed",
+          workRecordId: input.recordId,
+          workerId,
+          workspaceId,
+        });
+
+        if (change.notifyWorker) {
+          queueWorkerNotification({
+            batch,
+            db,
+            eventType: "work_record_changed",
+            payload: {
+              afterSnapshot: change.afterSnapshot,
+              beforeSnapshot: change.beforeSnapshot,
+              managerNote: input.reason,
+              payrollEffect: payrollApplication,
+              targetFocusId: input.recordId,
+              targetScreen: "worker_work_record_detail",
+              workRecordId: input.recordId,
+            },
+            relatedEntityId: input.recordId,
+            relatedEntityType: "workRecord",
+            recipientId: workerId,
+            workspaceId,
+          });
         }
 
-        if (effectiveEndAt) {
-          recordUpdate.effectiveEndAt = effectiveEndAt;
+        if (change.affectsPayroll) {
+          queueMonthlyRecordAdjustment({
+            batch,
+            collections,
+            db,
+            input,
+            monthKey,
+            newEndAt: change.newEndAt,
+            newStartAt: change.newStartAt,
+            recordData,
+            sourceId: resolutionRef.id,
+            workspaceId,
+          });
+          queueReconfirmationAlert({
+            batch,
+            db,
+            reason: "근무기록 처리 후 산정 입력 변경",
+            workspaceId,
+            ...payrollContext,
+          });
         }
+      } else if (
+        input.action === "approve-correction" ||
+        input.action === "reject-correction"
+      ) {
+        queueCorrectionAction({
+          batch,
+          collections,
+          dateKey,
+          db,
+          input,
+          managerUid,
+          monthKey,
+          payrollApplication,
+          payrollContext,
+          recordData,
+          recordRef,
+          workspaceId,
+        });
+      } else {
+        queueOvertimeAction({
+          batch,
+          collections,
+          db,
+          input,
+          managerUid,
+          payrollApplication,
+          payrollContext,
+          recordData,
+          recordRef,
+          workspaceId,
+        });
       }
-
-      if (input.action === "delete") {
-        recordUpdate.deletedAt = serverTimestamp();
-      }
-
-      batch.update(recordRef, recordUpdate);
-
-      if (flag) {
-        batch.update(
-          doc(db, "workspaces", workspaceId, "anomalyFlags", flag.id),
-          {
-            resolvedAt: serverTimestamp(),
-            status: "resolved",
-            updatedAt: serverTimestamp(),
-          },
-        );
-      }
-
-      batch.set(resolutionRef, {
-        anomalyFlagId: flag?.id ?? null,
-        createdAt: serverTimestamp(),
-        decidedBy: getFirebaseAuth().currentUser?.uid ?? null,
-        decision: getRecordActionDecision(input.action),
-        managerNote: input.reason,
-        payrollEffect: payrollApplication,
-        status: "completed",
-        workRecordId: input.recordId,
-        workerId,
-        workspaceId,
-      });
 
       await batch.commit();
     },
@@ -313,6 +397,10 @@ async function loadRecordsCollections(): Promise<RecordsCollections> {
     correctionRequests,
     overtimeWorks,
     attendanceLogs,
+    payStatements,
+    payrollWorkerMonthRows,
+    payrollSettings,
+    bonusItems,
   ] = await Promise.all([
     readWorkspaceCollection(workspaceId, "workRecords"),
     readWorkspaceCollection(workspaceId, "anomalyFlags"),
@@ -320,14 +408,22 @@ async function loadRecordsCollections(): Promise<RecordsCollections> {
     readWorkspaceCollection(workspaceId, "correctionRequests"),
     readWorkspaceCollection(workspaceId, "overtimeWorks"),
     readWorkspaceCollection(workspaceId, "attendanceLogs"),
+    readWorkspaceCollection(workspaceId, "payStatements"),
+    readWorkspaceCollection(workspaceId, "payrollWorkerMonthRows"),
+    readWorkspaceCollection(workspaceId, "payrollSettings"),
+    readWorkspaceCollection(workspaceId, "bonusItems"),
   ]);
 
   return {
     anomalyFlags,
     anomalyResolutions,
     attendanceLogs,
+    bonusItems,
     correctionRequests,
     overtimeWorks,
+    payStatements,
+    payrollSettings,
+    payrollWorkerMonthRows,
     workRecords,
   };
 }
@@ -381,6 +477,718 @@ function parseRecordActionTimestamp(dateKey: string, timeValue: string | undefin
   return Timestamp.fromDate(date);
 }
 
+function isRecordEditAction(
+  action: RecordProcessingAction,
+): action is "delete" | "edit" | "mark-normal" {
+  return action === "delete" || action === "edit" || action === "mark-normal";
+}
+
+function queueRecordEditAction({
+  batch,
+  dateKey,
+  db,
+  flag,
+  input,
+  managerUid,
+  payrollApplication,
+  recordData,
+  recordRef,
+  resolutionId,
+  workspaceId,
+}: {
+  batch: WriteBatch;
+  dateKey: string;
+  db: ReturnType<typeof getFirebaseDb>;
+  flag?: FirestoreDocument;
+  input: RecordMainActionInput;
+  managerUid: string | null;
+  payrollApplication: "hold" | "immediate";
+  recordData: Record<string, unknown>;
+  recordRef: DocumentReference;
+  resolutionId: string;
+  workspaceId: string;
+}) {
+  if (input.action === "edit" && !input.reason.trim()) {
+    throw new Error("수정 사유를 입력해 주세요.");
+  }
+
+  const beforeSnapshot = createWorkerSafeRecordSnapshot(recordData, {
+    changeType: "before",
+  });
+  const recordUpdate: Record<string, unknown> = {
+    "managerOnly.anomalyResolutionId": resolutionId,
+    "managerOnly.payrollApplication": payrollApplication,
+    "managerOnly.reviewedBy": managerUid,
+    hasUnresolvedAnomaly: false,
+    status: input.action === "delete" ? "deleted" : "resolved",
+    updatedAt: serverTimestamp(),
+  };
+  let newStartAt = getRecordStartDate(recordData);
+  let newEndAt = getRecordEndDate(recordData);
+
+  if (input.action === "edit") {
+    const effectiveStartAt = parseRecordActionTimestamp(
+      dateKey,
+      input.startTime,
+    );
+    const effectiveEndAt = parseRecordActionTimestamp(dateKey, input.endTime);
+
+    if (effectiveStartAt) {
+      recordUpdate.effectiveStartAt = effectiveStartAt;
+      newStartAt = effectiveStartAt.toDate();
+    }
+
+    if (effectiveEndAt) {
+      recordUpdate.effectiveEndAt = effectiveEndAt;
+      newEndAt = effectiveEndAt.toDate();
+    }
+  }
+
+  if (input.action === "delete") {
+    recordUpdate.deletedAt = serverTimestamp();
+    newStartAt = null;
+    newEndAt = null;
+  }
+
+  batch.update(recordRef, recordUpdate);
+
+  if (flag) {
+    batch.update(
+      doc(db, "workspaces", workspaceId, "anomalyFlags", flag.id),
+      {
+        resolvedAt: serverTimestamp(),
+        status: "resolved",
+        updatedAt: serverTimestamp(),
+      },
+    );
+  }
+
+  const afterSnapshot = createWorkerSafeRecordSnapshot(
+    {
+      ...recordData,
+      effectiveStartAt: newStartAt ? Timestamp.fromDate(newStartAt) : null,
+      effectiveEndAt: newEndAt ? Timestamp.fromDate(newEndAt) : null,
+      status: input.action === "delete" ? "deleted" : "resolved",
+    },
+    {
+      changeReason: input.reason,
+      changeType: input.action === "delete" ? "deleted" : "modified",
+    },
+  );
+
+  return {
+    affectsPayroll: input.action === "delete" || input.action === "edit",
+    afterSnapshot,
+    beforeSnapshot,
+    newEndAt,
+    newStartAt,
+    notifyWorker: input.action === "delete" || input.action === "edit",
+  };
+}
+
+function queueCorrectionAction({
+  batch,
+  collections,
+  dateKey,
+  db,
+  input,
+  managerUid,
+  monthKey,
+  payrollApplication,
+  payrollContext,
+  recordData,
+  recordRef,
+  workspaceId,
+}: {
+  batch: WriteBatch;
+  collections: RecordsCollections;
+  dateKey: string;
+  db: ReturnType<typeof getFirebaseDb>;
+  input: RecordMainActionInput;
+  managerUid: string | null;
+  monthKey: string;
+  payrollApplication: "hold" | "immediate";
+  payrollContext: WorkerMonthPayrollContext;
+  recordData: Record<string, unknown>;
+  recordRef: DocumentReference;
+  workspaceId: string;
+}) {
+  const request = collections.correctionRequests.find(
+    (item) =>
+      readString(item.data.workRecordId, "") === input.recordId &&
+      readString(item.data.status, "submitted") === "submitted",
+  );
+
+  if (!request) {
+    throw new Error("처리할 이의신청을 찾을 수 없습니다.");
+  }
+
+  const requestRef = doc(
+    db,
+    "workspaces",
+    workspaceId,
+    "correctionRequests",
+    request.id,
+  );
+  const workerId = readString(request.data.workerId, readString(recordData.workerId, ""));
+  const afterRequestSnapshot = readRecord(request.data.afterSnapshot);
+
+  if (input.action === "reject-correction") {
+    if (!input.reason.trim()) {
+      throw new Error("반려 사유를 입력해 주세요.");
+    }
+
+    batch.update(requestRef, {
+      decidedAt: serverTimestamp(),
+      decidedBy: managerUid,
+      managerNote: input.reason,
+      payrollEffect: "none",
+      payrollStatus: "none",
+      rejectedReason: input.reason,
+      status: "rejected",
+      updatedAt: serverTimestamp(),
+    });
+    batch.update(recordRef, {
+      hasPendingCorrection: false,
+      updatedAt: serverTimestamp(),
+    });
+    queueWorkerNotification({
+      batch,
+      db,
+      eventType: "correction_rejected",
+      payload: {
+        correctionRequestId: request.id,
+        reason: input.reason,
+        targetFocusId: input.recordId,
+        targetScreen: "worker_work_record_detail",
+      },
+      relatedEntityId: request.id,
+      relatedEntityType: "correctionRequest",
+      recipientId: workerId,
+      workspaceId,
+    });
+
+    return;
+  }
+
+  const nextStartAt = resolveActionTimestamp({
+    dateKey,
+    fallback:
+      readDate(afterRequestSnapshot.effectiveStartAt) ??
+      readDate(afterRequestSnapshot.plannedStartAt) ??
+      getRecordStartDate(recordData),
+    timeValue: input.startTime,
+  });
+  const nextEndAt = resolveActionTimestamp({
+    dateKey,
+    fallback:
+      readDate(afterRequestSnapshot.effectiveEndAt) ??
+      readDate(afterRequestSnapshot.plannedEndAt) ??
+      getRecordEndDate(recordData),
+    timeValue: input.endTime,
+  });
+  const changeType = readString(afterRequestSnapshot.changeType, "modified");
+  const recordUpdate: Record<string, unknown> = {
+    "managerOnly.correctionRequestId": request.id,
+    "managerOnly.payrollApplication": payrollApplication,
+    "managerOnly.reviewedBy": managerUid,
+    hasPendingCorrection: false,
+    hasUnresolvedAnomaly: false,
+    status: changeType === "deleted" ? "deleted" : "resolved",
+    updatedAt: serverTimestamp(),
+  };
+
+  if (nextStartAt) {
+    recordUpdate.effectiveStartAt = Timestamp.fromDate(nextStartAt);
+  }
+
+  if (nextEndAt) {
+    recordUpdate.effectiveEndAt = Timestamp.fromDate(nextEndAt);
+  }
+
+  if (changeType === "deleted") {
+    recordUpdate.deletedAt = serverTimestamp();
+  }
+
+  batch.update(recordRef, recordUpdate);
+  batch.update(requestRef, {
+    decidedAt: serverTimestamp(),
+    decidedBy: managerUid,
+    managerNote: input.reason,
+    payrollEffect: payrollApplication,
+    payrollStatus: payrollApplication === "hold" ? "held" : "applied",
+    status: "approved",
+    updatedAt: serverTimestamp(),
+  });
+  queueWorkerNotification({
+    batch,
+    db,
+    eventType: "correction_approved",
+    payload: {
+      correctionRequestId: request.id,
+      managerNote: input.reason,
+      payrollEffect: payrollApplication,
+      targetFocusId: input.recordId,
+      targetScreen: "worker_work_record_detail",
+    },
+    relatedEntityId: request.id,
+    relatedEntityType: "correctionRequest",
+    recipientId: workerId,
+    workspaceId,
+  });
+  queueMonthlyRecordAdjustment({
+    batch,
+    collections,
+    db,
+    input,
+    monthKey,
+    newEndAt: changeType === "deleted" ? null : nextEndAt,
+    newStartAt: changeType === "deleted" ? null : nextStartAt,
+    recordData,
+    sourceId: request.id,
+    workspaceId,
+  });
+  queueReconfirmationAlert({
+    batch,
+    db,
+    reason: "이의신청 승인 후 산정 입력 변경",
+    workspaceId,
+    ...payrollContext,
+  });
+}
+
+function queueOvertimeAction({
+  batch,
+  collections,
+  db,
+  input,
+  managerUid,
+  payrollApplication,
+  payrollContext,
+  recordData,
+  recordRef,
+  workspaceId,
+}: {
+  batch: WriteBatch;
+  collections: RecordsCollections;
+  db: ReturnType<typeof getFirebaseDb>;
+  input: RecordMainActionInput;
+  managerUid: string | null;
+  payrollApplication: "hold" | "immediate";
+  payrollContext: WorkerMonthPayrollContext;
+  recordData: Record<string, unknown>;
+  recordRef: DocumentReference;
+  workspaceId: string;
+}) {
+  const overtime = collections.overtimeWorks.find(
+    (item) =>
+      readString(item.data.workRecordId, "") === input.recordId &&
+      readString(item.data.status, "submitted") === "submitted",
+  );
+
+  if (!overtime) {
+    throw new Error("처리할 추가근무 신청을 찾을 수 없습니다.");
+  }
+
+  const overtimeRef = doc(
+    db,
+    "workspaces",
+    workspaceId,
+    "overtimeWorks",
+    overtime.id,
+  );
+  const workerId = readString(overtime.data.workerId, readString(recordData.workerId, ""));
+
+  if (input.action === "reject-overtime") {
+    batch.update(overtimeRef, {
+      decidedAt: serverTimestamp(),
+      decidedBy: managerUid,
+      payrollEffect: "none",
+      payrollStatus: "none",
+      rejectedReason: input.reason || null,
+      status: "rejected",
+      updatedAt: serverTimestamp(),
+    });
+    batch.update(recordRef, {
+      hasPendingOvertime: false,
+      updatedAt: serverTimestamp(),
+    });
+    queueWorkerNotification({
+      batch,
+      db,
+      eventType: "overtime_rejected",
+      payload: {
+        overtimeWorkId: overtime.id,
+        reason: input.reason,
+        targetFocusId: input.recordId,
+        targetScreen: "worker_work_record_detail",
+      },
+      relatedEntityId: overtime.id,
+      relatedEntityType: "overtimeWork",
+      recipientId: workerId,
+      workspaceId,
+    });
+
+    return;
+  }
+
+  if (payrollApplication === "immediate" && (!input.amount || input.amount <= 0)) {
+    throw new Error("즉시 반영할 추가근무 고정 지급액을 입력해 주세요.");
+  }
+
+  batch.update(overtimeRef, {
+    amount: input.amount ?? null,
+    approvedAt: serverTimestamp(),
+    decidedAt: serverTimestamp(),
+    decidedBy: managerUid,
+    managerNote: input.reason,
+    payrollEffect: payrollApplication,
+    payrollStatus: payrollApplication === "hold" ? "held" : "confirmed",
+    status: "approved",
+    updatedAt: serverTimestamp(),
+  });
+  batch.update(recordRef, {
+    hasPendingOvertime: false,
+    updatedAt: serverTimestamp(),
+  });
+  queueWorkerNotification({
+    batch,
+    db,
+    eventType: "overtime_approved",
+    payload: {
+      amount: input.amount ?? null,
+      overtimeWorkId: overtime.id,
+      payrollEffect: payrollApplication,
+      targetFocusId: input.recordId,
+      targetScreen: "worker_work_record_detail",
+    },
+    relatedEntityId: overtime.id,
+    relatedEntityType: "overtimeWork",
+    recipientId: workerId,
+    workspaceId,
+  });
+  queueReconfirmationAlert({
+    batch,
+    db,
+    reason: "추가근무 승인 후 산정 입력 변경",
+    workspaceId,
+    ...payrollContext,
+  });
+}
+
+type WorkerMonthPayrollContext = {
+  paid: boolean;
+  row: FirestoreDocument | null;
+  statement: FirestoreDocument | null;
+};
+
+function getWorkerMonthPayrollContext(
+  collections: RecordsCollections,
+  target: { monthKey: string; workerId: string },
+): WorkerMonthPayrollContext {
+  const statement = collections.payStatements.find(
+    (item) =>
+      readString(item.data.workerId, "") === target.workerId &&
+      readString(item.data.monthKey, "") === target.monthKey,
+  ) ?? null;
+  const row = collections.payrollWorkerMonthRows.find(
+    (item) =>
+      readString(item.data.workerId, "") === target.workerId &&
+      readString(item.data.monthKey, "") === target.monthKey,
+  ) ?? null;
+  const paid =
+    readString(statement?.data.status, "") === "paid" ||
+    readString(row?.data.rowStatus, "") === "paid";
+
+  return { paid, row, statement };
+}
+
+function queueReconfirmationAlert({
+  batch,
+  db,
+  reason,
+  row,
+  statement,
+  workspaceId,
+}: WorkerMonthPayrollContext & {
+  batch: WriteBatch;
+  db: ReturnType<typeof getFirebaseDb>;
+  reason: string;
+  workspaceId: string;
+}) {
+  const statementProcessing = readString(statement?.data.status, "") === "processing";
+  const rowStatus = readString(row?.data.rowStatus, "");
+  const rowProcessing = rowStatus === "processing" || rowStatus === "needs_reconfirmation";
+
+  if (!statementProcessing && !rowProcessing) {
+    return;
+  }
+
+  if (statement) {
+    batch.set(
+      doc(db, "workspaces", workspaceId, "payStatements", statement.id),
+      {
+        currentCalculationSummary: {
+          sourceChangedAt: serverTimestamp(),
+        },
+        managerOnly: {
+          diffReason: reason,
+          needsReconfirmation: true,
+        },
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
+
+  if (row) {
+    batch.set(
+      doc(db, "workspaces", workspaceId, "payrollWorkerMonthRows", row.id),
+      {
+        rowStatus: "needs_reconfirmation",
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
+}
+
+function queueMonthlyRecordAdjustment({
+  batch,
+  collections,
+  db,
+  input,
+  monthKey,
+  newEndAt,
+  newStartAt,
+  recordData,
+  sourceId,
+  workspaceId,
+}: {
+  batch: WriteBatch;
+  collections: RecordsCollections;
+  db: ReturnType<typeof getFirebaseDb>;
+  input: RecordMainActionInput;
+  monthKey: string;
+  newEndAt: Date | null;
+  newStartAt: Date | null;
+  recordData: Record<string, unknown>;
+  sourceId: string;
+  workspaceId: string;
+}) {
+  if (input.payrollEffect !== "immediate") {
+    return;
+  }
+
+  const workerId = readString(recordData.workerId, "");
+  const setting = findPayrollSettingForMonth(
+    collections.payrollSettings.map(mapPayrollSetting),
+    workerId,
+    monthKey,
+  );
+
+  if (
+    setting?.payrollType !== "monthly" ||
+    setting.monthlySalary == null ||
+    setting.monthlySalary <= 0
+  ) {
+    return;
+  }
+
+  const originalMinutes = getRecordDurationMinutes(recordData);
+  const nextMinutes =
+    input.action === "delete" ? 0 : getDurationMinutes(newStartAt, newEndAt);
+  const reducedMinutes = Math.max(originalMinutes - nextMinutes, 0);
+
+  if (reducedMinutes <= 0) {
+    return;
+  }
+
+  const totalMonthMinutes = collections.workRecords
+    .filter(
+      (item) =>
+        readString(item.data.workerId, "") === workerId &&
+        readString(item.data.dateKey, readString(item.data.date, "")).slice(0, 7) ===
+          monthKey &&
+        readString(item.data.status, "") !== "deleted",
+    )
+    .reduce((total, item) => total + getRecordDurationMinutes(item.data), 0);
+
+  if (totalMonthMinutes <= 0) {
+    return;
+  }
+
+  const amount = -Math.round(
+    setting.monthlySalary * (reducedMinutes / totalMonthMinutes),
+  );
+
+  if (amount >= 0) {
+    return;
+  }
+
+  const adjustmentRef = doc(
+    db,
+    "workspaces",
+    workspaceId,
+    "bonusItems",
+    `bonus_record_adjustment_${sourceId}`,
+  );
+  const dutyName = readString(recordData.dutyName, "근무기록");
+  const label =
+    input.action === "delete" ? `${dutyName} 결근 차감` : `${dutyName} 근무기록 차감`;
+
+  batch.set(adjustmentRef, {
+    amount,
+    createdAt: serverTimestamp(),
+    createdBy: getFirebaseAuth().currentUser?.uid ?? null,
+    label,
+    monthKey,
+    payrollStatus: "confirmed",
+    sourceType: "work_record_adjustment",
+    sourceWorkRecordId: input.recordId,
+    taxScope: "post_tax",
+    updatedAt: serverTimestamp(),
+    workerId,
+    workerName: readString(recordData.workerName, ""),
+    workspaceId,
+  });
+}
+
+function queueWorkerNotification({
+  batch,
+  db,
+  eventType,
+  payload,
+  recipientId,
+  relatedEntityId,
+  relatedEntityType,
+  workspaceId,
+}: {
+  batch: WriteBatch;
+  db: ReturnType<typeof getFirebaseDb>;
+  eventType: string;
+  payload: Record<string, unknown>;
+  recipientId: string;
+  relatedEntityId: string;
+  relatedEntityType: string;
+  workspaceId: string;
+}) {
+  if (!recipientId) {
+    return;
+  }
+
+  const notificationRef = doc(
+    collection(db, "workspaces", workspaceId, "notifications"),
+  );
+
+  batch.set(notificationRef, {
+    channel: "fcm",
+    createdAt: serverTimestamp(),
+    deliveryStatus: "stored",
+    eventType,
+    payload,
+    readAt: null,
+    recipientId,
+    recipientRole: "worker",
+    relatedEntityId,
+    relatedEntityType,
+    workspaceId,
+  });
+}
+
+function resolveActionTimestamp({
+  dateKey,
+  fallback,
+  timeValue,
+}: {
+  dateKey: string;
+  fallback: Date | null;
+  timeValue?: string;
+}) {
+  return parseRecordActionTimestamp(dateKey, timeValue)?.toDate() ?? fallback;
+}
+
+function createWorkerSafeRecordSnapshot(
+  data: Record<string, unknown>,
+  options: {
+    changeReason?: string;
+    changeType: string;
+  },
+) {
+  return {
+    changeReason: options.changeReason ?? null,
+    changeType: options.changeType,
+    dateKey: readString(data.dateKey, readString(data.date, "")),
+    dutyName: readString(data.dutyName, "근무기록"),
+    effectiveEndAt: toTimestampOrNull(readDate(data.effectiveEndAt)),
+    effectiveStartAt: toTimestampOrNull(readDate(data.effectiveStartAt)),
+    plannedEndAt: toTimestampOrNull(readDate(data.plannedEndAt)),
+    plannedStartAt: toTimestampOrNull(readDate(data.plannedStartAt)),
+    status: readString(data.status, ""),
+  };
+}
+
+function toTimestampOrNull(date: Date | null) {
+  return date ? Timestamp.fromDate(date) : null;
+}
+
+function getRecordStartDate(data: Record<string, unknown>) {
+  return readDate(data.effectiveStartAt) ?? readDate(data.plannedStartAt);
+}
+
+function getRecordEndDate(data: Record<string, unknown>) {
+  return readDate(data.effectiveEndAt) ?? readDate(data.plannedEndAt);
+}
+
+function getRecordDurationMinutes(data: Record<string, unknown>) {
+  return getDurationMinutes(getRecordStartDate(data), getRecordEndDate(data));
+}
+
+function getDurationMinutes(start: Date | null, end: Date | null) {
+  if (!start || !end) {
+    return 0;
+  }
+
+  return Math.max(Math.round((end.getTime() - start.getTime()) / 60000), 0);
+}
+
+function mapPayrollSetting(document: FirestoreDocument): PayrollSettingModel {
+  const data = document.data;
+
+  return {
+    effectiveFrom: readNullableString(data.effectiveFrom),
+    hourlyRate: readNullableNumber(data.hourlyRate),
+    monthlySalary: readNullableNumber(data.monthlySalary),
+    payrollType: readString(data.payrollType, "hourly"),
+    workerId: readString(data.workerId, ""),
+  };
+}
+
+function findPayrollSettingForMonth(
+  settings: readonly PayrollSettingModel[],
+  workerId: string,
+  monthKey: string,
+) {
+  const monthEndKey = getMonthEndDateKey(monthKey);
+
+  return settings
+    .filter(
+      (setting) =>
+        setting.workerId === workerId &&
+        (!setting.effectiveFrom || setting.effectiveFrom <= monthEndKey),
+    )
+    .sort((left, right) =>
+      (right.effectiveFrom ?? "").localeCompare(left.effectiveFrom ?? ""),
+    )[0];
+}
+
+function getMonthEndDateKey(monthKey: string) {
+  const [year = "2026", month = "04"] = monthKey.split("-");
+  const lastDay = new Date(Number(year), Number(month), 0).getDate();
+
+  return `${year}-${month.padStart(2, "0")}-${pad2(lastDay)}`;
+}
+
 function mapRecordMainView(collections: RecordsCollections): RecordMainViewModel {
   const records = collections.workRecords.map(mapWorkRecord).sort(compareRecords);
   const attendanceById = toMap(
@@ -401,6 +1209,14 @@ function mapRecordMainView(collections: RecordsCollections): RecordMainViewModel
   );
   const overtimeIdsByRecordId = groupIdsByWorkRecordId(
     overtimeWorks.filter((work) => work.status === "submitted"),
+  );
+  const pendingCorrectionByRecordId = toMap(
+    correctionRequests.filter((request) => request.status === "submitted"),
+    (request) => request.workRecordId,
+  );
+  const pendingOvertimeByRecordId = toMap(
+    overtimeWorks.filter((work) => work.status === "submitted"),
+    (work) => work.workRecordId,
   );
   const pendingCorrectionIds = new Set(correctionIdsByRecordId.keys());
   const pendingOvertimeIds = new Set(overtimeIdsByRecordId.keys());
@@ -426,6 +1242,8 @@ function mapRecordMainView(collections: RecordsCollections): RecordMainViewModel
   );
   const detailStatesByBlockId = createDetailStatesByBlockId(records, {
     attendanceById,
+    pendingCorrectionByRecordId,
+    pendingOvertimeByRecordId,
     flagsByRecordId,
   });
 
@@ -435,7 +1253,13 @@ function mapRecordMainView(collections: RecordsCollections): RecordMainViewModel
       attendance: selectedRecord?.attendanceLogId
         ? attendanceById.get(selectedRecord.attendanceLogId) ?? null
         : null,
+      correction: selectedRecord
+        ? pendingCorrectionByRecordId.get(selectedRecord.id) ?? null
+        : null,
       flag: selectedRecord ? flagsByRecordId.get(selectedRecord.id) ?? null : null,
+      overtime: selectedRecord
+        ? pendingOvertimeByRecordId.get(selectedRecord.id) ?? null
+        : null,
       record: selectedRecord,
     }),
     detailStatesByBlockId,
@@ -574,9 +1398,11 @@ function mapWorkRecord(document: FirestoreDocument): WorkRecordModel {
     hasUnresolvedAnomaly: readBoolean(data.hasUnresolvedAnomaly),
     id: document.id,
     locationName: readString(data.locationName, "근무지 미지정"),
+    managerOnly: readRecord(data.managerOnly),
     plannedEndAt: readDate(data.plannedEndAt),
     plannedStartAt: readDate(data.plannedStartAt),
     status: readString(data.status, ""),
+    workerId: readString(data.workerId, ""),
     workerName: readString(data.workerName, "이름 없는 조교"),
   };
 }
@@ -638,11 +1464,17 @@ function mapOvertimeWork(document: FirestoreDocument): OvertimeWorkModel {
 
   return {
     createdAt: readDate(data.createdAt),
+    extraEndAt: readDate(data.extraEndAt),
+    extraStartAt: readDate(data.extraStartAt),
     id: document.id,
+    monthKey: readString(data.monthKey, ""),
     payrollEffect: readString(data.payrollEffect, "none"),
     payrollStatus: readString(data.payrollStatus, "none"),
+    reason: readString(data.reason, "사유가 등록되지 않았습니다."),
     status: readString(data.status, "submitted"),
     workRecordId: readNullableString(data.workRecordId),
+    workerId: readString(data.workerId, ""),
+    workerName: readString(data.workerName, "이름 없는 조교"),
   };
 }
 
@@ -730,6 +1562,8 @@ function createDetailStatesByBlockId(
   options: {
     attendanceById: ReadonlyMap<string, AttendanceLogModel>;
     flagsByRecordId: ReadonlyMap<string, AnomalyFlagModel | undefined>;
+    pendingCorrectionByRecordId: ReadonlyMap<string, CorrectionRequestModel>;
+    pendingOvertimeByRecordId: ReadonlyMap<string, OvertimeWorkModel>;
   },
 ) {
   const detailStatesByBlockId: Record<
@@ -742,7 +1576,9 @@ function createDetailStatesByBlockId(
       attendance: record.attendanceLogId
         ? options.attendanceById.get(record.attendanceLogId) ?? null
         : null,
+      correction: options.pendingCorrectionByRecordId.get(record.id) ?? null,
       flag: options.flagsByRecordId.get(record.id) ?? null,
+      overtime: options.pendingOvertimeByRecordId.get(record.id) ?? null,
       record,
     });
   }
@@ -786,11 +1622,15 @@ function selectInitialRecord(
 
 function createDetailStates({
   attendance,
+  correction,
   flag,
+  overtime,
   record,
 }: {
   attendance: AttendanceLogModel | null;
+  correction: CorrectionRequestModel | null;
   flag: AnomalyFlagModel | null;
+  overtime: OvertimeWorkModel | null;
   record: WorkRecordModel | null;
 }): Record<RecordDetailStateId, RecordDetailState> {
   const empty = createEmptyDetailState(
@@ -813,6 +1653,15 @@ function createDetailStates({
   const normal = createNormalDetailState(record, attendance);
   const hasUnresolvedFlag = Boolean(flag) &&
     isUnresolvedAnomaly(record, new Map([[record.id, flag ?? undefined]]));
+
+  if (!hasUnresolvedFlag && correction) {
+    return createCorrectionDetailStates(record, attendance, correction, empty);
+  }
+
+  if (!hasUnresolvedFlag && overtime) {
+    return createOvertimeDetailStates(record, attendance, overtime, empty);
+  }
+
   const actionBase = hasUnresolvedFlag
     ? createAnomalyDetailBase(record, attendance, flag)
     : createRecordActionDetailBase(record, attendance);
@@ -834,13 +1683,9 @@ function createDetailStates({
       id: "anomaly-step-3",
       actions: createRecordActionButtons(hasUnresolvedFlag, "edit"),
       confirmLabel: "확인",
-      payrollMode: {
-        label: "급여 반영",
-        options: [
-          { id: "immediate", label: "즉시", active: true },
-          { id: "hold", label: "보류" },
-        ],
-      },
+      payrollMode: createPayrollMode(
+        "즉시는 변경을 산정 입력에 바로 반영합니다. 월급제에서 시간이 줄면 차감 항목이 자동 생성됩니다.",
+      ),
       reasonField: {
         label: "수정 사유",
         placeholder: "수정 사유를 입력하세요",
@@ -864,14 +1709,172 @@ function createDetailStates({
       actions: createRecordActionButtons(hasUnresolvedFlag, "delete"),
       confirmLabel: "확인",
       helperText: "해당 근무기록이 삭제되어 결근으로 처리됩니다.",
-      payrollMode: {
-        label: "급여 반영",
-        options: [
-          { id: "immediate", label: "즉시", active: true },
-          { id: "hold", label: "보류" },
-        ],
-      },
+      payrollMode: createPayrollMode(
+        "즉시는 삭제를 산정 입력에 바로 반영합니다. 월급제에서는 결근 차감 항목이 자동 생성됩니다.",
+      ),
     },
+  };
+}
+
+function createCorrectionDetailStates(
+  record: WorkRecordModel,
+  attendance: AttendanceLogModel | null,
+  correction: CorrectionRequestModel,
+  empty: RecordDetailState,
+): Record<RecordDetailStateId, RecordDetailState> {
+  const base = createRecordActionDetailBase(record, attendance);
+  const afterStartAt =
+    readDate(correction.afterSnapshot.effectiveStartAt) ??
+    readDate(correction.afterSnapshot.plannedStartAt) ??
+    record.effectiveStartAt ??
+    record.plannedStartAt;
+  const afterEndAt =
+    readDate(correction.afterSnapshot.effectiveEndAt) ??
+    readDate(correction.afterSnapshot.plannedEndAt) ??
+    record.effectiveEndAt ??
+    record.plannedEndAt;
+
+  return {
+    empty,
+    "normal-selected": {
+      ...base,
+      actions: [
+        { id: "approve-correction", label: "승인" },
+        { id: "reject-correction", label: "반려" },
+      ],
+      alertText: correction.reason,
+      statusLabel: "이의신청",
+      statusTone: "orange",
+    },
+    "anomaly-step-1": base,
+    "anomaly-step-2": base,
+    "anomaly-step-3": {
+      ...base,
+      actions: [
+        { id: "approve-correction", label: "승인", active: true },
+        { id: "reject-correction", label: "반려" },
+      ],
+      confirmLabel: "승인",
+      helperText: "승인 시 요청된 값으로 근무기록을 갱신합니다.",
+      id: "anomaly-step-3",
+      payrollMode: createPayrollMode(
+        "즉시는 변경을 산정 입력에 포함하고, 보류는 변경을 기록하되 산정에서 제외합니다.",
+      ),
+      reasonField: {
+        label: "처리 메모",
+        placeholder: "처리 메모를 입력하세요",
+      },
+      statusLabel: "이의신청",
+      statusTone: "orange",
+      submitAction: "approve-correction",
+      timeFields: [
+        {
+          id: "check-in",
+          label: "출근 시간",
+          value: formatKoreanTime(afterStartAt),
+        },
+        {
+          id: "check-out",
+          label: "퇴근 시간",
+          value: formatKoreanTime(afterEndAt),
+        },
+      ],
+    },
+    "anomaly-step-4": {
+      ...base,
+      actions: [
+        { id: "approve-correction", label: "승인" },
+        { id: "reject-correction", label: "반려", active: true },
+      ],
+      confirmLabel: "반려",
+      id: "anomaly-step-4",
+      reasonField: {
+        label: "반려 사유",
+        placeholder: "반려 사유를 입력하세요",
+      },
+      statusLabel: "이의신청",
+      statusTone: "orange",
+      submitAction: "reject-correction",
+    },
+  };
+}
+
+function createOvertimeDetailStates(
+  record: WorkRecordModel,
+  attendance: AttendanceLogModel | null,
+  overtime: OvertimeWorkModel,
+  empty: RecordDetailState,
+): Record<RecordDetailStateId, RecordDetailState> {
+  const base = {
+    ...createRecordActionDetailBase(record, attendance),
+    lines: [
+      ...createRecordDetailLines(record, attendance, false),
+      detailLine("extra-start", "추가 시작", formatTime(overtime.extraStartAt)),
+      detailLine("extra-end", "추가 종료", formatTime(overtime.extraEndAt)),
+      detailLine("reason", "신청 사유", overtime.reason),
+    ],
+    statusLabel: "추가근무",
+    statusTone: "blue" as const,
+  };
+
+  return {
+    empty,
+    "normal-selected": {
+      ...base,
+      actions: [
+        { id: "approve-overtime", label: "승인" },
+        { id: "reject-overtime", label: "반려" },
+      ],
+    },
+    "anomaly-step-1": base,
+    "anomaly-step-2": base,
+    "anomaly-step-3": {
+      ...base,
+      amountField: {
+        label: "고정 지급액",
+        placeholder: "예) 10000",
+      },
+      actions: [
+        { id: "approve-overtime", label: "승인", active: true },
+        { id: "reject-overtime", label: "반려" },
+      ],
+      confirmLabel: "승인",
+      helperText: "추가근무 급여는 시급제와 월급제 모두 별도 고정액으로 반영합니다.",
+      id: "anomaly-step-3",
+      payrollMode: createPayrollMode(
+        "즉시는 입력한 고정액을 추가근무 급여에 반영하고, 보류는 확정/재확정 시점에 결정합니다.",
+      ),
+      reasonField: {
+        label: "처리 메모",
+        placeholder: "처리 메모를 입력하세요",
+      },
+      submitAction: "approve-overtime",
+    },
+    "anomaly-step-4": {
+      ...base,
+      actions: [
+        { id: "approve-overtime", label: "승인" },
+        { id: "reject-overtime", label: "반려", active: true },
+      ],
+      confirmLabel: "반려",
+      id: "anomaly-step-4",
+      reasonField: {
+        label: "반려 사유",
+        placeholder: "반려 사유를 입력하세요",
+      },
+      submitAction: "reject-overtime",
+    },
+  };
+}
+
+function createPayrollMode(description?: string): NonNullable<RecordDetailState["payrollMode"]> {
+  return {
+    description,
+    label: "급여 반영",
+    options: [
+      { id: "immediate", label: "즉시", active: true },
+      { id: "hold", label: "보류" },
+    ],
   };
 }
 
@@ -1669,6 +2672,10 @@ function readBoolean(value: unknown) {
 
 function readNumber(value: unknown, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function readNullableNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function readRecord(value: unknown): Record<string, unknown> {

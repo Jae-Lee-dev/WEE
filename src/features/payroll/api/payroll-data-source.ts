@@ -5,6 +5,7 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  writeBatch,
   type DocumentData,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
@@ -170,6 +171,7 @@ type WorkRecord = {
   effectiveStartAt: Date | null;
   id: string;
   locationName: string;
+  payrollApplication: string;
   plannedEndAt: Date | null;
   plannedStartAt: Date | null;
   status: string;
@@ -190,7 +192,10 @@ type AnomalyFlag = {
 };
 
 type OvertimeWork = {
+  amount: number | null;
   createdAt: Date | null;
+  extraEndAt: Date | null;
+  extraStartAt: Date | null;
   id: string;
   monthKey: string;
   payrollEffect: string;
@@ -260,9 +265,17 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
   return {
     async createAdjustment(input) {
       const workspaceId = await requireActiveWorkspaceId();
-      const adjustmentRef = doc(getPayrollCollectionRef(workspaceId, "bonusItems"));
+      const collections = await loadPayrollCollections();
+      const payrollContext = getPayrollMutationContext(collections, input);
 
-      await setDoc(adjustmentRef, {
+      if (payrollContext.paid) {
+        throw new Error("지급 완료된 월의 보너스/차감 항목은 수정할 수 없습니다.");
+      }
+
+      const adjustmentRef = doc(getPayrollCollectionRef(workspaceId, "bonusItems"));
+      const batch = writeBatch(getFirebaseDb());
+
+      batch.set(adjustmentRef, {
         amount: input.amount,
         createdAt: serverTimestamp(),
         label: input.label,
@@ -274,6 +287,14 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
         workerName: input.workerName,
         workspaceId,
       });
+      queuePayrollReconfirmation({
+        batch,
+        reason: "보너스/차감 항목 추가",
+        workspaceId,
+        ...payrollContext,
+      });
+
+      await batch.commit();
 
       return buildCalculationViewModel(await loadPayrollCollections(), input);
     },
@@ -301,6 +322,18 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
       const recordsByWorkerMonth = groupBy(collections.workRecords.map(mapWorkRecord), (record) =>
         getWorkerMonthKey(record.workerId, record.dateKey.slice(0, 7)),
       );
+      const overtimeByWorkerMonth = groupBy(
+        collections.overtimeWorks.map(mapOvertimeWork),
+        (work) => getWorkerMonthKey(work.workerId, work.monthKey),
+      );
+      const anomaliesByWorkerMonth = groupBy(
+        collections.anomalyFlags.map(mapAnomalyFlag),
+        (flag) => getWorkerMonthKey(flag.workerId, flag.dateKey.slice(0, 7)),
+      );
+      const correctionsByWorkerMonth = groupBy(
+        collections.correctionRequests.map(mapCorrectionRequest),
+        (request) => getWorkerMonthKey(request.workerId, request.monthKey),
+      );
       const statements = collections.payStatements
         .map(mapPayStatement)
         .filter(isPayStatement);
@@ -312,8 +345,22 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
             item.monthKey === projection.monthKey,
         );
       const setting = resolveSetting(projection.workerId, projection.monthKey);
+      const blockingItemCount = getOpenItemCount({
+        anomalyFlags: anomaliesByWorkerMonth[workerMonthKey] ?? [],
+        bonuses: bonusesByWorkerMonth[workerMonthKey] ?? [],
+        correctionRequests: correctionsByWorkerMonth[workerMonthKey] ?? [],
+        overtimeWorks: overtimeByWorkerMonth[workerMonthKey] ?? [],
+        projection,
+        records: recordsByWorkerMonth[workerMonthKey] ?? [],
+      });
+
+      if (input.action !== "mark_paid" && blockingItemCount > 0) {
+        throw new Error("미처리 항목을 처리해야 급여를 확정할 수 있습니다.");
+      }
+
       const amounts = calculateAmounts({
         bonuses: bonusesByWorkerMonth[workerMonthKey] ?? [],
+        overtimeWorks: overtimeByWorkerMonth[workerMonthKey] ?? [],
         projection,
         records: recordsByWorkerMonth[workerMonthKey] ?? [],
         setting,
@@ -395,8 +442,16 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
     },
     async deleteAdjustment(input) {
       const workspaceId = await requireActiveWorkspaceId();
+      const collections = await loadPayrollCollections();
+      const payrollContext = getPayrollMutationContext(collections, input);
 
-      await updateDoc(
+      if (payrollContext.paid) {
+        throw new Error("지급 완료된 월의 보너스/차감 항목은 수정할 수 없습니다.");
+      }
+
+      const batch = writeBatch(getFirebaseDb());
+
+      batch.update(
         doc(getFirebaseDb(), "workspaces", workspaceId, "bonusItems", input.adjustmentId),
         {
           deletedAt: serverTimestamp(),
@@ -404,6 +459,14 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
           updatedAt: serverTimestamp(),
         },
       );
+      queuePayrollReconfirmation({
+        batch,
+        reason: "보너스/차감 항목 삭제",
+        workspaceId,
+        ...payrollContext,
+      });
+
+      await batch.commit();
 
       return buildCalculationViewModel(await loadPayrollCollections(), input);
     },
@@ -466,6 +529,83 @@ async function getPayrollCollection(workspaceId: string, name: string) {
 
 function getPayrollCollectionRef(workspaceId: string, name: string) {
   return collection(getFirebaseDb(), "workspaces", workspaceId, name);
+}
+
+type PayrollMutationContext = {
+  paid: boolean;
+  row: PayrollDocument | null;
+  statement: PayrollDocument | null;
+};
+
+function getPayrollMutationContext(
+  collections: PayrollCollections,
+  target: PayrollMutationTarget,
+): PayrollMutationContext {
+  const statement = collections.payStatements.find(
+    (item) =>
+      item.id === target.focusId ||
+      (readString(item.data.workerId, "") === target.workerId &&
+        readMonthKey(item.data.monthKey) === target.monthKey),
+  ) ?? null;
+  const row = collections.payrollWorkerMonthRows.find(
+    (item) =>
+      item.id === target.focusId ||
+      (readString(item.data.workerId, "") === target.workerId &&
+        readMonthKey(item.data.monthKey) === target.monthKey),
+  ) ?? null;
+  const paid =
+    readString(statement?.data.status, "") === "paid" ||
+    readString(row?.data.rowStatus, "") === "paid";
+
+  return { paid, row, statement };
+}
+
+function queuePayrollReconfirmation({
+  batch,
+  reason,
+  row,
+  statement,
+  workspaceId,
+}: PayrollMutationContext & {
+  batch: ReturnType<typeof writeBatch>;
+  reason: string;
+  workspaceId: string;
+}) {
+  const statementProcessing = readString(statement?.data.status, "") === "processing";
+  const rowStatus = readString(row?.data.rowStatus, "");
+  const rowProcessing = rowStatus === "processing" || rowStatus === "needs_reconfirmation";
+
+  if (!statementProcessing && !rowProcessing) {
+    return;
+  }
+
+  if (statement) {
+    batch.set(
+      doc(getFirebaseDb(), "workspaces", workspaceId, "payStatements", statement.id),
+      {
+        currentCalculationSummary: {
+          sourceChangedAt: serverTimestamp(),
+        },
+        managerOnly: {
+          diffReason: reason,
+          needsReconfirmation: true,
+        },
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
+
+  if (row) {
+    batch.set(
+      doc(getFirebaseDb(), "workspaces", workspaceId, "payrollWorkerMonthRows", row.id),
+      {
+        rowStatus: "needs_reconfirmation",
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
 }
 
 function buildCalculationViewModel(
@@ -595,6 +735,7 @@ function buildCalculationRow({
 }): PayrollCalculationRow {
   const amounts = calculateAmounts({
     bonuses,
+    overtimeWorks,
     projection,
     records,
     setting,
@@ -606,7 +747,7 @@ function buildCalculationRow({
     correctionRequests,
     overtimeWorks,
     projection,
-    statement,
+    records,
   });
 
   return {
@@ -718,6 +859,7 @@ function buildCalculationDetail({
 }): PayrollCalculationDetail {
   const amounts = calculateAmounts({
     bonuses,
+    overtimeWorks,
     projection,
     records,
     setting,
@@ -731,12 +873,13 @@ function buildCalculationDetail({
     records,
     statement,
   });
+  const blockingOpenItemCount = openCards.filter(isBlockingOpenItemCard).length;
   const resolvedCards =
     openCards.length > 0
       ? openCards
       : buildResolvedWorkRecordCards(records.slice(0, 8));
   const footer = buildCalculationFooter({
-    openItemCount: openCards.length,
+    openItemCount: blockingOpenItemCount,
     projection,
   });
 
@@ -767,8 +910,8 @@ function buildCalculationDetail({
     workRecordSection: {
       cards: resolvedCards,
       openCount:
-        openCards.length > 0
-          ? `미처리 ${openCards.length.toLocaleString("ko-KR")}건`
+        blockingOpenItemCount > 0
+          ? `미처리 ${blockingOpenItemCount.toLocaleString("ko-KR")}건`
           : undefined,
       title: "월 근무기록 · 미처리 항목",
       totalCount: `${Math.max(records.length, resolvedCards.length).toLocaleString("ko-KR")}건`,
@@ -778,23 +921,29 @@ function buildCalculationDetail({
 
 function calculateAmounts({
   bonuses,
+  overtimeWorks,
   projection,
   records,
   setting,
   statement,
 }: {
   bonuses: readonly BonusItem[];
+  overtimeWorks: readonly OvertimeWork[];
   projection: PayrollWorkerMonthProjection;
   records: readonly WorkRecord[];
   setting?: PayrollSetting;
   statement?: PayStatement;
 }): CalculationAmounts {
   const totalWorkMinutes = records.reduce(
-    (total, record) => total + getRecordMinutes(record),
+    (total, record) => total + getPayrollRecordMinutes(record),
     0,
   );
   const basePay = estimateBasePayFromRecords(totalWorkMinutes, setting);
-  const overtimePay = statement?.overtimePay ?? 0;
+  const calculatedOvertimePay = sumConfirmedOvertimePay(overtimeWorks, setting);
+  const overtimePay =
+    projection.rowStatus === "paid"
+      ? (statement?.overtimePay ?? calculatedOvertimePay)
+      : calculatedOvertimePay;
   const preTaxAdjustment = sumBonusesByTaxScope(bonuses, "pre_tax");
   const postTaxAdjustment = sumBonusesByTaxScope(bonuses, "post_tax");
   const taxableSubtotal = (basePay ?? 0) + overtimePay + preTaxAdjustment;
@@ -947,6 +1096,42 @@ function buildOpenItemCards({
   statement?: PayStatement;
 }): readonly PayrollOpenItemCard[] {
   const recordById = new Map(records.map((record) => [record.id, record]));
+  const heldCorrectionRecordIds = new Set(
+    correctionRequests
+      .filter((request) => request.payrollStatus === "held")
+      .map((request) => request.workRecordId)
+      .filter((id): id is string => Boolean(id)),
+  );
+  const heldRecordCards = records
+    .filter(
+      (record) =>
+        record.payrollApplication === "hold" &&
+        !heldCorrectionRecordIds.has(record.id),
+    )
+    .map((record) => ({
+      actions: [createRecordsOpenItemAction(record.id)],
+      dateLabel: formatDateKeyDisplay(record.dateKey),
+      id: `${record.id}-payroll-hold`,
+      lines: [
+        {
+          id: "payroll",
+          label: "급여 처리",
+          tone: "negative",
+          value: "보류",
+        },
+        {
+          id: "duration",
+          label: "산정 제외 시간",
+          value: formatHours(getRecordMinutes(record)),
+        },
+      ],
+      locationName: record.locationName,
+      state: "open",
+      statusLabel: "근무기록",
+      statusTone: "orange",
+      timeLabel: formatRecordTime(record),
+      title: record.dutyName,
+    }) satisfies PayrollOpenItemCard);
   const anomalyCards = anomalyFlags
     .filter((item) => item.status === "unresolved")
     .map((flag) => {
@@ -1123,6 +1308,7 @@ function buildOpenItemCards({
     : [];
 
   return [
+    ...heldRecordCards,
     ...anomalyCards,
     ...overtimeCards,
     ...correctionCards,
@@ -1159,6 +1345,10 @@ function createPayrollStatementHref(statement: PayStatement) {
   return `/payroll/statements?${params.toString()}`;
 }
 
+function isBlockingOpenItemCard(card: PayrollOpenItemCard) {
+  return card.statusLabel !== "재확정 필요";
+}
+
 function buildResolvedWorkRecordCards(
   records: readonly WorkRecord[],
 ): readonly PayrollOpenItemCard[] {
@@ -1175,7 +1365,7 @@ function buildResolvedWorkRecordCards(
       {
         id: "duration",
         label: "반영 시간",
-        value: formatHours(getRecordMinutes(record)),
+        value: formatHours(getPayrollRecordMinutes(record)),
       },
     ],
     locationName: record.locationName,
@@ -1253,6 +1443,55 @@ function getRecordMinutes(record: WorkRecord) {
   const end = record.effectiveEndAt ?? record.plannedEndAt;
 
   if (!start || !end) {
+    return 0;
+  }
+
+  return Math.max(Math.round((end.getTime() - start.getTime()) / 60000), 0);
+}
+
+function getPayrollRecordMinutes(record: WorkRecord) {
+  return isRecordExcludedFromPayroll(record) ? 0 : getRecordMinutes(record);
+}
+
+function isRecordExcludedFromPayroll(record: WorkRecord) {
+  return record.status === "deleted" || record.payrollApplication === "hold";
+}
+
+function sumConfirmedOvertimePay(
+  overtimeWorks: readonly OvertimeWork[],
+  setting?: PayrollSetting,
+) {
+  return overtimeWorks
+    .filter(
+      (work) =>
+        work.status === "approved" &&
+        work.payrollStatus !== "held" &&
+        work.payrollStatus !== "deleted" &&
+        work.payrollStatus !== "none",
+    )
+    .reduce((total, work) => total + getOvertimePayAmount(work, setting), 0);
+}
+
+function getOvertimePayAmount(
+  work: OvertimeWork,
+  setting?: PayrollSetting,
+) {
+  if (work.amount != null) {
+    return work.amount;
+  }
+
+  if (setting?.hourlyRate == null) {
+    return 0;
+  }
+
+  return Math.round((getOvertimeMinutes(work) / 60) * setting.hourlyRate);
+}
+
+function getOvertimeMinutes(work: OvertimeWork) {
+  const start = work.extraStartAt;
+  const end = work.extraEndAt;
+
+  if (!start || !end || end <= start) {
     return 0;
   }
 
@@ -1357,6 +1596,10 @@ function getTaxScopeLabel(value: string) {
 }
 
 function getWorkRecordStatusLabel(value: string) {
+  if (value === "deleted") {
+    return "삭제";
+  }
+
   if (value === "resolved") {
     return "처리 완료";
   }
@@ -1720,6 +1963,7 @@ function mapPayStatement(document: PayrollDocument): PayStatement | null {
 
 function mapWorkRecord(document: PayrollDocument): WorkRecord {
   const data = document.data;
+  const managerOnly = readRecord(data.managerOnly);
 
   return {
     anomalyType: readString(data.anomalyType, "none"),
@@ -1729,6 +1973,7 @@ function mapWorkRecord(document: PayrollDocument): WorkRecord {
     effectiveStartAt: readTimestamp(data.effectiveStartAt),
     id: document.id,
     locationName: readString(data.locationName, "근무지 확인 필요"),
+    payrollApplication: readString(managerOnly.payrollApplication, "immediate"),
     plannedEndAt: readTimestamp(data.plannedEndAt),
     plannedStartAt: readTimestamp(data.plannedStartAt),
     status: readString(data.status, ""),
@@ -1757,7 +2002,10 @@ function mapOvertimeWork(document: PayrollDocument): OvertimeWork {
   const data = document.data;
 
   return {
+    amount: readNullableNumber(data.amount) ?? readNullableNumber(data.fixedAmount),
     createdAt: readTimestamp(data.createdAt ?? data.submittedAt),
+    extraEndAt: readTimestamp(data.extraEndAt),
+    extraStartAt: readTimestamp(data.extraStartAt),
     id: document.id,
     monthKey: readMonthKey(data.monthKey),
     payrollEffect: readString(data.payrollEffect, ""),
@@ -1954,17 +2202,26 @@ function getOpenItemCount({
   correctionRequests,
   overtimeWorks,
   projection,
-  statement,
+  records,
 }: {
   anomalyFlags: readonly AnomalyFlag[];
   bonuses: readonly BonusItem[];
   correctionRequests: readonly CorrectionRequest[];
   overtimeWorks: readonly OvertimeWork[];
   projection: PayrollWorkerMonthProjection;
-  statement?: PayStatement;
+  records: readonly WorkRecord[];
 }) {
   return (
     (projection.hasBlockers ? 1 : 0) +
+    records.filter(
+      (record) =>
+        record.payrollApplication === "hold" &&
+        !correctionRequests.some(
+          (request) =>
+            request.workRecordId === record.id &&
+            request.payrollStatus === "held",
+        ),
+    ).length +
     anomalyFlags.filter((item) => item.status === "unresolved").length +
     overtimeWorks.filter(
       (item) => item.status === "submitted" || item.payrollStatus === "held",
@@ -1972,8 +2229,7 @@ function getOpenItemCount({
     correctionRequests.filter(
       (item) => item.status === "submitted" || item.payrollStatus === "held",
     ).length +
-    bonuses.filter((item) => item.payrollStatus === "held").length +
-    (readBoolean(statement?.managerOnly.needsReconfirmation, false) ? 1 : 0)
+    bonuses.filter((item) => item.payrollStatus === "held").length
   );
 }
 

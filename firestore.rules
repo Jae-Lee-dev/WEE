@@ -631,13 +631,27 @@ service cloud.firestore {
           'deletedAt',
           'effectiveEndAt',
           'effectiveStartAt',
+          'hasPendingCorrection',
+          'hasPendingOvertime',
           'hasUnresolvedAnomaly',
           'managerOnly',
           'status',
           'updatedAt'
         ])
-        && data.status in ['resolved', 'deleted']
-        && data.hasUnresolvedAnomaly == false
+        && (
+          (
+            data.status in ['resolved', 'deleted']
+            && data.hasUnresolvedAnomaly == false
+          ) ||
+          (
+            changedKeys.hasOnly(['hasPendingCorrection', 'updatedAt'])
+            && data.hasPendingCorrection == false
+          ) ||
+          (
+            changedKeys.hasOnly(['hasPendingOvertime', 'updatedAt'])
+            && data.hasPendingOvertime == false
+          )
+        )
         && data.updatedAt == request.time;
     }
 
@@ -797,6 +811,24 @@ service cloud.firestore {
         allow get, list: if isWorkspaceManager(workspaceId);
         allow create, update: if isWorkspaceScopedManagerWrite(workspaceId);
         allow delete: if false;
+      }
+
+      match /correctionRequests/{requestId} {
+        allow get, list: if isWorkspaceManager(workspaceId);
+        allow update: if isWorkspaceScopedManagerWrite(workspaceId);
+        allow create, delete: if false;
+      }
+
+      match /overtimeWorks/{overtimeId} {
+        allow get, list: if isWorkspaceManager(workspaceId);
+        allow update: if isWorkspaceScopedManagerWrite(workspaceId);
+        allow create, delete: if false;
+      }
+
+      match /notifications/{notificationId} {
+        allow get, list: if isWorkspaceManager(workspaceId);
+        allow create: if isWorkspaceScopedManagerWrite(workspaceId);
+        allow update, delete: if false;
       }
 
       match /payStatements/{statementId} {

@@ -97,8 +97,18 @@ export type RecordDetailAction = {
   active?: boolean;
 };
 
+export type RecordProcessingAction =
+  | "approve-correction"
+  | "approve-overtime"
+  | "delete"
+  | "edit"
+  | "mark-normal"
+  | "reject-correction"
+  | "reject-overtime";
+
 export type RecordDetailState = {
   id: RecordDetailStateId;
+  submitAction?: RecordProcessingAction;
   statusLabel?: string;
   statusTone?: RecordsTone;
   title?: string;
@@ -115,7 +125,12 @@ export type RecordDetailState = {
     label: string;
     value: string;
   }[];
+  amountField?: {
+    label: string;
+    placeholder: string;
+  };
   payrollMode?: {
+    description?: string;
     label: string;
     options: readonly RecordDetailAction[];
   };

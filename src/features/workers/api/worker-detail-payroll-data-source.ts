@@ -99,6 +99,8 @@ type WorkRecord = {
   dateKey: string;
   dutyName: string;
   id: string;
+  managerOnly: Record<string, unknown>;
+  status: string;
   workerId: string;
 };
 
@@ -422,6 +424,32 @@ function buildPendingIssues({
         ]
       : [];
   });
+  const heldRecordItems: readonly PendingItem[] = Array.from(
+    workRecordById.values(),
+  ).flatMap((record) => {
+    const payrollApplication = readString(
+      record.managerOnly.payrollApplication,
+      "immediate",
+    );
+    const matches =
+      payrollApplication === "hold" &&
+      (!monthKey || record.dateKey.slice(0, 7) === monthKey);
+
+    return matches
+      ? [
+          {
+            createdAt: null,
+            detailLabel: "REC-01로 이동",
+            id: `${record.id}-payroll-hold`,
+            processLabel: "처리",
+            state: "급여 보류",
+            tag: "근무기록",
+            tagTone: "orange",
+            title: `${record.dutyName} · 보류된 급여 반영`,
+          } satisfies PendingItem,
+        ]
+      : [];
+  });
   const blockerItems: readonly PendingItem[] = latestRow?.hasBlockers
     ? [
         {
@@ -457,6 +485,7 @@ function buildPendingIssues({
     ...anomalyItems,
     ...overtimeItems,
     ...correctionItems,
+    ...heldRecordItems,
     ...bonusItems,
     ...blockerItems,
     ...reconfirmationItems,
@@ -553,6 +582,8 @@ function mapWorkRecord(document: FirestoreDocument): WorkRecord {
     dateKey: readString(document.data.dateKey ?? document.data.date, ""),
     dutyName: readString(document.data.dutyName, "근무 기록"),
     id: document.id,
+    managerOnly: readRecord(document.data.managerOnly),
+    status: readString(document.data.status, ""),
     workerId: readString(document.data.workerId, ""),
   };
 }
