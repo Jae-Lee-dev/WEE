@@ -76,7 +76,6 @@ export const settingsLocationsFixture = {
       "이 근무지를 사용하는 근무가 있습니다. 근무를 먼저 정리한 뒤 다시 삭제해 주세요.",
     cancelLabel: "취소",
     confirmLabel: "삭제",
-    closeLabel: "확인",
   },
 } as const satisfies {
   columns: readonly { id: string; label: string }[];
@@ -108,7 +107,6 @@ export const settingsLocationsFixture = {
     blockedDescription: string;
     cancelLabel: string;
     confirmLabel: string;
-    closeLabel: string;
   };
 };
 

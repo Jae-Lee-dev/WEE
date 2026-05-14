@@ -96,6 +96,36 @@ test(`SET-02 location-dialog fits viewport ${laptop}`, async ({ page }) => {
   await expectDialogWithinViewport(page, "settings-location-dialog");
 });
 
+test(`SET-02 row actions open modals directly ${desktop}`, async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/settings/locations",
+    viewport: desktop,
+  });
+  await page.evaluate(() => document.fonts.ready);
+
+  const firstRow = page.getByTestId("settings-locations-first-row");
+  await firstRow.getByRole("button", { name: "수정" }).click();
+
+  const editDialog = page.getByTestId("settings-location-dialog");
+  await expect(editDialog).toBeVisible();
+  await expect(editDialog).toContainText("근무지 수정");
+  await expect(editDialog.getByLabel("근무지 이름")).toBeEditable();
+  await editDialog.getByRole("button", { name: "취소" }).click();
+  await expect(editDialog).toBeHidden();
+
+  await firstRow.getByRole("button", { name: "삭제" }).click();
+
+  const deleteDialog = page.getByRole("dialog", {
+    name: "사용 중인 근무지는 삭제할 수 없습니다.",
+  });
+  await expect(deleteDialog).toBeVisible();
+  await expect(deleteDialog).toContainText("현재 사용 근무");
+  await expect(deleteDialog.getByRole("button", { name: "확인" })).toHaveCount(
+    0,
+  );
+});
+
 test("SET-02 creates, edits, and deletes location through Firestore", async ({
   page,
 }) => {

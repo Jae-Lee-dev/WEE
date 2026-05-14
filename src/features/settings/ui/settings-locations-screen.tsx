@@ -801,7 +801,7 @@ function DeleteLocationDialog({
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        showCloseButton={false}
+        showCloseButton={blocked}
         aria-labelledby="settings-location-delete-dialog-title"
         className="w-[calc(100vw-32px)] max-w-[480px] rounded-[8px] bg-white px-6 py-6 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0 sm:max-w-[480px]"
       >
@@ -816,41 +816,30 @@ function DeleteLocationDialog({
             ? `${deleteDialog.blockedDescription} 현재 사용 근무 ${location.dutyCount}건`
             : deleteDialog.description}
         </p>
-        <DialogFooter className="-mx-0 -mb-0 mt-8 flex-row justify-end gap-3 rounded-none border-0 bg-transparent p-0">
-          {blocked ? (
+        {blocked ? null : (
+          <DialogFooter className="-mx-0 -mb-0 mt-8 flex-row justify-end gap-3 rounded-none border-0 bg-transparent p-0">
             <Button
               type="button"
               variant="secondary"
               onClick={onClose}
+              disabled={deleting}
               className="h-11 rounded-[8px] px-6 text-h-18-semibold tracking-normal"
             >
-              {deleteDialog.closeLabel}
+              {deleteDialog.cancelLabel}
             </Button>
-          ) : (
-            <>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={onClose}
-                disabled={deleting}
-                className="h-11 rounded-[8px] px-6 text-h-18-semibold tracking-normal"
-              >
-                {deleteDialog.cancelLabel}
-              </Button>
-              <Button
-                type="button"
-                variant="danger"
-                disabled={deleting}
-                onClick={() => {
-                  void onConfirm(location);
-                }}
-                className="h-11 rounded-[8px] px-6 text-h-18-semibold tracking-normal text-red-500"
-              >
-                {deleting ? "삭제 중" : deleteDialog.confirmLabel}
-              </Button>
-            </>
-          )}
-        </DialogFooter>
+            <Button
+              type="button"
+              variant="danger"
+              disabled={deleting}
+              onClick={() => {
+                void onConfirm(location);
+              }}
+              className="h-11 rounded-[8px] px-6 text-h-18-semibold tracking-normal text-red-500"
+            >
+              {deleting ? "삭제 중" : deleteDialog.confirmLabel}
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
