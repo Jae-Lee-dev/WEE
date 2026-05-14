@@ -580,7 +580,7 @@ function TimelineBlock({ parsedBlock }: { parsedBlock: ParsedTimelineBlock }) {
     <div
       aria-label={`${block.worker} ${block.label} ${block.time}`}
       className={cn(
-        "absolute top-0 z-10 flex h-[46px] min-w-0 flex-col justify-center overflow-hidden rounded-[6px] border px-2.5 text-left shadow-[0_1px_2px_rgba(17,24,39,0.04)]",
+        "absolute top-0 z-10 flex h-[46px] min-w-0 flex-col justify-center overflow-hidden rounded-[6px] border px-1.5 py-1 text-left shadow-[0_1px_2px_rgba(17,24,39,0.04)]",
         selected
           ? "border-green-400 bg-green-400 text-white"
           : "border-green-400 bg-green-100 text-gray-900",

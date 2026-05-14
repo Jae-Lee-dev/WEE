@@ -34,8 +34,8 @@ const timelineStartHour = Number(
   recordMainFixtureViewModel.timeline.hourLabels[0],
 );
 const timelineColumnCount = recordMainFixtureViewModel.timeline.hourLabels.length;
-const timelineLaneHeight = 54;
-const timelineLaneStride = 56;
+const timelineLaneHeight = 46;
+const timelineLaneStride = 48;
 const weekDayLabels = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
 export function createEmptyRecordMainViewModel(

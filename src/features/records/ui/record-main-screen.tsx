@@ -63,7 +63,7 @@ const blockToneClassNames: Record<RecordsTone, string> = {
 
 const selectedBlockToneClassNames: Record<RecordsTone, string> = {
   green: "border-green-400 bg-green-400 text-white",
-  orange: "border-orange-400 bg-orange-400 text-gray-900",
+  orange: "border-orange-400 bg-orange-400 text-white",
   pink: "border-red-500 bg-red-500 text-white",
   blue: "border-blue-500 bg-blue-500 text-white",
   grey: "border-gray-500 bg-gray-500 text-white",
@@ -645,7 +645,7 @@ function RecordTimelineBlockItem({
   const selectable = Boolean(selectedStateId);
   const style = getBlockStyle(positionedBlock);
   const blockClassName = cn(
-    "absolute z-10 flex min-w-0 flex-col justify-center overflow-hidden rounded-[6px] border px-2 text-left tracking-normal transition-colors duration-150 ease-out",
+    "absolute z-10 flex min-w-0 flex-col justify-center overflow-hidden rounded-[6px] border px-1.5 py-1 text-left tracking-normal transition-colors duration-150 ease-out",
     selected
       ? selectedBlockToneClassNames[block.tone]
       : blockToneClassNames[block.tone],

@@ -129,8 +129,8 @@ function StoryBlocks({ day }: { day: ScheduleTimelineDay }) {
     blocks: storyBlocks,
     days: storyDays,
     layout: {
-      blockHeight: 54,
-      laneStride: 56,
+      blockHeight: 46,
+      laneStride: 48,
       topOffset: 1,
       xInset: 1,
     },
@@ -143,7 +143,7 @@ function StoryBlocks({ day }: { day: ScheduleTimelineDay }) {
     <div
       aria-label={`${block.label} ${block.locationName}`}
       className={cn(
-        "absolute z-10 flex h-[54px] min-w-0 flex-col justify-center overflow-hidden rounded-[6px] border px-2 text-left",
+        "absolute z-10 flex h-[46px] min-w-0 flex-col justify-center overflow-hidden rounded-[6px] border px-1.5 py-1 text-left",
         toneClassNames[block.tone],
       )}
       key={block.id}

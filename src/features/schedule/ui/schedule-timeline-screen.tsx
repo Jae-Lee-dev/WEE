@@ -45,8 +45,8 @@ type AssignmentTagTone = {
   style?: CSSProperties;
 };
 
-const timelineLaneHeight = 54;
-const timelineLaneStride = 55;
+const timelineLaneHeight = 46;
+const timelineLaneStride = 48;
 const timelineDays = orderTimelineDaysSundayFirst(scheduleTimelineDays);
 
 const blockToneClassNames: Record<ScheduleTimelineTone, string> = {
@@ -456,7 +456,7 @@ function TimelineBlock({
     parsedBlock;
   const selectable = workerContext !== null;
   const blockClassName = cn(
-    "absolute z-10 flex min-w-0 flex-col justify-center overflow-hidden rounded-[6px] border px-2 text-left tracking-normal transition-colors duration-150 ease-out",
+    "absolute z-10 flex min-w-0 flex-col justify-center overflow-hidden rounded-[6px] border px-1.5 py-1 text-left tracking-normal transition-colors duration-150 ease-out",
     selected
       ? "border-green-400 bg-green-400 text-white"
       : blockToneClassNames[block.tone],

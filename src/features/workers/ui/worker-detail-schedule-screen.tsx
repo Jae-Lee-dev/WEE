@@ -224,7 +224,7 @@ function ScheduleBlock({ block }: { block: WorkerDetailScheduleBlock }) {
     <div
       aria-label={`${block.title} ${block.startHour}:00~${block.endHour}:00`}
       className={cn(
-        "absolute top-0 z-10 flex h-[54px] items-center overflow-hidden rounded-[4px] border px-2 text-h-14-semibold",
+        "absolute top-0 z-10 flex h-[46px] items-center overflow-hidden rounded-[4px] border px-1.5 py-1 text-h-14-semibold",
         scheduleBlockToneClassNames[block.tone],
       )}
       role="gridcell"

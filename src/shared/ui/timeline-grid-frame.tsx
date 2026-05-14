@@ -214,12 +214,12 @@ export function TimelineBlockText({
 }: TimelineBlockTextProps) {
   return (
     <>
-      <span className="truncate text-label-12-medium tracking-normal">
+      <span className="truncate text-h-14-semibold tracking-normal">
         {title}
       </span>
       <span
         className={cn(
-          "truncate text-label-12-regular tracking-normal",
+          "truncate text-h-14-regular tracking-normal",
           selected ? "text-white/90" : "text-gray-800",
         )}
       >

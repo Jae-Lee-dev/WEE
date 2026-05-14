@@ -652,7 +652,7 @@ function DutyTimelineBlockButton({
       aria-label={`${block.duty.name} ${block.duty.location} ${block.duty.weekday} ${block.duty.time}`}
       aria-pressed={selected}
       className={cn(
-        "absolute z-10 flex min-w-0 flex-col justify-center overflow-hidden rounded-[6px] border px-2 text-left tracking-normal transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 focus-visible:ring-offset-1",
+        "absolute z-10 flex min-w-0 flex-col justify-center overflow-hidden rounded-[6px] border px-1.5 py-1 text-left tracking-normal transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 focus-visible:ring-offset-1",
         selected
           ? "border-green-400 bg-green-400 text-white"
           : getDutyTimelineToneClassName(block.duty.tone),
