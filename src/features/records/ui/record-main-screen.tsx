@@ -7,6 +7,7 @@ import { Segment } from "@/shared/ui/segment";
 import { OptionSelect, type SelectOption } from "@/shared/ui/select";
 import {
   getTimelineBlockHeight,
+  getTimelineLaneTop,
   getTimelineLaneCount,
   getTimelineRowHeight,
   TimelineBlockText,
@@ -672,6 +673,7 @@ function RecordTimelineBlockItem({
   const style = {
     ...getBlockStyle(positionedBlock),
     height: getTimelineBlockHeight({ laneCount }),
+    top: getTimelineLaneTop({ lane, laneCount }),
   };
   const blockClassName = cn(
     "absolute z-10 flex min-w-0 flex-col justify-center overflow-hidden rounded-[6px] border px-1.5 py-1 text-left tracking-normal transition-colors duration-150 ease-out",

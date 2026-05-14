@@ -56,9 +56,14 @@ type TimelineRowHeightOptions = {
 
 type TimelineBlockHeightOptions = {
   blockHeight?: number;
+  laneGap?: number;
   laneCount: number;
   rowHeight?: number;
   topOffset?: number;
+};
+
+type TimelineLaneTopOptions = TimelineBlockHeightOptions & {
+  lane: number;
 };
 
 export function orderTimelineDaysSundayFirst<TDay extends TimelineGridDay>(
@@ -98,15 +103,29 @@ export function getTimelineRowHeight({
 
 export function getTimelineBlockHeight({
   blockHeight = timelineDefaultBlockHeight,
+  laneGap = timelineDefaultLaneGap,
   laneCount,
   rowHeight = timelineDefaultRowHeight,
   topOffset = 1,
 }: TimelineBlockHeightOptions) {
-  if (laneCount <= 1) {
-    return Math.max(blockHeight, rowHeight - topOffset * 2);
-  }
+  const normalizedLaneCount = Math.max(laneCount, 1);
+  const availableRowHeight =
+    rowHeight -
+    topOffset * 2 -
+    Math.max(0, normalizedLaneCount - 1) * laneGap;
+  const filledBlockHeight = availableRowHeight / normalizedLaneCount;
 
-  return blockHeight;
+  return Math.max(blockHeight, filledBlockHeight);
+}
+
+export function getTimelineLaneTop({
+  lane,
+  laneGap = timelineDefaultLaneGap,
+  ...heightOptions
+}: TimelineLaneTopOptions) {
+  const blockHeight = getTimelineBlockHeight({ laneGap, ...heightOptions });
+
+  return (heightOptions.topOffset ?? 1) + lane * (blockHeight + laneGap);
 }
 
 export function TimelineGridFrame<TDay extends TimelineGridDay>({

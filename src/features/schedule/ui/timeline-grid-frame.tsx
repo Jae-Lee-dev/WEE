@@ -1,5 +1,6 @@
 export {
   getTimelineBlockHeight,
+  getTimelineLaneTop,
   getTimelineLaneCount,
   getTimelineRowHeight,
   orderTimelineDaysSundayFirst,

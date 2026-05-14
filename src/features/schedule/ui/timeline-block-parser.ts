@@ -4,7 +4,11 @@ import type {
   ScheduleTimelineBlock,
   ScheduleTimelineDay,
 } from "../model/schedule-fixtures";
-import { getTimelineBlockHeight } from "./timeline-grid-frame";
+import {
+  getTimelineBlockHeight,
+  getTimelineLaneTop,
+  timelineDefaultLaneGap,
+} from "./timeline-grid-frame";
 
 export type ParsedTimelineBlock = {
   block: ScheduleTimelineBlock;
@@ -40,6 +44,7 @@ type ParseTimelineBlocksInput = {
 
 type TimelineBlockLayoutOptions = {
   blockHeight?: number;
+  laneGap?: number;
   laneStride?: number;
   topOffset?: number;
   xInset?: number;
@@ -166,13 +171,28 @@ function getTimelineBlockStyle(
 ): CSSProperties {
   const {
     blockHeight,
+    laneGap,
     laneStride = 0,
     topOffset = 0,
     xInset = 0,
   } = layout;
+  const resolvedLaneGap =
+    laneGap ??
+    (blockHeight === undefined
+      ? timelineDefaultLaneGap
+      : Math.max(0, laneStride - blockHeight));
   const style: CSSProperties = {
     left: getTimelineInsetPosition(startColumn, columnCount, xInset),
-    top: topOffset + lane * laneStride,
+    top:
+      blockHeight === undefined
+        ? topOffset + lane * laneStride
+        : getTimelineLaneTop({
+            blockHeight,
+            lane,
+            laneCount,
+            laneGap: resolvedLaneGap,
+            topOffset,
+          }),
     width: getTimelineInsetSize(spanColumns, columnCount, xInset),
   };
 
@@ -180,6 +200,7 @@ function getTimelineBlockStyle(
     style.height = getTimelineBlockHeight({
       blockHeight,
       laneCount,
+      laneGap: resolvedLaneGap,
       topOffset,
     });
   }

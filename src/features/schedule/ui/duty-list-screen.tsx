@@ -90,6 +90,7 @@ import {
 } from "../model/schedule-fixtures";
 import {
   getTimelineBlockHeight,
+  getTimelineLaneTop,
   getTimelineLaneCount,
   getTimelineRowHeight,
   orderTimelineDaysSundayFirst,
@@ -686,6 +687,7 @@ function DutyTimelineBlockButton({
       style={{
         ...getDutyTimelineBlockStyle(block),
         height: getTimelineBlockHeight({ laneCount }),
+        top: getTimelineLaneTop({ lane: block.lane, laneCount }),
       }}
     >
       <TimelineBlockText
