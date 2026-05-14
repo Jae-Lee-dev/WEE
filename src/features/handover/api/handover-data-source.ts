@@ -31,8 +31,16 @@ export type HandoverDataSource = {
 };
 
 export type GenerateHandoverDraftInput = {
+  attachments?: readonly HandoverDraftAttachment[];
   content: string;
   instruction: string;
+};
+
+export type HandoverDraftAttachment = {
+  data: string;
+  mimeType: string;
+  name: string;
+  size: number;
 };
 
 export type GenerateHandoverDraftResult = {

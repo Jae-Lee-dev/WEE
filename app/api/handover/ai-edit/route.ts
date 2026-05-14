@@ -13,10 +13,30 @@ type GeminiGenerateContentResponse = {
   };
 };
 
+type HandoverDraftAttachment = {
+  data: string;
+  mimeType: string;
+  name: string;
+  size: number;
+};
+
+type GeminiRequestPart =
+  | {
+      text: string;
+    }
+  | {
+      inlineData: {
+        data: string;
+        mimeType: string;
+      };
+    };
+
 const defaultModel = "gemini-2.5-flash";
+const maxAttachmentCount = 4;
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
+  const attachments = readBodyAttachments(body);
   const content = readBodyString(body, "content");
   const instruction = readBodyString(body, "instruction");
 
@@ -47,7 +67,9 @@ export async function POST(request: Request) {
   const geminiResponse = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     {
-      body: JSON.stringify(createGeminiRequest({ content, instruction })),
+      body: JSON.stringify(
+        createGeminiRequest({ attachments, content, instruction }),
+      ),
       headers: {
         "Content-Type": "application/json",
         "x-goog-api-key": apiKey,
@@ -101,31 +123,18 @@ export async function POST(request: Request) {
 }
 
 function createGeminiRequest({
+  attachments,
   content,
   instruction,
 }: {
+  attachments: readonly HandoverDraftAttachment[];
   content: string;
   instruction: string;
 }) {
   return {
     contents: [
       {
-        parts: [
-          {
-            text: [
-              "현재 인수인계 문서:",
-              "```md",
-              content,
-              "```",
-              "",
-              "관리자 수정 지시:",
-              instruction,
-              "",
-              '반드시 {"message": "...", "nextContent": "..."} 형태의 JSON만 반환한다.',
-              "nextContent에는 수정이 반영된 전체 Markdown 문서를 문자열로 넣는다.",
-            ].join("\n"),
-          },
-        ],
+        parts: createGeminiParts({ attachments, content, instruction }),
         role: "user",
       },
     ],
@@ -164,6 +173,69 @@ function createGeminiRequest({
       ],
     },
   };
+}
+
+function createGeminiParts({
+  attachments,
+  content,
+  instruction,
+}: {
+  attachments: readonly HandoverDraftAttachment[];
+  content: string;
+  instruction: string;
+}): GeminiRequestPart[] {
+  const parts: GeminiRequestPart[] = [
+    {
+      text: [
+        "현재 인수인계 문서:",
+        "```md",
+        content,
+        "```",
+        "",
+        "관리자 수정 지시:",
+        instruction,
+        "",
+        attachments.length
+          ? "첨부파일은 이번 지시를 해석하기 위한 참고자료다. 문서에 반영할 내용만 추려서 사용한다."
+          : "",
+        '반드시 {"message": "...", "nextContent": "..."} 형태의 JSON만 반환한다.',
+        "nextContent에는 수정이 반영된 전체 Markdown 문서를 문자열로 넣는다.",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    },
+  ];
+
+  attachments.forEach((attachment, index) => {
+    const label = `첨부파일 ${index + 1}: ${attachment.name} (${attachment.mimeType}, ${attachment.size} bytes)`;
+
+    if (isTextAttachment(attachment)) {
+      const text = decodeBase64Text(attachment.data);
+
+      parts.push({
+        text: [
+          label,
+          "```",
+          text.slice(0, 40_000),
+          text.length > 40_000 ? "\n...(첨부파일 내용 일부 생략)" : "",
+          "```",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      });
+      return;
+    }
+
+    parts.push({ text: label });
+    parts.push({
+      inlineData: {
+        data: attachment.data,
+        mimeType: attachment.mimeType,
+      },
+    });
+  });
+
+  return parts;
 }
 
 function parseAiEditResponse(text: string) {
@@ -216,6 +288,66 @@ function readBodyString(body: unknown, key: "content" | "instruction") {
   const value = (body as Record<string, unknown>)[key];
 
   return typeof value === "string" ? value : "";
+}
+
+function readBodyAttachments(body: unknown): HandoverDraftAttachment[] {
+  if (typeof body !== "object" || body === null) {
+    return [];
+  }
+
+  const value = (body as Record<string, unknown>).attachments;
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.slice(0, maxAttachmentCount).flatMap((item) => {
+    if (typeof item !== "object" || item === null) {
+      return [];
+    }
+
+    const record = item as Record<string, unknown>;
+    const data = readString(record.data);
+    const mimeType = readString(record.mimeType) || "application/octet-stream";
+    const name = readString(record.name) || "attachment";
+    const size = typeof record.size === "number" ? record.size : 0;
+
+    if (!data || !isSupportedAttachmentMimeType(mimeType)) {
+      return [];
+    }
+
+    return [{ data, mimeType, name, size }];
+  });
+}
+
+function readString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function isSupportedAttachmentMimeType(mimeType: string) {
+  return (
+    isTextMimeType(mimeType) ||
+    mimeType === "application/pdf" ||
+    mimeType.startsWith("image/")
+  );
+}
+
+function isTextAttachment(attachment: HandoverDraftAttachment) {
+  return isTextMimeType(attachment.mimeType);
+}
+
+function isTextMimeType(mimeType: string) {
+  return (
+    mimeType.startsWith("text/") ||
+    mimeType === "application/json" ||
+    mimeType === "application/xml" ||
+    mimeType === "application/javascript" ||
+    mimeType === "application/x-ndjson"
+  );
+}
+
+function decodeBase64Text(data: string) {
+  return Buffer.from(data, "base64").toString("utf8");
 }
 
 function readFirstString(

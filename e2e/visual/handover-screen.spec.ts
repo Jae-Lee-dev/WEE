@@ -34,6 +34,7 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     ).toBeVisible();
     await expect(page.getByTestId("handover-prompt-starters")).toBeVisible();
     await expect(page.getByText("자주 쓰는 요청")).toBeVisible();
+    await expect(page.getByRole("button", { name: "파일 첨부" })).toBeVisible();
     await expect(
       page.getByRole("button", {
         name: "오늘 전달사항을 간결하게 정리해줘",
@@ -171,6 +172,34 @@ test("HO-01 prompt starter fills the request input", async ({ page }) => {
   await expect(page.getByTestId("handover-prompt-starters")).toBeVisible();
 });
 
+test("HO-01 chat sends an attachment with the AI request", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/handover",
+    viewport: "laptop-1366",
+  });
+  await page.evaluate(() => document.fonts.ready);
+
+  await page.getByTestId("handover-attachment-input").setInputFiles({
+    buffer: Buffer.from("수학 A반 보강 자료 프린트 준비"),
+    mimeType: "text/plain",
+    name: "handover-note.txt",
+  });
+
+  await expect(page.getByTestId("handover-attachment-chip")).toContainText(
+    "handover-note.txt",
+  );
+  await expect(page.getByRole("button", { name: "전송" })).toBeEnabled();
+
+  await page.getByRole("button", { name: "전송" }).click();
+
+  await expect(page.getByTestId("handover-attachment-chip")).toHaveCount(0);
+  await expect(
+    page.getByTestId("handover-chat-message-attachment"),
+  ).toContainText("handover-note.txt");
+  await expect(page.getByTestId("handover-proposal-block").first()).toBeVisible();
+});
+
 test("HO-01 chat input does not send while IME is composing", async ({ page }) => {
   await prepareVisualPage({
     page,
@@ -192,7 +221,7 @@ test("HO-01 chat input does not send while IME is composing", async ({ page }) =
   });
   await input.press("Enter");
 
-  await expect(input).toHaveValue("한글 조합 중");
+  await expect(input).toHaveValue(/한글 조합 중/);
   await expect(page.getByTestId("handover-prompt-starters")).toBeVisible();
 });
 

@@ -49,9 +49,15 @@ export type HandoverDocumentBlock =
     };
 
 export type HandoverChatMessage = {
+  attachments?: readonly HandoverChatMessageAttachment[];
   id: string;
   role: "assistant" | "user";
   text: string;
+};
+
+export type HandoverChatMessageAttachment = {
+  name: string;
+  size: number;
 };
 
 export type HandoverFixture = {

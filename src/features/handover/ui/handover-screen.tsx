@@ -8,6 +8,7 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
+import { PaperclipIcon, SendIcon, XIcon } from "lucide-react";
 import type { Editor } from "@tiptap/core";
 import type { JSONContent } from "@tiptap/core";
 import { Button } from "@/shared/ui/button";
@@ -20,9 +21,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/dialog";
-import { Input } from "@/shared/ui/input";
+import { Textarea } from "@/shared/ui/textarea";
 import { cn } from "@/shared/lib/utils";
-import { createHandoverDataSource } from "../api/handover-data-source";
+import {
+  createHandoverDataSource,
+  type HandoverDraftAttachment,
+} from "../api/handover-data-source";
 import {
   createNodesWithProposalDiff,
   getLineDisplayText,
@@ -67,6 +71,15 @@ const blockFormatControls = [
   { format: "listItem", label: "목록" },
 ] satisfies readonly { format: HandoverBlockFormat; label: string }[];
 
+type HandoverChatAttachment = HandoverDraftAttachment & {
+  id: string;
+};
+
+const maxChatAttachmentCount = 4;
+const maxChatAttachmentSize = 2 * 1024 * 1024;
+const emptyAttachmentInstruction =
+  "첨부파일 내용을 참고해 인수인계 문서를 보강해줘.";
+
 export function HandoverScreen() {
   const router = useRouter();
   const dataSource = useMemo(() => createHandoverDataSource(), []);
@@ -79,6 +92,9 @@ export function HandoverScreen() {
   const [chatMessages, setChatMessages] = useState<readonly HandoverChatMessage[]>(
     [],
   );
+  const [chatAttachments, setChatAttachments] = useState<
+    readonly HandoverChatAttachment[]
+  >([]);
   const [chatInput, setChatInput] = useState("");
   const [loading, setLoading] = useState(dataSource.mode !== "fixture");
   const [aiSaving, setAiSaving] = useState(false);
@@ -185,9 +201,14 @@ export function HandoverScreen() {
   }
 
   function sendAiInstruction() {
-    const instruction = chatInput.trim();
+    const nextAttachments = chatAttachments;
+    const instruction = chatInput.trim() || emptyAttachmentInstruction;
 
-    if (!instruction || aiSaving || pendingProposal) {
+    if (
+      (!chatInput.trim() && !nextAttachments.length) ||
+      aiSaving ||
+      pendingProposal
+    ) {
       return;
     }
 
@@ -197,10 +218,17 @@ export function HandoverScreen() {
     setErrorMessage("");
     setStatusMessage("AI가 수정안을 생성하는 중입니다.");
     setChatInput("");
-    setChatMessages((current) => appendUserMessage(current, instruction));
+    setChatAttachments([]);
+    setChatMessages((current) =>
+      appendUserMessage(current, instruction, nextAttachments),
+    );
 
     void dataSource
-      .generateHandoverDraft({ content: baseContent, instruction })
+      .generateHandoverDraft({
+        attachments: nextAttachments,
+        content: baseContent,
+        instruction,
+      })
       .then((result) => {
         const nextDocument = handoverEditorNodesToTiptapDocument(
           createNodesWithProposalDiff({
@@ -228,6 +256,34 @@ export function HandoverScreen() {
         setStatusMessage("");
       })
       .finally(() => setAiSaving(false));
+  }
+
+  async function addChatAttachments(files: readonly File[]) {
+    if (!files.length) {
+      return;
+    }
+
+    try {
+      setErrorMessage("");
+      const nextAttachments = await readHandoverChatAttachments(
+        files,
+        chatAttachments,
+      );
+
+      setChatAttachments(nextAttachments);
+    } catch (error: unknown) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "첨부파일을 읽지 못했습니다.",
+      );
+    }
+  }
+
+  function removeChatAttachment(id: string) {
+    setChatAttachments((current) =>
+      current.filter((attachment) => attachment.id !== id),
+    );
   }
 
   return (
@@ -276,10 +332,13 @@ export function HandoverScreen() {
             />
           </div>
           <HandoverChatPanel
+            attachments={chatAttachments}
             disabled={aiSaving || pendingProposal}
             inputValue={chatInput}
             messages={chatMessages}
+            onAddAttachments={addChatAttachments}
             onChangeInput={setChatInput}
+            onRemoveAttachment={removeChatAttachment}
             onSelectStarter={setChatInput}
             onSend={sendAiInstruction}
           />
@@ -531,21 +590,31 @@ function HandoverToolbar({
 }
 
 function HandoverChatPanel({
+  attachments,
   disabled,
   inputValue,
   messages,
+  onAddAttachments,
   onChangeInput,
+  onRemoveAttachment,
   onSelectStarter,
   onSend,
 }: {
+  attachments: readonly HandoverChatAttachment[];
   disabled: boolean;
   inputValue: string;
   messages: readonly HandoverChatMessage[];
+  onAddAttachments: (files: readonly File[]) => void;
   onChangeInput: (value: string) => void;
+  onRemoveAttachment: (id: string) => void;
   onSelectStarter: (value: string) => void;
   onSend: () => void;
 }) {
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const inputComposingRef = useRef(false);
+  const attachmentDisabled =
+    disabled || attachments.length >= maxChatAttachmentCount;
+  const sendDisabled = disabled || (!inputValue.trim() && !attachments.length);
 
   return (
     <aside
@@ -568,44 +637,120 @@ function HandoverChatPanel({
           />
         )}
       </div>
-      <div className="flex h-14 shrink-0 items-center gap-3 border-t border-gray-200 px-4">
-        <Input
-          aria-label="수정할 내용"
-          disabled={disabled}
-          value={inputValue}
-          onChange={(event) => onChangeInput(event.target.value)}
-          onCompositionEnd={() => {
-            inputComposingRef.current = false;
-          }}
-          onCompositionStart={() => {
-            inputComposingRef.current = true;
-          }}
-          onKeyDown={(event) => {
-            if (isImeComposingKeyDown(event, inputComposingRef.current)) {
-              return;
-            }
+      <div className="shrink-0 border-t border-gray-200 px-4 py-4">
+        <input
+          ref={attachmentInputRef}
+          type="file"
+          multiple
+          accept="text/*,.txt,.md,.csv,.json,.pdf,image/*"
+          className="hidden"
+          data-testid="handover-attachment-input"
+          disabled={attachmentDisabled}
+          onChange={(event) => {
+            const files = Array.from(event.target.files ?? []);
 
-            if (event.key === "Enter") {
-              onSend();
-            }
+            event.target.value = "";
+            onAddAttachments(files);
           }}
-          placeholder={
-            disabled
-              ? handoverChatCopy.disabledPlaceholder
-              : handoverChatCopy.inputPlaceholder
-          }
-          className="h-11 min-w-0 flex-1 rounded-[8px] border-gray-200 bg-gray-50 text-h-18-regular tracking-normal text-gray-900"
         />
-        <Button
-          type="button"
-          disabled={disabled || !inputValue.trim()}
-          onClick={onSend}
-          className="h-11 rounded-[12px] px-4 text-h-18-semibold tracking-normal"
-        >
-          {handoverChatCopy.sendLabel}
-        </Button>
+        {attachments.length ? (
+          <div
+            className="mb-3 flex flex-wrap gap-2"
+            data-testid="handover-pending-attachments"
+          >
+            {attachments.map((attachment) => (
+              <HandoverAttachmentChip
+                key={attachment.id}
+                attachment={attachment}
+                disabled={disabled}
+                onRemove={() => onRemoveAttachment(attachment.id)}
+              />
+            ))}
+          </div>
+        ) : null}
+        <div className="flex items-end gap-2">
+          <button
+            type="button"
+            aria-label="파일 첨부"
+            disabled={attachmentDisabled}
+            onClick={() => attachmentInputRef.current?.click()}
+            className="flex size-11 shrink-0 items-center justify-center rounded-[8px] border border-gray-200 bg-white text-gray-700 transition-colors duration-150 ease-out hover:border-green-200 hover:bg-green-50 hover:text-green-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:pointer-events-none disabled:opacity-40"
+          >
+            <PaperclipIcon className="size-5" strokeWidth={2.2} />
+          </button>
+          <Textarea
+            aria-label="수정할 내용"
+            disabled={disabled}
+            rows={3}
+            value={inputValue}
+            onChange={(event) => onChangeInput(event.target.value)}
+            onCompositionEnd={() => {
+              inputComposingRef.current = false;
+            }}
+            onCompositionStart={() => {
+              inputComposingRef.current = true;
+            }}
+            onKeyDown={(event) => {
+              if (isImeComposingKeyDown(event, inputComposingRef.current)) {
+                return;
+              }
+
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                onSend();
+              }
+            }}
+            placeholder={
+              disabled
+                ? handoverChatCopy.disabledPlaceholder
+                : handoverChatCopy.inputPlaceholder
+            }
+            className="max-h-40 min-h-24 flex-1 resize-none rounded-[8px] border-gray-200 bg-gray-50 text-h-18-regular tracking-normal text-gray-900"
+          />
+          <Button
+            type="button"
+            disabled={sendDisabled}
+            onClick={onSend}
+            className="h-11 shrink-0 gap-1.5 rounded-[12px] px-4 text-h-18-semibold tracking-normal"
+          >
+            <SendIcon className="size-4" strokeWidth={2.4} />
+            {handoverChatCopy.sendLabel}
+          </Button>
+        </div>
       </div>
     </aside>
+  );
+}
+
+function HandoverAttachmentChip({
+  attachment,
+  disabled,
+  onRemove,
+}: {
+  attachment: Pick<HandoverChatAttachment, "name" | "size">;
+  disabled: boolean;
+  onRemove: () => void;
+}) {
+  return (
+    <span
+      className="inline-flex max-w-full items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-body-14-medium tracking-normal text-gray-700"
+      data-testid="handover-attachment-chip"
+    >
+      <PaperclipIcon className="size-3.5 shrink-0" strokeWidth={2.3} />
+      <span className="min-w-0 truncate">{attachment.name}</span>
+      <span className="shrink-0 text-gray-400">
+        {formatAttachmentSize(attachment.size)}
+      </span>
+      <button
+        type="button"
+        aria-label={`${attachment.name} 첨부 제거`}
+        disabled={disabled}
+        onClick={onRemove}
+        className="-mr-1 flex size-5 shrink-0 items-center justify-center rounded-full text-gray-500 transition-colors duration-150 ease-out hover:bg-gray-200 hover:text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:pointer-events-none disabled:opacity-40"
+      >
+        <XIcon className="size-3.5" strokeWidth={2.5} />
+      </button>
+    </span>
   );
 }
 
@@ -647,6 +792,7 @@ function HandoverChatMessageBubble({
   message: HandoverChatMessage;
 }) {
   const assistant = message.role === "assistant";
+  const attachments = message.attachments ?? [];
 
   return (
     <div
@@ -657,7 +803,26 @@ function HandoverChatMessageBubble({
           : "self-end bg-gray-100 text-gray-800",
       )}
     >
-      {message.text}
+      <p>{message.text}</p>
+      {attachments.length ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {attachments.map((attachment) => (
+            <span
+              key={`${message.id}-${attachment.name}-${attachment.size}`}
+              className={cn(
+                "inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-body-14-medium",
+                assistant
+                  ? "bg-white/15 text-white"
+                  : "bg-white text-gray-700",
+              )}
+              data-testid="handover-chat-message-attachment"
+            >
+              <PaperclipIcon className="size-3.5 shrink-0" strokeWidth={2.3} />
+              <span className="min-w-0 truncate">{attachment.name}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -838,7 +1003,7 @@ function getToolbarButtonClass(active: boolean) {
 }
 
 function isImeComposingKeyDown(
-  event: KeyboardEvent<HTMLInputElement>,
+  event: KeyboardEvent<HTMLTextAreaElement>,
   isComposing: boolean,
 ) {
   return (
@@ -847,6 +1012,113 @@ function isImeComposingKeyDown(
     event.nativeEvent.keyCode === 229 ||
     event.key === "Process"
   );
+}
+
+async function readHandoverChatAttachments(
+  files: readonly File[],
+  currentAttachments: readonly HandoverChatAttachment[],
+): Promise<readonly HandoverChatAttachment[]> {
+  if (currentAttachments.length + files.length > maxChatAttachmentCount) {
+    throw new Error(`첨부파일은 최대 ${maxChatAttachmentCount}개까지 가능합니다.`);
+  }
+
+  const attachments = await Promise.all(
+    files.map(async (file) => {
+      const mimeType = normalizeAttachmentMimeType(file);
+
+      if (!isSupportedChatAttachment(file, mimeType)) {
+        throw new Error("텍스트, PDF, 이미지 파일만 첨부할 수 있습니다.");
+      }
+
+      if (file.size > maxChatAttachmentSize) {
+        throw new Error(
+          `첨부파일은 개당 ${formatAttachmentSize(maxChatAttachmentSize)} 이하만 가능합니다.`,
+        );
+      }
+
+      return {
+        data: await readFileAsBase64(file),
+        id: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`,
+        mimeType,
+        name: file.name,
+        size: file.size,
+      };
+    }),
+  );
+
+  return [...currentAttachments, ...attachments];
+}
+
+function normalizeAttachmentMimeType(file: File) {
+  if (file.type) {
+    return file.type;
+  }
+
+  const extension = file.name.split(".").pop()?.toLowerCase();
+
+  if (extension === "md") {
+    return "text/markdown";
+  }
+
+  if (extension === "csv") {
+    return "text/csv";
+  }
+
+  if (extension === "json") {
+    return "application/json";
+  }
+
+  if (extension === "pdf") {
+    return "application/pdf";
+  }
+
+  if (extension === "txt") {
+    return "text/plain";
+  }
+
+  return "application/octet-stream";
+}
+
+function isSupportedChatAttachment(file: File, mimeType: string) {
+  const extension = file.name.split(".").pop()?.toLowerCase();
+
+  return (
+    mimeType.startsWith("text/") ||
+    mimeType.startsWith("image/") ||
+    mimeType === "application/pdf" ||
+    mimeType === "application/json" ||
+    extension === "md" ||
+    extension === "csv"
+  );
+}
+
+function readFileAsBase64(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.addEventListener("error", () => {
+      reject(new Error("첨부파일을 읽지 못했습니다."));
+    });
+    reader.addEventListener("load", () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      const [, data = ""] = result.split(",");
+
+      resolve(data);
+    });
+    reader.readAsDataURL(file);
+  });
+}
+
+function formatAttachmentSize(size: number) {
+  if (size >= 1024 * 1024) {
+    return `${(size / (1024 * 1024)).toFixed(1)}MB`;
+  }
+
+  if (size >= 1024) {
+    return `${Math.ceil(size / 1024)}KB`;
+  }
+
+  return `${size}B`;
 }
 
 function getPublishedContent(fixture: HandoverFixture) {
@@ -886,10 +1158,21 @@ function getPublishedContent(fixture: HandoverFixture) {
 function appendUserMessage(
   messages: readonly HandoverChatMessage[],
   instruction: string,
+  attachments: readonly Pick<HandoverChatAttachment, "name" | "size">[] = [],
 ): readonly HandoverChatMessage[] {
   const id = `user-${Date.now()}`;
 
-  return messages.concat([{ id, role: "user", text: instruction }]);
+  return messages.concat([
+    {
+      attachments: attachments.map((attachment) => ({
+        name: attachment.name,
+        size: attachment.size,
+      })),
+      id,
+      role: "user",
+      text: instruction,
+    },
+  ]);
 }
 
 function appendAssistantMessage(
