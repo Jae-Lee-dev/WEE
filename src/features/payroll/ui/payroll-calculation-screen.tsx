@@ -516,7 +516,7 @@ function PayrollDetailScreen({
       data-payroll-calculation-state={detail.id}
     >
       <DetailStateHeader
-        backLabel={detail.headerTitle}
+        backLabel="급여 산정"
         title={getPayrollCalculationDetailTitle(detail)}
         onBack={onBack}
         actions={
@@ -576,7 +576,7 @@ function getPayrollCalculationDetailTitle(detail: PayrollCalculationDetail) {
     return "보너스/차감 추가";
   }
 
-  return "산정 상세";
+  return "급여 산정 상세";
 }
 
 function PayrollActionStatusBanner({

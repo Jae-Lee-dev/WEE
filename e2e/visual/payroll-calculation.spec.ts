@@ -83,9 +83,11 @@ test(`PAY-01 detail ${desktop}`, async ({ page }) => {
     page.getByTestId("payroll-calculation-state-detail"),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "급여 산정 목록" }),
+    page.getByRole("button", { name: "급여 산정" }),
   ).toBeVisible();
-  await expect(page.getByRole("heading", { name: "산정 상세" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "급여 산정 상세" }),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "급여 확정 (미처리 항목 4/4)" }),
   ).toBeDisabled();
