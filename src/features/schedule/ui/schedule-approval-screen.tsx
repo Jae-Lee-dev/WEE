@@ -29,13 +29,22 @@ import {
   type ScheduleApprovalRequestRow,
   type ScheduleTimelineBlock,
 } from "../model/schedule-fixtures";
-import { TimelineBlockText, TimelineGridFrame } from "./timeline-grid-frame";
+import {
+  getTimelineRowHeight,
+  TimelineBlockText,
+  timelineDefaultBlockHeight,
+  timelineDefaultLaneStride,
+  timelineDefaultRowHeight,
+  TimelineGridFrame,
+} from "./timeline-grid-frame";
 import {
   parseTimelineBlocks,
   type ParsedTimelineBlock,
 } from "./timeline-block-parser";
 
 const visibleTimelineDays = scheduleTimelineDays.slice(0, 5);
+const timelineLaneHeight = timelineDefaultBlockHeight;
+const timelineLaneStride = timelineDefaultLaneStride;
 const activeBadgeStyle = { color: "var(--color-green-400)" };
 
 export function ScheduleApprovalScreen({
@@ -584,11 +593,23 @@ function ApprovalTimelineGrid({
     blocks,
     days: visibleTimelineDays,
     layout: {
+      blockHeight: timelineLaneHeight,
+      laneStride: timelineLaneStride,
+      topOffset: 1,
       xInset: 2,
     },
     selectedBlockIds: selectedBlockId ? [selectedBlockId] : [],
     timeSlots: scheduleTimelineTimeSlots,
   });
+  const rowHeightsByDayId = new Map(
+    dayLayouts.map((layout) => [
+      layout.day.id,
+      getTimelineRowHeight({
+        blockHeight: timelineLaneHeight,
+        laneCount: layout.laneCount,
+      }),
+    ]),
+  );
 
   return (
     <TimelineGridFrame
@@ -596,6 +617,9 @@ function ApprovalTimelineGrid({
       className="min-h-0 flex-1"
       dayColumnWidth={48}
       days={visibleTimelineDays}
+      getRowHeight={(day) =>
+        rowHeightsByDayId.get(day.id) ?? timelineDefaultRowHeight
+      }
       headerHeight={47}
       minWidthClassName="min-w-[920px]"
       renderBlocks={(day) => {
@@ -669,7 +693,7 @@ function TimelineBlock({
   onSelectBlock: (blockId: string) => void;
   parsedBlock: ParsedTimelineBlock;
 }) {
-  const { block, selected, style } = parsedBlock;
+  const { block, lane, selected, style } = parsedBlock;
 
   return (
     <button
@@ -677,11 +701,13 @@ function TimelineBlock({
       aria-label={`${block.label} ${block.time}`}
       aria-pressed={selected}
       className={cn(
-        "absolute top-0 z-10 flex h-[46px] min-w-0 cursor-pointer flex-col justify-center overflow-hidden rounded-[6px] border px-1.5 py-1 text-left tracking-normal transition-colors duration-150 ease-out hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 focus-visible:ring-offset-1",
+        "absolute z-10 flex min-w-0 cursor-pointer flex-col justify-center overflow-hidden rounded-[6px] border px-1.5 py-1 text-left tracking-normal transition-colors duration-150 ease-out hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 focus-visible:ring-offset-1",
         selected
           ? "border-green-400 bg-green-400 text-white"
           : "border-green-400 bg-green-100 text-gray-900",
       )}
+      data-lane={lane}
+      data-schedule-block-id={block.id}
       data-schedule-approval-block-id={block.id}
       data-testid={
         selected ? "schedule-approval-selected-timeline-block" : undefined
