@@ -91,7 +91,7 @@ export function createAttendanceLogLineSection(
         ? [
             createRecordDetailLine(
               "log-status",
-              "로그 판정",
+              "이상 플래그",
               values.logStatus,
               values.logTone,
             ),

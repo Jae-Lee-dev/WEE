@@ -530,7 +530,6 @@ export const recordDetailStates = {
       workEnd: "15:00",
       workStart: "13:00",
     }),
-    alertText: "퇴근 시 근무지 반경(100m) 외부에서 기록되었습니다.",
     actions: [
       { id: "mark-normal", label: "정상 처리" },
       { id: "edit", label: "수정" },
@@ -550,7 +549,6 @@ export const recordDetailStates = {
       workEnd: "15:00",
       workStart: "13:00",
     }),
-    alertText: "퇴근 시 근무지 반경(100m) 외부에서 기록되었습니다.",
     actions: [
       { id: "mark-normal", label: "정상 처리", active: true },
       { id: "edit", label: "수정" },
@@ -573,7 +571,6 @@ export const recordDetailStates = {
       workEnd: "15:00",
       workStart: "13:00",
     }),
-    alertText: "퇴근 시 근무지 반경(100m) 외부에서 기록되었습니다.",
     actions: [
       { id: "mark-normal", label: "정상 처리" },
       { id: "edit", label: "수정", active: true },
@@ -602,7 +599,6 @@ export const recordDetailStates = {
       workEnd: "15:00",
       workStart: "13:00",
     }),
-    alertText: "퇴근 시 근무지 반경(100m) 외부에서 기록되었습니다.",
     actions: [
       { id: "mark-normal", label: "정상 처리" },
       { id: "edit", label: "수정" },
@@ -805,7 +801,7 @@ export const selectedAnomalyHistoryDetail = {
   beforeLines: [
     detailLine("work-start", "근무 시작", "14:00"),
     detailLine("work-end", "근무 종료", "16:00"),
-    detailLine("log-status", "로그 판정", "반경 외 118m"),
+    detailLine("log-status", "이상 플래그", "반경 외 118m"),
   ],
   afterTitle: "처리 후",
   afterLines: [

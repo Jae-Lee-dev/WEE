@@ -2487,7 +2487,6 @@ function createAnomalyDetailBase(
       { id: "edit", label: "수정" },
       { id: "delete", label: "삭제" },
     ],
-    alertText: getAnomalyAlertText(anomalyType),
     id: "anomaly-step-1",
     lineSections: createRecordDetailLineSections(record, attendance, true),
     statusLabel: getAnomalyTypeLabel(anomalyType),
@@ -2635,7 +2634,7 @@ function mapAnomalyHistoryDetail(
           detailLine("work-end", "근무 종료", "미기록"),
           detailLine(
             "log-status",
-            "로그 판정",
+            "이상 플래그",
             getAnomalyTypeLabel(flag.anomalyType),
             "pink",
           ),
@@ -3332,26 +3331,6 @@ function getAnomalyTypeLabel(type: string) {
   }
 
   return "이상";
-}
-
-function getAnomalyAlertText(type: string) {
-  if (type === "time_mismatch") {
-    return "출퇴근 시각이 시간표 기준 허용 범위를 벗어났습니다.";
-  }
-
-  if (type === "missing_checkout") {
-    return "출근 기록은 있으나 퇴근 기록이 누락되었습니다.";
-  }
-
-  if (type === "absence_candidate") {
-    return "해당 근무와 매칭되는 출퇴근 기록이 없어 결근 후보로 표시되었습니다.";
-  }
-
-  if (type === "location_unknown") {
-    return "GPS 수집 실패로 위치 확인이 필요합니다.";
-  }
-
-  return "퇴근 시 근무지 반경 외부에서 기록되었습니다.";
 }
 
 function getLocationAnomalyText(
