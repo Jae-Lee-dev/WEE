@@ -29,6 +29,12 @@ test(`SCH-01 selected-request ${desktop}`, async ({ page }) => {
   await page.evaluate(() => document.fonts.ready);
   await page.getByTestId("schedule-approval-first-detail").click();
   await expect(page.getByTestId("schedule-approval-selected-state")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "승인 대기 목록" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "시간표 승인 상세" }),
+  ).toBeVisible();
   await expect(page.getByRole("heading", { name: "시간 조정" })).toBeVisible();
 
   await captureActualScreenshot({

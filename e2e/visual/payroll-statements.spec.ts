@@ -43,7 +43,10 @@ test(`PAY-02 statement-detail ${desktop}`, async ({ page }) => {
 
   await expect(page.getByTestId("payroll-statements-detail")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "급여 명세 목록" }),
+    page.getByRole("button", { name: "급여 명세 목록" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "2026년 4월 명세 상세" }),
   ).toBeVisible();
 
   await captureActualScreenshot({
