@@ -36,6 +36,9 @@ test(`SCH-01 selected-request ${desktop}`, async ({ page }) => {
     page.getByRole("heading", { name: "시간표 승인 상세" }),
   ).toBeVisible();
   await expect(page.getByRole("heading", { name: "시간 조정" })).toBeVisible();
+  await expect(
+    page.getByTestId("schedule-approval-selected-timeline-block"),
+  ).toContainText("수학 B반");
 
   await captureActualScreenshot({
     page,

@@ -312,7 +312,7 @@ function SelectedApprovalState({
   onReject: (reason: string) => void;
 }) {
   const detail = request.selectedDetail;
-  const selectedBlock = detail.timelineBlocks[0];
+  const selectedBlock = getRequestedDutyBlock(detail);
   const [adjustmentStartTime, setAdjustmentStartTime] = useState(
     detail.adjustmentStartTime,
   );
@@ -553,7 +553,7 @@ function ApprovalTimelineGrid({
   blocks: readonly ScheduleTimelineBlock[];
   detail: ScheduleApprovalRequestDetail;
 }) {
-  const selectedBlockId = getRequestedDutyBlockId(detail);
+  const selectedBlockId = getRequestedDutyBlock(detail)?.id;
   const { dayLayouts } = parseTimelineBlocks({
     blocks,
     days: visibleTimelineDays,
@@ -588,15 +588,39 @@ function ApprovalTimelineGrid({
   );
 }
 
-function getRequestedDutyBlockId(detail: ScheduleApprovalRequestDetail) {
-  const requestedBlock = detail.timelineBlocks.find(
+function getRequestedDutyBlock(detail: ScheduleApprovalRequestDetail) {
+  const exactBlock = detail.timelineBlocks.find(
+    (block) =>
+      block.label === detail.adjustmentDutyName &&
+      block.time === detail.adjustmentTimeText &&
+      block.locationName === detail.adjustmentLocationName &&
+      matchesAdjustmentDay(block.dayId, detail.adjustmentDayText),
+  );
+  const matchingBlock = detail.timelineBlocks.find(
     (block) =>
       block.label === detail.adjustmentDutyName &&
       block.time === detail.adjustmentTimeText &&
       block.locationName === detail.adjustmentLocationName,
   );
 
-  return requestedBlock?.id ?? detail.timelineBlocks[0]?.id;
+  return exactBlock ?? matchingBlock ?? detail.timelineBlocks[0];
+}
+
+function matchesAdjustmentDay(
+  dayId: ScheduleTimelineBlock["dayId"],
+  adjustmentDayText: string,
+) {
+  const day = scheduleTimelineDays.find((item) => item.id === dayId);
+
+  if (!day) {
+    return false;
+  }
+
+  return (
+    adjustmentDayText === day.fullLabel ||
+    adjustmentDayText === day.label ||
+    adjustmentDayText === `${day.label}요일`
+  );
 }
 
 function TimelineBlock({ parsedBlock }: { parsedBlock: ParsedTimelineBlock }) {
@@ -611,6 +635,9 @@ function TimelineBlock({ parsedBlock }: { parsedBlock: ParsedTimelineBlock }) {
           ? "border-green-400 bg-green-400 text-white"
           : "border-green-400 bg-green-100 text-gray-900",
       )}
+      data-testid={
+        selected ? "schedule-approval-selected-timeline-block" : undefined
+      }
       role="gridcell"
       style={style}
     >

@@ -113,12 +113,12 @@ export type ScheduleSelectedWorkerContext = {
   };
 };
 
-const ihaeunApprovalTimelineBlocks = [
+const selectedApprovalTimelineBlocks = [
   block(
-    "approval-ihaeun-mon-math-a",
+    "approval-kim-mon-math-b",
     "mon",
-    "수학 A반",
-    "이하은",
+    "수학 B반",
+    "김서연",
     "19:00~21:00",
     19,
     21,
@@ -130,7 +130,7 @@ const ihaeunApprovalTimelineBlocks = [
     "approval-ihaeun-wed-korean-e",
     "wed",
     "국어 E반",
-    "이하은",
+    "김서연",
     "14:00~16:00",
     14,
     16,
@@ -142,7 +142,7 @@ const ihaeunApprovalTimelineBlocks = [
     "approval-ihaeun-wed-english-c",
     "wed",
     "영어 C반",
-    "이하은",
+    "김서연",
     "19:00~21:00",
     19,
     21,
@@ -154,7 +154,7 @@ const ihaeunApprovalTimelineBlocks = [
     "approval-ihaeun-fri-korean-e",
     "fri",
     "국어 E반",
-    "이하은",
+    "김서연",
     "14:00~16:00",
     14,
     16,
@@ -165,20 +165,20 @@ const ihaeunApprovalTimelineBlocks = [
 ] as const satisfies readonly ScheduleTimelineBlock[];
 
 const selectedApprovalDetail = {
-  workerName: "이하은",
+  workerName: "김서연",
   workerTag: "베테랑",
   workerStatusText: "활성",
   submittedAt: "04.15",
   submittedKindText: "변경",
   submittedBlockCountText: "5건",
   correctionStatusText: "없음",
-  adjustmentDutyName: "수학 A반",
+  adjustmentDutyName: "수학 B반",
   adjustmentDayText: "월요일",
   adjustmentLocationName: "대치 A학원",
   adjustmentTimeText: "19:00~21:00",
   adjustmentStartTime: "19:00",
   adjustmentEndTime: "21:00",
-  timelineBlocks: ihaeunApprovalTimelineBlocks,
+  timelineBlocks: selectedApprovalTimelineBlocks,
   rejectDialog: {
     title: "시간표 반려",
     reasonLabel: "반려 사유 (선택)",
