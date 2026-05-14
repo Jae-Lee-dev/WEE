@@ -52,6 +52,12 @@ This version has breaking changes. APIs, conventions, and file structure may dif
   - `git switch develop`
   - `git pull --ff-only` when a remote is configured and network is available
   - `git worktree add ../../worktrees/admin-web/<feature-name> -b feat/<feature-name> develop`
+- After creating a feature worktree, add a root `.env.local` symlink back to the integration checkout env file when the LLM session needs to run that worktree against live Firebase:
+  - `cd ../../worktrees/admin-web/<feature-name>`
+  - `ln -s /Users/juni/Desktop/Personal/project/eduU/WEE/repos/admin-web/.env.local .env.local`
+  - If `.env.local` already exists in the worktree, inspect it first and do not overwrite it without explicit user confirmation.
+  - Restart `pnpm dev` after adding or changing the symlink. Next.js reads `.env.local`; regular shell commands only see those variables if their script loads dotenv or exports them explicitly.
+  - This gives that LLM session access to the real Firebase project configured by the integration checkout. Avoid seed, approval/rejection, destructive, or broad write operations against shared Firebase data unless the task explicitly calls for them.
 - Use one feature branch per worktree. Do not reuse an old worktree for a different task.
 - Use slash-free kebab-case for `<feature-name>`: lowercase letters, numbers, and hyphens only. Example: `feat/button-typography` maps to `worktrees/admin-web/button-typography/`.
 - Avoid stacked branches. Only branch from another feature branch when the new task truly depends on unmerged work.
