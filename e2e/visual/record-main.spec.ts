@@ -255,6 +255,18 @@ test("REC-01 overtime approval asks payroll handling in confirmation modal", asy
   await expect(
     page.getByTestId("record-detail-action-mark-normal"),
   ).toHaveCount(0);
+  const detail = page.getByTestId("record-detail-panel");
+  await expect(detail.getByText("강태우 · 추가근무 신청")).toBeVisible();
+  await expect(
+    detail.getByRole("heading", { name: "근무기록" }),
+  ).toHaveCount(0);
+  await expect(
+    detail.getByRole("heading", { exact: true, name: "추가근무 신청" }),
+  ).toBeVisible();
+  await expect(
+    detail.getByRole("heading", { name: "연결 출퇴근 기록" }),
+  ).toBeVisible();
+  await expect(detail.getByText("보강 수업 연장")).toBeVisible();
   await expect(
     page.getByTestId("record-detail-action-approve-overtime"),
   ).toBeVisible();

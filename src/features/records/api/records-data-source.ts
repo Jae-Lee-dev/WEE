@@ -56,6 +56,7 @@ import {
   type RecordTimelineDayId,
 } from "../model/records-fixtures";
 import {
+  createAttendanceLogLineSection,
   createOvertimeLineSection,
   createRecordDetailLine as detailLine,
   createRecordLineSections,
@@ -2226,15 +2227,14 @@ function createOvertimeDetailStates(
   payrollSetting: PayrollSettingModel | null,
   empty: RecordDetailState,
 ): Record<RecordDetailStateId, RecordDetailState> {
-  const base = {
-    ...createRecordActionDetailBase(record, attendance),
-    lineSections: createOvertimeDetailLineSections(
-      record,
-      attendance,
-      overtime,
-    ),
+  const base: RecordDetailState = {
+    actions: createRecordActionButtons(false),
+    alertText: getOvertimeAttendanceAlertText(attendance),
+    id: "normal-selected",
+    lineSections: createOvertimeDetailLineSections(attendance, overtime),
     statusLabel: "추가근무 신청",
     statusTone: "blue" as const,
+    title: `${overtime.workerName || record.workerName} · 추가근무 신청`,
   };
 
   return {
@@ -2456,18 +2456,34 @@ function createRecordDetailLineSections(
 }
 
 function createOvertimeDetailLineSections(
-  record: WorkRecordModel,
   attendance: AttendanceLogModel | null,
   overtime: OvertimeWorkModel,
 ): readonly RecordDetailLineSection[] {
   return [
-    ...createRecordDetailLineSections(record, attendance, false),
     createOvertimeLineSection({
       overtimeEnd: formatTime(overtime.extraEndAt),
       overtimeStart: formatTime(overtime.extraStartAt),
       reason: overtime.reason,
     }),
+    createAttendanceLogLineSection({
+      checkIn: formatTime(attendance?.checkInAt),
+      checkOut: formatTime(attendance?.checkOutAt),
+      locationName: attendance?.locationName ?? "-",
+      title: "연결 출퇴근 기록",
+    }),
   ];
+}
+
+function getOvertimeAttendanceAlertText(attendance: AttendanceLogModel | null) {
+  if (!attendance) {
+    return "연결된 출퇴근 기록이 없어 추가근무 시간을 확인할 수 없습니다.";
+  }
+
+  if (!attendance.checkOutAt) {
+    return "연결 출퇴근 기록에 퇴근 시각이 없어 추가근무 시간을 확인할 수 없습니다.";
+  }
+
+  return undefined;
 }
 
 function mapAnomalyHistoryRow(

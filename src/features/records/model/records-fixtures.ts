@@ -1,4 +1,5 @@
 import {
+  createAttendanceLogLineSection,
   createOvertimeLineSection,
   createRecordDetailLine as detailLine,
   createRecordLineSections,
@@ -659,7 +660,7 @@ const overtimeRecordDetailStates = {
     lineSections: overtimeLineSections(),
     statusLabel: "추가근무 신청",
     statusTone: "blue",
-    title: "강태우 · 화학 G반",
+    title: "강태우 · 추가근무 신청",
   },
   "anomaly-step-3": {
     ...recordDetailStates["normal-selected"],
@@ -700,7 +701,7 @@ const overtimeRecordDetailStates = {
     statusLabel: "추가근무 신청",
     statusTone: "blue",
     submitAction: "approve-overtime",
-    title: "강태우 · 화학 G반",
+    title: "강태우 · 추가근무 신청",
   },
   "anomaly-step-4": {
     ...recordDetailStates["normal-selected"],
@@ -718,7 +719,7 @@ const overtimeRecordDetailStates = {
     statusLabel: "추가근무 신청",
     statusTone: "blue",
     submitAction: "reject-overtime",
-    title: "강태우 · 화학 G반",
+    title: "강태우 · 추가근무 신청",
   },
 } as const satisfies Record<RecordDetailStateId, RecordDetailState>;
 
@@ -1163,17 +1164,16 @@ function recordLineSections({
 
 function overtimeLineSections(): readonly RecordDetailLineSection[] {
   return [
-    ...recordLineSections({
-      checkIn: "10:00",
-      checkOut: "12:00",
-      logStatus: null,
-      workEnd: "12:00",
-      workStart: "10:00",
-    }),
     createOvertimeLineSection({
       overtimeEnd: "12:30",
       overtimeStart: "12:00",
       reason: "보강 수업 연장",
+    }),
+    createAttendanceLogLineSection({
+      checkIn: "10:00",
+      checkOut: "12:00",
+      locationName: "대치 A학원",
+      title: "연결 출퇴근 기록",
     }),
   ];
 }
