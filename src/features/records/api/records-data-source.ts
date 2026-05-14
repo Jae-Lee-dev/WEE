@@ -50,6 +50,11 @@ import {
   type RecordTimelineBlockKind,
   type RecordTimelineDayId,
 } from "../model/records-fixtures";
+import {
+  createOvertimeLineSection,
+  createRecordDetailLine as detailLine,
+  createRecordLineSections,
+} from "../model/record-detail-lines";
 
 export type RecordsDataSource = {
   applyMainRecordAction: (input: RecordMainActionInput) => Promise<void>;
@@ -208,7 +213,9 @@ export function createRecordsDataSource(): RecordsDataSource {
 }
 
 export function shouldUseRecordsFixtureDataSource() {
-  return isMockFirebaseProject() || readActiveWorkspaceId() === "workspace_visual";
+  return (
+    isMockFirebaseProject() || readActiveWorkspaceId() === "workspace_visual"
+  );
 }
 
 function createFixtureRecordsDataSource(): RecordsDataSource {
@@ -272,7 +279,9 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
         collection(db, "workspaces", workspaceId, "anomalyResolutions"),
       );
       const batch = writeBatch(db);
-      const payrollApplication = getWorkRecordPayrollApplication(input.payrollEffect);
+      const payrollApplication = getWorkRecordPayrollApplication(
+        input.payrollEffect,
+      );
 
       if (isRecordEditAction(input.action)) {
         const change = queueRecordEditAction({
@@ -469,11 +478,16 @@ function getRecordActionDecision(action: RecordMainActionInput["action"]) {
   }
 }
 
-function getWorkRecordPayrollApplication(effect: PayrollEffect): "hold" | "immediate" {
+function getWorkRecordPayrollApplication(
+  effect: PayrollEffect,
+): "hold" | "immediate" {
   return effect === "hold" ? "hold" : "immediate";
 }
 
-function parseRecordActionTimestamp(dateKey: string, timeValue: string | undefined) {
+function parseRecordActionTimestamp(
+  dateKey: string,
+  timeValue: string | undefined,
+) {
   if (!dateKey || !timeValue || !timeValue.match(/^\d{2}:\d{2}$/)) {
     return null;
   }
@@ -563,14 +577,11 @@ function queueRecordEditAction({
   batch.update(recordRef, recordUpdate);
 
   if (flag) {
-    batch.update(
-      doc(db, "workspaces", workspaceId, "anomalyFlags", flag.id),
-      {
-        resolvedAt: serverTimestamp(),
-        status: "resolved",
-        updatedAt: serverTimestamp(),
-      },
-    );
+    batch.update(doc(db, "workspaces", workspaceId, "anomalyFlags", flag.id), {
+      resolvedAt: serverTimestamp(),
+      status: "resolved",
+      updatedAt: serverTimestamp(),
+    });
   }
 
   const afterSnapshot = createWorkerSafeRecordSnapshot(
@@ -640,7 +651,10 @@ function queueCorrectionAction({
     "correctionRequests",
     request.id,
   );
-  const workerId = readString(request.data.workerId, readString(recordData.workerId, ""));
+  const workerId = readString(
+    request.data.workerId,
+    readString(recordData.workerId, ""),
+  );
   const beforeRequestSnapshot = readRecord(request.data.beforeSnapshot);
   const afterRequestSnapshot = readRecord(request.data.afterSnapshot);
 
@@ -682,8 +696,14 @@ function queueCorrectionAction({
     return;
   }
 
-  if (isCorrectionSnapshotForOvertime(beforeRequestSnapshot, afterRequestSnapshot)) {
-    const overtime = findCorrectionOvertimeDocument(collections, request, input.recordId);
+  if (
+    isCorrectionSnapshotForOvertime(beforeRequestSnapshot, afterRequestSnapshot)
+  ) {
+    const overtime = findCorrectionOvertimeDocument(
+      collections,
+      request,
+      input.recordId,
+    );
 
     if (!overtime) {
       throw new Error("이의신청과 연결된 추가근무를 찾을 수 없습니다.");
@@ -913,7 +933,10 @@ function queueOvertimeAction({
     "overtimeWorks",
     overtime.id,
   );
-  const workerId = readString(overtime.data.workerId, readString(recordData.workerId, ""));
+  const workerId = readString(
+    overtime.data.workerId,
+    readString(recordData.workerId, ""),
+  );
 
   if (input.action === "reject-overtime") {
     batch.update(overtimeRef, {
@@ -1063,15 +1086,15 @@ function isCorrectionSnapshotForOvertime(
   const explicitTarget = snapshots.some((snapshot) =>
     Boolean(
       readNullableString(snapshot.overtimeWorkId) ||
-        readNullableString(snapshot.overtimeId),
+      readNullableString(snapshot.overtimeId),
     ),
   );
   const overtimeTimeChange = snapshots.some((snapshot) =>
     Boolean(
       readDate(snapshot.extraStartAt) ||
-        readDate(snapshot.extraEndAt) ||
-        readDate(snapshot.overtimeStartAt) ||
-        readDate(snapshot.overtimeEndAt),
+      readDate(snapshot.extraEndAt) ||
+      readDate(snapshot.overtimeStartAt) ||
+      readDate(snapshot.overtimeEndAt),
     ),
   );
   const targetType = snapshots
@@ -1104,16 +1127,18 @@ function getWorkerMonthPayrollContext(
   collections: RecordsCollections,
   target: { monthKey: string; workerId: string },
 ): WorkerMonthPayrollContext {
-  const statement = collections.payStatements.find(
-    (item) =>
-      readString(item.data.workerId, "") === target.workerId &&
-      readString(item.data.monthKey, "") === target.monthKey,
-  ) ?? null;
-  const row = collections.payrollWorkerMonthRows.find(
-    (item) =>
-      readString(item.data.workerId, "") === target.workerId &&
-      readString(item.data.monthKey, "") === target.monthKey,
-  ) ?? null;
+  const statement =
+    collections.payStatements.find(
+      (item) =>
+        readString(item.data.workerId, "") === target.workerId &&
+        readString(item.data.monthKey, "") === target.monthKey,
+    ) ?? null;
+  const row =
+    collections.payrollWorkerMonthRows.find(
+      (item) =>
+        readString(item.data.workerId, "") === target.workerId &&
+        readString(item.data.monthKey, "") === target.monthKey,
+    ) ?? null;
   const paid =
     readString(statement?.data.status, "") === "paid" ||
     readString(row?.data.rowStatus, "") === "paid";
@@ -1134,9 +1159,11 @@ function queueReconfirmationAlert({
   reason: string;
   workspaceId: string;
 }) {
-  const statementProcessing = readString(statement?.data.status, "") === "processing";
+  const statementProcessing =
+    readString(statement?.data.status, "") === "processing";
   const rowStatus = readString(row?.data.rowStatus, "");
-  const rowProcessing = rowStatus === "processing" || rowStatus === "needs_reconfirmation";
+  const rowProcessing =
+    rowStatus === "processing" || rowStatus === "needs_reconfirmation";
 
   if (!statementProcessing && !rowProcessing) {
     return;
@@ -1226,8 +1253,10 @@ function queueMonthlyRecordAdjustment({
     .filter(
       (item) =>
         readString(item.data.workerId, "") === workerId &&
-        readString(item.data.dateKey, readString(item.data.date, "")).slice(0, 7) ===
-          monthKey &&
+        readString(item.data.dateKey, readString(item.data.date, "")).slice(
+          0,
+          7,
+        ) === monthKey &&
         readString(item.data.status, "") !== "deleted",
     )
     .reduce((total, item) => total + getRecordDurationMinutes(item.data), 0);
@@ -1253,7 +1282,9 @@ function queueMonthlyRecordAdjustment({
   );
   const dutyName = readString(recordData.dutyName, "근무기록");
   const label =
-    input.action === "delete" ? `${dutyName} 결근 차감` : `${dutyName} 근무기록 차감`;
+    input.action === "delete"
+      ? `${dutyName} 결근 차감`
+      : `${dutyName} 근무기록 차감`;
 
   batch.set(adjustmentRef, {
     amount,
@@ -1407,16 +1438,19 @@ function getMonthEndDateKey(monthKey: string) {
   return `${year}-${month.padStart(2, "0")}-${pad2(lastDay)}`;
 }
 
-function mapRecordMainView(collections: RecordsCollections): RecordMainViewModel {
-  const records = collections.workRecords.map(mapWorkRecord).sort(compareRecords);
+function mapRecordMainView(
+  collections: RecordsCollections,
+): RecordMainViewModel {
+  const records = collections.workRecords
+    .map(mapWorkRecord)
+    .sort(compareRecords);
   const attendanceById = toMap(
     collections.attendanceLogs.map(mapAttendanceLog),
     (log) => log.id,
   );
   const anomalyFlags = collections.anomalyFlags.map(mapAnomalyFlag);
-  const correctionRequests = collections.correctionRequests.map(
-    mapCorrectionRequest,
-  );
+  const correctionRequests =
+    collections.correctionRequests.map(mapCorrectionRequest);
   const overtimeWorks = collections.overtimeWorks.map(mapOvertimeWork);
   const payrollSettings = collections.payrollSettings.map(mapPayrollSetting);
   const getPayrollSetting = (record: WorkRecordModel) =>
@@ -1477,16 +1511,20 @@ function mapRecordMainView(collections: RecordsCollections): RecordMainViewModel
     blocks,
     detailStates: createDetailStates({
       attendance: selectedRecord?.attendanceLogId
-        ? attendanceById.get(selectedRecord.attendanceLogId) ?? null
+        ? (attendanceById.get(selectedRecord.attendanceLogId) ?? null)
         : null,
       correction: selectedRecord
-        ? pendingCorrectionByRecordId.get(selectedRecord.id) ?? null
+        ? (pendingCorrectionByRecordId.get(selectedRecord.id) ?? null)
         : null,
-      flag: selectedRecord ? flagsByRecordId.get(selectedRecord.id) ?? null : null,
+      flag: selectedRecord
+        ? (flagsByRecordId.get(selectedRecord.id) ?? null)
+        : null,
       overtime: selectedRecord
-        ? pendingOvertimeByRecordId.get(selectedRecord.id) ?? null
+        ? (pendingOvertimeByRecordId.get(selectedRecord.id) ?? null)
         : null,
-      payrollSetting: selectedRecord ? getPayrollSetting(selectedRecord) ?? null : null,
+      payrollSetting: selectedRecord
+        ? (getPayrollSetting(selectedRecord) ?? null)
+        : null,
       record: selectedRecord,
     }),
     detailStatesByBlockId,
@@ -1507,7 +1545,10 @@ function mapRecordMainView(collections: RecordsCollections): RecordMainViewModel
 function mapAnomalyHistoryView(
   collections: RecordsCollections,
 ): AnomalyHistoryViewModel {
-  const recordsById = toMap(collections.workRecords.map(mapWorkRecord), (record) => record.id);
+  const recordsById = toMap(
+    collections.workRecords.map(mapWorkRecord),
+    (record) => record.id,
+  );
   const resolutions = collections.anomalyResolutions.map(mapAnomalyResolution);
   const resolutionByFlagId = toMap(
     resolutions.filter((resolution) => resolution.anomalyFlagId),
@@ -1517,14 +1558,20 @@ function mapAnomalyHistoryView(
     resolutions.filter((resolution) => resolution.workRecordId),
     (resolution) => resolution.workRecordId,
   );
-  const flags = collections.anomalyFlags.map(mapAnomalyFlag).sort((first, second) => {
-    return getSortTime(second.createdAt) - getSortTime(first.createdAt);
-  });
+  const flags = collections.anomalyFlags
+    .map(mapAnomalyFlag)
+    .sort((first, second) => {
+      return getSortTime(second.createdAt) - getSortTime(first.createdAt);
+    });
   const rows = flags.map((flag) => {
-    const record = flag.workRecordId ? recordsById.get(flag.workRecordId) : null;
+    const record = flag.workRecordId
+      ? recordsById.get(flag.workRecordId)
+      : null;
     const resolution =
       resolutionByFlagId.get(flag.id) ??
-      (flag.workRecordId ? resolutionByRecordId.get(flag.workRecordId) : undefined);
+      (flag.workRecordId
+        ? resolutionByRecordId.get(flag.workRecordId)
+        : undefined);
 
     return mapAnomalyHistoryRow(flag, record ?? null, resolution ?? null);
   });
@@ -1532,13 +1579,19 @@ function mapAnomalyHistoryView(
   return {
     details: Object.fromEntries(
       flags.map((flag) => {
-        const record = flag.workRecordId ? recordsById.get(flag.workRecordId) : null;
+        const record = flag.workRecordId
+          ? recordsById.get(flag.workRecordId)
+          : null;
         const resolution =
           resolutionByFlagId.get(flag.id) ??
           (flag.workRecordId
             ? resolutionByRecordId.get(flag.workRecordId)
             : undefined);
-        const detail = mapAnomalyHistoryDetail(flag, record ?? null, resolution ?? null);
+        const detail = mapAnomalyHistoryDetail(
+          flag,
+          record ?? null,
+          resolution ?? null,
+        );
 
         return [detail.id, detail];
       }),
@@ -1553,17 +1606,24 @@ function mapAnomalyHistoryView(
 function mapCorrectionHistoryView(
   collections: RecordsCollections,
 ): CorrectionHistoryViewModel {
-  const recordsById = toMap(collections.workRecords.map(mapWorkRecord), (record) => record.id);
+  const recordsById = toMap(
+    collections.workRecords.map(mapWorkRecord),
+    (record) => record.id,
+  );
   const requests = collections.correctionRequests
     .map(mapCorrectionRequest)
     .sort((first, second) => {
-      return getSortTime(second.submittedAt ?? second.createdAt) -
-        getSortTime(first.submittedAt ?? first.createdAt);
+      return (
+        getSortTime(second.submittedAt ?? second.createdAt) -
+        getSortTime(first.submittedAt ?? first.createdAt)
+      );
     });
   const rows = requests.map((request) =>
     mapCorrectionRow(
       request,
-      request.workRecordId ? recordsById.get(request.workRecordId) ?? null : null,
+      request.workRecordId
+        ? (recordsById.get(request.workRecordId) ?? null)
+        : null,
     ),
   );
 
@@ -1573,7 +1633,7 @@ function mapCorrectionHistoryView(
         const detail = mapCorrectionDetail(
           request,
           request.workRecordId
-            ? recordsById.get(request.workRecordId) ?? null
+            ? (recordsById.get(request.workRecordId) ?? null)
             : null,
         );
 
@@ -1593,11 +1653,15 @@ function mapAttendanceLogView(
   const rows = collections.attendanceLogs
     .map(mapAttendanceLog)
     .sort((first, second) => {
-      return getSortTime(second.checkInAt ?? second.createdAt) -
-        getSortTime(first.checkInAt ?? first.createdAt);
+      return (
+        getSortTime(second.checkInAt ?? second.createdAt) -
+        getSortTime(first.checkInAt ?? first.createdAt)
+      );
     })
     .map(mapAttendanceLogRow);
-  const anomalyCount = rows.filter((row) => row.locationStatus === "이상").length;
+  const anomalyCount = rows.filter(
+    (row) => row.locationStatus === "이상",
+  ).length;
 
   return {
     columns: attendanceLogFixtureViewModel.columns,
@@ -1666,7 +1730,9 @@ function mapAnomalyResolution(
   };
 }
 
-function mapCorrectionRequest(document: FirestoreDocument): CorrectionRequestModel {
+function mapCorrectionRequest(
+  document: FirestoreDocument,
+): CorrectionRequestModel {
   const data = document.data;
 
   return {
@@ -1690,7 +1756,8 @@ function mapOvertimeWork(document: FirestoreDocument): OvertimeWorkModel {
   const data = document.data;
 
   return {
-    amount: readNullableNumber(data.amount) ?? readNullableNumber(data.fixedAmount),
+    amount:
+      readNullableNumber(data.amount) ?? readNullableNumber(data.fixedAmount),
     createdAt: readDate(data.createdAt),
     extraEndAt: readDate(data.extraEndAt),
     extraStartAt: readDate(data.extraStartAt),
@@ -1735,7 +1802,10 @@ function mapTimelineBlock(
     pendingOvertimeIds: ReadonlySet<string>;
   },
 ): RecordTimelineBlock {
-  const hasUnresolvedFlag = isUnresolvedAnomaly(record, new Map([[record.id, options.flag]]));
+  const hasUnresolvedFlag = isUnresolvedAnomaly(
+    record,
+    new Map([[record.id, options.flag]]),
+  );
   const kind = getTimelineBlockKind(record, {
     hasUnresolvedFlag,
     pendingCorrectionIds: options.pendingCorrectionIds,
@@ -1767,9 +1837,7 @@ function mapTimelineBlock(
 
 function groupIdsByWorkRecordId<
   T extends { id: string; workRecordId: string | null },
->(
-  items: readonly T[],
-) {
+>(items: readonly T[]) {
   const idsByRecordId = new Map<string, string[]>();
 
   for (const item of items) {
@@ -1791,7 +1859,9 @@ function createDetailStatesByBlockId(
   options: {
     attendanceById: ReadonlyMap<string, AttendanceLogModel>;
     flagsByRecordId: ReadonlyMap<string, AnomalyFlagModel | undefined>;
-    getPayrollSetting: (record: WorkRecordModel) => PayrollSettingModel | undefined;
+    getPayrollSetting: (
+      record: WorkRecordModel,
+    ) => PayrollSettingModel | undefined;
     pendingCorrectionByRecordId: ReadonlyMap<string, CorrectionRequestModel>;
     pendingOvertimeByRecordId: ReadonlyMap<string, OvertimeWorkModel>;
   },
@@ -1804,7 +1874,7 @@ function createDetailStatesByBlockId(
   for (const record of records) {
     detailStatesByBlockId[record.id] = createDetailStates({
       attendance: record.attendanceLogId
-        ? options.attendanceById.get(record.attendanceLogId) ?? null
+        ? (options.attendanceById.get(record.attendanceLogId) ?? null)
         : null,
       correction: options.pendingCorrectionByRecordId.get(record.id) ?? null,
       flag: options.flagsByRecordId.get(record.id) ?? null,
@@ -1823,7 +1893,9 @@ function createWeekNavigation(records: readonly WorkRecordModel[]) {
     .map(getRecordDate)
     .filter((date): date is Date => Boolean(date))
     .map((date) => formatDateKey(startOfWeekSunday(date)));
-  const weekStartKeys = [...new Set([currentWeekStartKey, ...recordWeekStartKeys])].sort();
+  const weekStartKeys = [
+    ...new Set([currentWeekStartKey, ...recordWeekStartKeys]),
+  ].sort();
 
   return {
     initialWeekStartKey: currentWeekStartKey,
@@ -1845,7 +1917,9 @@ function selectInitialRecord(
     : records;
 
   return (
-    scopedRecords.find((record) => isUnresolvedAnomaly(record, options.flagsByRecordId)) ??
+    scopedRecords.find((record) =>
+      isUnresolvedAnomaly(record, options.flagsByRecordId),
+    ) ??
     scopedRecords[0] ??
     null
   );
@@ -1884,7 +1958,8 @@ function createDetailStates({
   }
 
   const normal = createNormalDetailState(record, attendance);
-  const hasUnresolvedFlag = Boolean(flag) &&
+  const hasUnresolvedFlag =
+    Boolean(flag) &&
     isUnresolvedAnomaly(record, new Map([[record.id, flag ?? undefined]]));
 
   if (!hasUnresolvedFlag && correction) {
@@ -1899,7 +1974,13 @@ function createDetailStates({
   }
 
   if (!hasUnresolvedFlag && overtime) {
-    return createOvertimeDetailStates(record, attendance, overtime, payrollSetting, empty);
+    return createOvertimeDetailStates(
+      record,
+      attendance,
+      overtime,
+      payrollSetting,
+      empty,
+    );
   }
 
   const actionBase = hasUnresolvedFlag
@@ -1931,7 +2012,9 @@ function createDetailStates({
         {
           id: "check-in",
           label: "근무 시작",
-          value: formatKoreanTime(record.effectiveStartAt ?? record.plannedStartAt),
+          value: formatKoreanTime(
+            record.effectiveStartAt ?? record.plannedStartAt,
+          ),
         },
         {
           id: "check-out",
@@ -1960,28 +2043,26 @@ function createCorrectionDetailStates(
 ): Record<RecordDetailStateId, RecordDetailState> {
   const base = createRecordActionDetailBase(record, attendance);
   const overtimeCorrection = isCorrectionForOvertime(correction);
-  const afterStartAt =
-    overtimeCorrection
-      ? readDate(correction.afterSnapshot.extraStartAt) ??
-        readDate(correction.afterSnapshot.overtimeStartAt) ??
-        overtime?.extraStartAt ??
-        record.effectiveStartAt ??
-        record.plannedStartAt
-      : readDate(correction.afterSnapshot.effectiveStartAt) ??
-        readDate(correction.afterSnapshot.plannedStartAt) ??
-        record.effectiveStartAt ??
-        record.plannedStartAt;
-  const afterEndAt =
-    overtimeCorrection
-      ? readDate(correction.afterSnapshot.extraEndAt) ??
-        readDate(correction.afterSnapshot.overtimeEndAt) ??
-        overtime?.extraEndAt ??
-        record.effectiveEndAt ??
-        record.plannedEndAt
-      : readDate(correction.afterSnapshot.effectiveEndAt) ??
-        readDate(correction.afterSnapshot.plannedEndAt) ??
-        record.effectiveEndAt ??
-        record.plannedEndAt;
+  const afterStartAt = overtimeCorrection
+    ? (readDate(correction.afterSnapshot.extraStartAt) ??
+      readDate(correction.afterSnapshot.overtimeStartAt) ??
+      overtime?.extraStartAt ??
+      record.effectiveStartAt ??
+      record.plannedStartAt)
+    : (readDate(correction.afterSnapshot.effectiveStartAt) ??
+      readDate(correction.afterSnapshot.plannedStartAt) ??
+      record.effectiveStartAt ??
+      record.plannedStartAt);
+  const afterEndAt = overtimeCorrection
+    ? (readDate(correction.afterSnapshot.extraEndAt) ??
+      readDate(correction.afterSnapshot.overtimeEndAt) ??
+      overtime?.extraEndAt ??
+      record.effectiveEndAt ??
+      record.plannedEndAt)
+    : (readDate(correction.afterSnapshot.effectiveEndAt) ??
+      readDate(correction.afterSnapshot.plannedEndAt) ??
+      record.effectiveEndAt ??
+      record.plannedEndAt);
   const approveState: RecordDetailState = {
     ...base,
     actions: [
@@ -2067,7 +2148,11 @@ function createOvertimeDetailStates(
 ): Record<RecordDetailStateId, RecordDetailState> {
   const base = {
     ...createRecordActionDetailBase(record, attendance),
-    lineSections: createOvertimeDetailLineSections(record, attendance, overtime),
+    lineSections: createOvertimeDetailLineSections(
+      record,
+      attendance,
+      overtime,
+    ),
     statusLabel: "추가근무",
     statusTone: "blue" as const,
   };
@@ -2121,9 +2206,12 @@ function createOvertimeDetailStates(
   };
 }
 
-function createOvertimePayrollMode(): NonNullable<RecordDetailState["payrollMode"]> {
+function createOvertimePayrollMode(): NonNullable<
+  RecordDetailState["payrollMode"]
+> {
   return {
-    description: "급여 제외는 산정에 넣지 않고, 보류는 급여 확정 시점에 다시 결정합니다.",
+    description:
+      "급여 제외는 산정에 넣지 않고, 보류는 급여 확정 시점에 다시 결정합니다.",
     label: "급여 처리",
     options: [
       { id: "none", label: "급여 제외" },
@@ -2136,7 +2224,8 @@ function createOvertimePayrollMode(): NonNullable<RecordDetailState["payrollMode
 function createOvertimePayrollPayMode(
   payrollSetting: PayrollSettingModel | null,
 ): NonNullable<RecordDetailState["payrollPayMode"]> {
-  const canUseHourly = payrollSetting?.payrollType === "hourly" &&
+  const canUseHourly =
+    payrollSetting?.payrollType === "hourly" &&
     payrollSetting.hourlyRate != null;
 
   return {
@@ -2153,9 +2242,7 @@ function createOvertimePayrollPayMode(
   };
 }
 
-function isCorrectionForOvertime(
-  correction: CorrectionRequestModel,
-) {
+function isCorrectionForOvertime(correction: CorrectionRequestModel) {
   return isCorrectionSnapshotForOvertime(
     correction.beforeSnapshot,
     correction.afterSnapshot,
@@ -2196,7 +2283,13 @@ function createRecordActionButtons(
 ): readonly RecordDetailAction[] {
   return [
     ...(hasAnomalyAction
-      ? [{ id: "mark-normal", label: "정상 처리", active: activeAction === "mark-normal" }]
+      ? [
+          {
+            id: "mark-normal",
+            label: "정상 처리",
+            active: activeAction === "mark-normal",
+          },
+        ]
       : []),
     { id: "edit", label: "수정", active: activeAction === "edit" },
     { id: "delete", label: "삭제", active: activeAction === "delete" },
@@ -2225,7 +2318,9 @@ function createAnomalyDetailBase(
   };
 }
 
-function createEmptyDetailState(emptyText: readonly string[]): RecordDetailState {
+function createEmptyDetailState(
+  emptyText: readonly string[],
+): RecordDetailState {
   return {
     emptyText,
     id: "empty",
@@ -2242,7 +2337,9 @@ function createPlaceholderNormalDetail(): RecordDetailState {
   };
 }
 
-function createPlaceholderAnomalyDetail(id: RecordDetailStateId): RecordDetailState {
+function createPlaceholderAnomalyDetail(
+  id: RecordDetailStateId,
+): RecordDetailState {
   return {
     id,
     lines: [],
@@ -2267,18 +2364,17 @@ function createRecordDetailLineSections(
   attendance: AttendanceLogModel | null,
   anomaly: boolean,
 ): readonly RecordDetailLineSection[] {
-  return [
-    {
-      id: "work-record",
-      title: "근무기록",
-      lines: createWorkRecordDetailLines(record),
-    },
-    {
-      id: "attendance-log",
-      title: "연결된 출퇴근 로그",
-      lines: createAttendanceLogDetailLines(record, attendance, anomaly),
-    },
-  ];
+  return createRecordLineSections({
+    checkIn: formatTime(attendance?.checkInAt),
+    checkOut: formatTime(attendance?.checkOutAt),
+    locationName: record.locationName,
+    logStatus: anomaly
+      ? getLocationAnomalyText(record, attendance)
+      : "정상 (반경 내)",
+    logTone: anomaly ? "pink" : undefined,
+    workEnd: formatTime(record.effectiveEndAt ?? record.plannedEndAt),
+    workStart: formatTime(record.effectiveStartAt ?? record.plannedStartAt),
+  });
 }
 
 function createOvertimeDetailLineSections(
@@ -2288,50 +2384,11 @@ function createOvertimeDetailLineSections(
 ): readonly RecordDetailLineSection[] {
   return [
     ...createRecordDetailLineSections(record, attendance, false),
-    {
-      id: "overtime-work",
-      title: "추가근무 신청",
-      lines: [
-        detailLine("overtime-start", "추가근무 시작", formatTime(overtime.extraStartAt)),
-        detailLine("overtime-end", "추가근무 종료", formatTime(overtime.extraEndAt)),
-        detailLine("reason", "신청 사유", overtime.reason),
-      ],
-    },
-  ];
-}
-
-function createWorkRecordDetailLines(
-  record: WorkRecordModel,
-): readonly RecordDetailLine[] {
-  return [
-    detailLine(
-      "work-start",
-      "근무 시작",
-      formatTime(record.effectiveStartAt ?? record.plannedStartAt),
-    ),
-    detailLine(
-      "work-end",
-      "근무 종료",
-      formatTime(record.effectiveEndAt ?? record.plannedEndAt),
-    ),
-    detailLine("work-location", "근무지", record.locationName),
-  ];
-}
-
-function createAttendanceLogDetailLines(
-  record: WorkRecordModel,
-  attendance: AttendanceLogModel | null,
-  anomaly: boolean,
-): readonly RecordDetailLine[] {
-  return [
-    detailLine("check-in", "출근 로그", formatTime(attendance?.checkInAt)),
-    detailLine("check-out", "퇴근 로그", formatTime(attendance?.checkOutAt)),
-    detailLine(
-      "log-status",
-      "로그 판정",
-      anomaly ? getLocationAnomalyText(record, attendance) : "정상 (반경 내)",
-      anomaly ? "pink" : undefined,
-    ),
+    createOvertimeLineSection({
+      overtimeEnd: formatTime(overtime.extraEndAt),
+      overtimeStart: formatTime(overtime.extraStartAt),
+      reason: overtime.reason,
+    }),
   ];
 }
 
@@ -2346,8 +2403,13 @@ function mapAnomalyHistoryRow(
     dutyName: record?.dutyName ?? flag.dutyName,
     id: flag.id,
     payrollResult: getPayrollEffectLabel(resolution?.payrollEffect ?? "none"),
-    referenceDate: formatShortDateTime(flag.createdAt ?? parseDateKey(flag.dateKey)),
-    result: getAnomalyResolutionLabel(resolution?.decision ?? null, flag.status),
+    referenceDate: formatShortDateTime(
+      flag.createdAt ?? parseDateKey(flag.dateKey),
+    ),
+    result: getAnomalyResolutionLabel(
+      resolution?.decision ?? null,
+      flag.status,
+    ),
     status: getAnomalyHistoryStatus(flag.status, resolution),
     workerName: record?.workerName ?? flag.workerName,
   };
@@ -2379,7 +2441,12 @@ function mapAnomalyHistoryDetail(
       : [
           detailLine("work-start", "근무 시작", "미기록"),
           detailLine("work-end", "근무 종료", "미기록"),
-          detailLine("log-status", "로그 판정", getAnomalyTypeLabel(flag.anomalyType), "pink"),
+          detailLine(
+            "log-status",
+            "로그 판정",
+            getAnomalyTypeLabel(flag.anomalyType),
+            "pink",
+          ),
         ],
     beforeTitle: "처리 전",
     id: flag.id,
@@ -2435,13 +2502,18 @@ function mapCorrectionDetail(
     ],
     id: request.id,
     noteText: request.managerNote || getCorrectionResultLabel(request),
-    originalLines: createSnapshotLines(request.beforeSnapshot, record, "before"),
+    originalLines: createSnapshotLines(
+      request.beforeSnapshot,
+      record,
+      "before",
+    ),
     originalTitle: "당시 기록",
     reasonText: request.reason,
     reasonTitle: "조교 사유",
     subtitle: `${formatRecordDate(record?.dateKey ?? readString(request.beforeSnapshot.date, ""))} 근무`,
     title: `${record?.workerName ?? request.workerName} · ${
-      record?.dutyName ?? readString(request.beforeSnapshot.dutyName, "대상 근무기록")
+      record?.dutyName ??
+      readString(request.beforeSnapshot.dutyName, "대상 근무기록")
     }`,
   };
 }
@@ -2450,7 +2522,9 @@ function mapAttendanceLogRow(log: AttendanceLogModel): AttendanceLogRow {
   return {
     checkIn: formatTime(log.checkInAt),
     checkOut: formatTime(log.checkOutAt),
-    date: formatShortDateTime(log.checkInAt ?? log.createdAt ?? parseDateKey(log.date)),
+    date: formatShortDateTime(
+      log.checkInAt ?? log.createdAt ?? parseDateKey(log.date),
+    ),
     id: log.id,
     locationName: log.locationName,
     locationStatus: getAttendanceLogStatus(log),
@@ -2462,7 +2536,9 @@ function createMainFilters(
   records: readonly WorkRecordModel[],
 ): Record<string, readonly RecordsFilterOption[]> {
   return {
-    location: createWorkerFilterOptions(records.map((record) => record.workerName)),
+    location: createWorkerFilterOptions(
+      records.map((record) => record.workerName),
+    ),
     status: recordMainFixtureViewModel.timeline.filters.status,
     type: recordMainFixtureViewModel.timeline.filters.type,
   };
@@ -2497,8 +2573,8 @@ function createCorrectionFilters(
 }
 
 function createWorkerFilterOptions(names: readonly string[]) {
-  const uniqueNames = [...new Set(names.filter(Boolean))].sort((first, second) =>
-    first.localeCompare(second, "ko-KR"),
+  const uniqueNames = [...new Set(names.filter(Boolean))].sort(
+    (first, second) => first.localeCompare(second, "ko-KR"),
   );
 
   return [
@@ -2519,8 +2595,18 @@ function createAnomalyHistoryMetrics(
   ).length;
 
   return [
-    { id: "submitted", label: "제출 유형", value: `${rows.length}건`, tone: "green" },
-    { id: "pending", label: "처리 대기", value: `${pendingCount}건`, tone: "orange" },
+    {
+      id: "submitted",
+      label: "제출 유형",
+      value: `${rows.length}건`,
+      tone: "green",
+    },
+    {
+      id: "pending",
+      label: "처리 대기",
+      value: `${pendingCount}건`,
+      tone: "orange",
+    },
     {
       id: "edited-or-deleted",
       label: "수정/삭제",
@@ -2540,9 +2626,24 @@ function createCorrectionMetrics(
   ).length;
 
   return [
-    { id: "submitted", label: "제출 유형", value: `${rows.length}건`, tone: "green" },
-    { id: "pending", label: "처리 대기", value: `${pendingCount}건`, tone: "orange" },
-    { id: "approved", label: "승인", value: `${approvedCount}건`, tone: "green" },
+    {
+      id: "submitted",
+      label: "제출 유형",
+      value: `${rows.length}건`,
+      tone: "green",
+    },
+    {
+      id: "pending",
+      label: "처리 대기",
+      value: `${pendingCount}건`,
+      tone: "orange",
+    },
+    {
+      id: "approved",
+      label: "승인",
+      value: `${approvedCount}건`,
+      tone: "green",
+    },
     {
       id: "rejected-or-withdrawn",
       label: "반려/철회",
@@ -2569,7 +2670,8 @@ function createSnapshotLines(
     record?.effectiveEndAt ??
     record?.plannedEndAt ??
     null;
-  const payrollTone: RecordsTone | undefined = mode === "after" ? "green" : undefined;
+  const payrollTone: RecordsTone | undefined =
+    mode === "after" ? "green" : undefined;
 
   return [
     detailLine("work-start", "근무 시작", formatTime(startAt), payrollTone),
@@ -2594,7 +2696,10 @@ function getTimelineBlockKind(
     return "location-anomaly";
   }
 
-  if (record.hasPendingCorrection || options.pendingCorrectionIds.has(record.id)) {
+  if (
+    record.hasPendingCorrection ||
+    options.pendingCorrectionIds.has(record.id)
+  ) {
     return "correction";
   }
 
@@ -2679,9 +2784,11 @@ function getAttendanceLogStatus(log: AttendanceLogModel): AttendanceLogStatus {
   if (
     log.anomalyType !== "none" ||
     log.status === "needs_review" ||
-    readString(log.checkInLocation.result, "inside_radius") !== "inside_radius" ||
+    readString(log.checkInLocation.result, "inside_radius") !==
+      "inside_radius" ||
     (log.checkOutLocation &&
-      readString(log.checkOutLocation.result, "inside_radius") !== "inside_radius")
+      readString(log.checkOutLocation.result, "inside_radius") !==
+        "inside_radius")
   ) {
     return "이상";
   }
@@ -2719,11 +2826,11 @@ function getAnomalyAlertText(type: string) {
   }
 
   if (type === "missing_checkout") {
-    return "출근 로그는 있으나 퇴근 기록이 누락되었습니다.";
+    return "출근 기록은 있으나 퇴근 기록이 누락되었습니다.";
   }
 
   if (type === "absence_candidate") {
-    return "해당 근무와 매칭되는 출퇴근 로그가 없어 결근 후보로 표시되었습니다.";
+    return "해당 근무와 매칭되는 출퇴근 기록이 없어 결근 후보로 표시되었습니다.";
   }
 
   if (type === "location_unknown") {
@@ -2749,7 +2856,10 @@ function getLocationAnomalyText(
     return "위치 미확인";
   }
 
-  const radiusMeters = readNumber(attendance?.checkOutLocation?.radiusMeters, 0);
+  const radiusMeters = readNumber(
+    attendance?.checkOutLocation?.radiusMeters,
+    0,
+  );
 
   if (record.anomalyType === "location_mismatch" && radiusMeters > 0) {
     return `반경 외 ${radiusMeters}m`;
@@ -2812,7 +2922,11 @@ function getSnapshotChangeLabel(snapshot: Record<string, unknown>) {
 }
 
 function getPayrollEffectLabel(effect: string) {
-  if (effect === "immediate" || effect === "applied" || effect === "confirmed") {
+  if (
+    effect === "immediate" ||
+    effect === "applied" ||
+    effect === "confirmed"
+  ) {
     return "즉시";
   }
 
@@ -2855,14 +2969,20 @@ function createWeekLabel(records: readonly WorkRecordModel[]) {
 }
 
 function getLatestRecordDate(records: readonly WorkRecordModel[]) {
-  return records
-    .map(getRecordDate)
-    .filter((date): date is Date => Boolean(date))
-    .sort((first, second) => second.getTime() - first.getTime())[0] ?? null;
+  return (
+    records
+      .map(getRecordDate)
+      .filter((date): date is Date => Boolean(date))
+      .sort((first, second) => second.getTime() - first.getTime())[0] ?? null
+  );
 }
 
 function getRecordDate(record: WorkRecordModel) {
-  return parseDateKey(record.dateKey) ?? record.plannedStartAt ?? record.effectiveStartAt;
+  return (
+    parseDateKey(record.dateKey) ??
+    record.plannedStartAt ??
+    record.effectiveStartAt
+  );
 }
 
 function getRecordDateKey(record: WorkRecordModel) {
@@ -2988,20 +3108,6 @@ function formatKoreanTime(date: Date | null | undefined) {
 
 function getSortTime(date: Date | null | undefined) {
   return date?.getTime() ?? 0;
-}
-
-function detailLine(
-  id: string,
-  label: string,
-  value: string,
-  tone?: RecordsTone,
-): RecordDetailLine {
-  return {
-    id,
-    label,
-    tone,
-    value,
-  };
 }
 
 function readString(value: unknown, fallback: string) {

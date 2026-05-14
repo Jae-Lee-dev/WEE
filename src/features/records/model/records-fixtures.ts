@@ -1,3 +1,9 @@
+import {
+  createOvertimeLineSection,
+  createRecordDetailLine as detailLine,
+  createRecordLineSections,
+} from "./record-detail-lines";
+
 export type RecordsTabId =
   | "records"
   | "anomaly-history"
@@ -620,7 +626,8 @@ const overtimeRecordDetailStates = {
     id: "anomaly-step-3",
     lineSections: overtimeLineSections(),
     payrollMode: {
-      description: "급여 제외는 산정에 넣지 않고, 보류는 급여 확정 시점에 다시 결정합니다.",
+      description:
+        "급여 제외는 산정에 넣지 않고, 보류는 급여 확정 시점에 다시 결정합니다.",
       label: "급여 처리",
       options: [
         { id: "none", label: "급여 제외" },
@@ -791,7 +798,12 @@ export const correctionMetrics = [
   { id: "submitted", label: "제출 유형", value: "6건", tone: "green" },
   { id: "pending", label: "처리 대기", value: "2건", tone: "orange" },
   { id: "approved", label: "승인", value: "5건", tone: "green" },
-  { id: "rejected-or-withdrawn", label: "반려/탈퇴", value: "5건", tone: "pink" },
+  {
+    id: "rejected-or-withdrawn",
+    label: "반려/탈퇴",
+    value: "5건",
+    tone: "pink",
+  },
 ] as const satisfies readonly RecordsMetricCard[];
 
 export const correctionColumns = [
@@ -936,26 +948,15 @@ function recordLineSections({
   workEnd: string;
   workStart: string;
 }): readonly RecordDetailLineSection[] {
-  return [
-    {
-      id: "work-record",
-      title: "근무기록",
-      lines: [
-        detailLine("work-start", "근무 시작", workStart),
-        detailLine("work-end", "근무 종료", workEnd),
-        detailLine("work-location", "근무지", locationName),
-      ],
-    },
-    {
-      id: "attendance-log",
-      title: "연결된 출퇴근 로그",
-      lines: [
-        detailLine("check-in", "출근 로그", checkIn),
-        detailLine("check-out", "퇴근 로그", checkOut),
-        detailLine("log-status", "로그 판정", logStatus, logTone),
-      ],
-    },
-  ];
+  return createRecordLineSections({
+    checkIn,
+    checkOut,
+    locationName,
+    logStatus,
+    logTone,
+    workEnd,
+    workStart,
+  });
 }
 
 function overtimeLineSections(): readonly RecordDetailLineSection[] {
@@ -967,30 +968,12 @@ function overtimeLineSections(): readonly RecordDetailLineSection[] {
       workEnd: "12:00",
       workStart: "10:00",
     }),
-    {
-      id: "overtime-work",
-      title: "추가근무 신청",
-      lines: [
-        detailLine("overtime-start", "추가근무 시작", "12:00"),
-        detailLine("overtime-end", "추가근무 종료", "12:30"),
-        detailLine("reason", "신청 사유", "보강 수업 연장"),
-      ],
-    },
+    createOvertimeLineSection({
+      overtimeEnd: "12:30",
+      overtimeStart: "12:00",
+      reason: "보강 수업 연장",
+    }),
   ];
-}
-
-function detailLine(
-  id: string,
-  label: string,
-  value: string,
-  tone?: RecordsTone,
-): RecordDetailLine {
-  return {
-    id,
-    label,
-    value,
-    tone,
-  };
 }
 
 function anomalyHistoryRow(

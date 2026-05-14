@@ -2,11 +2,7 @@ export type PayrollTabId = "calculation" | "statements";
 
 export type PayrollTone = "default" | "green" | "orange" | "pink" | "grey";
 
-export type PayrollAmountTone =
-  | "default"
-  | "positive"
-  | "negative"
-  | "muted";
+export type PayrollAmountTone = "default" | "positive" | "negative" | "muted";
 
 export type PayrollCalculationStatus =
   | "미확정"
@@ -345,8 +341,8 @@ const unresolvedPayrollOpenItemCards = [
     statusLabel: "이상 플래그",
     statusTone: "pink",
     lines: [
-      { id: "check-in", label: "출근 로그", value: "14:03" },
-      { id: "check-out", label: "퇴근 로그", value: "없음", tone: "negative" },
+      { id: "check-in", label: "출근 시각", value: "14:03" },
+      { id: "check-out", label: "퇴근 시각", value: "없음", tone: "negative" },
     ],
     actions: [
       { id: "mark-normal", label: "정상 처리" },
@@ -431,9 +427,14 @@ const resolvedPayrollOpenItemCards = [
     statusLabel: "이상 플래그",
     statusTone: "pink",
     lines: [
-      { id: "check-in", label: "출근 로그", value: "14:03" },
-      { id: "check-out", label: "퇴근 로그", value: "16:00", tone: "positive" },
-      { id: "result", label: "반영사항", value: "퇴근시간 변경", tone: "positive" },
+      { id: "check-in", label: "출근 시각", value: "14:03" },
+      { id: "check-out", label: "퇴근 시각", value: "16:00", tone: "positive" },
+      {
+        id: "result",
+        label: "반영사항",
+        value: "퇴근시간 변경",
+        tone: "positive",
+      },
     ],
     actions: [],
   },
@@ -468,7 +469,12 @@ const resolvedPayrollOpenItemCards = [
         label: "조교 사유",
         value: "실제 14:00부터 학생 질문 응대를 시작했다고 주장",
       },
-      { id: "result", label: "반영사항", value: "근무기록 변경", tone: "positive" },
+      {
+        id: "result",
+        label: "반영사항",
+        value: "근무기록 변경",
+        tone: "positive",
+      },
     ],
     actions: [],
   },

@@ -14,8 +14,9 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await page.evaluate(() => document.fonts.ready);
     await expect(page.getByTestId("record-main-screen")).toBeVisible();
     const breadcrumbs = page.getByTestId("admin-header-breadcrumbs");
-    await expect(breadcrumbs.getByRole("link", { name: "근무 기록" }))
-      .toHaveAttribute("href", "/records");
+    await expect(
+      breadcrumbs.getByRole("link", { name: "근무 기록" }),
+    ).toHaveAttribute("href", "/records");
     await expect(
       breadcrumbs.getByRole("heading", { name: "근무 타임라인" }),
     ).toBeVisible();
@@ -31,7 +32,9 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await expect(timelineHeaders.nth(17)).not.toContainText("익일");
     await expect(timelineHeaders.last()).not.toContainText("익일");
     await expect(timelineHeaders.last()).toContainText("02");
-    const nextDayBoundaryMarkers = grid.getByTestId("timeline-next-day-boundary");
+    const nextDayBoundaryMarkers = grid.getByTestId(
+      "timeline-next-day-boundary",
+    );
     await expect(nextDayBoundaryMarkers).toHaveCount(8);
     await expect(grid.getByRole("rowheader", { name: "일" })).toHaveClass(
       /text-red-500/,
@@ -58,14 +61,16 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
 test(`REC-01 normal-selected ${desktop}`, async ({ page }) => {
   await prepareVisualPage({ page, path: "/records", viewport: desktop });
   await page.evaluate(() => document.fonts.ready);
-  await page.locator("[data-record-block-id='record-lee-haeun-english-c-mon']").click();
+  await page
+    .locator("[data-record-block-id='record-lee-haeun-english-c-mon']")
+    .click();
   await expect(page.getByText("이하은 · 영어 C반")).toBeVisible();
   const detail = page.getByTestId("record-detail-panel");
   await expect(detail.getByText("근무기록")).toBeVisible();
   await expect(detail.getByText("근무 시작")).toBeVisible();
   await expect(detail.getByText("근무 종료")).toBeVisible();
-  await expect(detail.getByText("연결된 출퇴근 로그")).toBeVisible();
-  await expect(detail.getByText("출근 로그")).toBeVisible();
+  await expect(detail.getByText("출퇴근 기록")).toBeVisible();
+  await expect(detail.getByText("출근 시각")).toBeVisible();
 
   await captureActualScreenshot({
     page,
@@ -75,13 +80,17 @@ test(`REC-01 normal-selected ${desktop}`, async ({ page }) => {
   });
 });
 
-test("REC-01 uses shared selects and edits selected records", async ({ page }) => {
+test("REC-01 uses shared selects and edits selected records", async ({
+  page,
+}) => {
   await prepareVisualPage({ page, path: "/records", viewport: desktop });
 
   await expect(page.locator("select[aria-label='조교 필터']")).toHaveCount(0);
   await expect(page.getByRole("combobox", { name: "조교 필터" })).toBeVisible();
 
-  await page.locator("[data-record-block-id='record-lee-haeun-english-c-mon']").click();
+  await page
+    .locator("[data-record-block-id='record-lee-haeun-english-c-mon']")
+    .click();
   await page.getByTestId("record-detail-action-edit").click();
 
   const detail = page.getByTestId("record-detail-panel");
@@ -127,7 +136,11 @@ test("REC-01 overtime approval asks payroll handling in confirmation modal", asy
     .locator("[data-record-block-id='record-kang-taewoo-chemistry-g-mon']")
     .click();
   await page.getByTestId("record-detail-action-approve-overtime").click();
-  await page.getByTestId("record-detail-panel").getByRole("button", { name: "승인" }).last().click();
+  await page
+    .getByTestId("record-detail-panel")
+    .getByRole("button", { name: "승인" })
+    .last()
+    .click();
 
   const dialog = page.getByTestId("record-action-confirm-dialog");
   await expect(dialog).toBeVisible();
