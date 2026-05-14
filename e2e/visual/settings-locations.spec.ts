@@ -24,9 +24,19 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await page.evaluate(() => document.fonts.ready);
 
     const screen = page.getByTestId("settings-locations-screen");
+    const table = page.getByTestId("settings-locations-table");
+
     await expect(screen).toBeVisible();
     await expect(screen).toContainText("근무지 추가");
-    await expect(page.getByTestId("settings-locations-table")).toBeVisible();
+    await expect(table).toBeVisible();
+    await expect(table.locator('[role="columnheader"]')).toHaveText([
+      "근무지",
+      "주소",
+      "반경",
+      "사용 근무",
+      "상세",
+    ]);
+    await expect(table).not.toContainText("좌표 확인");
 
     await captureActualScreenshot({
       page,
@@ -119,7 +129,6 @@ test("SET-02 creates, edits, and deletes location through Firestore", async ({
   await expect(screen).toContainText(locationName);
   await expect(screen).toContainText("서울 마포구 양화로 45");
   await expect(screen).toContainText("90m");
-  await expect(screen).toContainText("좌표 확인");
   await expect(screen).toContainText(`${locationName} 근무지를 등록했습니다.`);
 
   await page

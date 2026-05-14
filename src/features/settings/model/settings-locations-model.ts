@@ -141,16 +141,6 @@ export function getLocationStatusLabel(status: SettingsLocationStatus) {
   return "삭제됨";
 }
 
-export function getLocationGeocodingStatusLabel(
-  status: SettingsLocationGeocodingStatus,
-) {
-  if (status === "resolved") {
-    return "좌표 확인";
-  }
-
-  return "확인 필요";
-}
-
 function parseRadiusMeters(value: string) {
   const normalized = normalizeRadiusInput(value);
 

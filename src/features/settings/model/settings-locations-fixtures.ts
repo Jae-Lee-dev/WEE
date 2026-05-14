@@ -9,7 +9,6 @@ export const settingsLocationsFixture = {
     { id: "name", label: "근무지" },
     { id: "address", label: "주소" },
     { id: "radius", label: "반경" },
-    { id: "geo", label: "위치" },
     { id: "dutyCount", label: "사용 근무" },
     { id: "actions", label: "상세" },
   ],

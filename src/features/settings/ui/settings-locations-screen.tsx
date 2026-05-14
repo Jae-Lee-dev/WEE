@@ -41,7 +41,6 @@ import {
   type CreateSettingsLocationInput,
   defaultLocationRadiusMeters,
   formatRadiusMeters,
-  getLocationGeocodingStatusLabel,
   getSettingsLocationFormErrors,
   hasSettingsLocationFormErrors,
   initialSettingsLocationForm,
@@ -288,7 +287,7 @@ function LocationsTable({
       data-testid="settings-locations-table"
     >
       <div
-        className="grid h-[32px] grid-cols-[1fr_1.45fr_110px_120px_120px_180px] items-start border-b border-gray-300 px-4 text-h-18-regular text-gray-500"
+        className="grid h-[32px] grid-cols-[1fr_1.65fr_110px_120px_180px] items-start border-b border-gray-300 px-4 text-h-18-regular text-gray-500"
         role="row"
       >
         {settingsLocationsFixture.columns.map((column) => (
@@ -345,7 +344,7 @@ function LocationTableRow({
 }) {
   return (
     <div
-      className="grid h-11 grid-cols-[1fr_1.45fr_110px_120px_120px_180px] items-center border-b border-gray-100 px-4 text-h-18-regular text-gray-800 last:border-b-0"
+      className="grid h-11 grid-cols-[1fr_1.65fr_110px_120px_180px] items-center border-b border-gray-100 px-4 text-h-18-regular text-gray-800 last:border-b-0"
       role="row"
       data-testid={first ? "settings-locations-first-row" : undefined}
     >
@@ -357,9 +356,6 @@ function LocationTableRow({
       </div>
       <div className="min-w-0 truncate" role="cell">
         {formatRadiusMeters(row.radiusMeters)}
-      </div>
-      <div className="min-w-0 truncate" role="cell">
-        {getLocationGeocodingStatusLabel(row.geocodingStatus)}
       </div>
       <div className="min-w-0 truncate" role="cell">
         {row.dutyCount}건
