@@ -59,6 +59,19 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
       getComputedStyle(element).backgroundImage,
     );
     expect(mixedSignalBackground).toContain("linear-gradient");
+    expect(mixedSignalBackground.match(/linear-gradient/g) ?? []).toHaveLength(
+      2,
+    );
+    const mixedSignalPaint = await mixedSignalBlock.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        backgroundClip: style.backgroundClip,
+        borderTopColor: style.borderTopColor,
+      };
+    });
+    expect(mixedSignalPaint.backgroundClip).toContain("padding-box");
+    expect(mixedSignalPaint.backgroundClip).toContain("border-box");
+    expect(mixedSignalPaint.borderTopColor).toBe("rgba(0, 0, 0, 0)");
 
     if (viewport === "laptop-1366") {
       await expectTimelineFrameOwnsStickyScroll({
@@ -171,6 +184,28 @@ test("REC-01 record type filters use signal chip variants", async ({ page }) => 
 
   await anomalyChip.click();
   await expect(anomalyChip).toHaveAttribute("data-variant", "dangerSelected");
+});
+
+test("REC-01 record type filters clear hidden selection", async ({ page }) => {
+  await prepareVisualPage({ page, path: "/records", viewport: desktop });
+
+  const screen = page.getByTestId("record-main-screen");
+  const detail = page.getByTestId("record-detail-panel");
+  const allChip = page.getByRole("button", { name: "전체" });
+  const anomalyChip = page.getByRole("button", { name: "이상 플래그" });
+
+  await page
+    .locator("[data-record-block-id='record-lee-haeun-english-c-mon']")
+    .click();
+  await expect(detail.getByText("이하은 · 영어 C반")).toBeVisible();
+
+  await anomalyChip.click();
+  await expect(screen).toHaveAttribute("data-record-main-state", "empty");
+  await expect(detail.getByText("근무 기록을 선택하세요.")).toBeVisible();
+
+  await allChip.click();
+  await expect(screen).toHaveAttribute("data-record-main-state", "empty");
+  await expect(detail.getByText("근무 기록을 선택하세요.")).toBeVisible();
 });
 
 test("REC-01 overtime approval asks payroll handling in confirmation modal", async ({

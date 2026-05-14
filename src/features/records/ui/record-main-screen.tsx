@@ -92,6 +92,14 @@ const blockToneBackgroundStyles: Record<RecordsTone, string> = {
   grey: "var(--color-gray-50)",
 };
 
+const blockToneBorderStyles: Record<RecordsTone, string> = {
+  green: "var(--color-green-400)",
+  orange: "var(--color-orange-400)",
+  pink: "var(--color-red-500)",
+  blue: "var(--color-blue-500)",
+  grey: "var(--color-gray-500)",
+};
+
 const selectedBlockToneClassNames: Record<RecordsTone, string> = {
   green: "border-green-400 bg-green-400 text-white",
   orange: "border-orange-400 bg-orange-400 text-white",
@@ -101,6 +109,14 @@ const selectedBlockToneClassNames: Record<RecordsTone, string> = {
 };
 
 const selectedBlockToneBackgroundStyles: Record<RecordsTone, string> = {
+  green: "var(--color-green-400)",
+  orange: "var(--color-orange-400)",
+  pink: "var(--color-red-500)",
+  blue: "var(--color-blue-500)",
+  grey: "var(--color-gray-500)",
+};
+
+const selectedBlockToneBorderStyles: Record<RecordsTone, string> = {
   green: "var(--color-green-400)",
   orange: "var(--color-orange-400)",
   pink: "var(--color-red-500)",
@@ -262,10 +278,8 @@ export function RecordMainScreen({
       return;
     }
 
-    const nextBlock = selectDefaultBlockFromBlocks(nextVisibleBlocks);
-
-    setSelectedBlockId(nextBlock?.id ?? null);
-    setSelectedStateId(resolveBlockStateId(nextBlock));
+    setSelectedBlockId(null);
+    setSelectedStateId("empty");
   }
 
   function handleWorkerFilterChange(workerFilterId: string) {
@@ -811,9 +825,17 @@ function getRecordTimelineBlockBackgroundStyle(
   const toneBackgroundStyles = selected
     ? selectedBlockToneBackgroundStyles
     : blockToneBackgroundStyles;
+  const toneBorderStyles = selected
+    ? selectedBlockToneBorderStyles
+    : blockToneBorderStyles;
+  const splitGradient = `linear-gradient(to bottom right, ${toneBackgroundStyles[firstTone]} 0 49.5%, ${toneBackgroundStyles[secondTone]} 50.5% 100%)`;
+  const borderGradient = `linear-gradient(to bottom right, ${toneBorderStyles[firstTone]} 0 49.5%, ${toneBorderStyles[secondTone]} 50.5% 100%)`;
 
   return {
-    backgroundImage: `linear-gradient(to bottom right, ${toneBackgroundStyles[firstTone]} 0 49.5%, ${toneBackgroundStyles[secondTone]} 50.5% 100%)`,
+    backgroundClip: "padding-box, border-box",
+    backgroundImage: `${splitGradient}, ${borderGradient}`,
+    backgroundOrigin: "border-box",
+    borderColor: "transparent",
   };
 }
 
