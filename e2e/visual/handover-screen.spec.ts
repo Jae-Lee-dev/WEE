@@ -9,10 +9,21 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await expect(page.getByTestId("handover-screen")).toBeVisible();
     await expect(page.getByTestId("handover-editor")).toBeVisible();
     await expect(page.getByTestId("handover-chat-panel")).toBeVisible();
+    const toolbar = page.getByTestId("handover-editor-toolbar");
+
     await expect(page.getByRole("textbox", { name: "제목" }).first()).toHaveValue(
       "업무 공통 안내",
     );
     await expect(page.getByText("AI 수정 요청")).toBeVisible();
+    await expect(toolbar.getByRole("button", { name: "본문" })).toBeVisible();
+    await expect(toolbar.getByRole("button", { name: "H1" })).toBeVisible();
+    await expect(toolbar.getByRole("button", { name: "H2" })).toBeVisible();
+    await expect(toolbar.getByRole("button", { name: "H3" })).toBeVisible();
+    await expect(
+      toolbar.getByRole("button", { exact: true, name: "목록" }),
+    ).toBeVisible();
+    await expect(toolbar.getByRole("button", { name: "구분선" })).toBeVisible();
+    await expect(toolbar.getByRole("button", { name: "삭제" })).toBeVisible();
     await expect(page.getByText("Standard")).toHaveCount(0);
     await expect(
       page.getByText("안녕하세요! 인수인계 문서 편집을 도와드립니다."),
@@ -36,6 +47,63 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     });
   });
 }
+
+test("HO-01 editor formats blocks and deletes dividers", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/handover",
+    viewport: "laptop-1366",
+  });
+  await page.evaluate(() => document.fonts.ready);
+
+  const paragraph = page.getByRole("textbox", { name: "문단" }).first();
+  const paragraphValue = await paragraph.inputValue();
+  const toolbar = page.getByTestId("handover-editor-toolbar");
+
+  await paragraph.focus();
+  await toolbar.getByRole("button", { exact: true, name: "목록" }).click();
+
+  const listItemValues = await page
+    .getByRole("textbox", { name: "목록 항목" })
+    .evaluateAll((elements) =>
+      elements.map((element) => (element as HTMLTextAreaElement).value),
+    );
+
+  expect(listItemValues).toContain(paragraphValue);
+
+  const dividerCount = await page.getByTestId("handover-divider-block").count();
+
+  await toolbar.getByRole("button", { name: "구분선" }).click();
+  await expect(page.getByTestId("handover-divider-block")).toHaveCount(
+    dividerCount + 1,
+  );
+
+  await toolbar.getByRole("button", { name: "삭제" }).click();
+  await expect(page.getByTestId("handover-divider-block")).toHaveCount(
+    dividerCount,
+  );
+});
+
+test("HO-01 enter creates an explicit editor block", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/handover",
+    viewport: "laptop-1366",
+  });
+  await page.evaluate(() => document.fonts.ready);
+
+  const textboxCount = await page.getByRole("textbox").count();
+  const paragraph = page.getByRole("textbox", { name: "문단" }).first();
+
+  await paragraph.focus();
+  await paragraph.press("Enter");
+
+  await expect(page.getByRole("textbox")).toHaveCount(textboxCount + 1);
+  await expect(page.locator("textarea:focus")).toHaveAttribute(
+    "aria-label",
+    "빈 줄",
+  );
+});
 
 test("HO-01 AI proposal blocks changed rows until review", async ({ page }) => {
   await prepareVisualPage({

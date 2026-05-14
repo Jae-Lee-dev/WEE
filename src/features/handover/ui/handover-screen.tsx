@@ -13,25 +13,26 @@ import {
   DialogTitle,
 } from "@/shared/ui/dialog";
 import { Input } from "@/shared/ui/input";
-import { IconChevronDown } from "@/shared/ui/icons";
 import { cn } from "@/shared/lib/utils";
 import { createHandoverDataSource } from "../api/handover-data-source";
 import {
-  appendEditableSnippet,
   createNodesWithProposalDiff,
+  deleteEditableNode,
+  formatEditableNode,
   getEditableDisplayText,
   getLineDisplayText,
   hasPendingProposal,
+  insertEditableNodeAfter,
   parseMarkdownToEditorNodes,
   resolveProposalNode,
   serializeEditorNodes,
   updateEditableNode,
+  type HandoverBlockFormat,
   type HandoverEditableNode,
   type HandoverEditorNode,
   type HandoverProposalNode,
 } from "../model/handover-editor";
 import {
-  handoverFixture,
   type HandoverChatMessage,
   type HandoverFixture,
 } from "../model/handover-fixtures";
@@ -55,10 +56,17 @@ const handoverChatCopy = {
   title: "AI 수정 요청",
 } as const;
 
+const blockFormatControls = [
+  { format: "paragraph", label: "본문" },
+  { format: "heading1", label: "H1" },
+  { format: "heading2", label: "H2" },
+  { format: "heading3", label: "H3" },
+  { format: "listItem", label: "목록" },
+] satisfies readonly { format: HandoverBlockFormat; label: string }[];
+
 export function HandoverScreen() {
   const router = useRouter();
   const dataSource = useMemo(() => createHandoverDataSource(), []);
-  const [fixture, setFixture] = useState<HandoverFixture>(handoverFixture);
   const [editorNodes, setEditorNodes] = useState<readonly HandoverEditorNode[]>(
     () => parseMarkdownToEditorNodes(""),
   );
@@ -75,9 +83,15 @@ export function HandoverScreen() {
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [pendingNavigation, setPendingNavigation] =
     useState<PendingNavigationTarget | null>(null);
+  const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
+  const queuedFocusNodeId = useRef<string | null>(null);
   const currentContent = useMemo(
     () => serializeEditorNodes(editorNodes),
     [editorNodes],
+  );
+  const activeEditableNode = useMemo(
+    () => getEditableNodeById(editorNodes, activeNodeId),
+    [activeNodeId, editorNodes],
   );
   const pendingProposal = hasPendingProposal(editorNodes);
   const dirty = currentContent.trim() !== publishedContent.trim();
@@ -98,11 +112,13 @@ export function HandoverScreen() {
       .then((nextFixture) => {
         if (!cancelled) {
           const nextContent = getPublishedContent(nextFixture);
+          const nextNodes = parseMarkdownToEditorNodes(nextContent);
 
-          setFixture(nextFixture);
-          setEditorNodes(parseMarkdownToEditorNodes(nextContent));
+          setEditorNodes(nextNodes);
           setPublishedContent(nextContent);
           setChatMessages([]);
+          setActiveNodeId(getFirstEditableNodeId(nextNodes));
+          queuedFocusNodeId.current = null;
           setErrorMessage("");
           setLoading(false);
         }
@@ -122,6 +138,84 @@ export function HandoverScreen() {
       cancelled = true;
     };
   }, [dataSource]);
+
+  useEffect(() => {
+    const focusNodeId = queuedFocusNodeId.current;
+
+    if (!focusNodeId) {
+      return;
+    }
+
+    const element = document.querySelector<HTMLElement>(
+      `[data-handover-node-id="${focusNodeId}"]`,
+    );
+
+    element?.focus();
+    queuedFocusNodeId.current = null;
+  }, [editorNodes]);
+
+  function queueNodeFocus(nodeId: string) {
+    queuedFocusNodeId.current = nodeId;
+  }
+
+  function applyBlockFormat(format: HandoverBlockFormat) {
+    if (!activeEditableNode || editorLocked || pendingProposal) {
+      return;
+    }
+
+    setEditorNodes((current) =>
+      formatEditableNode(current, activeEditableNode.id, format),
+    );
+    setActiveNodeId(activeEditableNode.id);
+    queueNodeFocus(activeEditableNode.id);
+  }
+
+  function insertDividerAfterActiveBlock() {
+    if (editorLocked || pendingProposal) {
+      return;
+    }
+
+    const newNodeId = createHandoverEditorNodeId("divider");
+    const targetNodeId =
+      activeEditableNode?.id ?? getLastEditableNodeId(editorNodes);
+
+    setEditorNodes((current) =>
+      insertEditableNodeAfter(current, targetNodeId, "---", newNodeId),
+    );
+    setActiveNodeId(newNodeId);
+    queueNodeFocus(newNodeId);
+  }
+
+  function insertBlockAfter(node: HandoverEditableNode, markdown: string) {
+    if (editorLocked) {
+      return;
+    }
+
+    const newNodeId = createHandoverEditorNodeId("line");
+
+    setEditorNodes((current) =>
+      insertEditableNodeAfter(current, node.id, markdown, newNodeId),
+    );
+    setActiveNodeId(newNodeId);
+    queueNodeFocus(newNodeId);
+  }
+
+  function deleteActiveBlock() {
+    if (!activeEditableNode || editorLocked || pendingProposal) {
+      return;
+    }
+
+    const fallbackNodeId = createHandoverEditorNodeId("line");
+    const nextActiveNodeId =
+      getAdjacentEditableNodeId(editorNodes, activeEditableNode.id) ??
+      fallbackNodeId;
+
+    setEditorNodes((current) =>
+      deleteEditableNode(current, activeEditableNode.id, fallbackNodeId),
+    );
+    setActiveNodeId(nextActiveNodeId);
+    queueNodeFocus(nextActiveNodeId);
+  }
 
   function sendAiInstruction() {
     const instruction = chatInput.trim();
@@ -147,6 +241,8 @@ export function HandoverScreen() {
             nextContent: result.nextContent,
           }),
         );
+        setActiveNodeId(null);
+        queuedFocusNodeId.current = null;
         setChatMessages((current) =>
           appendAssistantMessage(current, result.message),
         );
@@ -178,16 +274,14 @@ export function HandoverScreen() {
         <>
           <div className="flex min-h-0 min-w-0 flex-col gap-4 overflow-hidden">
             <HandoverToolbar
+              activeNode={activeEditableNode}
               dirty={dirty}
               disabled={editorLocked}
-              fixture={fixture}
               pendingProposal={pendingProposal}
               publishing={publishing}
-              onFormat={(snippet) =>
-                setEditorNodes((current) =>
-                  appendEditableSnippet(current, snippet),
-                )
-              }
+              onDeleteBlock={deleteActiveBlock}
+              onFormatBlock={applyBlockFormat}
+              onInsertDivider={insertDividerAfterActiveBlock}
               onPublish={() => setPublishDialogOpen(true)}
             />
             {statusMessage || errorMessage || pendingProposal ? (
@@ -198,31 +292,38 @@ export function HandoverScreen() {
               />
             ) : null}
             <HandoverEditor
+              activeNodeId={activeNodeId}
               locked={editorLocked}
               nodes={editorNodes}
-              onCancelProposal={(proposalId) =>
+              onActivateNode={setActiveNodeId}
+              onCancelProposal={(proposalId) => {
                 setEditorNodes((current) =>
                   resolveProposalNode({
                     accept: false,
                     nodes: current,
                     proposalId,
                   }),
-                )
-              }
+                );
+                setActiveNodeId(null);
+                queuedFocusNodeId.current = null;
+              }}
               onChangeNode={(nodeId, value) =>
                 setEditorNodes((current) =>
                   updateEditableNode(current, nodeId, value),
                 )
               }
-              onConfirmProposal={(proposalId) =>
+              onConfirmProposal={(proposalId) => {
                 setEditorNodes((current) =>
                   resolveProposalNode({
                     accept: true,
                     nodes: current,
                     proposalId,
                   }),
-                )
-              }
+                );
+                setActiveNodeId(null);
+                queuedFocusNodeId.current = null;
+              }}
+              onInsertBlockAfter={insertBlockAfter}
             />
           </div>
           <HandoverChatPanel
@@ -251,10 +352,12 @@ export function HandoverScreen() {
                   })
                   .then((nextFixture) => {
                     const nextContent = getPublishedContent(nextFixture);
+                    const nextNodes = parseMarkdownToEditorNodes(nextContent);
 
-                    setFixture(nextFixture);
-                    setEditorNodes(parseMarkdownToEditorNodes(nextContent));
+                    setEditorNodes(nextNodes);
                     setPublishedContent(nextContent);
+                    setActiveNodeId(getFirstEditableNodeId(nextNodes));
+                    queuedFocusNodeId.current = null;
                     setPublishDialogOpen(false);
                     setStatusMessage("인수인계 문서를 게시했습니다.");
                   })
@@ -406,60 +509,63 @@ function HandoverInlineNotice({
 }
 
 function HandoverToolbar({
+  activeNode,
   dirty,
   disabled,
-  fixture,
-  onFormat,
+  onDeleteBlock,
+  onFormatBlock,
+  onInsertDivider,
   onPublish,
   pendingProposal,
   publishing,
 }: {
+  activeNode: HandoverEditableNode | null;
   dirty: boolean;
   disabled: boolean;
-  fixture: HandoverFixture;
-  onFormat: (snippet: string) => void;
+  onDeleteBlock: () => void;
+  onFormatBlock: (format: HandoverBlockFormat) => void;
+  onInsertDivider: () => void;
   onPublish: () => void;
   pendingProposal: boolean;
   publishing: boolean;
 }) {
-  const { toolbar } = fixture;
-  const formatDisabled = disabled || pendingProposal;
+  const activeFormat = getBlockFormatFromNode(activeNode);
+  const formatDisabled = disabled || pendingProposal || !activeNode;
+  const insertDisabled = disabled || pendingProposal;
 
   return (
-    <div className="flex h-14 shrink-0 items-center gap-3 rounded-[8px] bg-white px-4">
+    <div
+      className="flex h-14 shrink-0 items-center gap-2 rounded-[8px] bg-white px-4"
+      data-testid="handover-editor-toolbar"
+    >
+      <div className="flex items-center gap-1 rounded-[6px] border border-gray-200 bg-gray-50 p-1">
+        {blockFormatControls.map((control) => (
+          <button
+            key={control.format}
+            type="button"
+            disabled={formatDisabled}
+            onClick={() => onFormatBlock(control.format)}
+            className={getToolbarButtonClass(activeFormat === control.format)}
+          >
+            {control.label}
+          </button>
+        ))}
+      </div>
       <button
         type="button"
-        disabled={formatDisabled}
-        onClick={() => onFormat("## 새 제목")}
-        className="flex h-9 items-center gap-2 rounded-[6px] border border-gray-200 bg-white px-2.5 text-h-18-regular tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:pointer-events-none disabled:opacity-50"
+        disabled={insertDisabled}
+        onClick={onInsertDivider}
+        className={getToolbarButtonClass(activeFormat === "divider")}
       >
-        <span>{toolbar.styleLabel}</span>
-        <IconChevronDown className="size-5 shrink-0 text-gray-700" />
+        구분선
       </button>
       <button
         type="button"
-        aria-label="굵게"
         disabled={formatDisabled}
-        onClick={() => onFormat("**굵게 표시할 내용**")}
-        className="flex h-9 min-w-[45px] items-center justify-center rounded-[6px] border border-gray-200 bg-white px-3 text-h-18-semibold tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:pointer-events-none disabled:opacity-50"
+        onClick={onDeleteBlock}
+        className="flex h-9 items-center justify-center rounded-[6px] border border-gray-200 bg-white px-3 text-h-16-semibold tracking-normal text-red-500 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-red-100 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-200 disabled:pointer-events-none disabled:opacity-40"
       >
-        {toolbar.boldLabel}
-      </button>
-      <button
-        type="button"
-        disabled={formatDisabled}
-        onClick={() => onFormat("---")}
-        className="flex h-9 items-center justify-center rounded-[6px] border border-gray-200 bg-white px-3 text-h-18-regular tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:pointer-events-none disabled:opacity-50"
-      >
-        {toolbar.dividerLabel}
-      </button>
-      <button
-        type="button"
-        disabled={formatDisabled}
-        onClick={() => onFormat("`코드`")}
-        className="flex h-9 items-center justify-center rounded-[6px] border border-gray-200 bg-white px-3 text-h-18-regular tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:pointer-events-none disabled:opacity-50"
-      >
-        {toolbar.codeLabel}
+        삭제
       </button>
       <Button
         type="button"
@@ -474,24 +580,30 @@ function HandoverToolbar({
 }
 
 function HandoverEditor({
+  activeNodeId,
   locked,
   nodes,
+  onActivateNode,
   onCancelProposal,
   onChangeNode,
   onConfirmProposal,
+  onInsertBlockAfter,
 }: {
+  activeNodeId: string | null;
   locked: boolean;
   nodes: readonly HandoverEditorNode[];
+  onActivateNode: (nodeId: string) => void;
   onCancelProposal: (proposalId: string) => void;
   onChangeNode: (nodeId: string, value: string) => void;
   onConfirmProposal: (proposalId: string) => void;
+  onInsertBlockAfter: (node: HandoverEditableNode, markdown: string) => void;
 }) {
   return (
     <article
       aria-busy={locked}
       aria-label="인수인계 문서 본문"
       className={cn(
-        "min-h-0 flex-1 overflow-auto rounded-[8px] bg-white px-4 py-[21px]",
+        "min-h-0 flex-1 overflow-auto rounded-[8px] bg-white px-6 py-6",
         locked && "cursor-wait",
       )}
       data-testid="handover-editor"
@@ -508,9 +620,12 @@ function HandoverEditor({
           ) : (
             <HandoverEditableLine
               key={node.id}
+              active={activeNodeId === node.id}
               disabled={locked}
               node={node}
+              onActivate={() => onActivateNode(node.id)}
               onChange={(value) => onChangeNode(node.id, value)}
+              onInsertAfter={(markdown) => onInsertBlockAfter(node, markdown)}
             />
           ),
         )}
@@ -520,23 +635,49 @@ function HandoverEditor({
 }
 
 function HandoverEditableLine({
+  active,
   disabled,
   node,
+  onActivate,
   onChange,
+  onInsertAfter,
 }: {
+  active: boolean;
   disabled: boolean;
   node: HandoverEditableNode;
+  onActivate: () => void;
   onChange: (value: string) => void;
+  onInsertAfter: (markdown: string) => void;
 }) {
   const value = getEditableDisplayText(node);
+  const rowClassName = getEditableRowClassName({ active, disabled, node });
 
   if (node.kind === "divider") {
-    return <div className="my-5 h-px shrink-0 bg-gray-200" />;
+    return (
+      <button
+        type="button"
+        aria-label="구분선"
+        data-handover-node-id={node.id}
+        data-testid="handover-divider-block"
+        disabled={disabled}
+        onClick={onActivate}
+        onFocus={onActivate}
+        className={cn(
+          rowClassName,
+          "my-3 flex h-8 w-full items-center px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-200",
+        )}
+      >
+        <span
+          aria-hidden="true"
+          className="h-px flex-1 bg-gray-200 transition-colors group-hover:bg-gray-300"
+        />
+      </button>
+    );
   }
 
   if (node.kind === "listItem") {
     return (
-      <div className="flex items-start gap-1.5 text-h-18-regular text-gray-900">
+      <div className={cn(rowClassName, "flex items-start gap-1.5")}>
         <span aria-hidden="true" className="mt-[1px] shrink-0">
           -
         </span>
@@ -544,8 +685,11 @@ function HandoverEditableLine({
           ariaLabel="목록 항목"
           className="text-h-18-regular"
           disabled={disabled}
+          nodeId={node.id}
           value={value}
           onChange={onChange}
+          onEnter={() => onInsertAfter(value.trim() ? "- " : "")}
+          onFocus={onActivate}
         />
       </div>
     );
@@ -553,30 +697,37 @@ function HandoverEditableLine({
 
   if (node.kind === "heading") {
     return (
-      <HandoverLineTextarea
-        ariaLabel="제목"
-        className={cn(
-          node.level === 3 ? "text-h-18-semibold" : "text-h-20",
-          node.level === 1 ? "mt-0" : "mt-4",
-        )}
-        disabled={disabled}
-        value={value}
-        onChange={onChange}
-      />
+      <div className={rowClassName}>
+        <HandoverLineTextarea
+          ariaLabel="제목"
+          className={node.level === 3 ? "text-h-18-semibold" : "text-h-20"}
+          disabled={disabled}
+          nodeId={node.id}
+          value={value}
+          onChange={onChange}
+          onEnter={() => onInsertAfter("")}
+          onFocus={onActivate}
+        />
+      </div>
     );
   }
 
   return (
-    <HandoverLineTextarea
-      ariaLabel={node.kind === "blank" ? "빈 줄" : "문단"}
-      className={cn(
-        "text-h-18-regular",
-        node.kind === "blank" ? "min-h-[12px]" : "text-gray-800",
-      )}
-      disabled={disabled}
-      value={value}
-      onChange={onChange}
-    />
+    <div className={rowClassName}>
+      <HandoverLineTextarea
+        ariaLabel={node.kind === "blank" ? "빈 줄" : "문단"}
+        className={cn(
+          "text-h-18-regular",
+          node.kind === "blank" ? "min-h-[12px]" : "text-gray-800",
+        )}
+        disabled={disabled}
+        nodeId={node.id}
+        value={value}
+        onChange={onChange}
+        onEnter={() => onInsertAfter("")}
+        onFocus={onActivate}
+      />
+    </div>
   );
 }
 
@@ -584,13 +735,19 @@ function HandoverLineTextarea({
   ariaLabel,
   className,
   disabled,
+  nodeId,
   onChange,
+  onEnter,
+  onFocus,
   value,
 }: {
   ariaLabel: string;
   className?: string;
   disabled: boolean;
+  nodeId: string;
   onChange: (value: string) => void;
+  onEnter: () => void;
+  onFocus: () => void;
   value: string;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -605,13 +762,27 @@ function HandoverLineTextarea({
     <textarea
       ref={ref}
       aria-label={ariaLabel}
+      data-handover-node-id={nodeId}
       disabled={disabled}
       rows={1}
       value={value}
       onChange={(event) => onChange(event.target.value)}
+      onFocus={onFocus}
       onInput={(event) => resizeTextarea(event.currentTarget)}
+      onKeyDown={(event) => {
+        if (
+          event.key === "Enter" &&
+          !event.metaKey &&
+          !event.ctrlKey &&
+          !event.altKey &&
+          !event.nativeEvent.isComposing
+        ) {
+          event.preventDefault();
+          onEnter();
+        }
+      }}
       className={cn(
-        "min-h-[25px] w-full resize-none overflow-hidden rounded-[4px] border border-transparent bg-transparent px-0 py-0 tracking-normal text-gray-900 outline-none transition-colors duration-150 ease-out placeholder:text-gray-400 hover:border-gray-100 focus-visible:border-green-400 focus-visible:bg-green-50 focus-visible:px-1 disabled:cursor-wait disabled:opacity-100",
+        "min-h-[25px] w-full resize-none overflow-hidden border-0 bg-transparent px-0 py-0 tracking-normal text-gray-900 outline-none placeholder:text-gray-400 disabled:cursor-wait disabled:opacity-100",
         className,
       )}
     />
@@ -957,6 +1128,102 @@ function PublishDiffPreview({
         </p>
       )}
     </div>
+  );
+}
+
+function getEditableNodeById(
+  nodes: readonly HandoverEditorNode[],
+  nodeId: string | null,
+) {
+  if (!nodeId) {
+    return null;
+  }
+
+  const node = nodes.find(
+    (candidate) => candidate.type === "editable" && candidate.id === nodeId,
+  );
+
+  return node?.type === "editable" ? node : null;
+}
+
+function getLastEditableNodeId(nodes: readonly HandoverEditorNode[]) {
+  const editableNodes = nodes.filter((node) => node.type === "editable");
+
+  return editableNodes.at(-1)?.id ?? null;
+}
+
+function getFirstEditableNodeId(nodes: readonly HandoverEditorNode[]) {
+  return nodes.find((node) => node.type === "editable")?.id ?? null;
+}
+
+function getAdjacentEditableNodeId(
+  nodes: readonly HandoverEditorNode[],
+  nodeId: string,
+) {
+  const editableNodes = nodes.filter((node) => node.type === "editable");
+  const currentIndex = editableNodes.findIndex((node) => node.id === nodeId);
+
+  if (currentIndex < 0) {
+    return null;
+  }
+
+  return (
+    editableNodes[currentIndex - 1]?.id ??
+    editableNodes[currentIndex + 1]?.id ??
+    null
+  );
+}
+
+function createHandoverEditorNodeId(prefix: "divider" | "line") {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function getBlockFormatFromNode(
+  node: HandoverEditableNode | null,
+): HandoverBlockFormat | null {
+  if (!node) {
+    return null;
+  }
+
+  if (node.kind === "heading") {
+    return `heading${node.level ?? 1}` as HandoverBlockFormat;
+  }
+
+  if (node.kind === "listItem") {
+    return "listItem";
+  }
+
+  if (node.kind === "divider") {
+    return "divider";
+  }
+
+  return "paragraph";
+}
+
+function getToolbarButtonClass(active: boolean) {
+  return cn(
+    "flex h-9 min-w-9 items-center justify-center rounded-[6px] border px-3 text-h-16-semibold tracking-normal shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-200 disabled:pointer-events-none disabled:opacity-40",
+    active
+      ? "border-gray-900 bg-gray-900 text-white"
+      : "border-gray-200 bg-white text-gray-800 hover:border-gray-300 hover:bg-gray-50",
+  );
+}
+
+function getEditableRowClassName({
+  active,
+  disabled,
+  node,
+}: {
+  active: boolean;
+  disabled: boolean;
+  node: HandoverEditableNode;
+}) {
+  return cn(
+    "group -mx-2 rounded-[6px] px-2 py-0.5 text-gray-900 transition-colors duration-150 ease-out",
+    node.kind === "heading" && node.level !== 1 && "mt-4",
+    node.kind === "divider" && "py-0",
+    active ? "bg-gray-50" : "hover:bg-gray-50/80",
+    disabled && "cursor-wait",
   );
 }
 

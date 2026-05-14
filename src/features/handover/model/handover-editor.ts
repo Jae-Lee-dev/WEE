@@ -14,6 +14,13 @@ export type HandoverProposalNode = {
 };
 
 export type HandoverEditorNode = HandoverEditableNode | HandoverProposalNode;
+export type HandoverBlockFormat =
+  | "divider"
+  | "heading1"
+  | "heading2"
+  | "heading3"
+  | "listItem"
+  | "paragraph";
 
 type DiffOperation =
   | { line: string; type: "equal" }
@@ -123,6 +130,63 @@ export function updateEditableNode(
   });
 }
 
+export function formatEditableNode(
+  nodes: readonly HandoverEditorNode[],
+  nodeId: string,
+  format: HandoverBlockFormat,
+): readonly HandoverEditorNode[] {
+  return nodes.map((node) => {
+    if (node.type !== "editable" || node.id !== nodeId) {
+      return node;
+    }
+
+    return createEditableNodeFromMarkdown(
+      createMarkdownForFormat(node, format),
+      node.id,
+    );
+  });
+}
+
+export function insertEditableNodeAfter(
+  nodes: readonly HandoverEditorNode[],
+  targetNodeId: string | null,
+  markdown: string,
+  newNodeId: string,
+): readonly HandoverEditorNode[] {
+  const nextNode = createEditableNodeFromMarkdown(markdown, newNodeId);
+  const targetIndex = targetNodeId
+    ? nodes.findIndex(
+        (node) => node.type === "editable" && node.id === targetNodeId,
+      )
+    : -1;
+
+  if (targetIndex < 0) {
+    return [...nodes, nextNode];
+  }
+
+  return [
+    ...nodes.slice(0, targetIndex + 1),
+    nextNode,
+    ...nodes.slice(targetIndex + 1),
+  ];
+}
+
+export function deleteEditableNode(
+  nodes: readonly HandoverEditorNode[],
+  nodeId: string,
+  fallbackNodeId: string,
+): readonly HandoverEditorNode[] {
+  const nextNodes = nodes.filter(
+    (node) => node.type !== "editable" || node.id !== nodeId,
+  );
+
+  if (nextNodes.some((node) => node.type === "editable")) {
+    return nextNodes;
+  }
+
+  return [createEditableNode("", 0, fallbackNodeId), ...nextNodes];
+}
+
 export function appendEditableSnippet(
   nodes: readonly HandoverEditorNode[],
   snippet: string,
@@ -183,6 +247,13 @@ export function getLineDisplayText(markdown: string) {
   return getEditableDisplayText(node);
 }
 
+export function createEditableNodeFromMarkdown(
+  markdown: string,
+  id: string,
+): HandoverEditableNode {
+  return createEditableNode(markdown, 0, id);
+}
+
 function splitMarkdownLines(content: string) {
   const normalized = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
@@ -193,12 +264,16 @@ function splitMarkdownLines(content: string) {
   return normalized.split("\n");
 }
 
-function createEditableNode(line: string, index: number): HandoverEditableNode {
+function createEditableNode(
+  line: string,
+  index: number,
+  id = `line-${index}`,
+): HandoverEditableNode {
   const headingMatch = /^(#{1,3})\s*(.*)$/.exec(line);
 
   if (headingMatch) {
     return {
-      id: `line-${index}`,
+      id,
       kind: "heading",
       level: headingMatch[1].length as 1 | 2 | 3,
       markdown: line,
@@ -208,7 +283,7 @@ function createEditableNode(line: string, index: number): HandoverEditableNode {
 
   if (/^[-*]\s+/.test(line)) {
     return {
-      id: `line-${index}`,
+      id,
       kind: "listItem",
       markdown: line,
       type: "editable",
@@ -217,7 +292,7 @@ function createEditableNode(line: string, index: number): HandoverEditableNode {
 
   if (line.trim() === "---" || line.trim() === "***") {
     return {
-      id: `line-${index}`,
+      id,
       kind: "divider",
       markdown: "---",
       type: "editable",
@@ -226,7 +301,7 @@ function createEditableNode(line: string, index: number): HandoverEditableNode {
 
   if (!line.trim()) {
     return {
-      id: `line-${index}`,
+      id,
       kind: "blank",
       markdown: "",
       type: "editable",
@@ -234,11 +309,40 @@ function createEditableNode(line: string, index: number): HandoverEditableNode {
   }
 
   return {
-    id: `line-${index}`,
+    id,
     kind: "paragraph",
     markdown: line,
     type: "editable",
   };
+}
+
+function createMarkdownForFormat(
+  node: HandoverEditableNode,
+  format: HandoverBlockFormat,
+) {
+  const displayText = getEditableDisplayText(node);
+
+  if (format === "heading1") {
+    return `# ${displayText}`.trimEnd();
+  }
+
+  if (format === "heading2") {
+    return `## ${displayText}`.trimEnd();
+  }
+
+  if (format === "heading3") {
+    return `### ${displayText}`.trimEnd();
+  }
+
+  if (format === "listItem") {
+    return displayText.trim() ? `- ${displayText}` : "- ";
+  }
+
+  if (format === "divider") {
+    return "---";
+  }
+
+  return displayText;
 }
 
 function createMarkdownFromDisplayText(
