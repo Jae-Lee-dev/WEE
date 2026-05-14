@@ -54,3 +54,4 @@ ui-debug.log
 # playwright
 blob-report/
 playwright/.cache/
+.env*.local
