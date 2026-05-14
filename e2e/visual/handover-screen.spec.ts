@@ -196,7 +196,7 @@ test("HO-01 chat input does not send while IME is composing", async ({ page }) =
   await expect(page.getByTestId("handover-prompt-starters")).toBeVisible();
 });
 
-test("HO-01 editor does not create a block while IME is composing", async ({
+test("HO-01 editor delegates IME composition events to ProseMirror", async ({
   page,
 }) => {
   await prepareVisualPage({
@@ -264,7 +264,7 @@ test("HO-01 editor does not create a block while IME is composing", async ({
   });
 
   expect(eventResult.keydownDefaultPrevented).toBe(false);
-  expect(eventResult.beforeInputDefaultPrevented).toBe(true);
+  expect(eventResult.beforeInputDefaultPrevented).toBe(false);
   await expect(editor.locator("p")).toHaveCount(paragraphCount);
   await expect(paragraph).toContainText("한글");
 

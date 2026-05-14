@@ -144,8 +144,6 @@ export function HandoverTiptapEditor({
   onEditorReady,
 }: HandoverTiptapEditorProps) {
   const appliedContentVersion = useRef(-1);
-  const composingRef = useRef(false);
-  const pendingImeParagraphInputRef = useRef(false);
   const editor = useEditor({
     content,
     editable: !locked,
@@ -153,58 +151,6 @@ export function HandoverTiptapEditor({
       attributes: {
         "aria-label": "인수인계 문서 본문",
         class: "handover-tiptap-prosemirror",
-      },
-      handleDOMEvents: {
-        compositionend: () => {
-          composingRef.current = false;
-
-          return false;
-        },
-        compositionstart: () => {
-          composingRef.current = true;
-          pendingImeParagraphInputRef.current = false;
-
-          return false;
-        },
-        beforeinput: (_view, event) => {
-          if (
-            !isImeParagraphInputEvent(
-              event,
-              composingRef.current,
-              pendingImeParagraphInputRef.current,
-            )
-          ) {
-            return false;
-          }
-
-          const cancelNativeInput = event.preventDefault.bind(event);
-
-          cancelNativeInput();
-          event.stopPropagation();
-          pendingImeParagraphInputRef.current = false;
-
-          return true;
-        },
-        keydown: (_view, event) => {
-          if (!isImeComposingKeyDown(event, composingRef.current)) {
-            return false;
-          }
-
-          if (isEnterKey(event)) {
-            pendingImeParagraphInputRef.current = true;
-          }
-
-          event.stopPropagation();
-
-          return true;
-        },
-        keyup: (_view, event) => {
-          if (isEnterKey(event)) {
-            pendingImeParagraphInputRef.current = false;
-          }
-
-          return false;
-        },
       },
     },
     extensions: handoverTiptapExtensions,
@@ -381,30 +327,4 @@ function formatProposalLine(markdown: string) {
   }
 
   return displayText;
-}
-
-function isImeComposingKeyDown(event: KeyboardEvent, isComposing: boolean) {
-  return (
-    isComposing ||
-    event.isComposing ||
-    event.keyCode === 229 ||
-    event.key === "Process"
-  );
-}
-
-function isEnterKey(event: KeyboardEvent) {
-  return event.key === "Enter" || event.code === "Enter" || event.keyCode === 13;
-}
-
-function isImeParagraphInputEvent(
-  event: Event,
-  isComposing: boolean,
-  pendingImeParagraphInput: boolean,
-): event is InputEvent {
-  return (
-    event instanceof InputEvent &&
-    (event.inputType === "insertParagraph" ||
-      event.inputType === "insertLineBreak") &&
-    (isComposing || event.isComposing || pendingImeParagraphInput)
-  );
 }
