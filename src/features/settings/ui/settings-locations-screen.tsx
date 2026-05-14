@@ -9,6 +9,7 @@ import {
   type ChangeEvent,
   type ComponentProps,
   type FormEvent,
+  type KeyboardEvent,
 } from "react";
 import {
   getKakaoMapJavaScriptKey,
@@ -623,6 +624,25 @@ function LocationDialog({
     setLookupState(state);
   }, []);
 
+  const handleFormKeyDown = (event: KeyboardEvent<HTMLFormElement>) => {
+    if (event.defaultPrevented || event.key !== "Enter") {
+      return;
+    }
+
+    if (event.target instanceof HTMLInputElement) {
+      event.preventDefault();
+    }
+  };
+
+  const handleAddressSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    event.preventDefault();
+    handleAddressSearch(addressQuery);
+  };
+
   const handleAddressResultSelect = useCallback(
     (result: LocationAddressSearchResult) => {
       setAddressQuery(result.address);
@@ -681,6 +701,7 @@ function LocationDialog({
       >
         <form
           noValidate
+          onKeyDown={handleFormKeyDown}
           onSubmit={handleSave}
           className="flex min-h-0 flex-1 flex-col"
         >
@@ -713,6 +734,7 @@ function LocationDialog({
               label={dialog.roadAddressLabel}
               onChange={handleAddressQueryChange}
               onDebouncedSearch={handleAddressSearch}
+              onKeyDown={handleAddressSearchKeyDown}
               onSelectResult={handleAddressResultSelect}
               placeholder={dialog.roadAddressPlaceholder}
               results={addressSearchResults}
@@ -877,6 +899,7 @@ function LocationAddressSearchField({
   label,
   onChange,
   onDebouncedSearch,
+  onKeyDown,
   onSelectResult,
   placeholder,
   results,
@@ -888,6 +911,7 @@ function LocationAddressSearchField({
   label: string;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onDebouncedSearch: (value: string) => void;
+  onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
   onSelectResult: (result: LocationAddressSearchResult) => void;
   placeholder: string;
   results: readonly LocationAddressSearchResult[];
@@ -915,6 +939,7 @@ function LocationAddressSearchField({
         disabled={saving}
         onChange={onChange}
         onDebouncedValueChange={onDebouncedSearch}
+        onKeyDown={onKeyDown}
         placeholder={placeholder}
         value={value}
       />
@@ -1006,6 +1031,8 @@ function KakaoRadiusMap({
   onLookupStateChange: (state: LocationLookupState) => void;
   radiusMeters: number;
 }) {
+  const visibleLookupMessage =
+    lookupState.status === "unavailable" ? lookupState.message : null;
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const sdkRef = useRef<KakaoMapsSdk | null>(null);
   const mapRef = useRef<KakaoMap | null>(null);
@@ -1145,21 +1172,15 @@ function KakaoRadiusMap({
           className="absolute inset-0"
           aria-hidden={sdkStatus !== "ready"}
         />
-        {sdkStatus === "ready" ? null : <StaticRadiusMapFallback />}
       </div>
-      <p
-        className={`mt-2 text-label-12-medium ${
-          lookupState.status === "resolved"
-            ? "text-green-500"
-            : lookupState.status === "failed" ||
-                lookupState.status === "unavailable"
-              ? "text-red-500"
-              : "text-gray-500"
-        }`}
-        data-testid="settings-location-map-status"
-      >
-        {lookupState.message}
-      </p>
+      {visibleLookupMessage ? (
+        <p
+          className="mt-2 text-label-12-medium text-red-500"
+          data-testid="settings-location-map-status"
+        >
+          {visibleLookupMessage}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -1251,44 +1272,4 @@ function readKakaoSearchCoordinate(result: { x: string; y: string }) {
   }
 
   return coordinate satisfies SettingsLocationCoordinate;
-}
-
-function StaticRadiusMapFallback() {
-  return (
-    <svg
-      aria-hidden="true"
-      className="absolute inset-0 h-full w-full bg-blue-50"
-      viewBox="0 0 600 260"
-    >
-      <rect width="600" height="260" fill="#eff6ff" />
-      <path d="M0 210L140 186L280 210L600 190V260H0Z" fill="#e9fdf1" />
-      <path d="M70 -20C96 54 128 110 166 162C200 208 222 236 246 290" stroke="#d1d5db" strokeWidth="28" />
-      <path d="M72 -20C98 54 130 110 168 162C202 208 224 236 248 290" stroke="#fefefe" strokeWidth="22" />
-      <path d="M-20 80C88 96 184 112 282 124C396 138 482 128 620 102" stroke="#d1d5db" strokeWidth="30" />
-      <path d="M-20 84C88 100 184 116 282 128C396 142 482 132 620 106" stroke="#fefefe" strokeWidth="24" />
-      <path d="M-20 190C92 178 182 176 282 164C390 151 500 138 620 132" stroke="#d1d5db" strokeWidth="32" />
-      <path d="M-20 194C92 182 182 180 282 168C390 155 500 142 620 136" stroke="#fefefe" strokeWidth="26" />
-      <circle
-        cx="360"
-        cy="146"
-        r="82"
-        fill="#83daa6"
-        fillOpacity="0.32"
-        stroke="#30c179"
-        strokeWidth="2"
-      />
-      <circle cx="360" cy="146" r="17" fill="#3b82f6" />
-      <circle cx="360" cy="146" r="8" fill="#fefefe" />
-      <text
-        x="390"
-        y="154"
-        fill="#3b82f6"
-        fontFamily="Pretendard Variable, Pretendard, sans-serif"
-        fontSize="18"
-        fontWeight="600"
-      >
-        근무지
-      </text>
-    </svg>
-  );
 }

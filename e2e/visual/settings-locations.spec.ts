@@ -101,10 +101,11 @@ test("SET-02 creates, edits, and deletes location through Firestore", async ({
   await dialog.getByLabel("근무지 이름").fill(locationName);
   await dialog.getByLabel("도로명 주소").fill("서울 마포구 양화로 45");
   await page.getByTestId("settings-location-address-result").first().click();
-  await expect(page.getByTestId("settings-location-map-status")).toContainText(
-    "위치 확인 완료",
-    { timeout: 10000 },
-  );
+  await expect(dialog.getByRole("button", { name: "저장" })).toBeEnabled({
+    timeout: 10000,
+  });
+  await dialog.getByLabel("도로명 주소").press("Enter");
+  await expect(dialog).toBeVisible();
   await dialog.getByRole("spinbutton", { name: "출퇴근 허용 반경" }).fill("90");
   await dialog.getByRole("button", { name: "저장" }).click();
 
@@ -123,10 +124,9 @@ test("SET-02 creates, edits, and deletes location through Firestore", async ({
     .click();
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText("근무지 수정");
-  await expect(page.getByTestId("settings-location-map-status")).toContainText(
-    "위치 확인 완료",
-    { timeout: 10000 },
-  );
+  await expect(dialog.getByRole("button", { name: "수정" })).toBeEnabled({
+    timeout: 10000,
+  });
   await dialog.getByLabel("근무지 이름").fill(editedLocationName);
   await dialog
     .getByRole("spinbutton", { name: "출퇴근 허용 반경" })
