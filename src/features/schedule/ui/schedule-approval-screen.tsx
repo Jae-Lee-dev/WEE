@@ -395,8 +395,8 @@ function SelectedApprovalState({
             <section className="flex min-h-0 min-w-0 flex-col gap-4">
               <ApprovalSummaryCards detail={detail} />
               <ApprovalTimelineGrid
+                detail={detail}
                 blocks={detail.timelineBlocks}
-                selectedBlockId={detail.timelineBlocks[0]?.id}
               />
             </section>
 
@@ -548,11 +548,12 @@ function ApprovalSummaryCards({
 
 function ApprovalTimelineGrid({
   blocks,
-  selectedBlockId,
+  detail,
 }: {
   blocks: readonly ScheduleTimelineBlock[];
-  selectedBlockId?: string;
+  detail: ScheduleApprovalRequestDetail;
 }) {
+  const selectedBlockId = getRequestedDutyBlockId(detail);
   const { dayLayouts } = parseTimelineBlocks({
     blocks,
     days: visibleTimelineDays,
@@ -585,6 +586,17 @@ function ApprovalTimelineGrid({
       timeSlots={scheduleTimelineTimeSlots}
     />
   );
+}
+
+function getRequestedDutyBlockId(detail: ScheduleApprovalRequestDetail) {
+  const requestedBlock = detail.timelineBlocks.find(
+    (block) =>
+      block.label === detail.adjustmentDutyName &&
+      block.time === detail.adjustmentTimeText &&
+      block.locationName === detail.adjustmentLocationName,
+  );
+
+  return requestedBlock?.id ?? detail.timelineBlocks[0]?.id;
 }
 
 function TimelineBlock({ parsedBlock }: { parsedBlock: ParsedTimelineBlock }) {

@@ -115,9 +115,9 @@ export type ScheduleSelectedWorkerContext = {
 
 const ihaeunApprovalTimelineBlocks = [
   block(
-    "approval-ihaeun-mon-english-c",
+    "approval-ihaeun-mon-math-a",
     "mon",
-    "영어 C반",
+    "수학 A반",
     "이하은",
     "19:00~21:00",
     19,
