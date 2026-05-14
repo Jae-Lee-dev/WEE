@@ -897,14 +897,11 @@ function SelectedDetail({
   successMessage: string;
 }) {
   const compactForm = state.id === "anomaly-step-3";
+  const action = getRecordActionFromState(state.id, state);
+  const inlineTimeFields = action === "edit" ? undefined : state.timeFields;
   const [reason, setReason] = useState("");
   const [timeValues, setTimeValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      (state.timeFields ?? []).map((field) => [
-        field.id,
-        toTimeInputValue(field.value),
-      ]),
-    ),
+    createTimeInputValues(state.timeFields),
   );
   const [pendingInput, setPendingInput] =
     useState<Omit<RecordMainActionInput, "recordId"> | null>(null);
@@ -995,9 +992,9 @@ function SelectedDetail({
             </label>
           ) : null}
 
-          {state.timeFields ? (
+          {inlineTimeFields ? (
             <div className={cn("grid grid-cols-2 gap-4", compactForm ? "mt-4" : "mt-5")}>
-              {state.timeFields.map((field) => (
+              {inlineTimeFields.map((field) => (
                 <label className="block" key={field.id}>
                   <span className="text-h-18-semibold tracking-normal text-gray-900">
                     {field.label}
@@ -1037,10 +1034,10 @@ function SelectedDetail({
             disabled={actionSaving}
             onClick={() => {
               const input = createPendingRecordActionInput({
-                endTime: timeValues["check-out"],
+                endTime: inlineTimeFields ? timeValues["check-out"] : undefined,
                 reason,
                 setSaveErrorMessage,
-                startTime: timeValues["check-in"],
+                startTime: inlineTimeFields ? timeValues["check-in"] : undefined,
                 state,
               });
 
@@ -1149,6 +1146,19 @@ function toTimeInputValue(value: string) {
   return `${String(hour).padStart(2, "0")}:${minute}`;
 }
 
+function createTimeInputValues(timeFields: RecordDetailState["timeFields"]) {
+  return Object.fromEntries(
+    (timeFields ?? []).map((field) => [
+      field.id,
+      toTimeInputValue(field.value),
+    ]),
+  );
+}
+
+function isTimeInputValue(value: string | undefined) {
+  return Boolean(value?.match(/^\d{2}:\d{2}$/));
+}
+
 function parseMoneyInput(value: string) {
   const normalized = value.replace(/[^0-9]/g, "");
   const amount = Number.parseInt(normalized, 10);
@@ -1222,10 +1232,14 @@ function RecordActionConfirmDialog({
   const [payrollEffect, setPayrollEffect] = useState(initialPayrollEffect);
   const [payMode, setPayMode] = useState(initialPayMode);
   const [amountText, setAmountText] = useState("");
+  const [timeValues, setTimeValues] = useState<Record<string, string>>(() =>
+    createTimeInputValues(state.timeFields),
+  );
   const [dialogError, setDialogError] = useState("");
   const hasPayrollDecision = Boolean(state.payrollMode);
   const showPayMode = hasPayrollDecision && payrollEffect === "immediate";
   const showAmountField = showPayMode && payMode === "fixed" && state.amountField;
+  const showEditTimeFields = input.action === "edit" && Boolean(state.timeFields);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -1265,6 +1279,35 @@ function RecordActionConfirmDialog({
               value={payrollEffect}
               onChange={setPayrollEffect}
             />
+          </section>
+        ) : null}
+
+        {showEditTimeFields ? (
+          <section className="mt-5">
+            <h3 className="text-h-18-semibold tracking-normal text-gray-900">
+              변경 예정 시간
+            </h3>
+            <div className="mt-3 grid grid-cols-2 gap-4">
+              {state.timeFields?.map((field) => (
+                <label className="block" key={field.id}>
+                  <span className="text-body-14-medium tracking-normal text-gray-900">
+                    {field.label}
+                  </span>
+                  <Input
+                    type="time"
+                    aria-label={field.label}
+                    value={timeValues[field.id] ?? toTimeInputValue(field.value)}
+                    onChange={(event) =>
+                      setTimeValues((currentValues) => ({
+                        ...currentValues,
+                        [field.id]: event.target.value,
+                      }))
+                    }
+                    className="mt-2 flex h-11 w-full items-center rounded-[8px] border-gray-200 bg-white text-h-18-regular tracking-normal text-gray-800"
+                  />
+                </label>
+              ))}
+            </div>
           </section>
         ) : null}
 
@@ -1332,8 +1375,22 @@ function RecordActionConfirmDialog({
             className="h-11 rounded-[8px] bg-green-400 px-6 text-h-18-semibold tracking-normal text-white transition-colors hover:bg-green-450 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:bg-gray-300"
             onClick={() => {
               const amount = showAmountField ? parseMoneyInput(amountText) : null;
+              const startTime = showEditTimeFields
+                ? timeValues["check-in"]
+                : input.startTime;
+              const endTime = showEditTimeFields
+                ? timeValues["check-out"]
+                : input.endTime;
 
               setDialogError("");
+              if (
+                showEditTimeFields &&
+                (!isTimeInputValue(startTime) || !isTimeInputValue(endTime))
+              ) {
+                setDialogError("변경할 근무 시간을 입력해 주세요.");
+                return;
+              }
+
               if (showAmountField && (!amount || amount <= 0)) {
                 setDialogError("고정 지급액을 입력해 주세요.");
                 return;
@@ -1345,10 +1402,12 @@ function RecordActionConfirmDialog({
                   await onConfirmRecordAction({
                     ...input,
                     amount,
+                    endTime,
                     overtimePayMode: showPayMode ? (payMode as "fixed" | "hourly") : null,
                     payrollEffect: hasPayrollDecision
                       ? (payrollEffect as RecordMainActionInput["payrollEffect"])
                       : input.payrollEffect,
+                    startTime,
                   });
                   onClose();
                 } catch {
