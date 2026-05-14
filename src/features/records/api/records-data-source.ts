@@ -58,11 +58,15 @@ export type RecordsDataSource = {
   getMainRecords: () => Promise<RecordMainViewModel>;
 };
 
+type PayrollEffect = "none" | "hold" | "immediate";
+type OvertimePayMode = "fixed" | "hourly";
+
 export type RecordMainActionInput = {
   action: RecordProcessingAction;
   amount?: number | null;
   endTime?: string;
-  payrollEffect: "hold" | "immediate";
+  overtimePayMode?: OvertimePayMode | null;
+  payrollEffect: PayrollEffect;
   reason: string;
   recordId: string;
   startTime?: string;
@@ -145,12 +149,14 @@ type CorrectionRequestModel = {
 };
 
 type OvertimeWorkModel = {
+  amount: number | null;
   createdAt: Date | null;
   extraEndAt: Date | null;
   extraStartAt: Date | null;
   id: string;
   monthKey: string;
   payrollEffect: string;
+  payrollPayMode: string;
   payrollStatus: string;
   reason: string;
   status: string;
@@ -265,8 +271,7 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
         collection(db, "workspaces", workspaceId, "anomalyResolutions"),
       );
       const batch = writeBatch(db);
-      const payrollApplication =
-        input.payrollEffect === "hold" ? "hold" : "immediate";
+      const payrollApplication = getWorkRecordPayrollApplication(input.payrollEffect);
 
       if (isRecordEditAction(input.action)) {
         const change = queueRecordEditAction({
@@ -350,7 +355,7 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
           input,
           managerUid,
           monthKey,
-          payrollApplication,
+          payrollEffect: input.payrollEffect,
           payrollContext,
           recordData,
           recordRef,
@@ -363,7 +368,7 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
           db,
           input,
           managerUid,
-          payrollApplication,
+          payrollEffect: input.payrollEffect,
           payrollContext,
           recordData,
           recordRef,
@@ -461,6 +466,10 @@ function getRecordActionDecision(action: RecordMainActionInput["action"]) {
     default:
       return "mark_normal";
   }
+}
+
+function getWorkRecordPayrollApplication(effect: PayrollEffect): "hold" | "immediate" {
+  return effect === "hold" ? "hold" : "immediate";
 }
 
 function parseRecordActionTimestamp(dateKey: string, timeValue: string | undefined) {
@@ -594,7 +603,7 @@ function queueCorrectionAction({
   input,
   managerUid,
   monthKey,
-  payrollApplication,
+  payrollEffect,
   payrollContext,
   recordData,
   recordRef,
@@ -607,7 +616,7 @@ function queueCorrectionAction({
   input: RecordMainActionInput;
   managerUid: string | null;
   monthKey: string;
-  payrollApplication: "hold" | "immediate";
+  payrollEffect: PayrollEffect;
   payrollContext: WorkerMonthPayrollContext;
   recordData: Record<string, unknown>;
   recordRef: DocumentReference;
@@ -631,6 +640,7 @@ function queueCorrectionAction({
     request.id,
   );
   const workerId = readString(request.data.workerId, readString(recordData.workerId, ""));
+  const beforeRequestSnapshot = readRecord(request.data.beforeSnapshot);
   const afterRequestSnapshot = readRecord(request.data.afterSnapshot);
 
   if (input.action === "reject-correction") {
@@ -671,6 +681,111 @@ function queueCorrectionAction({
     return;
   }
 
+  if (isCorrectionSnapshotForOvertime(beforeRequestSnapshot, afterRequestSnapshot)) {
+    const overtime = findCorrectionOvertimeDocument(collections, request, input.recordId);
+
+    if (!overtime) {
+      throw new Error("이의신청과 연결된 추가근무를 찾을 수 없습니다.");
+    }
+
+    const overtimeRef = doc(
+      db,
+      "workspaces",
+      workspaceId,
+      "overtimeWorks",
+      overtime.id,
+    );
+    const nextExtraStartAt = resolveActionTimestamp({
+      dateKey,
+      fallback:
+        readDate(afterRequestSnapshot.extraStartAt) ??
+        readDate(afterRequestSnapshot.overtimeStartAt) ??
+        readDate(overtime.data.extraStartAt) ??
+        getRecordStartDate(recordData),
+      timeValue: input.startTime,
+    });
+    const nextExtraEndAt = resolveActionTimestamp({
+      dateKey,
+      fallback:
+        readDate(afterRequestSnapshot.extraEndAt) ??
+        readDate(afterRequestSnapshot.overtimeEndAt) ??
+        readDate(overtime.data.extraEndAt) ??
+        getRecordEndDate(recordData),
+      timeValue: input.endTime,
+    });
+    const payMode = getConfirmedOvertimePayMode(input);
+    const fixedAmount = getConfirmedOvertimeFixedAmount(input, payMode);
+    const payrollStatus = getOvertimePayrollStatus(payrollEffect);
+
+    batch.update(overtimeRef, {
+      amount: fixedAmount,
+      decidedAt: serverTimestamp(),
+      decidedBy: managerUid,
+      extraEndAt: toTimestampOrNull(nextExtraEndAt),
+      extraStartAt: toTimestampOrNull(nextExtraStartAt),
+      managerNote: input.reason,
+      payrollEffect,
+      payrollPayMode: payMode,
+      payrollStatus,
+      status: "approved",
+      updatedAt: serverTimestamp(),
+    });
+    batch.update(recordRef, {
+      hasPendingCorrection: false,
+      updatedAt: serverTimestamp(),
+    });
+    batch.update(requestRef, {
+      amount: fixedAmount,
+      decidedAt: serverTimestamp(),
+      decidedBy: managerUid,
+      managerNote: input.reason,
+      overtimeWorkId: overtime.id,
+      payrollEffect,
+      payrollPayMode: payMode,
+      payrollStatus,
+      status: "approved",
+      targetType: "overtime",
+      updatedAt: serverTimestamp(),
+    });
+    queueWorkerNotification({
+      batch,
+      db,
+      eventType: "correction_approved",
+      payload: {
+        amount: fixedAmount,
+        correctionRequestId: request.id,
+        managerNote: input.reason,
+        overtimePayMode: payMode,
+        overtimeWorkId: overtime.id,
+        payrollEffect,
+        targetFocusId: input.recordId,
+        targetScreen: "worker_work_record_detail",
+        targetType: "overtime",
+      },
+      relatedEntityId: request.id,
+      relatedEntityType: "correctionRequest",
+      recipientId: workerId,
+      workspaceId,
+    });
+
+    if (payrollEffect === "immediate") {
+      queueReconfirmationAlert({
+        batch,
+        db,
+        reason: "추가근무 이의신청 승인 후 산정 입력 변경",
+        workspaceId,
+        ...payrollContext,
+      });
+    }
+
+    return;
+  }
+
+  const payrollApplication = "immediate";
+  const regularPayrollInput: RecordMainActionInput = {
+    ...input,
+    payrollEffect: "immediate",
+  };
   const nextStartAt = resolveActionTimestamp({
     dateKey,
     fallback:
@@ -716,7 +831,7 @@ function queueCorrectionAction({
     decidedBy: managerUid,
     managerNote: input.reason,
     payrollEffect: payrollApplication,
-    payrollStatus: payrollApplication === "hold" ? "held" : "applied",
+    payrollStatus: "applied",
     status: "approved",
     updatedAt: serverTimestamp(),
   });
@@ -740,7 +855,7 @@ function queueCorrectionAction({
     batch,
     collections,
     db,
-    input,
+    input: regularPayrollInput,
     monthKey,
     newEndAt: changeType === "deleted" ? null : nextEndAt,
     newStartAt: changeType === "deleted" ? null : nextStartAt,
@@ -763,7 +878,7 @@ function queueOvertimeAction({
   db,
   input,
   managerUid,
-  payrollApplication,
+  payrollEffect,
   payrollContext,
   recordData,
   recordRef,
@@ -774,7 +889,7 @@ function queueOvertimeAction({
   db: ReturnType<typeof getFirebaseDb>;
   input: RecordMainActionInput;
   managerUid: string | null;
-  payrollApplication: "hold" | "immediate";
+  payrollEffect: PayrollEffect;
   payrollContext: WorkerMonthPayrollContext;
   recordData: Record<string, unknown>;
   recordRef: DocumentReference;
@@ -832,18 +947,19 @@ function queueOvertimeAction({
     return;
   }
 
-  if (payrollApplication === "immediate" && (!input.amount || input.amount <= 0)) {
-    throw new Error("즉시 반영할 추가근무 고정 지급액을 입력해 주세요.");
-  }
+  const payMode = getConfirmedOvertimePayMode(input);
+  const fixedAmount = getConfirmedOvertimeFixedAmount(input, payMode);
+  const payrollStatus = getOvertimePayrollStatus(payrollEffect);
 
   batch.update(overtimeRef, {
-    amount: input.amount ?? null,
+    amount: fixedAmount,
     approvedAt: serverTimestamp(),
     decidedAt: serverTimestamp(),
     decidedBy: managerUid,
     managerNote: input.reason,
-    payrollEffect: payrollApplication,
-    payrollStatus: payrollApplication === "hold" ? "held" : "confirmed",
+    payrollEffect,
+    payrollPayMode: payMode,
+    payrollStatus,
     status: "approved",
     updatedAt: serverTimestamp(),
   });
@@ -856,9 +972,10 @@ function queueOvertimeAction({
     db,
     eventType: "overtime_approved",
     payload: {
-      amount: input.amount ?? null,
+      amount: fixedAmount,
+      overtimePayMode: payMode,
       overtimeWorkId: overtime.id,
-      payrollEffect: payrollApplication,
+      payrollEffect,
       targetFocusId: input.recordId,
       targetScreen: "worker_work_record_detail",
     },
@@ -867,13 +984,113 @@ function queueOvertimeAction({
     recipientId: workerId,
     workspaceId,
   });
-  queueReconfirmationAlert({
-    batch,
-    db,
-    reason: "추가근무 승인 후 산정 입력 변경",
-    workspaceId,
-    ...payrollContext,
-  });
+  if (payrollEffect === "immediate") {
+    queueReconfirmationAlert({
+      batch,
+      db,
+      reason: "추가근무 승인 후 산정 입력 변경",
+      workspaceId,
+      ...payrollContext,
+    });
+  }
+}
+
+function getOvertimePayrollStatus(effect: PayrollEffect) {
+  if (effect === "hold") {
+    return "held";
+  }
+
+  if (effect === "none") {
+    return "none";
+  }
+
+  return "confirmed";
+}
+
+function getConfirmedOvertimePayMode(input: RecordMainActionInput) {
+  if (input.payrollEffect !== "immediate") {
+    return null;
+  }
+
+  return input.overtimePayMode === "hourly" ? "hourly" : "fixed";
+}
+
+function getConfirmedOvertimeFixedAmount(
+  input: RecordMainActionInput,
+  payMode: OvertimePayMode | null,
+) {
+  if (input.payrollEffect !== "immediate" || payMode !== "fixed") {
+    return null;
+  }
+
+  if (!input.amount || input.amount <= 0) {
+    throw new Error("고정급 지급액을 입력해 주세요.");
+  }
+
+  return input.amount;
+}
+
+function findCorrectionOvertimeDocument(
+  collections: RecordsCollections,
+  request: FirestoreDocument,
+  workRecordId: string,
+) {
+  const beforeSnapshot = readRecord(request.data.beforeSnapshot);
+  const afterSnapshot = readRecord(request.data.afterSnapshot);
+  const overtimeIds = [
+    readNullableString(request.data.overtimeWorkId),
+    readNullableString(beforeSnapshot.overtimeWorkId),
+    readNullableString(afterSnapshot.overtimeWorkId),
+    readNullableString(beforeSnapshot.overtimeId),
+    readNullableString(afterSnapshot.overtimeId),
+  ].filter((id): id is string => Boolean(id));
+
+  return (
+    collections.overtimeWorks.find((item) => overtimeIds.includes(item.id)) ??
+    collections.overtimeWorks.find(
+      (item) => readString(item.data.workRecordId, "") === workRecordId,
+    ) ??
+    null
+  );
+}
+
+function isCorrectionSnapshotForOvertime(
+  beforeSnapshot: Record<string, unknown>,
+  afterSnapshot: Record<string, unknown>,
+) {
+  const snapshots = [beforeSnapshot, afterSnapshot];
+  const explicitTarget = snapshots.some((snapshot) =>
+    Boolean(
+      readNullableString(snapshot.overtimeWorkId) ||
+        readNullableString(snapshot.overtimeId),
+    ),
+  );
+  const overtimeTimeChange = snapshots.some((snapshot) =>
+    Boolean(
+      readDate(snapshot.extraStartAt) ||
+        readDate(snapshot.extraEndAt) ||
+        readDate(snapshot.overtimeStartAt) ||
+        readDate(snapshot.overtimeEndAt),
+    ),
+  );
+  const targetType = snapshots
+    .map((snapshot) =>
+      [
+        readString(snapshot.targetType, ""),
+        readString(snapshot.recordType, ""),
+        readString(snapshot.workType, ""),
+        readString(snapshot.kind, ""),
+      ].join(" "),
+    )
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    explicitTarget ||
+    overtimeTimeChange ||
+    targetType.includes("overtime") ||
+    targetType.includes("추가")
+  );
 }
 
 type WorkerMonthPayrollContext = {
@@ -1200,6 +1417,13 @@ function mapRecordMainView(collections: RecordsCollections): RecordMainViewModel
     mapCorrectionRequest,
   );
   const overtimeWorks = collections.overtimeWorks.map(mapOvertimeWork);
+  const payrollSettings = collections.payrollSettings.map(mapPayrollSetting);
+  const getPayrollSetting = (record: WorkRecordModel) =>
+    findPayrollSettingForMonth(
+      payrollSettings,
+      record.workerId,
+      record.dateKey.slice(0, 7),
+    );
   const flagsByRecordId = toMap(
     anomalyFlags.filter(hasWorkRecordId),
     (flag) => flag.workRecordId,
@@ -1245,6 +1469,7 @@ function mapRecordMainView(collections: RecordsCollections): RecordMainViewModel
     pendingCorrectionByRecordId,
     pendingOvertimeByRecordId,
     flagsByRecordId,
+    getPayrollSetting,
   });
 
   return {
@@ -1260,6 +1485,7 @@ function mapRecordMainView(collections: RecordsCollections): RecordMainViewModel
       overtime: selectedRecord
         ? pendingOvertimeByRecordId.get(selectedRecord.id) ?? null
         : null,
+      payrollSetting: selectedRecord ? getPayrollSetting(selectedRecord) ?? null : null,
       record: selectedRecord,
     }),
     detailStatesByBlockId,
@@ -1463,12 +1689,14 @@ function mapOvertimeWork(document: FirestoreDocument): OvertimeWorkModel {
   const data = document.data;
 
   return {
+    amount: readNullableNumber(data.amount) ?? readNullableNumber(data.fixedAmount),
     createdAt: readDate(data.createdAt),
     extraEndAt: readDate(data.extraEndAt),
     extraStartAt: readDate(data.extraStartAt),
     id: document.id,
     monthKey: readString(data.monthKey, ""),
     payrollEffect: readString(data.payrollEffect, "none"),
+    payrollPayMode: readString(data.payrollPayMode, ""),
     payrollStatus: readString(data.payrollStatus, "none"),
     reason: readString(data.reason, "사유가 등록되지 않았습니다."),
     status: readString(data.status, "submitted"),
@@ -1562,6 +1790,7 @@ function createDetailStatesByBlockId(
   options: {
     attendanceById: ReadonlyMap<string, AttendanceLogModel>;
     flagsByRecordId: ReadonlyMap<string, AnomalyFlagModel | undefined>;
+    getPayrollSetting: (record: WorkRecordModel) => PayrollSettingModel | undefined;
     pendingCorrectionByRecordId: ReadonlyMap<string, CorrectionRequestModel>;
     pendingOvertimeByRecordId: ReadonlyMap<string, OvertimeWorkModel>;
   },
@@ -1579,6 +1808,7 @@ function createDetailStatesByBlockId(
       correction: options.pendingCorrectionByRecordId.get(record.id) ?? null,
       flag: options.flagsByRecordId.get(record.id) ?? null,
       overtime: options.pendingOvertimeByRecordId.get(record.id) ?? null,
+      payrollSetting: options.getPayrollSetting(record) ?? null,
       record,
     });
   }
@@ -1625,12 +1855,14 @@ function createDetailStates({
   correction,
   flag,
   overtime,
+  payrollSetting,
   record,
 }: {
   attendance: AttendanceLogModel | null;
   correction: CorrectionRequestModel | null;
   flag: AnomalyFlagModel | null;
   overtime: OvertimeWorkModel | null;
+  payrollSetting: PayrollSettingModel | null;
   record: WorkRecordModel | null;
 }): Record<RecordDetailStateId, RecordDetailState> {
   const empty = createEmptyDetailState(
@@ -1655,11 +1887,18 @@ function createDetailStates({
     isUnresolvedAnomaly(record, new Map([[record.id, flag ?? undefined]]));
 
   if (!hasUnresolvedFlag && correction) {
-    return createCorrectionDetailStates(record, attendance, correction, empty);
+    return createCorrectionDetailStates(
+      record,
+      attendance,
+      correction,
+      overtime,
+      payrollSetting,
+      empty,
+    );
   }
 
   if (!hasUnresolvedFlag && overtime) {
-    return createOvertimeDetailStates(record, attendance, overtime, empty);
+    return createOvertimeDetailStates(record, attendance, overtime, payrollSetting, empty);
   }
 
   const actionBase = hasUnresolvedFlag
@@ -1683,9 +1922,6 @@ function createDetailStates({
       id: "anomaly-step-3",
       actions: createRecordActionButtons(hasUnresolvedFlag, "edit"),
       confirmLabel: "확인",
-      payrollMode: createPayrollMode(
-        "즉시는 변경을 산정 입력에 바로 반영합니다. 월급제에서 시간이 줄면 차감 항목이 자동 생성됩니다.",
-      ),
       reasonField: {
         label: "수정 사유",
         placeholder: "수정 사유를 입력하세요",
@@ -1709,9 +1945,6 @@ function createDetailStates({
       actions: createRecordActionButtons(hasUnresolvedFlag, "delete"),
       confirmLabel: "확인",
       helperText: "해당 근무기록이 삭제되어 결근으로 처리됩니다.",
-      payrollMode: createPayrollMode(
-        "즉시는 삭제를 산정 입력에 바로 반영합니다. 월급제에서는 결근 차감 항목이 자동 생성됩니다.",
-      ),
     },
   };
 }
@@ -1720,19 +1953,75 @@ function createCorrectionDetailStates(
   record: WorkRecordModel,
   attendance: AttendanceLogModel | null,
   correction: CorrectionRequestModel,
+  overtime: OvertimeWorkModel | null,
+  payrollSetting: PayrollSettingModel | null,
   empty: RecordDetailState,
 ): Record<RecordDetailStateId, RecordDetailState> {
   const base = createRecordActionDetailBase(record, attendance);
+  const overtimeCorrection = isCorrectionForOvertime(correction);
   const afterStartAt =
-    readDate(correction.afterSnapshot.effectiveStartAt) ??
-    readDate(correction.afterSnapshot.plannedStartAt) ??
-    record.effectiveStartAt ??
-    record.plannedStartAt;
+    overtimeCorrection
+      ? readDate(correction.afterSnapshot.extraStartAt) ??
+        readDate(correction.afterSnapshot.overtimeStartAt) ??
+        overtime?.extraStartAt ??
+        record.effectiveStartAt ??
+        record.plannedStartAt
+      : readDate(correction.afterSnapshot.effectiveStartAt) ??
+        readDate(correction.afterSnapshot.plannedStartAt) ??
+        record.effectiveStartAt ??
+        record.plannedStartAt;
   const afterEndAt =
-    readDate(correction.afterSnapshot.effectiveEndAt) ??
-    readDate(correction.afterSnapshot.plannedEndAt) ??
-    record.effectiveEndAt ??
-    record.plannedEndAt;
+    overtimeCorrection
+      ? readDate(correction.afterSnapshot.extraEndAt) ??
+        readDate(correction.afterSnapshot.overtimeEndAt) ??
+        overtime?.extraEndAt ??
+        record.effectiveEndAt ??
+        record.plannedEndAt
+      : readDate(correction.afterSnapshot.effectiveEndAt) ??
+        readDate(correction.afterSnapshot.plannedEndAt) ??
+        record.effectiveEndAt ??
+        record.plannedEndAt;
+  const approveState: RecordDetailState = {
+    ...base,
+    actions: [
+      { id: "approve-correction", label: "승인", active: true },
+      { id: "reject-correction", label: "반려" },
+    ],
+    confirmLabel: "승인",
+    helperText: overtimeCorrection
+      ? "승인 시 요청된 추가근무 시간으로 갱신합니다."
+      : "승인 시 요청된 값으로 근무기록을 갱신합니다.",
+    id: "anomaly-step-3",
+    reasonField: {
+      label: "처리 메모",
+      placeholder: "처리 메모를 입력하세요",
+    },
+    statusLabel: "이의신청",
+    statusTone: "orange",
+    submitAction: "approve-correction",
+    timeFields: [
+      {
+        id: "check-in",
+        label: overtimeCorrection ? "추가 시작" : "출근 시간",
+        value: formatKoreanTime(afterStartAt),
+      },
+      {
+        id: "check-out",
+        label: overtimeCorrection ? "추가 종료" : "퇴근 시간",
+        value: formatKoreanTime(afterEndAt),
+      },
+    ],
+    ...(overtimeCorrection
+      ? {
+          amountField: {
+            label: "고정 지급액",
+            placeholder: "예) 10000",
+          },
+          payrollMode: createOvertimePayrollMode(),
+          payrollPayMode: createOvertimePayrollPayMode(payrollSetting),
+        }
+      : {}),
+  };
 
   return {
     empty,
@@ -1748,38 +2037,7 @@ function createCorrectionDetailStates(
     },
     "anomaly-step-1": base,
     "anomaly-step-2": base,
-    "anomaly-step-3": {
-      ...base,
-      actions: [
-        { id: "approve-correction", label: "승인", active: true },
-        { id: "reject-correction", label: "반려" },
-      ],
-      confirmLabel: "승인",
-      helperText: "승인 시 요청된 값으로 근무기록을 갱신합니다.",
-      id: "anomaly-step-3",
-      payrollMode: createPayrollMode(
-        "즉시는 변경을 산정 입력에 포함하고, 보류는 변경을 기록하되 산정에서 제외합니다.",
-      ),
-      reasonField: {
-        label: "처리 메모",
-        placeholder: "처리 메모를 입력하세요",
-      },
-      statusLabel: "이의신청",
-      statusTone: "orange",
-      submitAction: "approve-correction",
-      timeFields: [
-        {
-          id: "check-in",
-          label: "출근 시간",
-          value: formatKoreanTime(afterStartAt),
-        },
-        {
-          id: "check-out",
-          label: "퇴근 시간",
-          value: formatKoreanTime(afterEndAt),
-        },
-      ],
-    },
+    "anomaly-step-3": approveState,
     "anomaly-step-4": {
       ...base,
       actions: [
@@ -1803,6 +2061,7 @@ function createOvertimeDetailStates(
   record: WorkRecordModel,
   attendance: AttendanceLogModel | null,
   overtime: OvertimeWorkModel,
+  payrollSetting: PayrollSettingModel | null,
   empty: RecordDetailState,
 ): Record<RecordDetailStateId, RecordDetailState> {
   const base = {
@@ -1839,11 +2098,10 @@ function createOvertimeDetailStates(
         { id: "reject-overtime", label: "반려" },
       ],
       confirmLabel: "승인",
-      helperText: "추가근무 급여는 시급제와 월급제 모두 별도 고정액으로 반영합니다.",
+      helperText: "승인 시 추가근무 시간과 급여 처리 방식을 함께 확정합니다.",
       id: "anomaly-step-3",
-      payrollMode: createPayrollMode(
-        "즉시는 입력한 고정액을 추가근무 급여에 반영하고, 보류는 확정/재확정 시점에 결정합니다.",
-      ),
+      payrollMode: createOvertimePayrollMode(),
+      payrollPayMode: createOvertimePayrollPayMode(payrollSetting),
       reasonField: {
         label: "처리 메모",
         placeholder: "처리 메모를 입력하세요",
@@ -1867,15 +2125,45 @@ function createOvertimeDetailStates(
   };
 }
 
-function createPayrollMode(description?: string): NonNullable<RecordDetailState["payrollMode"]> {
+function createOvertimePayrollMode(): NonNullable<RecordDetailState["payrollMode"]> {
   return {
-    description,
-    label: "급여 반영",
+    description: "급여 제외는 산정에 넣지 않고, 보류는 급여 확정 시점에 다시 결정합니다.",
+    label: "급여 처리",
     options: [
-      { id: "immediate", label: "즉시", active: true },
+      { id: "none", label: "급여 제외" },
+      { id: "immediate", label: "급여 처리", active: true },
       { id: "hold", label: "보류" },
     ],
   };
+}
+
+function createOvertimePayrollPayMode(
+  payrollSetting: PayrollSettingModel | null,
+): NonNullable<RecordDetailState["payrollPayMode"]> {
+  const canUseHourly = payrollSetting?.payrollType === "hourly" &&
+    payrollSetting.hourlyRate != null;
+
+  return {
+    description: canUseHourly
+      ? "시급 처리는 추가근무 시간에 조교의 시급을 곱해 계산합니다."
+      : "월급제 또는 시급 미설정 조교는 고정급 지급만 선택할 수 있습니다.",
+    label: "지급 방식",
+    options: [
+      { id: "fixed", label: "고정급 지급", active: !canUseHourly },
+      ...(canUseHourly
+        ? [{ id: "hourly", label: "시급 처리", active: true }]
+        : []),
+    ],
+  };
+}
+
+function isCorrectionForOvertime(
+  correction: CorrectionRequestModel,
+) {
+  return isCorrectionSnapshotForOvertime(
+    correction.beforeSnapshot,
+    correction.afterSnapshot,
+  );
 }
 
 function createNormalDetailState(
@@ -2476,6 +2764,10 @@ function getPayrollEffectLabel(effect: string) {
 
   if (effect === "hold" || effect === "held") {
     return "보류";
+  }
+
+  if (effect === "none" || effect === "excluded") {
+    return "급여 제외";
   }
 
   return "변경 없음";

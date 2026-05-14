@@ -199,6 +199,7 @@ type OvertimeWork = {
   id: string;
   monthKey: string;
   payrollEffect: string;
+  payrollPayMode: string;
   payrollStatus: string;
   reason: string;
   status: string;
@@ -1465,9 +1466,8 @@ function sumConfirmedOvertimePay(
     .filter(
       (work) =>
         work.status === "approved" &&
-        work.payrollStatus !== "held" &&
-        work.payrollStatus !== "deleted" &&
-        work.payrollStatus !== "none",
+        work.payrollStatus === "confirmed" &&
+        work.payrollEffect !== "none",
     )
     .reduce((total, work) => total + getOvertimePayAmount(work, setting), 0);
 }
@@ -1476,8 +1476,8 @@ function getOvertimePayAmount(
   work: OvertimeWork,
   setting?: PayrollSetting,
 ) {
-  if (work.amount != null) {
-    return work.amount;
+  if (work.payrollPayMode === "fixed" || (!work.payrollPayMode && work.amount != null)) {
+    return work.amount ?? 0;
   }
 
   if (setting?.hourlyRate == null) {
@@ -2009,6 +2009,7 @@ function mapOvertimeWork(document: PayrollDocument): OvertimeWork {
     id: document.id,
     monthKey: readMonthKey(data.monthKey),
     payrollEffect: readString(data.payrollEffect, ""),
+    payrollPayMode: readString(data.payrollPayMode, ""),
     payrollStatus: readString(data.payrollStatus, "none"),
     reason: readString(data.reason, "사유 확인 필요"),
     status: readString(data.status, ""),

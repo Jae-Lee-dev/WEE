@@ -134,6 +134,11 @@ export type RecordDetailState = {
     label: string;
     options: readonly RecordDetailAction[];
   };
+  payrollPayMode?: {
+    description?: string;
+    label: string;
+    options: readonly RecordDetailAction[];
+  };
   confirmLabel?: string;
   emptyText?: readonly string[];
 };
@@ -341,6 +346,7 @@ export const recordTimelineBlocks = [
     "12:00",
     "overtime",
     "orange",
+    "normal-selected",
   ),
   timelineBlock(
     "record-song-hyunwoo-physics-f-mon",
@@ -504,13 +510,6 @@ export const recordDetailStates = {
       { id: "check-in", label: "출근 시간", value: "오후 02:00" },
       { id: "check-out", label: "퇴근 시간", value: "오후 03:30" },
     ],
-    payrollMode: {
-      label: "급여 반영",
-      options: [
-        { id: "immediate", label: "즉시", active: true },
-        { id: "hold", label: "보류" },
-      ],
-    },
     confirmLabel: "확인",
   },
   "anomaly-step-4": {
@@ -529,13 +528,6 @@ export const recordDetailStates = {
       { id: "edit", label: "수정" },
       { id: "delete", label: "삭제", active: true },
     ],
-    payrollMode: {
-      label: "급여 반영",
-      options: [
-        { id: "immediate", label: "즉시", active: true },
-        { id: "hold", label: "보류" },
-      ],
-    },
     helperText: "해당 근무기록이 삭제되어 결근으로 처리됩니다.",
     confirmLabel: "확인",
   },
@@ -558,13 +550,6 @@ const normalRecordDetailStates = {
       { id: "delete", label: "삭제" },
     ],
     confirmLabel: "확인",
-    payrollMode: {
-      label: "급여 반영",
-      options: [
-        { id: "immediate", label: "즉시", active: true },
-        { id: "hold", label: "보류" },
-      ],
-    },
     reasonField: {
       label: "수정 사유",
       placeholder: "수정 사유를 입력하세요",
@@ -583,13 +568,90 @@ const normalRecordDetailStates = {
     ],
     confirmLabel: "확인",
     helperText: "해당 근무기록이 삭제되어 결근으로 처리됩니다.",
+  },
+} as const satisfies Record<RecordDetailStateId, RecordDetailState>;
+
+const overtimeRecordDetailStates = {
+  ...recordDetailStates,
+  "normal-selected": {
+    ...recordDetailStates["normal-selected"],
+    actions: [
+      { id: "approve-overtime", label: "승인" },
+      { id: "reject-overtime", label: "반려" },
+    ],
+    lines: [
+      detailLine("check-in", "출근", "10:00"),
+      detailLine("check-out", "퇴근", "12:00"),
+      detailLine("extra-start", "추가 시작", "12:00"),
+      detailLine("extra-end", "추가 종료", "12:30"),
+      detailLine("reason", "신청 사유", "보강 수업 연장"),
+    ],
+    statusLabel: "추가근무",
+    statusTone: "blue",
+    title: "강태우 · 화학 G반",
+  },
+  "anomaly-step-3": {
+    ...recordDetailStates["normal-selected"],
+    actions: [
+      { id: "approve-overtime", label: "승인", active: true },
+      { id: "reject-overtime", label: "반려" },
+    ],
+    amountField: {
+      label: "고정 지급액",
+      placeholder: "예) 10000",
+    },
+    confirmLabel: "승인",
+    helperText: "승인 시 추가근무 시간과 급여 처리 방식을 함께 확정합니다.",
+    id: "anomaly-step-3",
+    lines: [
+      detailLine("check-in", "출근", "10:00"),
+      detailLine("check-out", "퇴근", "12:00"),
+      detailLine("extra-start", "추가 시작", "12:00"),
+      detailLine("extra-end", "추가 종료", "12:30"),
+      detailLine("reason", "신청 사유", "보강 수업 연장"),
+    ],
     payrollMode: {
-      label: "급여 반영",
+      description: "급여 제외는 산정에 넣지 않고, 보류는 급여 확정 시점에 다시 결정합니다.",
+      label: "급여 처리",
       options: [
-        { id: "immediate", label: "즉시", active: true },
+        { id: "none", label: "급여 제외" },
+        { id: "immediate", label: "급여 처리", active: true },
         { id: "hold", label: "보류" },
       ],
     },
+    payrollPayMode: {
+      description: "시급 처리는 추가근무 시간에 조교의 시급을 곱해 계산합니다.",
+      label: "지급 방식",
+      options: [
+        { id: "fixed", label: "고정급 지급" },
+        { id: "hourly", label: "시급 처리", active: true },
+      ],
+    },
+    reasonField: {
+      label: "처리 메모",
+      placeholder: "처리 메모를 입력하세요",
+    },
+    statusLabel: "추가근무",
+    statusTone: "blue",
+    submitAction: "approve-overtime",
+    title: "강태우 · 화학 G반",
+  },
+  "anomaly-step-4": {
+    ...recordDetailStates["normal-selected"],
+    actions: [
+      { id: "approve-overtime", label: "승인" },
+      { id: "reject-overtime", label: "반려", active: true },
+    ],
+    confirmLabel: "반려",
+    id: "anomaly-step-4",
+    reasonField: {
+      label: "반려 사유",
+      placeholder: "반려 사유를 입력하세요",
+    },
+    statusLabel: "추가근무",
+    statusTone: "blue",
+    submitAction: "reject-overtime",
+    title: "강태우 · 화학 G반",
   },
 } as const satisfies Record<RecordDetailStateId, RecordDetailState>;
 
@@ -597,6 +659,7 @@ export const recordMainFixtureViewModel = {
   blocks: recordTimelineBlocks,
   detailStates: recordDetailStates,
   detailStatesByBlockId: {
+    "record-kang-taewoo-chemistry-g-mon": overtimeRecordDetailStates,
     "record-lee-haeun-english-c-mon": normalRecordDetailStates,
     "record-song-hyunwoo-physics-f-mon": recordDetailStates,
   },

@@ -2,6 +2,14 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { IconChevronLeft, IconChevronRight } from "@/shared/ui/icons";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/ui/dialog";
 import { Input } from "@/shared/ui/input";
 import { Segment } from "@/shared/ui/segment";
 import { OptionSelect, type SelectOption } from "@/shared/ui/select";
@@ -840,12 +848,8 @@ function SelectedDetail({
       ]),
     ),
   );
-  const [amountText, setAmountText] = useState("");
-  const [payrollModeId, setPayrollModeId] = useState(
-    state.payrollMode?.options.find((option) => option.active)?.id ??
-      state.payrollMode?.options[0]?.id ??
-      "",
-  );
+  const [pendingInput, setPendingInput] =
+    useState<Omit<RecordMainActionInput, "recordId"> | null>(null);
   const [saveErrorMessage, setSaveErrorMessage] = useState("");
 
   return (
@@ -959,45 +963,6 @@ function SelectedDetail({
             </div>
           ) : null}
 
-          {state.payrollMode ? (
-            <div className={compactForm ? "mt-4" : "mt-5"}>
-              <h3 className="text-h-18-semibold tracking-normal text-gray-900">
-                {state.payrollMode.label}
-              </h3>
-              {state.payrollMode.description ? (
-                <p className="mt-2 text-body-14-regular leading-[1.45] tracking-normal text-gray-500">
-                  {state.payrollMode.description}
-                </p>
-              ) : null}
-              <Segment
-                size="lg"
-                className="mt-3 grid w-full grid-cols-2 rounded-[8px]"
-                options={state.payrollMode.options.map((option) => ({
-                  label: option.label,
-                  value: option.id,
-                }))}
-                value={payrollModeId}
-                onChange={setPayrollModeId}
-              />
-            </div>
-          ) : null}
-
-          {state.amountField ? (
-            <label className={cn("block", compactForm ? "mt-4" : "mt-5")}>
-              <span className="text-h-18-semibold tracking-normal text-gray-900">
-                {state.amountField.label}
-              </span>
-              <Input
-                aria-label={state.amountField.label}
-                className="mt-3 flex h-11 w-full items-center rounded-[8px] border-gray-200 bg-white text-h-18-regular tracking-normal text-gray-800"
-                inputMode="numeric"
-                placeholder={state.amountField.placeholder}
-                value={amountText}
-                onChange={(event) => setAmountText(event.target.value)}
-              />
-            </label>
-          ) : null}
-
           {successMessage ? (
             <RecordActionSuccessMessage message={successMessage} />
           ) : null}
@@ -1015,22 +980,33 @@ function SelectedDetail({
             type="button"
             disabled={actionSaving}
             onClick={() => {
-              void handleConfirmSelectedRecordAction({
+              const input = createPendingRecordActionInput({
                 endTime: timeValues["check-out"],
-                amount: parseMoneyInput(amountText),
-                onConfirmRecordAction,
-                payrollModeId,
                 reason,
                 setSaveErrorMessage,
                 startTime: timeValues["check-in"],
                 state,
               });
+
+              if (input) {
+                setPendingInput(input);
+              }
             }}
             className="flex h-11 min-w-[78px] items-center justify-center rounded-[10px] bg-green-400 px-4 text-h-18-semibold tracking-normal text-white transition-colors duration-150 ease-out hover:bg-green-450 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:bg-gray-300"
           >
             {actionSaving ? "저장 중" : state.confirmLabel}
           </button>
         </div>
+      ) : null}
+      {pendingInput ? (
+        <RecordActionConfirmDialog
+          actionSaving={actionSaving}
+          input={pendingInput}
+          onClose={() => setPendingInput(null)}
+          onConfirmRecordAction={onConfirmRecordAction}
+          setSaveErrorMessage={setSaveErrorMessage}
+          state={state}
+        />
       ) : null}
     </div>
   );
@@ -1124,62 +1100,213 @@ function parseMoneyInput(value: string) {
   return Number.isFinite(amount) && amount > 0 ? amount : null;
 }
 
-async function handleConfirmSelectedRecordAction({
-  amount,
+function createPendingRecordActionInput({
   endTime,
-  onConfirmRecordAction,
-  payrollModeId,
   reason,
   setSaveErrorMessage,
   startTime,
   state,
 }: {
-  amount?: number | null;
   endTime?: string;
-  onConfirmRecordAction: (
-    input: Omit<RecordMainActionInput, "recordId">,
-  ) => Promise<void>;
-  payrollModeId: string;
   reason: string;
   setSaveErrorMessage: (message: string) => void;
   startTime?: string;
   state: RecordDetailState;
-}) {
+}): Omit<RecordMainActionInput, "recordId"> | null {
   const action = getRecordActionFromState(state.id, state);
 
   setSaveErrorMessage("");
 
   if (action === "edit" && !reason.trim()) {
     setSaveErrorMessage("수정 사유를 입력해 주세요.");
-    return;
+    return null;
   }
 
   if (action === "reject-correction" && !reason.trim()) {
     setSaveErrorMessage("반려 사유를 입력해 주세요.");
-    return;
+    return null;
   }
 
-  if (
-    action === "approve-overtime" &&
-    payrollModeId !== "hold" &&
-    (!amount || amount <= 0)
-  ) {
-    setSaveErrorMessage("즉시 반영할 추가근무 고정 지급액을 입력해 주세요.");
-    return;
-  }
+  return {
+    action,
+    amount: null,
+    endTime,
+    overtimePayMode: null,
+    payrollEffect: "immediate",
+    reason,
+    startTime,
+  };
+}
 
-  try {
-    await onConfirmRecordAction({
-      action,
-      amount,
-      endTime,
-      payrollEffect: payrollModeId === "hold" ? "hold" : "immediate",
-      reason,
-      startTime,
-    });
-  } catch {
-    setSaveErrorMessage("근무기록 처리 내용을 저장하지 못했습니다.");
-  }
+function RecordActionConfirmDialog({
+  actionSaving,
+  input,
+  onClose,
+  onConfirmRecordAction,
+  setSaveErrorMessage,
+  state,
+}: {
+  actionSaving: boolean;
+  input: Omit<RecordMainActionInput, "recordId">;
+  onClose: () => void;
+  onConfirmRecordAction: (
+    input: Omit<RecordMainActionInput, "recordId">,
+  ) => Promise<void>;
+  setSaveErrorMessage: (message: string) => void;
+  state: RecordDetailState;
+}) {
+  const initialPayrollEffect =
+    state.payrollMode?.options.find((option) => option.active)?.id ??
+    state.payrollMode?.options[0]?.id ??
+    input.payrollEffect;
+  const initialPayMode =
+    state.payrollPayMode?.options.find((option) => option.active)?.id ??
+    state.payrollPayMode?.options[0]?.id ??
+    "fixed";
+  const [payrollEffect, setPayrollEffect] = useState(initialPayrollEffect);
+  const [payMode, setPayMode] = useState(initialPayMode);
+  const [amountText, setAmountText] = useState("");
+  const [dialogError, setDialogError] = useState("");
+  const hasPayrollDecision = Boolean(state.payrollMode);
+  const showPayMode = hasPayrollDecision && payrollEffect === "immediate";
+  const showAmountField = showPayMode && payMode === "fixed" && state.amountField;
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        data-testid="record-action-confirm-dialog"
+        className="w-[calc(100vw-32px)] max-w-[520px] rounded-[8px] bg-white p-8 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0"
+      >
+        <DialogHeader className="gap-3">
+          <DialogTitle className="text-h-20 tracking-normal text-gray-900">
+            {getRecordActionConfirmTitle(input.action)}
+          </DialogTitle>
+          <DialogDescription className="text-body-16-regular leading-[24px] tracking-normal text-gray-600">
+            {getRecordActionConfirmDescription(input.action, hasPayrollDecision)}
+          </DialogDescription>
+        </DialogHeader>
+
+        {state.payrollMode ? (
+          <section className="mt-5">
+            <h3 className="text-h-18-semibold tracking-normal text-gray-900">
+              {state.payrollMode.label}
+            </h3>
+            {state.payrollMode.description ? (
+              <p className="mt-2 text-body-14-regular leading-[1.45] tracking-normal text-gray-500">
+                {state.payrollMode.description}
+              </p>
+            ) : null}
+            <Segment
+              size="lg"
+              className={cn(
+                "mt-3 grid w-full rounded-[8px]",
+                getSegmentGridClassName(state.payrollMode.options.length),
+              )}
+              options={state.payrollMode.options.map((option) => ({
+                label: option.label,
+                value: option.id,
+              }))}
+              value={payrollEffect}
+              onChange={setPayrollEffect}
+            />
+          </section>
+        ) : null}
+
+        {showPayMode && state.payrollPayMode ? (
+          <section className="mt-5">
+            <h3 className="text-h-18-semibold tracking-normal text-gray-900">
+              {state.payrollPayMode.label}
+            </h3>
+            {state.payrollPayMode.description ? (
+              <p className="mt-2 text-body-14-regular leading-[1.45] tracking-normal text-gray-500">
+                {state.payrollPayMode.description}
+              </p>
+            ) : null}
+            <Segment
+              size="lg"
+              className={cn(
+                "mt-3 grid w-full rounded-[8px]",
+                getSegmentGridClassName(state.payrollPayMode.options.length),
+              )}
+              disabled={state.payrollPayMode.options.length < 2}
+              options={state.payrollPayMode.options.map((option) => ({
+                label: option.label,
+                value: option.id,
+              }))}
+              value={payMode}
+              onChange={setPayMode}
+            />
+          </section>
+        ) : null}
+
+        {showAmountField && state.amountField ? (
+          <label className="mt-5 block">
+            <span className="text-h-18-semibold tracking-normal text-gray-900">
+              {state.amountField.label}
+            </span>
+            <Input
+              aria-label={state.amountField.label}
+              className="mt-3 flex h-11 w-full items-center rounded-[8px] border-gray-200 bg-white text-h-18-regular tracking-normal text-gray-800"
+              inputMode="numeric"
+              placeholder={state.amountField.placeholder}
+              value={amountText}
+              onChange={(event) => setAmountText(event.target.value)}
+            />
+          </label>
+        ) : null}
+
+        {dialogError ? (
+          <p className="mt-4 rounded-[8px] border border-red-100 bg-red-50 px-4 py-3 text-h-16-medium text-red-500">
+            {dialogError}
+          </p>
+        ) : null}
+
+        <DialogFooter className="-mx-0 -mb-0 mt-7 flex-row justify-end gap-3 rounded-none border-0 bg-transparent p-0">
+          <button
+            type="button"
+            disabled={actionSaving}
+            className="h-11 rounded-[8px] border border-gray-200 bg-white px-6 text-h-18-semibold tracking-normal text-gray-800 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-200 disabled:cursor-not-allowed disabled:text-gray-400"
+            onClick={onClose}
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            disabled={actionSaving}
+            className="h-11 rounded-[8px] bg-green-400 px-6 text-h-18-semibold tracking-normal text-white transition-colors hover:bg-green-450 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:bg-gray-300"
+            onClick={() => {
+              const amount = showAmountField ? parseMoneyInput(amountText) : null;
+
+              setDialogError("");
+              if (showAmountField && (!amount || amount <= 0)) {
+                setDialogError("고정 지급액을 입력해 주세요.");
+                return;
+              }
+
+              void (async () => {
+                try {
+                  setSaveErrorMessage("");
+                  await onConfirmRecordAction({
+                    ...input,
+                    amount,
+                    overtimePayMode: showPayMode ? (payMode as "fixed" | "hourly") : null,
+                    payrollEffect: hasPayrollDecision
+                      ? (payrollEffect as RecordMainActionInput["payrollEffect"])
+                      : input.payrollEffect,
+                  });
+                  onClose();
+                } catch {
+                  setDialogError("근무기록 처리 내용을 저장하지 못했습니다.");
+                }
+              })();
+            }}
+          >
+            {actionSaving ? "저장 중" : "확인"}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function getRecordActionFromState(
@@ -1199,6 +1326,65 @@ function getRecordActionFromState(
   }
 
   return "mark-normal";
+}
+
+function getSegmentGridClassName(optionCount: number) {
+  if (optionCount >= 3) {
+    return "grid-cols-3";
+  }
+
+  if (optionCount === 1) {
+    return "grid-cols-1";
+  }
+
+  return "grid-cols-2";
+}
+
+function getRecordActionConfirmTitle(action: RecordMainActionInput["action"]) {
+  if (action === "approve-overtime") {
+    return "추가근무를 승인할까요?";
+  }
+
+  if (action === "approve-correction") {
+    return "이의신청을 승인할까요?";
+  }
+
+  if (action === "reject-correction" || action === "reject-overtime") {
+    return "반려할까요?";
+  }
+
+  if (action === "delete") {
+    return "근무기록을 삭제할까요?";
+  }
+
+  if (action === "edit") {
+    return "수정사항을 저장할까요?";
+  }
+
+  return "처리 내용을 저장할까요?";
+}
+
+function getRecordActionConfirmDescription(
+  action: RecordMainActionInput["action"],
+  hasPayrollDecision: boolean,
+) {
+  if (hasPayrollDecision) {
+    return "급여 처리 방식을 선택한 뒤 저장합니다.";
+  }
+
+  if (action === "edit") {
+    return "일반근무 시간 변경은 근무시간 기준 급여 산정에 반영됩니다.";
+  }
+
+  if (action === "delete") {
+    return "삭제된 일반근무는 근무시간 기준 급여 산정에서 제외됩니다.";
+  }
+
+  if (action === "mark-normal") {
+    return "근무기록은 변경하지 않고 이상 플래그만 닫습니다.";
+  }
+
+  return "입력한 내용으로 처리 상태를 저장합니다.";
 }
 
 function getRecordActionSavedMessage(action: RecordMainActionInput["action"]) {

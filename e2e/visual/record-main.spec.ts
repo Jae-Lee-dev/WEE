@@ -58,7 +58,7 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
 test(`REC-01 normal-selected ${desktop}`, async ({ page }) => {
   await prepareVisualPage({ page, path: "/records", viewport: desktop });
   await page.evaluate(() => document.fonts.ready);
-  await page.getByTestId("record-block-normal").click();
+  await page.locator("[data-record-block-id='record-lee-haeun-english-c-mon']").click();
   await expect(page.getByText("이하은 · 영어 C반")).toBeVisible();
 
   await captureActualScreenshot({
@@ -75,19 +75,19 @@ test("REC-01 uses shared selects and edits selected records", async ({ page }) =
   await expect(page.locator("select[aria-label='조교 필터']")).toHaveCount(0);
   await expect(page.getByRole("combobox", { name: "조교 필터" })).toBeVisible();
 
-  await page.getByTestId("record-block-normal").click();
+  await page.locator("[data-record-block-id='record-lee-haeun-english-c-mon']").click();
   await page.getByTestId("record-detail-action-edit").click();
 
   const detail = page.getByTestId("record-detail-panel");
 
   await detail.getByLabel("수정 사유").fill("출퇴근 시간 확인");
   await detail.getByLabel("출근 시간").fill("14:10");
-  await detail.getByRole("tab", { name: "보류" }).click();
-  await expect(detail.getByRole("tab", { name: "보류" })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
   await detail.getByRole("button", { name: "확인" }).click();
+  const dialog = page.getByTestId("record-action-confirm-dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("수정사항을 저장할까요?")).toBeVisible();
+  await expect(dialog.getByRole("tab", { name: "보류" })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "확인" }).click();
 
   await expect(
     detail.getByText("근무기록 수정 내용을 적용했습니다."),
@@ -110,6 +110,31 @@ test("REC-01 workerName query applies worker filter", async ({ page }) => {
   await expect(
     page.locator("[data-record-block-id='record-song-hyunwoo-physics-f-mon']"),
   ).toHaveCount(0);
+});
+
+test("REC-01 overtime approval asks payroll handling in confirmation modal", async ({
+  page,
+}) => {
+  await prepareVisualPage({ page, path: "/records", viewport: desktop });
+
+  await page
+    .locator("[data-record-block-id='record-kang-taewoo-chemistry-g-mon']")
+    .click();
+  await page.getByTestId("record-detail-action-approve-overtime").click();
+  await page.getByTestId("record-detail-panel").getByRole("button", { name: "승인" }).last().click();
+
+  const dialog = page.getByTestId("record-action-confirm-dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("tab", { name: "급여 제외" })).toBeVisible();
+  await expect(dialog.getByRole("tab", { name: "급여 처리" })).toBeVisible();
+  await expect(dialog.getByRole("tab", { name: "보류" })).toBeVisible();
+  await expect(dialog.getByRole("tab", { name: "고정급 지급" })).toBeVisible();
+  await expect(dialog.getByRole("tab", { name: "시급 처리" })).toBeVisible();
+
+  await dialog.getByRole("tab", { name: "고정급 지급" }).click();
+  await expect(dialog.getByLabel("고정 지급액")).toBeVisible();
+  await dialog.getByRole("tab", { name: "급여 제외" }).click();
+  await expect(dialog.getByLabel("고정 지급액")).toHaveCount(0);
 });
 
 test(`REC-01 anomaly-step-1 ${desktop}`, async ({ page }) => {
