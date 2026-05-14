@@ -226,6 +226,15 @@ test("HO-01 editor does not create a block while IME is composing", async ({
         data: "ㅎ",
       }),
     );
+
+    const keydownEvent = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      code: "Enter",
+      isComposing: true,
+      key: "Enter",
+    });
+    element.dispatchEvent(keydownEvent);
     element.dispatchEvent(
       new CompositionEvent("compositionend", {
         bubbles: true,
@@ -233,20 +242,20 @@ test("HO-01 editor does not create a block while IME is composing", async ({
       }),
     );
 
-    const keydownEvent = new KeyboardEvent("keydown", {
-      bubbles: true,
-      cancelable: true,
-      isComposing: false,
-      key: "Enter",
-    });
     const beforeInputEvent = new InputEvent("beforeinput", {
       bubbles: true,
       cancelable: true,
       inputType: "insertParagraph",
     });
+    const keyupEvent = new KeyboardEvent("keyup", {
+      bubbles: true,
+      cancelable: true,
+      code: "Enter",
+      key: "Enter",
+    });
 
-    element.dispatchEvent(keydownEvent);
     element.dispatchEvent(beforeInputEvent);
+    element.dispatchEvent(keyupEvent);
 
     return {
       beforeInputDefaultPrevented: beforeInputEvent.defaultPrevented,
@@ -258,6 +267,9 @@ test("HO-01 editor does not create a block while IME is composing", async ({
   expect(eventResult.beforeInputDefaultPrevented).toBe(true);
   await expect(editor.locator("p")).toHaveCount(paragraphCount);
   await expect(paragraph).toContainText("한글");
+
+  await page.keyboard.press("Enter");
+  await expect(editor.locator("p")).toHaveCount(paragraphCount + 1);
 });
 
 test("HO-01 blocks screen navigation when unpublished edits exist", async ({

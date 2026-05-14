@@ -15,7 +15,7 @@ import {
   type ReactNodeViewProps,
 } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef } from "react";
 import { Button } from "@/shared/ui/button";
 import {
   getTiptapDocumentActiveFormat,
@@ -145,7 +145,7 @@ export function HandoverTiptapEditor({
 }: HandoverTiptapEditorProps) {
   const appliedContentVersion = useRef(-1);
   const composingRef = useRef(false);
-  const compositionEndGuardUntilRef = useRef(0);
+  const pendingImeParagraphInputRef = useRef(false);
   const editor = useEditor({
     content,
     editable: !locked,
@@ -156,25 +156,24 @@ export function HandoverTiptapEditor({
       },
       handleDOMEvents: {
         compositionend: () => {
-          compositionEndGuardUntilRef.current = Date.now() + 350;
-          window.setTimeout(() => {
-            composingRef.current = false;
-          }, 350);
+          composingRef.current = false;
 
           return false;
         },
         compositionstart: () => {
           composingRef.current = true;
-          compositionEndGuardUntilRef.current = Date.now() + 1000;
+          pendingImeParagraphInputRef.current = false;
 
           return false;
         },
         beforeinput: (_view, event) => {
-          if (!isParagraphInputEvent(event)) {
-            return false;
-          }
-
-          if (!isImeCompositionActive(composingRef, compositionEndGuardUntilRef)) {
+          if (
+            !isImeParagraphInputEvent(
+              event,
+              composingRef.current,
+              pendingImeParagraphInputRef.current,
+            )
+          ) {
             return false;
           }
 
@@ -182,23 +181,29 @@ export function HandoverTiptapEditor({
 
           cancelNativeInput();
           event.stopPropagation();
-          compositionEndGuardUntilRef.current = 0;
+          pendingImeParagraphInputRef.current = false;
 
           return true;
         },
         keydown: (_view, event) => {
-          if (
-            !isImeComposingKeyDown(
-              event,
-              isImeCompositionActive(composingRef, compositionEndGuardUntilRef),
-            )
-          ) {
+          if (!isImeComposingKeyDown(event, composingRef.current)) {
             return false;
+          }
+
+          if (isEnterKey(event)) {
+            pendingImeParagraphInputRef.current = true;
           }
 
           event.stopPropagation();
 
           return true;
+        },
+        keyup: (_view, event) => {
+          if (isEnterKey(event)) {
+            pendingImeParagraphInputRef.current = false;
+          }
+
+          return false;
         },
       },
     },
@@ -387,19 +392,19 @@ function isImeComposingKeyDown(event: KeyboardEvent, isComposing: boolean) {
   );
 }
 
-function isImeCompositionActive(
-  composingRef: RefObject<boolean>,
-  compositionEndGuardUntilRef: RefObject<number>,
-) {
-  return (
-    composingRef.current || Date.now() <= compositionEndGuardUntilRef.current
-  );
+function isEnterKey(event: KeyboardEvent) {
+  return event.key === "Enter" || event.code === "Enter" || event.keyCode === 13;
 }
 
-function isParagraphInputEvent(event: Event): event is InputEvent {
+function isImeParagraphInputEvent(
+  event: Event,
+  isComposing: boolean,
+  pendingImeParagraphInput: boolean,
+): event is InputEvent {
   return (
     event instanceof InputEvent &&
     (event.inputType === "insertParagraph" ||
-      event.inputType === "insertLineBreak")
+      event.inputType === "insertLineBreak") &&
+    (isComposing || event.isComposing || pendingImeParagraphInput)
   );
 }
