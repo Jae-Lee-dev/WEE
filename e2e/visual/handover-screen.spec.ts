@@ -12,10 +12,13 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await expect(page.getByRole("textbox", { name: "제목" }).first()).toHaveValue(
       "업무 공통 안내",
     );
-    await expect(page.getByText("AI 채팅 편집")).toBeVisible();
-    await expect(page.getByText("Standard")).toBeVisible();
+    await expect(page.getByText("AI 수정 요청")).toBeVisible();
+    await expect(page.getByText("Standard")).toHaveCount(0);
     await expect(
-      page.getByPlaceholder("수정할 내용을 입력하세요..."),
+      page.getByText("안녕하세요! 인수인계 문서 편집을 도와드립니다."),
+    ).toHaveCount(0);
+    await expect(
+      page.getByPlaceholder("수정 요청을 입력하세요..."),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "전송" })).toBeVisible();
 
@@ -36,7 +39,7 @@ test("HO-01 AI proposal blocks changed rows until review", async ({ page }) => {
   await page.evaluate(() => document.fonts.ready);
 
   await page
-    .getByPlaceholder("수정할 내용을 입력하세요...")
+    .getByPlaceholder("수정 요청을 입력하세요...")
     .fill("수학 A반 섹션에 보강 자료 프린트 준비 항목을 추가해줘");
   await page.getByRole("button", { name: "전송" }).click();
 
@@ -55,7 +58,7 @@ test("HO-01 AI proposal blocks changed rows until review", async ({ page }) => {
       elements.map((element) => (element as HTMLTextAreaElement).value),
     );
   expect(listItems).toContain("보강 자료 프린트 준비");
-  await expect(page.getByPlaceholder("수정할 내용을 입력하세요...")).toBeEnabled();
+  await expect(page.getByPlaceholder("수정 요청을 입력하세요...")).toBeEnabled();
 });
 
 test("HO-01 blocks screen navigation when unpublished edits exist", async ({

@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Checkbox } from "@/shared/ui/checkbox";
 import {
@@ -42,6 +41,13 @@ type PendingNavigationTarget = {
   internalPath?: string;
 };
 
+const handoverChatCopy = {
+  disabledPlaceholder: "수정안을 먼저 검토해 주세요.",
+  inputPlaceholder: "수정 요청을 입력하세요...",
+  sendLabel: "전송",
+  title: "AI 수정 요청",
+} as const;
+
 export function HandoverScreen() {
   const router = useRouter();
   const dataSource = useMemo(() => createHandoverDataSource(), []);
@@ -51,7 +57,7 @@ export function HandoverScreen() {
   );
   const [publishedContent, setPublishedContent] = useState("");
   const [chatMessages, setChatMessages] = useState<readonly HandoverChatMessage[]>(
-    handoverFixture.chat.messages,
+    [],
   );
   const [chatInput, setChatInput] = useState("");
   const [loading, setLoading] = useState(dataSource.mode !== "fixture");
@@ -89,7 +95,7 @@ export function HandoverScreen() {
           setFixture(nextFixture);
           setEditorNodes(parseMarkdownToEditorNodes(nextContent));
           setPublishedContent(nextContent);
-          setChatMessages(nextFixture.chat.messages);
+          setChatMessages([]);
           setErrorMessage("");
           setLoading(false);
         }
@@ -214,7 +220,6 @@ export function HandoverScreen() {
           </div>
           <HandoverChatPanel
             disabled={aiSaving || pendingProposal}
-            fixture={fixture}
             inputValue={chatInput}
             messages={chatMessages}
             onChangeInput={setChatInput}
@@ -663,36 +668,25 @@ function HandoverProposalBlock({
 
 function HandoverChatPanel({
   disabled,
-  fixture,
   inputValue,
   messages,
   onChangeInput,
   onSend,
 }: {
   disabled: boolean;
-  fixture: HandoverFixture;
   inputValue: string;
   messages: readonly HandoverChatMessage[];
   onChangeInput: (value: string) => void;
   onSend: () => void;
 }) {
-  const { chat } = fixture;
-
   return (
     <aside
-      aria-label="AI 채팅 편집"
+      aria-label={handoverChatCopy.title}
       className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[8px] border border-gray-200 bg-white"
       data-testid="handover-chat-panel"
     >
-      <header className="flex h-[56px] shrink-0 items-center gap-3 px-4">
-        <h2 className="text-h-20 text-gray-900">{chat.title}</h2>
-        <Badge
-          variant="green"
-          size="M"
-          className="bg-green-100 px-2 py-0.5 text-body-14-regular tracking-normal text-green-300"
-        >
-          {chat.planBadge}
-        </Badge>
+      <header className="flex h-[56px] shrink-0 items-center px-4">
+        <h2 className="text-h-20 text-gray-900">{handoverChatCopy.title}</h2>
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-auto px-4 pt-0">
         {messages.map((message) => (
@@ -711,7 +705,9 @@ function HandoverChatPanel({
             }
           }}
           placeholder={
-            disabled ? "수정안을 먼저 검토해 주세요." : chat.inputPlaceholder
+            disabled
+              ? handoverChatCopy.disabledPlaceholder
+              : handoverChatCopy.inputPlaceholder
           }
           className="h-11 min-w-0 flex-1 rounded-[8px] border-gray-200 bg-gray-50 text-h-18-regular tracking-normal text-gray-900"
         />
@@ -721,7 +717,7 @@ function HandoverChatPanel({
           onClick={onSend}
           className="h-11 rounded-[12px] px-4 text-h-18-semibold tracking-normal"
         >
-          {chat.sendLabel}
+          {handoverChatCopy.sendLabel}
         </Button>
       </div>
     </aside>

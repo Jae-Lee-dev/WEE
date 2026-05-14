@@ -67,13 +67,6 @@ export type HandoverFixture = {
     blocks: readonly HandoverDocumentBlock[];
     publishedContent?: string;
   };
-  chat: {
-    title: string;
-    planBadge: string;
-    messages: readonly HandoverChatMessage[];
-    inputPlaceholder: string;
-    sendLabel: string;
-  };
 };
 
 const selectedSuggestion = {
@@ -222,28 +215,5 @@ export const handoverFixture = {
         spacing: "sm",
       },
     ],
-  },
-  chat: {
-    title: "AI 채팅 편집",
-    planBadge: "Standard",
-    messages: [
-      {
-        id: "assistant-greeting",
-        role: "assistant",
-        text: "안녕하세요! 인수인계 문서 편집을 도와드립니다. 원하시는 내용을 자유롭게 말씀해 주세요.",
-      },
-      {
-        id: "user-request",
-        role: "user",
-        text: "수학 A반 섹션에 '판서 노트 정리 후 강사실 제출' 항목을 추가해줘",
-      },
-      {
-        id: "assistant-suggestion",
-        role: "assistant",
-        text: "수학 A반 질문 조교 수정안을 만들었습니다. 문서에서 수정사항을 확인해 주세요.",
-      },
-    ],
-    inputPlaceholder: "수정할 내용을 입력하세요...",
-    sendLabel: "전송",
   },
 } as const satisfies HandoverFixture;
