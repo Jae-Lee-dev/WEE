@@ -406,8 +406,9 @@ export const recordTimelineBlocks = [
     "10:00",
     "12:00",
     "overtime",
-    "orange",
+    "blue",
     "normal-selected",
+    ["overtime", "location-anomaly"],
   ),
   timelineBlock(
     "record-song-hyunwoo-physics-f-mon",
@@ -490,16 +491,6 @@ export const recordTimelineBlocks = [
     "grey",
   ),
 ] as const satisfies readonly RecordTimelineBlock[];
-
-const workRecordPayrollMode = {
-  description:
-    "즉시 반영은 산정 입력에 바로 포함하고, 보류는 급여 확정 시점에 다시 결정합니다.",
-  label: "급여 처리",
-  options: [
-    { id: "immediate", label: "즉시 반영", active: true },
-    { id: "hold", label: "보류" },
-  ],
-} as const satisfies NonNullable<RecordDetailState["payrollMode"]>;
 
 export const recordDetailStates = {
   empty: {
@@ -585,7 +576,6 @@ export const recordDetailStates = {
       { id: "edit", label: "수정", active: true },
       { id: "delete", label: "삭제" },
     ],
-    payrollMode: workRecordPayrollMode,
     reasonField: {
       label: "수정 사유",
       placeholder: "수정 사유를 입력하세요",
@@ -616,7 +606,6 @@ export const recordDetailStates = {
       { id: "delete", label: "삭제", active: true },
     ],
     helperText: "해당 근무기록이 삭제되어 결근으로 처리됩니다.",
-    payrollMode: workRecordPayrollMode,
     confirmLabel: "확인",
   },
 } as const satisfies Record<RecordDetailStateId, RecordDetailState>;
@@ -638,7 +627,6 @@ const normalRecordDetailStates = {
       { id: "delete", label: "삭제" },
     ],
     confirmLabel: "확인",
-    payrollMode: workRecordPayrollMode,
     reasonField: {
       label: "수정 사유",
       placeholder: "수정 사유를 입력하세요",
@@ -657,7 +645,6 @@ const normalRecordDetailStates = {
     ],
     confirmLabel: "확인",
     helperText: "해당 근무기록이 삭제되어 결근으로 처리됩니다.",
-    payrollMode: workRecordPayrollMode,
   },
 } as const satisfies Record<RecordDetailStateId, RecordDetailState>;
 

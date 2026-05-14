@@ -148,9 +148,11 @@ test("REC-01 uses shared selects and edits selected records", async ({
   await dialog.getByLabel("수정 사유").fill("근무 시간 확인");
   await expect(dialog.getByText("변경 예정 시간")).toBeVisible();
   await dialog.getByLabel("근무 시작").fill("19:10");
-  await expect(dialog.getByRole("heading", { name: "급여 처리" })).toBeVisible();
-  await expect(dialog.getByRole("tab", { name: "즉시 반영" })).toBeVisible();
-  await expect(dialog.getByRole("tab", { name: "보류" })).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: "급여 처리" })).toHaveCount(
+    0,
+  );
+  await expect(dialog.getByRole("tab", { name: "즉시 반영" })).toHaveCount(0);
+  await expect(dialog.getByRole("tab", { name: "보류" })).toHaveCount(0);
   await dialog.getByRole("button", { name: "확인" }).click();
 
   await expect(
@@ -247,6 +249,15 @@ test("REC-01 overtime approval asks payroll handling in confirmation modal", asy
   await page
     .locator("[data-record-block-id='record-kang-taewoo-chemistry-g-mon']")
     .click();
+  await expect(
+    page.locator("[data-record-block-id='record-kang-taewoo-chemistry-g-mon']"),
+  ).toHaveAttribute("data-record-signal-kinds", "overtime location-anomaly");
+  await expect(
+    page.getByTestId("record-detail-action-mark-normal"),
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId("record-detail-action-approve-overtime"),
+  ).toBeVisible();
   await page.getByTestId("record-detail-action-approve-overtime").click();
   await page
     .getByTestId("record-detail-panel")
@@ -311,6 +322,9 @@ test(`REC-01 anomaly-step-3 ${desktop}`, async ({ page }) => {
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText("수정사항을 저장할까요?")).toBeVisible();
   await expect(dialog.getByLabel("수정 사유")).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: "급여 처리" })).toHaveCount(
+    0,
+  );
 
   await captureActualScreenshot({
     page,

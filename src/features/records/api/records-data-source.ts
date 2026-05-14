@@ -294,9 +294,8 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
         collection(db, "workspaces", workspaceId, "anomalyResolutions"),
       );
       const batch = writeBatch(db);
-      const payrollApplication = getWorkRecordPayrollApplication(
-        input.payrollEffect,
-      );
+      const workRecordPayrollEffect =
+        input.action === "mark-normal" ? "unchanged" : "applied";
 
       if (isRecordEditAction(input.action)) {
         const change = queueRecordEditAction({
@@ -306,7 +305,7 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
           flag,
           input,
           managerUid,
-          payrollApplication,
+          payrollEffect: workRecordPayrollEffect,
           recordData,
           recordRef,
           resolutionId: resolutionRef.id,
@@ -319,7 +318,7 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
           decidedBy: managerUid,
           decision: getRecordActionDecision(input.action),
           managerNote: input.reason,
-          payrollEffect: payrollApplication,
+          payrollEffect: workRecordPayrollEffect,
           status: "completed",
           workRecordId: input.recordId,
           workerId,
@@ -335,7 +334,7 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
               afterSnapshot: change.afterSnapshot,
               beforeSnapshot: change.beforeSnapshot,
               managerNote: input.reason,
-              payrollEffect: payrollApplication,
+              payrollEffect: workRecordPayrollEffect,
               targetFocusId: input.recordId,
               targetScreen: "worker_work_record_detail",
               workRecordId: input.recordId,
@@ -348,27 +347,25 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
         }
 
         if (change.affectsPayroll) {
-          if (payrollApplication === "immediate") {
-            queueMonthlyRecordAdjustment({
-              batch,
-              collections,
-              db,
-              input,
-              monthKey,
-              newEndAt: change.newEndAt,
-              newStartAt: change.newStartAt,
-              recordData,
-              sourceId: resolutionRef.id,
-              workspaceId,
-            });
-            queueReconfirmationAlert({
-              batch,
-              db,
-              reason: "근무기록 처리 후 산정 입력 변경",
-              workspaceId,
-              ...payrollContext,
-            });
-          }
+          queueMonthlyRecordAdjustment({
+            batch,
+            collections,
+            db,
+            input,
+            monthKey,
+            newEndAt: change.newEndAt,
+            newStartAt: change.newStartAt,
+            recordData,
+            sourceId: resolutionRef.id,
+            workspaceId,
+          });
+          queueReconfirmationAlert({
+            batch,
+            db,
+            reason: "근무기록 처리 후 산정 입력 변경",
+            workspaceId,
+            ...payrollContext,
+          });
         }
       } else if (
         input.action === "approve-correction" ||
@@ -498,12 +495,6 @@ function getRecordActionDecision(action: RecordMainActionInput["action"]) {
   }
 }
 
-function getWorkRecordPayrollApplication(
-  effect: PayrollEffect,
-): "hold" | "immediate" {
-  return effect === "hold" ? "hold" : "immediate";
-}
-
 function parseRecordActionTimestamp(
   dateKey: string,
   timeValue: string | undefined,
@@ -534,7 +525,7 @@ function queueRecordEditAction({
   flag,
   input,
   managerUid,
-  payrollApplication,
+  payrollEffect,
   recordData,
   recordRef,
   resolutionId,
@@ -546,7 +537,7 @@ function queueRecordEditAction({
   flag?: FirestoreDocument;
   input: RecordMainActionInput;
   managerUid: string | null;
-  payrollApplication: "hold" | "immediate";
+  payrollEffect: string;
   recordData: Record<string, unknown>;
   recordRef: DocumentReference;
   resolutionId: string;
@@ -561,7 +552,7 @@ function queueRecordEditAction({
   });
   const recordUpdate: Record<string, unknown> = {
     "managerOnly.anomalyResolutionId": resolutionId,
-    "managerOnly.payrollApplication": payrollApplication,
+    "managerOnly.payrollApplication": payrollEffect,
     "managerOnly.reviewedBy": managerUid,
     hasUnresolvedAnomaly: false,
     status: input.action === "delete" ? "deleted" : "resolved",
@@ -822,12 +813,9 @@ function queueCorrectionAction({
     return;
   }
 
-  const payrollApplication = getWorkRecordPayrollApplication(
-    input.payrollEffect,
-  );
   const regularPayrollInput: RecordMainActionInput = {
     ...input,
-    payrollEffect: payrollApplication,
+    payrollEffect: "immediate",
   };
   const nextStartAt = resolveActionTimestamp({
     dateKey,
@@ -848,7 +836,7 @@ function queueCorrectionAction({
   const changeType = readString(afterRequestSnapshot.changeType, "modified");
   const recordUpdate: Record<string, unknown> = {
     "managerOnly.correctionRequestId": request.id,
-    "managerOnly.payrollApplication": payrollApplication,
+    "managerOnly.payrollApplication": "applied",
     "managerOnly.reviewedBy": managerUid,
     hasPendingCorrection: false,
     hasUnresolvedAnomaly: false,
@@ -873,8 +861,8 @@ function queueCorrectionAction({
     decidedAt: serverTimestamp(),
     decidedBy: managerUid,
     managerNote: input.reason,
-    payrollEffect: payrollApplication,
-    payrollStatus: payrollApplication === "hold" ? "held" : "applied",
+    payrollEffect: "applied",
+    payrollStatus: "applied",
     status: "approved",
     updatedAt: serverTimestamp(),
   });
@@ -885,7 +873,7 @@ function queueCorrectionAction({
     payload: {
       correctionRequestId: request.id,
       managerNote: input.reason,
-      payrollEffect: payrollApplication,
+      payrollEffect: "applied",
       targetFocusId: input.recordId,
       targetScreen: "worker_work_record_detail",
     },
@@ -906,15 +894,13 @@ function queueCorrectionAction({
     sourceId: request.id,
     workspaceId,
   });
-  if (payrollApplication === "immediate") {
-    queueReconfirmationAlert({
-      batch,
-      db,
-      reason: "이의신청 승인 후 산정 입력 변경",
-      workspaceId,
-      ...payrollContext,
-    });
-  }
+  queueReconfirmationAlert({
+    batch,
+    db,
+    reason: "이의신청 승인 후 산정 입력 변경",
+    workspaceId,
+    ...payrollContext,
+  });
 }
 
 function queueOvertimeAction({
@@ -1918,7 +1904,8 @@ function mapTimelineBlock(
     ].filter((id): id is string => Boolean(id)),
     kind,
     locationName: record.locationName,
-    selectedStateId: hasUnresolvedFlag ? "anomaly-step-1" : "normal-selected",
+    selectedStateId:
+      kind === "location-anomaly" ? "anomaly-step-1" : "normal-selected",
     signalKinds,
     startHour: getRecordStartHour(record),
     startMinute: workStartAt?.getMinutes() ?? 0,
@@ -2055,7 +2042,7 @@ function createDetailStates({
     Boolean(flag) &&
     isUnresolvedAnomaly(record, new Map([[record.id, flag ?? undefined]]));
 
-  if (!hasUnresolvedFlag && correction) {
+  if (correction) {
     return createCorrectionDetailStates(
       record,
       attendance,
@@ -2066,7 +2053,7 @@ function createDetailStates({
     );
   }
 
-  if (!hasUnresolvedFlag && overtime) {
+  if (overtime) {
     return createOvertimeDetailStates(
       record,
       attendance,
@@ -2097,7 +2084,6 @@ function createDetailStates({
       id: "anomaly-step-3",
       actions: createRecordActionButtons(hasUnresolvedFlag, "edit"),
       confirmLabel: "확인",
-      payrollMode: createWorkRecordPayrollMode(),
       reasonField: {
         label: "수정 사유",
         placeholder: "수정 사유를 입력하세요",
@@ -2122,23 +2108,8 @@ function createDetailStates({
       id: "anomaly-step-4",
       actions: createRecordActionButtons(hasUnresolvedFlag, "delete"),
       confirmLabel: "확인",
-      payrollMode: createWorkRecordPayrollMode(),
       helperText: "해당 근무기록이 삭제되어 결근으로 처리됩니다.",
     },
-  };
-}
-
-function createWorkRecordPayrollMode(): NonNullable<
-  RecordDetailState["payrollMode"]
-> {
-  return {
-    description:
-      "즉시 반영은 산정 입력에 바로 포함하고, 보류는 급여 확정 시점에 다시 결정합니다.",
-    label: "급여 처리",
-    options: [
-      { id: "immediate", label: "즉시 반영", active: true },
-      { id: "hold", label: "보류" },
-    ],
   };
 }
 
@@ -2190,9 +2161,6 @@ function createCorrectionDetailStates(
     statusLabel: "이의신청",
     statusTone: "orange",
     submitAction: "approve-correction",
-    payrollMode: overtimeCorrection
-      ? createOvertimePayrollMode()
-      : createWorkRecordPayrollMode(),
     timeFields: [
       {
         id: "check-in",
@@ -2211,6 +2179,7 @@ function createCorrectionDetailStates(
             label: "고정 지급액",
             placeholder: "예) 10000",
           },
+          payrollMode: createOvertimePayrollMode(),
           payrollPayMode: createOvertimePayrollPayMode(payrollSetting),
         }
       : {}),
@@ -2609,7 +2578,11 @@ function mapCorrectionDetail(
     approvedTitle: status === "승인" ? "승인 결과" : "처리 결과",
     badges: [
       { label: status, tone: getCorrectionStatusTone(status) },
-      { label: payrollLabel, tone: payrollLabel === "즉시" ? "green" : "grey" },
+      {
+        label: payrollLabel,
+        tone:
+          payrollLabel === "즉시" || payrollLabel === "반영" ? "green" : "grey",
+      },
     ],
     id: request.id,
     noteText: request.managerNote || getCorrectionResultLabel(request),
@@ -2947,16 +2920,14 @@ function getTimelineBlockKind(options: {
   hasPendingOvertime: boolean;
   hasUnresolvedFlag: boolean;
 }): RecordTimelineBlockKind {
+  const actionableKind = getPendingActionKind(options);
+
+  if (actionableKind) {
+    return actionableKind;
+  }
+
   if (options.hasUnresolvedFlag) {
     return "location-anomaly";
-  }
-
-  if (options.hasPendingCorrection) {
-    return "correction";
-  }
-
-  if (options.hasPendingOvertime) {
-    return "overtime";
   }
 
   return "normal";
@@ -2971,13 +2942,34 @@ function getTimelineBlockSignalKinds({
   hasPendingOvertime: boolean;
   hasUnresolvedFlag: boolean;
 }): readonly RecordTimelineBlockKind[] {
+  const actionableKind = getPendingActionKind({
+    hasPendingCorrection,
+    hasPendingOvertime,
+  });
   const signalKinds = [
-    hasPendingCorrection ? "correction" : null,
+    actionableKind,
     hasUnresolvedFlag ? "location-anomaly" : null,
-    hasPendingOvertime ? "overtime" : null,
   ].filter((kind): kind is RecordTimelineBlockKind => Boolean(kind));
 
   return signalKinds.length > 0 ? signalKinds : ["normal"];
+}
+
+function getPendingActionKind({
+  hasPendingCorrection,
+  hasPendingOvertime,
+}: {
+  hasPendingCorrection: boolean;
+  hasPendingOvertime: boolean;
+}): RecordTimelineBlockKind | null {
+  if (hasPendingCorrection) {
+    return "correction";
+  }
+
+  if (hasPendingOvertime) {
+    return "overtime";
+  }
+
+  return null;
 }
 
 function getTimelineBlockTone(kind: RecordTimelineBlockKind): RecordsTone {
@@ -3330,11 +3322,11 @@ function getSnapshotChangeLabel(snapshot: Record<string, unknown>) {
 }
 
 function getPayrollEffectLabel(effect: string) {
-  if (
-    effect === "immediate" ||
-    effect === "applied" ||
-    effect === "confirmed"
-  ) {
+  if (effect === "applied") {
+    return "반영";
+  }
+
+  if (effect === "immediate" || effect === "confirmed") {
     return "즉시";
   }
 

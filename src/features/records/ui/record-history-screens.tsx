@@ -838,7 +838,7 @@ function matchesCorrectionPayroll(row: CorrectionRow, filterId = "all") {
   }
 
   if (filterId === "immediate") {
-    return row.payrollResult === "즉시";
+    return row.payrollResult === "즉시" || row.payrollResult === "반영";
   }
 
   if (filterId === "hold") {
