@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { IconChevronDown } from "@/shared/ui/icons";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Checkbox } from "@/shared/ui/checkbox";
@@ -14,45 +13,53 @@ import {
   DialogTitle,
 } from "@/shared/ui/dialog";
 import { Input } from "@/shared/ui/input";
+import { IconChevronDown } from "@/shared/ui/icons";
 import { cn } from "@/shared/lib/utils";
 import { createHandoverDataSource } from "../api/handover-data-source";
 import {
+  appendEditableSnippet,
+  createNodesWithProposalDiff,
+  getEditableDisplayText,
+  getLineDisplayText,
+  hasPendingProposal,
+  parseMarkdownToEditorNodes,
+  resolveProposalNode,
+  serializeEditorNodes,
+  updateEditableNode,
+  type HandoverEditableNode,
+  type HandoverEditorNode,
+  type HandoverProposalNode,
+} from "../model/handover-editor";
+import {
   handoverFixture,
-  type HandoverBlockSpacing,
   type HandoverChatMessage,
-  type HandoverDocumentBlock,
   type HandoverFixture,
-  type HandoverInlineSegment,
-  type HandoverSuggestion,
 } from "../model/handover-fixtures";
-
-const blockSpacingClassName: Record<HandoverBlockSpacing, string> = {
-  none: "mt-0",
-  xs: "mt-2",
-  sm: "mt-4",
-  md: "mt-5",
-  lg: "mt-7",
-};
 
 export function HandoverScreen() {
   const dataSource = useMemo(() => createHandoverDataSource(), []);
   const [fixture, setFixture] = useState<HandoverFixture>(handoverFixture);
-  const [draftContent, setDraftContent] = useState("");
+  const [editorNodes, setEditorNodes] = useState<readonly HandoverEditorNode[]>(
+    () => parseMarkdownToEditorNodes(""),
+  );
   const [publishedContent, setPublishedContent] = useState("");
   const [chatMessages, setChatMessages] = useState<readonly HandoverChatMessage[]>(
     handoverFixture.chat.messages,
   );
   const [chatInput, setChatInput] = useState("");
   const [loading, setLoading] = useState(dataSource.mode !== "fixture");
-  const [saving, setSaving] = useState(false);
+  const [aiSaving, setAiSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
-  const draftFixture = useMemo(
-    () => createDraftFixture(fixture, draftContent, chatMessages),
-    [chatMessages, draftContent, fixture],
+  const currentContent = useMemo(
+    () => serializeEditorNodes(editorNodes),
+    [editorNodes],
   );
-  const dirty = draftContent.trim() !== publishedContent.trim();
+  const pendingProposal = hasPendingProposal(editorNodes);
+  const dirty = currentContent.trim() !== publishedContent.trim();
+  const editorLocked = aiSaving || loading;
 
   useEffect(() => {
     let cancelled = false;
@@ -61,9 +68,11 @@ export function HandoverScreen() {
       .getHandover()
       .then((nextFixture) => {
         if (!cancelled) {
+          const nextContent = getPublishedContent(nextFixture);
+
           setFixture(nextFixture);
-          setDraftContent(getPublishedContent(nextFixture));
-          setPublishedContent(getPublishedContent(nextFixture));
+          setEditorNodes(parseMarkdownToEditorNodes(nextContent));
+          setPublishedContent(nextContent);
           setChatMessages(nextFixture.chat.messages);
           setErrorMessage("");
           setLoading(false);
@@ -85,17 +94,55 @@ export function HandoverScreen() {
     };
   }, [dataSource]);
 
+  function sendAiInstruction() {
+    const instruction = chatInput.trim();
+
+    if (!instruction || aiSaving || pendingProposal) {
+      return;
+    }
+
+    const baseContent = serializeEditorNodes(editorNodes);
+
+    setAiSaving(true);
+    setErrorMessage("");
+    setStatusMessage("AI가 수정안을 생성하는 중입니다.");
+    setChatInput("");
+    setChatMessages((current) => appendUserMessage(current, instruction));
+
+    void dataSource
+      .generateHandoverDraft({ content: baseContent, instruction })
+      .then((result) => {
+        setEditorNodes(
+          createNodesWithProposalDiff({
+            baseContent,
+            nextContent: result.nextContent,
+          }),
+        );
+        setChatMessages((current) =>
+          appendAssistantMessage(current, result.message),
+        );
+        setStatusMessage("AI 수정안을 문서에 표시했습니다.");
+      })
+      .catch((error: unknown) => {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "AI 수정안을 생성하지 못했습니다.",
+        );
+        setStatusMessage("");
+      })
+      .finally(() => setAiSaving(false));
+  }
+
   return (
     <section
       aria-label="인수인계 문서 편집"
       className="mx-auto grid h-[calc(100vh-144px)] w-full max-w-[1480px] grid-cols-[minmax(0,1fr)_minmax(320px,380px)] gap-4 overflow-hidden tracking-normal"
       data-testid="handover-screen"
     >
-      {loading || errorMessage ? (
+      {loading || (errorMessage && !editorNodes.length) ? (
         <HandoverState
-          label={
-            errorMessage || "게시된 인수인계 문서를 불러오는 중입니다."
-          }
+          label={errorMessage || "게시된 인수인계 문서를 불러오는 중입니다."}
           role={errorMessage ? "alert" : "status"}
         />
       ) : (
@@ -103,77 +150,81 @@ export function HandoverScreen() {
           <div className="flex min-h-0 min-w-0 flex-col gap-4 overflow-hidden">
             <HandoverToolbar
               dirty={dirty}
-              fixture={draftFixture}
-              saving={saving}
+              disabled={editorLocked}
+              fixture={fixture}
+              pendingProposal={pendingProposal}
+              publishing={publishing}
               onFormat={(snippet) =>
-                setDraftContent((current) =>
-                  current.trim() ? `${current.trimEnd()}\n${snippet}` : snippet,
+                setEditorNodes((current) =>
+                  appendEditableSnippet(current, snippet),
                 )
               }
               onPublish={() => setPublishDialogOpen(true)}
             />
-            {statusMessage || errorMessage ? (
-              <div
-                className={cn(
-                  "rounded-[8px] border px-4 py-2.5 text-body-14-medium",
-                  statusMessage
-                    ? "border-green-100 bg-green-50 text-green-500"
-                    : "border-red-100 bg-red-50 text-red-500",
-                )}
-                role={statusMessage ? "status" : "alert"}
-              >
-                {statusMessage || errorMessage}
-              </div>
+            {statusMessage || errorMessage || pendingProposal ? (
+              <HandoverInlineNotice
+                errorMessage={errorMessage}
+                pendingProposal={pendingProposal}
+                statusMessage={statusMessage}
+              />
             ) : null}
             <HandoverEditor
-              fixture={draftFixture}
-              onChangeContent={setDraftContent}
+              locked={editorLocked}
+              nodes={editorNodes}
+              onCancelProposal={(proposalId) =>
+                setEditorNodes((current) =>
+                  resolveProposalNode({
+                    accept: false,
+                    nodes: current,
+                    proposalId,
+                  }),
+                )
+              }
+              onChangeNode={(nodeId, value) =>
+                setEditorNodes((current) =>
+                  updateEditableNode(current, nodeId, value),
+                )
+              }
+              onConfirmProposal={(proposalId) =>
+                setEditorNodes((current) =>
+                  resolveProposalNode({
+                    accept: true,
+                    nodes: current,
+                    proposalId,
+                  }),
+                )
+              }
             />
           </div>
           <HandoverChatPanel
-            fixture={draftFixture}
+            disabled={aiSaving || pendingProposal}
+            fixture={fixture}
             inputValue={chatInput}
+            messages={chatMessages}
             onChangeInput={setChatInput}
-            onSend={() => {
-              const instruction = chatInput.trim();
-
-              if (!instruction) {
-                return;
-              }
-
-              setDraftContent((current) =>
-                `${current.trimEnd()}\n- ${instruction}`.trim(),
-              );
-              setChatMessages((current) =>
-                appendChatExchange(current, instruction),
-              );
-              setChatInput("");
-            }}
+            onSend={sendAiInstruction}
           />
-          {statusMessage ? (
-            <div className="sr-only" role="status">
-              {statusMessage}
-            </div>
-          ) : null}
           {publishDialogOpen ? (
             <PublishDialog
-              saving={saving}
+              currentContent={currentContent}
+              publishedContent={publishedContent}
+              publishing={publishing}
               onClose={() => setPublishDialogOpen(false)}
               onPublish={(notifyWorkers) => {
-                setSaving(true);
+                setPublishing(true);
                 setErrorMessage("");
                 setStatusMessage("");
 
                 void dataSource
                   .publishHandover({
-                    content: draftContent,
+                    content: currentContent,
                     notifyWorkers,
                   })
                   .then((nextFixture) => {
                     const nextContent = getPublishedContent(nextFixture);
 
                     setFixture(nextFixture);
-                    setDraftContent(nextContent);
+                    setEditorNodes(parseMarkdownToEditorNodes(nextContent));
                     setPublishedContent(nextContent);
                     setPublishDialogOpen(false);
                     setStatusMessage("인수인계 문서를 게시했습니다.");
@@ -181,7 +232,7 @@ export function HandoverScreen() {
                   .catch(() => {
                     setErrorMessage("인수인계 문서를 게시하지 못했습니다.");
                   })
-                  .finally(() => setSaving(false));
+                  .finally(() => setPublishing(false));
               }}
             />
           ) : null}
@@ -208,27 +259,63 @@ function HandoverState({
   );
 }
 
+function HandoverInlineNotice({
+  errorMessage,
+  pendingProposal,
+  statusMessage,
+}: {
+  errorMessage: string;
+  pendingProposal: boolean;
+  statusMessage: string;
+}) {
+  const label =
+    errorMessage ||
+    (pendingProposal
+      ? "AI 수정안을 검토한 뒤 취소 또는 반영을 선택해 주세요."
+      : statusMessage);
+
+  return (
+    <div
+      className={cn(
+        "rounded-[8px] border px-4 py-2.5 text-body-14-medium",
+        errorMessage
+          ? "border-red-100 bg-red-50 text-red-500"
+          : "border-green-100 bg-green-50 text-green-500",
+      )}
+      role={errorMessage ? "alert" : "status"}
+    >
+      {label}
+    </div>
+  );
+}
+
 function HandoverToolbar({
   dirty,
+  disabled,
   fixture,
   onFormat,
   onPublish,
-  saving,
+  pendingProposal,
+  publishing,
 }: {
   dirty: boolean;
+  disabled: boolean;
   fixture: HandoverFixture;
   onFormat: (snippet: string) => void;
   onPublish: () => void;
-  saving: boolean;
+  pendingProposal: boolean;
+  publishing: boolean;
 }) {
   const { toolbar } = fixture;
+  const formatDisabled = disabled || pendingProposal;
 
   return (
     <div className="flex h-14 shrink-0 items-center gap-3 rounded-[8px] bg-white px-4">
       <button
         type="button"
+        disabled={formatDisabled}
         onClick={() => onFormat("## 새 제목")}
-        className="flex h-9 items-center gap-2 rounded-[6px] border border-gray-200 bg-white px-2.5 text-h-18-regular tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+        className="flex h-9 items-center gap-2 rounded-[6px] border border-gray-200 bg-white px-2.5 text-h-18-regular tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:pointer-events-none disabled:opacity-50"
       >
         <span>{toolbar.styleLabel}</span>
         <IconChevronDown className="size-5 shrink-0 text-gray-700" />
@@ -236,190 +323,235 @@ function HandoverToolbar({
       <button
         type="button"
         aria-label="굵게"
+        disabled={formatDisabled}
         onClick={() => onFormat("**굵게 표시할 내용**")}
-        className="flex h-9 min-w-[45px] items-center justify-center rounded-[6px] border border-gray-200 bg-white px-3 text-h-18-semibold tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+        className="flex h-9 min-w-[45px] items-center justify-center rounded-[6px] border border-gray-200 bg-white px-3 text-h-18-semibold tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:pointer-events-none disabled:opacity-50"
       >
         {toolbar.boldLabel}
       </button>
       <button
         type="button"
+        disabled={formatDisabled}
         onClick={() => onFormat("---")}
-        className="flex h-9 items-center justify-center rounded-[6px] border border-gray-200 bg-white px-3 text-h-18-regular tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+        className="flex h-9 items-center justify-center rounded-[6px] border border-gray-200 bg-white px-3 text-h-18-regular tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:pointer-events-none disabled:opacity-50"
       >
         {toolbar.dividerLabel}
       </button>
       <button
         type="button"
+        disabled={formatDisabled}
         onClick={() => onFormat("`코드`")}
-        className="flex h-9 items-center justify-center rounded-[6px] border border-gray-200 bg-white px-3 text-h-18-regular tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+        className="flex h-9 items-center justify-center rounded-[6px] border border-gray-200 bg-white px-3 text-h-18-regular tracking-normal text-gray-800 shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:pointer-events-none disabled:opacity-50"
       >
         {toolbar.codeLabel}
       </button>
       <Button
         type="button"
-        disabled={!dirty || saving}
+        disabled={!dirty || disabled || pendingProposal || publishing}
         onClick={onPublish}
         className="ml-auto h-9 rounded-full px-4 text-h-16-semibold"
       >
-        {saving ? "게시 중" : "게시"}
+        {publishing ? "게시 중" : "게시"}
       </Button>
     </div>
   );
 }
 
 function HandoverEditor({
-  fixture,
-  onChangeContent,
+  locked,
+  nodes,
+  onCancelProposal,
+  onChangeNode,
+  onConfirmProposal,
 }: {
-  fixture: HandoverFixture;
-  onChangeContent: (content: string) => void;
+  locked: boolean;
+  nodes: readonly HandoverEditorNode[];
+  onCancelProposal: (proposalId: string) => void;
+  onChangeNode: (nodeId: string, value: string) => void;
+  onConfirmProposal: (proposalId: string) => void;
 }) {
   return (
     <article
+      aria-busy={locked}
       aria-label="인수인계 문서 본문"
-      contentEditable
-      suppressContentEditableWarning
-      onInput={(event) =>
-        onChangeContent(event.currentTarget.innerText.trimEnd())
-      }
-      className="min-h-0 flex-1 overflow-hidden rounded-[8px] bg-white"
+      className={cn(
+        "min-h-0 flex-1 overflow-auto rounded-[8px] bg-white px-4 py-[21px]",
+        locked && "cursor-wait",
+      )}
       data-testid="handover-editor"
     >
-      <div className="px-4 py-[21px] text-gray-900">
-        {fixture.document.blocks.map((block) => (
-          <HandoverDocumentBlockView key={block.id} block={block} />
-        ))}
+      <div className="flex min-h-full flex-col text-gray-900">
+        {nodes.map((node) =>
+          node.type === "proposal" ? (
+            <HandoverProposalBlock
+              key={node.id}
+              node={node}
+              onCancel={() => onCancelProposal(node.id)}
+              onConfirm={() => onConfirmProposal(node.id)}
+            />
+          ) : (
+            <HandoverEditableLine
+              key={node.id}
+              disabled={locked}
+              node={node}
+              onChange={(value) => onChangeNode(node.id, value)}
+            />
+          ),
+        )}
       </div>
     </article>
   );
 }
 
-function HandoverDocumentBlockView({
-  block,
+function HandoverEditableLine({
+  disabled,
+  node,
+  onChange,
 }: {
-  block: HandoverDocumentBlock;
+  disabled: boolean;
+  node: HandoverEditableNode;
+  onChange: (value: string) => void;
 }) {
-  if (block.type === "divider") {
-    return <div className="my-5 h-px bg-gray-200" />;
+  const value = getEditableDisplayText(node);
+
+  if (node.kind === "divider") {
+    return <div className="my-5 h-px shrink-0 bg-gray-200" />;
   }
 
-  const spacing = blockSpacingClassName[block.spacing ?? "md"];
-
-  if (block.type === "heading") {
-    const headingClassName = cn(
-      spacing,
-      block.level === 1 && "text-h-20 text-gray-900",
-      block.level === 2 && "text-h-20 text-gray-900",
-      block.level === 3 && "text-h-18-semibold text-gray-900",
-    );
-
-    if (block.level === 1) {
-      return <h2 className={headingClassName}>{block.text}</h2>;
-    }
-
-    if (block.level === 2) {
-      return <h3 className={headingClassName}>{block.text}</h3>;
-    }
-
-    return <h4 className={headingClassName}>{block.text}</h4>;
-  }
-
-  if (block.type === "paragraph") {
+  if (node.kind === "listItem") {
     return (
-      <p className={cn(spacing, "text-h-18-regular text-gray-800")}>
-        {block.lines.map((line) => (
-          <span key={line} className="block">
-            {line}
-          </span>
-        ))}
-      </p>
+      <div className="flex items-start gap-1.5 text-h-18-regular text-gray-900">
+        <span aria-hidden="true" className="mt-[1px] shrink-0">
+          -
+        </span>
+        <HandoverLineTextarea
+          ariaLabel="목록 항목"
+          className="text-h-18-regular"
+          disabled={disabled}
+          value={value}
+          onChange={onChange}
+        />
+      </div>
     );
   }
 
-  if (block.type === "list") {
+  if (node.kind === "heading") {
     return (
-      <ul className={cn(spacing, "space-y-0.5 text-h-18-regular text-gray-900")}>
-        {block.items.map((item) => (
-          <li key={item.id} className="flex gap-1.5">
-            <span aria-hidden="true">-</span>
-            <span>
-              <InlineSegments segments={item.segments} />
-            </span>
-          </li>
-        ))}
-      </ul>
+      <HandoverLineTextarea
+        ariaLabel="제목"
+        className={cn(
+          node.level === 3 ? "text-h-18-semibold" : "text-h-20",
+          node.level === 1 ? "mt-0" : "mt-4",
+        )}
+        disabled={disabled}
+        value={value}
+        onChange={onChange}
+      />
     );
   }
 
   return (
-    <HandoverSuggestionBlock
-      className={spacing}
-      suggestion={block.suggestion}
+    <HandoverLineTextarea
+      ariaLabel={node.kind === "blank" ? "빈 줄" : "문단"}
+      className={cn(
+        "text-h-18-regular",
+        node.kind === "blank" ? "min-h-[12px]" : "text-gray-800",
+      )}
+      disabled={disabled}
+      value={value}
+      onChange={onChange}
     />
   );
 }
 
-function InlineSegments({
-  segments,
+function HandoverLineTextarea({
+  ariaLabel,
+  className,
+  disabled,
+  onChange,
+  value,
 }: {
-  segments: readonly HandoverInlineSegment[];
+  ariaLabel: string;
+  className?: string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+  value: string;
 }) {
-  return segments.map((segment, index) =>
-    segment.strong ? (
-      <strong key={`${segment.text}-${index}`} className="font-semibold">
-        {segment.text}
-      </strong>
-    ) : (
-      <span key={`${segment.text}-${index}`}>{segment.text}</span>
-    ),
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (ref.current) {
+      resizeTextarea(ref.current);
+    }
+  }, [value]);
+
+  return (
+    <textarea
+      ref={ref}
+      aria-label={ariaLabel}
+      disabled={disabled}
+      rows={1}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      onInput={(event) => resizeTextarea(event.currentTarget)}
+      className={cn(
+        "min-h-[25px] w-full resize-none overflow-hidden rounded-[4px] border border-transparent bg-transparent px-0 py-0 tracking-normal text-gray-900 outline-none transition-colors duration-150 ease-out placeholder:text-gray-400 hover:border-gray-100 focus-visible:border-green-400 focus-visible:bg-green-50 focus-visible:px-1 disabled:cursor-wait disabled:opacity-100",
+        className,
+      )}
+    />
   );
 }
 
-function HandoverSuggestionBlock({
-  suggestion,
-  className,
+function HandoverProposalBlock({
+  node,
+  onCancel,
+  onConfirm,
 }: {
-  suggestion: HandoverSuggestion;
-  className?: string;
+  node: HandoverProposalNode;
+  onCancel: () => void;
+  onConfirm: () => void;
 }) {
   return (
     <div
-      className={cn(
-        "relative min-h-[160px] rounded-[8px] border border-green-400 bg-green-50 px-4 pb-14 pt-4 text-h-18-regular",
-        className,
-      )}
-      data-testid="handover-selected-suggestion"
+      className="my-3 flex flex-col gap-4 rounded-[8px] border border-green-400 bg-green-50 p-4 text-h-18-regular tracking-normal"
+      contentEditable={false}
+      data-testid="handover-proposal-block"
     >
       <div className="space-y-0.5">
-        {suggestion.unchanged.map((line) => (
-          <div key={line} className="text-gray-900">
-            - {line}
+        {node.before.map((line, index) => (
+          <div
+            key={`before-${index}-${line}`}
+            className="text-red-500 line-through"
+            data-testid="handover-proposal-removed-line"
+          >
+            {formatDiffLine(line)}
           </div>
         ))}
-        {suggestion.removed.map((line) => (
-          <div key={line} className="text-red-500 line-through">
-            - {line}
-          </div>
-        ))}
-        {suggestion.inserted.map((line) => (
-          <div key={line} className="text-green-400">
-            - {line}
+        {node.after.map((line, index) => (
+          <div
+            key={`after-${index}-${line}`}
+            className="font-semibold text-green-400"
+            data-testid="handover-proposal-inserted-line"
+          >
+            {formatDiffLine(line)}
           </div>
         ))}
       </div>
-      <div className="absolute bottom-4 right-4 flex gap-3">
+      <div className="flex justify-end gap-3">
         <Button
           type="button"
           variant="secondary"
+          onClick={onCancel}
           className="h-11 rounded-[8px] px-6 text-h-18-semibold tracking-normal"
         >
-          {suggestion.cancelLabel}
+          취소
         </Button>
         <Button
           type="button"
+          onClick={onConfirm}
           className="h-11 rounded-[8px] px-6 text-h-18-semibold tracking-normal"
         >
-          {suggestion.applyLabel}
+          반영
         </Button>
       </div>
     </div>
@@ -427,13 +559,17 @@ function HandoverSuggestionBlock({
 }
 
 function HandoverChatPanel({
+  disabled,
   fixture,
   inputValue,
+  messages,
   onChangeInput,
   onSend,
 }: {
+  disabled: boolean;
   fixture: HandoverFixture;
   inputValue: string;
+  messages: readonly HandoverChatMessage[];
   onChangeInput: (value: string) => void;
   onSend: () => void;
 }) {
@@ -455,21 +591,30 @@ function HandoverChatPanel({
           {chat.planBadge}
         </Badge>
       </header>
-      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden px-4 pt-0">
-        {chat.messages.map((message) => (
+      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-auto px-4 pt-0">
+        {messages.map((message) => (
           <HandoverChatMessageBubble key={message.id} message={message} />
         ))}
       </div>
       <div className="flex h-14 shrink-0 items-center gap-3 border-t border-gray-200 px-4">
         <Input
           aria-label="수정할 내용"
+          disabled={disabled}
           value={inputValue}
           onChange={(event) => onChangeInput(event.target.value)}
-          placeholder={chat.inputPlaceholder}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+              onSend();
+            }
+          }}
+          placeholder={
+            disabled ? "수정안을 먼저 검토해 주세요." : chat.inputPlaceholder
+          }
           className="h-11 min-w-0 flex-1 rounded-[8px] border-gray-200 bg-gray-50 text-h-18-regular tracking-normal text-gray-900"
         />
         <Button
           type="button"
+          disabled={disabled || !inputValue.trim()}
           onClick={onSend}
           className="h-11 rounded-[12px] px-4 text-h-18-semibold tracking-normal"
         >
@@ -502,13 +647,17 @@ function HandoverChatMessageBubble({
 }
 
 function PublishDialog({
+  currentContent,
   onClose,
   onPublish,
-  saving,
+  publishedContent,
+  publishing,
 }: {
+  currentContent: string;
   onClose: () => void;
   onPublish: (notifyWorkers: boolean) => void;
-  saving: boolean;
+  publishedContent: string;
+  publishing: boolean;
 }) {
   const [notifyWorkers, setNotifyWorkers] = useState(false);
 
@@ -516,16 +665,20 @@ function PublishDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         showCloseButton={false}
-        className="flex w-[calc(100vw-32px)] max-w-[520px] flex-col rounded-[8px] bg-white p-8 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0"
+        className="flex w-[calc(100vw-32px)] max-w-[640px] flex-col rounded-[8px] bg-white p-8 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0"
       >
         <DialogHeader className="gap-3">
           <DialogTitle className="text-h-20 text-gray-900">
             인수인계 문서 게시
           </DialogTitle>
           <DialogDescription className="text-h-18-regular text-gray-600">
-            현재 초안을 게시된 문서로 저장합니다.
+            게시 전 변경된 줄을 확인합니다.
           </DialogDescription>
         </DialogHeader>
+        <PublishDiffPreview
+          currentContent={currentContent}
+          publishedContent={publishedContent}
+        />
         <label className="mt-6 flex items-center gap-3 text-h-18-regular text-gray-900">
           <Checkbox
             checked={notifyWorkers}
@@ -538,7 +691,7 @@ function PublishDialog({
           <Button
             type="button"
             variant="secondary"
-            disabled={saving}
+            disabled={publishing}
             onClick={onClose}
             className="h-11 rounded-[8px] px-6"
           >
@@ -546,11 +699,11 @@ function PublishDialog({
           </Button>
           <Button
             type="button"
-            disabled={saving}
+            disabled={publishing}
             onClick={() => onPublish(notifyWorkers)}
             className="h-11 rounded-[8px] px-6"
           >
-            {saving ? "게시 중" : "게시 확정"}
+            {publishing ? "게시 중" : "게시 확정"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -558,169 +711,119 @@ function PublishDialog({
   );
 }
 
-function getPublishedContent(fixture: HandoverFixture) {
+function PublishDiffPreview({
+  currentContent,
+  publishedContent,
+}: {
+  currentContent: string;
+  publishedContent: string;
+}) {
+  const diffNodes = createNodesWithProposalDiff({
+    baseContent: publishedContent,
+    nextContent: currentContent,
+  }).filter((node) => node.type === "proposal");
+
   return (
-    fixture.document.publishedContent ??
-    serializeBlocks(fixture.document.blocks)
+    <div className="mt-5 max-h-[260px] overflow-auto rounded-[8px] border border-gray-200 bg-gray-50 p-4">
+      {diffNodes.length ? (
+        <div className="space-y-3">
+          {diffNodes.map((node) => (
+            <div key={node.id} className="space-y-1 text-body-14-regular">
+              {node.before.map((line, index) => (
+                <div
+                  key={`dialog-before-${index}-${line}`}
+                  className="text-red-500 line-through"
+                >
+                  {formatDiffLine(line)}
+                </div>
+              ))}
+              {node.after.map((line, index) => (
+                <div
+                  key={`dialog-after-${index}-${line}`}
+                  className="font-medium text-green-500"
+                >
+                  {formatDiffLine(line)}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-body-14-regular text-gray-500">
+          변경된 줄이 없습니다.
+        </p>
+      )}
+    </div>
   );
 }
 
-function createDraftFixture(
-  fixture: HandoverFixture,
-  content: string,
+function getPublishedContent(fixture: HandoverFixture) {
+  return (
+    fixture.document.publishedContent ??
+    fixture.document.blocks
+      .map((block) => {
+        if (block.type === "heading") {
+          return `${"#".repeat(block.level)} ${block.text}`;
+        }
+
+        if (block.type === "paragraph") {
+          return block.lines.join("\n");
+        }
+
+        if (block.type === "list") {
+          return block.items
+            .map((item) =>
+              `- ${item.segments.map((segment) => segment.text).join("")}`,
+            )
+            .join("\n");
+        }
+
+        if (block.type === "divider") {
+          return "---";
+        }
+
+        return [
+          ...block.suggestion.unchanged.map((line) => `- ${line}`),
+          ...block.suggestion.inserted.map((line) => `- ${line}`),
+        ].join("\n");
+      })
+      .join("\n")
+  );
+}
+
+function appendUserMessage(
   messages: readonly HandoverChatMessage[],
-): HandoverFixture {
-  const blocks = parseMarkdownBlocks(content);
-
-  return {
-    ...fixture,
-    chat: {
-      ...fixture.chat,
-      messages,
-    },
-    document: {
-      ...fixture.document,
-      blocks,
-      title: getDocumentTitle(blocks),
-    },
-  };
-}
-
-function appendChatExchange(
-  current: readonly HandoverChatMessage[],
   instruction: string,
-) {
-  const createdAt = Date.now();
+): readonly HandoverChatMessage[] {
+  const id = `user-${Date.now()}`;
 
-  return current.concat([
-    {
-      id: `handover-user-${createdAt}`,
-      role: "user",
-      text: instruction,
-    },
-    {
-      id: `handover-assistant-${createdAt}`,
-      role: "assistant",
-      text: "요청 내용을 문서 초안 하단에 반영했습니다.",
-    },
-  ]);
+  return messages.concat([{ id, role: "user", text: instruction }]);
 }
 
-function parseMarkdownBlocks(content: string): HandoverDocumentBlock[] {
-  const lines = content
-    .split(/\r?\n/)
-    .map((line) => line.trimEnd())
-    .filter((line) => line.trim().length > 0);
-  let blocks: HandoverDocumentBlock[] = [];
-  let listItems: string[] = [];
+function appendAssistantMessage(
+  messages: readonly HandoverChatMessage[],
+  message: string,
+): readonly HandoverChatMessage[] {
+  const id = `assistant-${Date.now()}`;
 
-  const flushList = () => {
-    if (!listItems.length) {
-      return;
-    }
-
-    const blockIndex = blocks.length;
-
-    blocks = blocks.concat({
-      id: `draft-list-${blockIndex}`,
-      items: listItems.map((item, index) => ({
-        id: `draft-list-${blockIndex}-${index}`,
-        segments: [{ text: item }],
-      })),
-      spacing: "sm",
-      type: "list",
-    });
-    listItems = [];
-  };
-
-  lines.forEach((line) => {
-    const trimmed = line.trim();
-
-    if (trimmed === "---") {
-      flushList();
-      blocks = blocks.concat({
-        id: `draft-divider-${blocks.length}`,
-        type: "divider",
-      });
-      return;
-    }
-
-    const headingMatch = /^(#{1,3})\s+(.+)$/.exec(trimmed);
-
-    if (headingMatch) {
-      flushList();
-      blocks = blocks.concat({
-        id: `draft-heading-${blocks.length}`,
-        level: headingMatch[1].length as 1 | 2 | 3,
-        spacing: blocks.length === 0 ? "none" : "md",
-        text: headingMatch[2],
-        type: "heading",
-      });
-      return;
-    }
-
-    const listMatch = /^[-*]\s+(.+)$/.exec(trimmed);
-
-    if (listMatch) {
-      listItems = listItems.concat(listMatch[1]);
-      return;
-    }
-
-    flushList();
-    blocks = blocks.concat({
-      id: `draft-paragraph-${blocks.length}`,
-      lines: [trimmed],
-      spacing: blocks.length === 0 ? "none" : "sm",
-      type: "paragraph",
-    });
-  });
-
-  flushList();
-
-  return blocks.length
-    ? blocks
-    : [
-        {
-          id: "draft-empty",
-          level: 1,
-          spacing: "none",
-          text: "게시된 인수인계 문서가 없습니다",
-          type: "heading",
-        },
-      ];
+  return messages.concat([{ id, role: "assistant", text: message }]);
 }
 
-function getDocumentTitle(blocks: readonly HandoverDocumentBlock[]) {
-  const heading = blocks.find((block) => block.type === "heading");
+function formatDiffLine(markdown: string) {
+  const displayText = getLineDisplayText(markdown);
 
-  return heading?.type === "heading" ? heading.text : "업무 공통 안내";
+  if (!displayText) {
+    return "(빈 줄)";
+  }
+
+  if (/^[-*]\s+/.test(markdown)) {
+    return `- ${displayText}`;
+  }
+
+  return displayText;
 }
 
-function serializeBlocks(blocks: readonly HandoverDocumentBlock[]) {
-  return blocks
-    .flatMap((block) => {
-      if (block.type === "heading") {
-        return `${"#".repeat(block.level)} ${block.text}`;
-      }
-
-      if (block.type === "paragraph") {
-        return block.lines;
-      }
-
-      if (block.type === "list") {
-        return block.items.map((item) =>
-          `- ${item.segments.map((segment) => segment.text).join("")}`,
-        );
-      }
-
-      if (block.type === "divider") {
-        return "---";
-      }
-
-      return [
-        ...block.suggestion.unchanged.map((line) => `- ${line}`),
-        ...block.suggestion.inserted.map((line) => `- ${line}`),
-      ];
-    })
-    .join("\n");
+function resizeTextarea(textarea: HTMLTextAreaElement) {
+  textarea.style.height = "auto";
+  textarea.style.height = `${textarea.scrollHeight}px`;
 }

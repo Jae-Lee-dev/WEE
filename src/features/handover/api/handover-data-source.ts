@@ -22,9 +22,22 @@ import {
 } from "../model/handover-fixtures";
 
 export type HandoverDataSource = {
+  generateHandoverDraft: (
+    input: GenerateHandoverDraftInput,
+  ) => Promise<GenerateHandoverDraftResult>;
   getHandover: () => Promise<HandoverFixture>;
   mode: "fixture" | "firestore";
   publishHandover: (input: PublishHandoverInput) => Promise<HandoverFixture>;
+};
+
+export type GenerateHandoverDraftInput = {
+  content: string;
+  instruction: string;
+};
+
+export type GenerateHandoverDraftResult = {
+  message: string;
+  nextContent: string;
 };
 
 export type PublishHandoverInput = {
@@ -45,6 +58,9 @@ function createMockHandoverDataSource(): HandoverDataSource {
 
   return {
     mode: "fixture",
+    async generateHandoverDraft(input) {
+      return createMockAiDraft(input);
+    },
     async getHandover() {
       return createFixtureFromContent(content);
     },
@@ -59,6 +75,40 @@ function createMockHandoverDataSource(): HandoverDataSource {
 function createFirestoreHandoverDataSource(): HandoverDataSource {
   return {
     mode: "firestore",
+    async generateHandoverDraft(input) {
+      const response = await fetch("/api/handover/ai-edit", {
+        body: JSON.stringify(input),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const data: unknown = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          readString(
+            typeof data === "object" && data !== null
+              ? (data as { error?: unknown }).error
+              : null,
+            "AI 수정안을 생성하지 못했습니다.",
+          ),
+        );
+      }
+
+      return {
+        message: readString(
+          typeof data === "object" && data !== null
+            ? (data as { message?: unknown }).message
+            : null,
+          "수정안을 만들었습니다. 문서에서 변경사항을 확인해 주세요.",
+        ),
+        nextContent: readString(
+          typeof data === "object" && data !== null
+            ? (data as { nextContent?: unknown }).nextContent
+            : null,
+          input.content,
+        ),
+      };
+    },
     async getHandover() {
       const workspaceId = await requireActiveWorkspaceId();
       const snapshot = await getDocs(
@@ -221,6 +271,43 @@ function createFixtureFromContent(content: string): HandoverFixture {
       blocks,
       publishedContent: content,
     },
+  };
+}
+
+function createMockAiDraft(
+  input: GenerateHandoverDraftInput,
+): GenerateHandoverDraftResult {
+  const content = input.content.trimEnd();
+  const addition = input.instruction.includes("보강")
+    ? "- 보강 자료 프린트 준비"
+    : "- 판서 노트 정리 후 강사실 제출";
+
+  if (content.includes(addition)) {
+    return {
+      message: "이미 반영된 항목입니다. 문서에서 변경사항을 확인해 주세요.",
+      nextContent: content,
+    };
+  }
+
+  const cautionHeading = "### 유의사항";
+  const cautionIndex = content.indexOf(cautionHeading);
+
+  if (cautionIndex >= 0) {
+    const before = content.slice(0, cautionIndex + cautionHeading.length);
+    const after = content.slice(cautionIndex + cautionHeading.length);
+
+    return {
+      message: "수학 A반 질문 조교 수정안을 만들었습니다. 문서에서 변경사항을 확인해 주세요.",
+      nextContent: `${before}\n- 자습 시간 중 휴대폰 사용 금지\n- 학부모 문의는 담당 강사에게 연결 후 강사실 메모 남기기\n${addition}${after.replace(
+        /^\n(?:- 자습 시간 중 휴대폰 사용 금지\n)?(?:- 학부모 문의는 담당 강사에게 연결\n)?/,
+        "\n",
+      )}`.trimEnd(),
+    };
+  }
+
+  return {
+    message: "수정안을 만들었습니다. 문서에서 변경사항을 확인해 주세요.",
+    nextContent: `${content}\n${addition}`.trimEnd(),
   };
 }
 

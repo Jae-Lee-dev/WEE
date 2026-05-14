@@ -91,6 +91,13 @@ const allowedLocalArrayMutationTransitionFiles = new Set([
   "src/features/settings/ui/settings-locations-screen.tsx",
   "src/features/workers/ui/worker-tags-screen.tsx",
 ]);
+const allowedAppBackendTransitionFiles = new Set([
+  "app/api/handover/ai-edit/route.ts",
+]);
+const allowedFetchTransitionFiles = new Set([
+  "app/api/handover/ai-edit/route.ts",
+  "src/features/handover/api/handover-data-source.ts",
+]);
 const allowedRuntimeEnvTransitionFiles = new Set([
   "src/shared/api/firebase/client.ts",
   "src/shared/lib/kakao-maps.ts",
@@ -586,7 +593,11 @@ for (const codeRoot of codeRoots) {
     const rel = relative(root, file);
     const filename = rel.split("/").at(-1);
 
-    if (rel.startsWith("app/") && disallowedRouteFiles.has(filename)) {
+    if (
+      rel.startsWith("app/") &&
+      disallowedRouteFiles.has(filename) &&
+      !allowedAppBackendTransitionFiles.has(rel)
+    ) {
       addFinding("Disallowed App Router backend file", file, filename);
     }
 
@@ -608,6 +619,10 @@ for (const codeRoot of codeRoots) {
         rule.name === "Firestore mutation/helper" &&
         allowedFirestoreTransitionFiles.has(rel)
       ) {
+        continue;
+      }
+
+      if (rule.name === "fetch call" && allowedFetchTransitionFiles.has(rel)) {
         continue;
       }
 

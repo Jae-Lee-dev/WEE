@@ -887,6 +887,22 @@ export function LoginPlaceholder() {
     },
   },
   {
+    name: "handover ai backend transition passes",
+    expectSuccess: true,
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "app/api/handover/ai-edit/route.ts",
+        'export async function POST() { const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"); return Response.json({ ok: response.ok }); }',
+      );
+      writeFixtureFile(
+        root,
+        "src/features/handover/api/handover-data-source.ts",
+        'export function generateDraft() { return fetch("/api/handover/ai-edit"); }',
+      );
+    },
+  },
+  {
     name: "firebase import is blocked",
     expectSuccess: false,
     expectedOutput: "Firebase import or require",
