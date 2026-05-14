@@ -521,6 +521,7 @@ export function RecordMainScreen({
         />
         <RecordDetailPanel
           actionSaving={recordActionSaving}
+          detailStates={selectedDetailStates}
           onConfirmRecordAction={handleConfirmRecordAction}
           state={selectedState}
           onSelectState={(stateId) => {
@@ -903,11 +904,13 @@ function RecordTimelineBlockText({
 
 function RecordDetailPanel({
   actionSaving,
+  detailStates,
   onConfirmRecordAction,
   onSelectState,
   state,
 }: {
   actionSaving: boolean;
+  detailStates: Record<RecordDetailStateId, RecordDetailState>;
   onConfirmRecordAction: (
     input: Omit<RecordMainActionInput, "recordId">,
   ) => Promise<void>;
@@ -925,6 +928,7 @@ function RecordDetailPanel({
         <SelectedDetail
           key={`${state.id}:${state.title ?? ""}`}
           actionSaving={actionSaving}
+          detailStates={detailStates}
           onConfirmRecordAction={onConfirmRecordAction}
           onSelectState={onSelectState}
           state={state}
@@ -978,11 +982,13 @@ function RecordDetailLineList({
 
 function SelectedDetail({
   actionSaving,
+  detailStates,
   onConfirmRecordAction,
   onSelectState,
   state,
 }: {
   actionSaving: boolean;
+  detailStates: Record<RecordDetailStateId, RecordDetailState>;
   onConfirmRecordAction: (
     input: Omit<RecordMainActionInput, "recordId">,
   ) => Promise<void>;
@@ -997,9 +1003,24 @@ function SelectedDetail({
   const [timeValues, setTimeValues] = useState<Record<string, string>>(() =>
     createTimeInputValues(state.timeFields),
   );
-  const [pendingInput, setPendingInput] =
-    useState<Omit<RecordMainActionInput, "recordId"> | null>(null);
+  const [pendingDialog, setPendingDialog] = useState<{
+    input: Omit<RecordMainActionInput, "recordId">;
+    state: RecordDetailState;
+  } | null>(null);
   const [saveErrorMessage, setSaveErrorMessage] = useState("");
+
+  function openEditDialog() {
+    const editState = detailStates["anomaly-step-3"];
+    const input = createPendingRecordActionInput({
+      reason: "",
+      setSaveErrorMessage,
+      state: editState,
+    });
+
+    if (input) {
+      setPendingDialog({ input, state: editState });
+    }
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
@@ -1049,6 +1070,7 @@ function SelectedDetail({
                 <DetailActionButton
                   action={action}
                   key={action.id}
+                  onOpenEditDialog={openEditDialog}
                   onSelectState={onSelectState}
                 />
               ))}
@@ -1133,7 +1155,7 @@ function SelectedDetail({
               });
 
               if (input) {
-                setPendingInput(input);
+                setPendingDialog({ input, state });
               }
             }}
             className="flex h-11 min-w-[78px] items-center justify-center rounded-[10px] bg-green-400 px-4 text-h-18-semibold tracking-normal text-white transition-colors duration-150 ease-out hover:bg-green-450 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:bg-gray-300"
@@ -1142,14 +1164,14 @@ function SelectedDetail({
           </button>
         </div>
       ) : null}
-      {pendingInput ? (
+      {pendingDialog ? (
         <RecordActionConfirmDialog
           actionSaving={actionSaving}
-          input={pendingInput}
-          onClose={() => setPendingInput(null)}
+          input={pendingDialog.input}
+          onClose={() => setPendingDialog(null)}
           onConfirmRecordAction={onConfirmRecordAction}
           setSaveErrorMessage={setSaveErrorMessage}
-          state={state}
+          state={pendingDialog.state}
         />
       ) : null}
     </div>
@@ -1172,9 +1194,11 @@ function ToneBadge({ label, tone }: { label: string; tone: RecordsTone }) {
 
 function DetailActionButton({
   action,
+  onOpenEditDialog,
   onSelectState,
 }: {
   action: RecordDetailAction;
+  onOpenEditDialog: () => void;
   onSelectState: (stateId: RecordDetailStateId) => void;
 }) {
   return (
@@ -1194,7 +1218,7 @@ function DetailActionButton({
         }
 
         if (action.id === "edit") {
-          onSelectState("anomaly-step-3");
+          onOpenEditDialog();
         }
 
         if (action.id === "delete") {

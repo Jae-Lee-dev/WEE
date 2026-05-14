@@ -137,11 +137,10 @@ test("REC-01 uses shared selects and edits selected records", async ({
     .toBe(layoutHeightBeforeEdit);
 
   const detail = page.getByTestId("record-detail-panel");
+  const dialog = page.getByTestId("record-action-confirm-dialog");
 
   await expect(detail.getByLabel("수정 사유")).toHaveCount(0);
   await expect(detail.getByLabel("근무 시작")).toHaveCount(0);
-  await detail.getByRole("button", { name: "확인" }).click();
-  const dialog = page.getByTestId("record-action-confirm-dialog");
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText("수정사항을 저장할까요?")).toBeVisible();
   await dialog.getByRole("button", { name: "확인" }).click();
@@ -308,7 +307,10 @@ test(`REC-01 anomaly-step-3 ${desktop}`, async ({ page }) => {
   await page.evaluate(() => document.fonts.ready);
   await page.getByTestId("record-block-anomaly").click();
   await page.getByTestId("record-detail-action-edit").click();
-  await expect(page.getByLabel("수정 사유")).toHaveCount(0);
+  const dialog = page.getByTestId("record-action-confirm-dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("수정사항을 저장할까요?")).toBeVisible();
+  await expect(dialog.getByLabel("수정 사유")).toBeVisible();
 
   await captureActualScreenshot({
     page,
