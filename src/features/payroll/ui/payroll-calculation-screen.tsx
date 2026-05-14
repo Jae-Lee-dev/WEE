@@ -1279,8 +1279,6 @@ function exportPayrollRows(viewModel: PayrollCalculationFixture) {
       "세금",
       "명세 상태",
       "미처리 항목",
-      "확정 가능",
-      "관리자 액션",
     ],
     ...viewModel.rows.map((row) => [
       formatPayrollExportMonth(row.monthKey, viewModel.selectedMonthLabel),
@@ -1292,8 +1290,6 @@ function exportPayrollRows(viewModel: PayrollCalculationFixture) {
       row.tax,
       row.status,
       row.openItems === "-" ? "없음" : row.openItems,
-      getPayrollExportConfirmability(row),
-      getPayrollExportAction(row),
     ]),
   ];
   const csv = rows.map((row) => row.map(escapeCsvCell).join(",")).join("\n");
@@ -1311,38 +1307,6 @@ function formatPayrollExportMonth(
   fallbackLabel: string,
 ) {
   return monthKey?.replace("-", ".") ?? fallbackLabel;
-}
-
-function getPayrollExportConfirmability(row: PayrollCalculationRow) {
-  if (row.status === "지급 완료") {
-    return "완료";
-  }
-
-  return row.openItems === "-" ? "가능" : "불가";
-}
-
-function getPayrollExportAction(row: PayrollCalculationRow) {
-  if (row.openItems !== "-") {
-    return `${row.openItems} 처리`;
-  }
-
-  if (row.status === "미확정") {
-    return "급여 확정";
-  }
-
-  if (row.status === "확정") {
-    return "지급 처리";
-  }
-
-  if (row.status === "재확정 필요") {
-    return "재확정 검토";
-  }
-
-  if (row.status === "지급 완료") {
-    return "완료";
-  }
-
-  return "처리 상태 확인";
 }
 
 function escapeCsvCell(value: string) {
