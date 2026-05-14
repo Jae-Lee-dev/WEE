@@ -113,8 +113,14 @@ test("REC-01 uses shared selects and edits selected records", async ({
   await dialog.getByRole("button", { name: "확인" }).click();
 
   await expect(
+    page.getByTestId("wee-toast"),
+  ).toContainText("근무기록 수정 내용을 적용했습니다.");
+  await expect(
     detail.getByText("근무기록 수정 내용을 적용했습니다."),
-  ).toBeVisible();
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("근무 기록을 불러오는 중입니다."),
+  ).toHaveCount(0);
 });
 
 test("REC-01 workerName query applies worker filter", async ({ page }) => {
