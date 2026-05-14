@@ -36,6 +36,7 @@ const sundayFirstDayOrder = [
   "sat",
 ] as const;
 const emphasizedTimelineBoundaryColor = "var(--color-gray-300)";
+const dayTimelineBoundaryColor = "var(--color-gray-200)";
 const nextDayBoundaryMarkerStyle = {
   backgroundImage:
     "linear-gradient(to right, var(--color-gray-100) 0, var(--color-gray-100) 1px, transparent 1px, transparent 2px, var(--color-gray-100) 2px, var(--color-gray-100) 3px)",
@@ -210,10 +211,11 @@ export function TimelineGridFrame<TDay extends TimelineGridDay>({
                   className={cn(
                     "sticky left-0 z-20 flex items-center justify-center border-r border-gray-200 bg-gray-50 px-1 text-label-18 tracking-normal",
                     getTimelineDayTextClassName(day.id),
-                    !isLastDay && "border-b border-gray-100",
+                    !isLastDay && "border-b border-gray-200",
                   )}
                   role="rowheader"
                   style={{
+                    borderBottomColor: dayTimelineBoundaryColor,
                     borderRightColor: emphasizedTimelineBoundaryColor,
                     height: resolvedRowHeight,
                   }}
@@ -223,10 +225,13 @@ export function TimelineGridFrame<TDay extends TimelineGridDay>({
                 <div
                   className={cn(
                     "relative min-w-0 bg-white",
-                    !isLastDay && "border-b border-gray-100",
+                    !isLastDay && "border-b border-gray-200",
                   )}
                   role="row"
-                  style={{ height: resolvedRowHeight }}
+                  style={{
+                    borderBottomColor: dayTimelineBoundaryColor,
+                    height: resolvedRowHeight,
+                  }}
                 >
                   <div
                     aria-hidden="true"

@@ -39,6 +39,11 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
       "background-image",
       /linear-gradient/,
     );
+    await expect(
+      page
+        .getByRole("grid", { name: "주간 근무 시간표" })
+        .getByRole("rowheader", { name: "월" }),
+    ).toHaveCSS("border-bottom-color", "rgb(229, 231, 235)");
 
     await captureActualScreenshot({
       page,
