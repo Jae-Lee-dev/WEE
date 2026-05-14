@@ -718,7 +718,8 @@ function createSeedPlan(options) {
     "needsReconfirmation=true is manager-only; no worker reconfirmation notification is generated.",
     "workerPayStatements omit needsReconfirmation and manager-only calculation diffs.",
     "CorrectionRequest snapshots and record-change notification payloads use worker-safe WorkRecord snapshots.",
-    "Seed includes at least five same-worker same-day overlapping WorkRecords for AI time-overlap testing.",
+    "Seed includes at least five cross-worker same-day overlapping WorkRecords for timeline layout testing.",
+    "Seed has no same-worker same-day overlapping WorkRecords.",
     "Unconfirmed worker-months have payrollWorkerMonthRows but no PayStatement document.",
   );
 
@@ -1220,21 +1221,21 @@ function createSlotTemplates() {
   return [
     { dutyId: "duty_math_mon", workerId: "worker_kim" },
     { dutyId: "duty_self_tue", workerId: "worker_kim" },
-    { dutyId: "duty_night_tue", workerId: "worker_kim" },
-    { dutyId: "duty_overlap_tue_questions", workerId: "worker_kim" },
     { dutyId: "duty_makeup_thu", workerId: "worker_kim" },
-    { dutyId: "duty_overlap_thu_review", workerId: "worker_kim" },
     { dutyId: "duty_sat_morning", workerId: "worker_kim" },
     { dutyId: "duty_self_mon", workerId: "worker_lee" },
+    { dutyId: "duty_overlap_tue_questions", workerId: "worker_lee" },
     { dutyId: "duty_admin_wed", workerId: "worker_lee" },
+    { dutyId: "duty_overlap_thu_review", workerId: "worker_lee" },
     { dutyId: "duty_exam_fri", workerId: "worker_lee" },
     { dutyId: "duty_sun_exam_expired", workerId: "worker_lee" },
     { dutyId: "duty_question_tue", workerId: "worker_park" },
     { dutyId: "duty_grading_wed", workerId: "worker_park" },
     { dutyId: "duty_question_thu", workerId: "worker_park" },
-    { dutyId: "duty_overlap_thu_review", workerId: "worker_park" },
     { dutyId: "duty_sat_grading", workerId: "worker_park" },
     { dutyId: "duty_late_mon", workerId: "worker_choi" },
+    { dutyId: "duty_overlap_tue_questions", workerId: "worker_choi" },
+    { dutyId: "duty_overlap_thu_review", workerId: "worker_choi" },
     { dutyId: "duty_exam_fri", workerId: "worker_choi" },
     { dutyId: "duty_sat_exam", workerId: "worker_choi" },
     { dutyId: "duty_sun_expired", workerId: "worker_choi" },
@@ -1958,35 +1959,8 @@ function createAiRuns(workspaceId, managerUid, workRecords) {
   const lateEvidence = workRecords
     .filter((record) => record.workerId === "worker_lee" && record.anomalyType === "time_mismatch")
     .map((record) => record.id);
-  const overlapEvidence = findOverlappingWorkRecordIds(
-    workRecords.filter((record) => record.workerId === "worker_kim"),
-  );
 
   return [
-    {
-      id: "ai_run_20260511_time_overlap",
-      completedAt: ts("2026-05-11T11:05:00+09:00"),
-      createdAt: ts("2026-05-11T11:00:00+09:00"),
-      createdBy: managerUid,
-      inputSummary: {
-        periodEnd: "2026-05-11",
-        periodStart: "2026-04-13",
-        workRecordCount: workRecords.length,
-      },
-      candidates: [
-        {
-          id: "candidate_worker_kim_time_overlap",
-          evidenceWorkRecordIds: overlapEvidence,
-          severity: "high",
-          summary: `동일 조교의 같은 날짜 근무 시간이 ${overlapEvidence.length}개 근무기록에서 겹침`,
-          targetWorkerId: "worker_kim",
-          targetWorkRecordIds: overlapEvidence,
-        },
-      ],
-      status: "completed",
-      visibleTo: "manager",
-      workspaceId,
-    },
     {
       id: "ai_run_20260509_repeated_late",
       completedAt: ts("2026-05-09T11:05:00+09:00"),
@@ -2024,9 +1998,9 @@ function createAiRuns(workspaceId, managerUid, workRecords) {
   ];
 }
 
-function findOverlappingWorkRecordIds(workRecords) {
+function findCrossWorkerOverlappingWorkRecordIds(workRecords) {
   const ids = new Set();
-  const groups = groupWorkRecordsByWorkerDate(workRecords);
+  const groups = groupWorkRecordsByDate(workRecords);
 
   for (const records of Object.values(groups)) {
     const sorted = [...records].sort(compareWorkRecordsByTime);
@@ -2036,7 +2010,7 @@ function findOverlappingWorkRecordIds(workRecords) {
         const left = sorted[leftIndex];
         const right = sorted[rightIndex];
 
-        if (workRecordsOverlap(left, right)) {
+        if (left.workerId !== right.workerId && workRecordsOverlap(left, right)) {
           ids.add(left.id);
           ids.add(right.id);
         }
@@ -2050,6 +2024,41 @@ function findOverlappingWorkRecordIds(workRecords) {
 
     return compareWorkRecordsByTime(left, right);
   });
+}
+
+function findSameWorkerOverlappingWorkRecordPairs(workRecords) {
+  const pairs = [];
+  const groups = groupWorkRecordsByWorkerDate(workRecords);
+
+  for (const records of Object.values(groups)) {
+    const sorted = [...records].sort(compareWorkRecordsByTime);
+
+    for (let leftIndex = 0; leftIndex < sorted.length; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 1; rightIndex < sorted.length; rightIndex += 1) {
+        const left = sorted[leftIndex];
+        const right = sorted[rightIndex];
+
+        if (workRecordsOverlap(left, right)) {
+          pairs.push([left.id, right.id]);
+        }
+      }
+    }
+  }
+
+  return pairs;
+}
+
+function groupWorkRecordsByDate(workRecords) {
+  const groups = {};
+
+  for (const record of workRecords) {
+    const date = record.dateKey ?? record.date;
+
+    groups[date] ??= [];
+    groups[date].push(record);
+  }
+
+  return groups;
 }
 
 function groupWorkRecordsByWorkerDate(workRecords) {
@@ -2352,7 +2361,6 @@ function validateSeedPlan(writes) {
   const payrollRows = docs.filter((doc) => doc.collectionName === "payrollWorkerMonthRows");
   const correctionRequests = docs.filter((doc) => doc.collectionName === "correctionRequests");
   const workRecords = docs.filter((doc) => doc.collectionName === "workRecords");
-  const aiRuns = docs.filter((doc) => doc.collectionName === "aiAnalysisRuns");
   const attendanceById = new Map(
     docs
       .filter((doc) => doc.collectionName === "attendanceLogs")
@@ -2399,20 +2407,22 @@ function validateSeedPlan(writes) {
     }
   }
 
-  const overlappingWorkRecordIds = findOverlappingWorkRecordIds(workRecords);
+  const sameWorkerOverlapPairs = findSameWorkerOverlappingWorkRecordPairs(workRecords);
 
-  if (overlappingWorkRecordIds.length < 5) {
+  if (sameWorkerOverlapPairs.length > 0) {
     throw new Error(
-      `expected at least 5 overlapping work record ids, got ${overlappingWorkRecordIds.length}`,
+      `seed must not contain same-worker overlapping WorkRecords: ${sameWorkerOverlapPairs
+        .map((pair) => pair.join(" + "))
+        .join(", ")}`,
     );
   }
 
-  const overlapCandidate = aiRuns
-    .flatMap((run) => Array.isArray(run.candidates) ? run.candidates : [])
-    .find((candidate) => candidate.id === "candidate_worker_kim_time_overlap");
+  const crossWorkerOverlappingWorkRecordIds = findCrossWorkerOverlappingWorkRecordIds(workRecords);
 
-  if (!overlapCandidate || overlapCandidate.evidenceWorkRecordIds?.length < 5) {
-    throw new Error("AI time-overlap candidate must reference at least 5 work records.");
+  if (crossWorkerOverlappingWorkRecordIds.length < 5) {
+    throw new Error(
+      `expected at least 5 cross-worker overlapping work record ids, got ${crossWorkerOverlappingWorkRecordIds.length}`,
+    );
   }
 
   for (const statement of managerStatements.filter((item) => item.status === "paid")) {
