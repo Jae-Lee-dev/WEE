@@ -301,8 +301,11 @@ test(`REC-01 anomaly-step-2 ${desktop}`, async ({ page }) => {
   await page.evaluate(() => document.fonts.ready);
   await page.getByTestId("record-block-anomaly").click();
   await page.getByTestId("record-detail-action-mark-normal").click();
+  const dialog = page.getByTestId("record-action-confirm-dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("정상 처리할까요?")).toBeVisible();
   await expect(
-    page.getByText("이상이 없다고 판단하여 플래그를 닫습니다."),
+    dialog.getByText("근무기록은 변경하지 않고 이상 플래그만 닫습니다."),
   ).toBeVisible();
 
   await captureActualScreenshot({
@@ -340,8 +343,11 @@ test(`REC-01 anomaly-step-4 ${desktop}`, async ({ page }) => {
   await page.evaluate(() => document.fonts.ready);
   await page.getByTestId("record-block-anomaly").click();
   await page.getByTestId("record-detail-action-delete").click();
+  const dialog = page.getByTestId("record-action-confirm-dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("근무기록을 삭제할까요?")).toBeVisible();
   await expect(
-    page.getByText("해당 근무기록이 삭제되어 결근으로 처리됩니다."),
+    dialog.getByText("삭제된 일반근무는 근무시간 기준 급여 산정에서 제외됩니다."),
   ).toBeVisible();
 
   await captureActualScreenshot({

@@ -1009,16 +1009,16 @@ function SelectedDetail({
   } | null>(null);
   const [saveErrorMessage, setSaveErrorMessage] = useState("");
 
-  function openEditDialog() {
-    const editState = detailStates["anomaly-step-3"];
+  function openActionDialog(stateId: RecordDetailStateId) {
+    const actionState = detailStates[stateId];
     const input = createPendingRecordActionInput({
       reason: "",
       setSaveErrorMessage,
-      state: editState,
+      state: actionState,
     });
 
     if (input) {
-      setPendingDialog({ input, state: editState });
+      setPendingDialog({ input, state: actionState });
     }
   }
 
@@ -1070,7 +1070,7 @@ function SelectedDetail({
                 <DetailActionButton
                   action={action}
                   key={action.id}
-                  onOpenEditDialog={openEditDialog}
+                  onOpenActionDialog={openActionDialog}
                   onSelectState={onSelectState}
                 />
               ))}
@@ -1194,11 +1194,11 @@ function ToneBadge({ label, tone }: { label: string; tone: RecordsTone }) {
 
 function DetailActionButton({
   action,
-  onOpenEditDialog,
+  onOpenActionDialog,
   onSelectState,
 }: {
   action: RecordDetailAction;
-  onOpenEditDialog: () => void;
+  onOpenActionDialog: (stateId: RecordDetailStateId) => void;
   onSelectState: (stateId: RecordDetailStateId) => void;
 }) {
   return (
@@ -1214,15 +1214,15 @@ function DetailActionButton({
       )}
       onClick={() => {
         if (action.id === "mark-normal") {
-          onSelectState("anomaly-step-2");
+          onOpenActionDialog("anomaly-step-2");
         }
 
         if (action.id === "edit") {
-          onOpenEditDialog();
+          onOpenActionDialog("anomaly-step-3");
         }
 
         if (action.id === "delete") {
-          onSelectState("anomaly-step-4");
+          onOpenActionDialog("anomaly-step-4");
         }
 
         if (action.id === "approve-correction" || action.id === "approve-overtime") {
@@ -1608,6 +1608,10 @@ function getRecordActionConfirmTitle(action: RecordMainActionInput["action"]) {
 
   if (action === "edit") {
     return "수정사항을 저장할까요?";
+  }
+
+  if (action === "mark-normal") {
+    return "정상 처리할까요?";
   }
 
   return "처리 내용을 저장할까요?";
