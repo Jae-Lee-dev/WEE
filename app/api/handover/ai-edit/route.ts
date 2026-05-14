@@ -120,6 +120,9 @@ function createGeminiRequest({
               "",
               "관리자 수정 지시:",
               instruction,
+              "",
+              '반드시 {"message": "...", "nextContent": "..."} 형태의 JSON만 반환한다.',
+              "nextContent에는 수정이 반영된 전체 Markdown 문서를 문자열로 넣는다.",
             ].join("\n"),
           },
         ],
@@ -127,6 +130,22 @@ function createGeminiRequest({
       },
     ],
     generationConfig: {
+      responseJsonSchema: {
+        additionalProperties: false,
+        properties: {
+          message: {
+            description: "관리자에게 보여줄 한 문장 요약",
+            type: "string",
+          },
+          nextContent: {
+            description: "수정이 반영된 전체 Markdown 문서",
+            type: "string",
+          },
+        },
+        required: ["message", "nextContent"],
+        type: "object",
+      },
+      responseMimeType: "application/json",
       temperature: 0.2,
     },
     systemInstruction: {
@@ -138,7 +157,8 @@ function createGeminiRequest({
             "지원 Markdown은 #, ##, ### heading, -, *, 순서 없는 목록, **bold**, inline `code`, --- divider다.",
             "기존 문서의 사실관계와 섹션 순서를 최대한 보존하고, 지시와 관련 없는 내용을 임의로 삭제하거나 확장하지 않는다.",
             "이전 채팅 히스토리는 없다고 가정하고, 현재 문서와 이번 지시만 따른다.",
-            "반환은 JSON 객체 하나만 사용한다.",
+            '반환은 JSON 객체 하나만 사용한다. 정확한 키는 "message"와 "nextContent"다.',
+            "nextContent는 일부 diff나 설명이 아니라 수정된 전체 Markdown 문서여야 한다.",
           ].join("\n"),
         },
       ],
@@ -162,8 +182,17 @@ function parseAiEditResponse(text: string) {
       typeof parsed.message === "string" && parsed.message.trim()
         ? parsed.message
         : "수정안을 만들었습니다. 문서에서 변경사항을 확인해 주세요.",
-    nextContent:
-      typeof parsed.nextContent === "string" ? parsed.nextContent : "",
+    nextContent: normalizeMarkdownBlock(
+      readFirstString(parsed, [
+        "nextContent",
+        "next_content",
+        "markdown",
+        "content",
+        "revisedMarkdown",
+        "revisedContent",
+        "document",
+      ]),
+    ),
   };
 }
 
@@ -172,7 +201,7 @@ function parseJsonObject(text: string) {
     const parsed = JSON.parse(text);
 
     return typeof parsed === "object" && parsed !== null
-      ? (parsed as { message?: unknown; nextContent?: unknown })
+      ? (parsed as Record<string, unknown>)
       : null;
   } catch {
     return null;
@@ -187,6 +216,29 @@ function readBodyString(body: unknown, key: "content" | "instruction") {
   const value = (body as Record<string, unknown>)[key];
 
   return typeof value === "string" ? value : "";
+}
+
+function readFirstString(
+  source: Record<string, unknown>,
+  keys: readonly string[],
+) {
+  for (const key of keys) {
+    const value = source[key];
+
+    if (typeof value === "string") {
+      return value;
+    }
+  }
+
+  return "";
+}
+
+function normalizeMarkdownBlock(text: string) {
+  return text
+    .trim()
+    .replace(/^```(?:markdown|md)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trimEnd();
 }
 
 function normalizeModelName(model: string) {
