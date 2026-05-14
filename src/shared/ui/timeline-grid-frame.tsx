@@ -107,7 +107,7 @@ export function TimelineGridFrame<TDay extends TimelineGridDay>({
                 role="columnheader"
               >
                 {index === firstNextDaySlotIndex && (
-                  <span className="pointer-events-none absolute top-[2px] left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] leading-[10px] tracking-normal text-gray-400">
+                  <span className="pointer-events-none absolute top-[3px] left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] leading-[10px] tracking-normal text-gray-400">
                     익일
                   </span>
                 )}
