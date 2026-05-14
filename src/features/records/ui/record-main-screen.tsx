@@ -4,6 +4,10 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { IconChevronLeft, IconChevronRight } from "@/shared/ui/icons";
 import { Input } from "@/shared/ui/input";
 import { OptionSelect, type SelectOption } from "@/shared/ui/select";
+import {
+  TimelineBlockText,
+  TimelineGridFrame,
+} from "@/shared/ui/timeline-grid-frame";
 import { Textarea } from "@/shared/ui/textarea";
 import { cn } from "@/shared/lib/utils";
 import {
@@ -48,9 +52,6 @@ type RecordMainScreenProps = {
   initialFocusId?: string;
   initialWorkerNameFilter?: string;
 };
-
-const timelineHeaderHeight = 45;
-const timelineRowHeight = 110;
 
 const blockToneClassNames: Record<RecordsTone, string> = {
   green: "border-green-400 bg-green-100 text-gray-900",
@@ -592,91 +593,26 @@ function RecordTimelineGrid({
   }));
 
   return (
-    <div
-      className="relative h-full min-h-0 min-w-0 overflow-auto overscroll-contain rounded-[8px] border border-gray-200 bg-white"
-      data-testid="record-timeline-scroll"
-    >
-      <div
-        aria-label="주간 근무기록"
-        className="grid min-w-[860px] grid-cols-[46px_minmax(0,1fr)]"
-        role="grid"
-      >
-        <div
-          aria-hidden="true"
-          className="sticky left-0 top-0 z-30 border-b border-r border-gray-200 bg-white"
-          style={{ height: timelineHeaderHeight }}
-        />
-        <div
-          className="sticky top-0 z-20 grid grid-cols-[repeat(17,minmax(0,1fr))] border-b border-gray-200 bg-white"
-          style={{ height: timelineHeaderHeight }}
-        >
-          {timeline.hourLabels.map((slot, index) => (
-            <div
-              className={cn(
-                "flex min-w-0 items-center justify-center border-r border-gray-100 px-1 text-detail-16-regular tracking-normal text-gray-500",
-                index === timeline.hourLabels.length - 1 && "border-r-0",
-              )}
-              key={slot}
-              role="columnheader"
-            >
-              <span className="truncate">{slot}</span>
-            </div>
-          ))}
-        </div>
-
-        {dayLayouts.map(({ day, positionedBlocks }, dayIndex) => {
-          const isLastDay = dayIndex === dayLayouts.length - 1;
-
-          return (
-            <div className="contents" key={day.id}>
-              <div
-                className={cn(
-                  "sticky left-0 z-10 flex items-center justify-center border-r border-gray-200 bg-white px-1 text-h-18-semibold tracking-normal text-gray-800",
-                  !isLastDay && "border-b border-gray-100",
-                )}
-                role="rowheader"
-                style={{ height: timelineRowHeight }}
-              >
-                {day.label}
-              </div>
-              <div
-                className={cn(
-                  "relative min-w-0 bg-white",
-                  !isLastDay && "border-b border-gray-100",
-                )}
-                role="row"
-                style={{ height: timelineRowHeight }}
-              >
-                <div
-                  aria-hidden="true"
-                  className="absolute inset-0 grid grid-cols-[repeat(17,minmax(0,1fr))]"
-                >
-                  {timeline.hourLabels.map((slot, index) => (
-                    <div
-                      className={cn(
-                        "border-r border-gray-100",
-                        index === timeline.hourLabels.length - 1 &&
-                          "border-r-0",
-                      )}
-                      key={`${day.id}-${slot}`}
-                    />
-                  ))}
-                </div>
-
-                {positionedBlocks.map((positionedBlock) => (
-                  <RecordTimelineBlockItem
-                    key={positionedBlock.block.id}
-                    onSelectBlock={onSelectBlock}
-                    positionedBlock={positionedBlock}
-                    selected={selectedBlockIds.has(positionedBlock.block.id)}
-                  />
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+    <TimelineGridFrame
+      ariaLabel="주간 근무기록"
+      className="h-full"
+      days={timeline.dayLabels}
+      minWidthClassName="min-w-[964px]"
+      renderBlocks={(day) =>
+        dayLayouts
+          .find(({ day: layoutDay }) => layoutDay.id === day.id)
+          ?.positionedBlocks.map((positionedBlock) => (
+            <RecordTimelineBlockItem
+              key={positionedBlock.block.id}
+              onSelectBlock={onSelectBlock}
+              positionedBlock={positionedBlock}
+              selected={selectedBlockIds.has(positionedBlock.block.id)}
+            />
+          )) ?? null
+      }
+      testId="record-timeline-scroll"
+      timeSlots={timeline.hourLabels}
+    />
   );
 }
 
@@ -708,19 +644,11 @@ function RecordTimelineBlockItem({
       "cursor-pointer hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 focus-visible:ring-offset-1",
   );
   const content = (
-    <>
-      <span className="truncate text-h-14-semibold tracking-normal">
-        {block.workerName}
-      </span>
-      <span
-        className={cn(
-          "truncate text-h-14-regular tracking-normal",
-          selected ? "text-white" : "text-gray-800",
-        )}
-      >
-        {block.dutyName}
-      </span>
-    </>
+    <TimelineBlockText
+      selected={selected}
+      subtitle={block.dutyName}
+      title={block.workerName}
+    />
   );
 
   if (selectable && selectedStateId) {

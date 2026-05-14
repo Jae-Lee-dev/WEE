@@ -24,6 +24,7 @@ export * from "./table";
 export * from "./tabs";
 export * from "./tag-search-picker";
 export * from "./textarea";
+export * from "./timeline-grid-frame";
 export * from "./tooltip";
 export * from "./trend-chart";
 export * from "./use-sliding-tab-indicator";
