@@ -175,7 +175,7 @@ Usage:
 Options:
   --dry-run             Print the planned write summary only. Default.
   --confirm             Write to Firestore.
-  --cleanup             Delete previous documents written by this seed version before writing.
+  --cleanup             Delete workspace seed-target collections before writing.
   --allow-production    Required for writes when FIRESTORE_EMULATOR_HOST is not set.
   --project-id <id>     Firebase project id. Defaults to GCLOUD_PROJECT/GOOGLE_CLOUD_PROJECT.
   --service-account <p> Service account JSON path. Defaults to GOOGLE_APPLICATION_CREDENTIALS.
@@ -290,13 +290,6 @@ async function cleanupSeededDocuments(firestore, options) {
         body: {
           structuredQuery: {
             from: [{ collectionId: collectionName }],
-            where: {
-              fieldFilter: {
-                field: { fieldPath: "seed.version" },
-                op: "EQUAL",
-                value: { stringValue: seedVersion },
-              },
-            },
           },
         },
         method: "POST",
@@ -720,7 +713,7 @@ function createSeedPlan(options) {
 
   assertions.push(
     "Admin/import/service-account REST path required; this seed writes historical timestamps and collections not allowed by current client rules.",
-    "Cleanup removes every previous document with seed.version, including locations and duties, before writing a fresh linked seed graph.",
+    "Cleanup removes all documents in seed-target workspace collections, including locations and duties, before writing a fresh linked seed graph.",
     "4월 paid worker-months have no source changes after paidAt.",
     "needsReconfirmation=true is manager-only; no worker reconfirmation notification is generated.",
     "workerPayStatements omit needsReconfirmation and manager-only calculation diffs.",
