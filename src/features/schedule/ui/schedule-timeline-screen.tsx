@@ -28,8 +28,10 @@ import {
   type ScheduleTimelineTone,
 } from "../model/schedule-fixtures";
 import {
+  getTimelineRowHeight,
   orderTimelineDaysSundayFirst,
   TimelineBlockText,
+  timelineDefaultRowHeight,
   TimelineGridFrame,
 } from "./timeline-grid-frame";
 import {
@@ -421,12 +423,24 @@ function TimelineGrid({
     timeSlots: scheduleTimelineTimeSlots,
     workerContexts,
   });
+  const rowHeightsByDayId = new Map(
+    dayLayouts.map((layout) => [
+      layout.day.id,
+      getTimelineRowHeight({
+        blockHeight: timelineLaneHeight,
+        laneCount: layout.laneCount,
+      }),
+    ]),
+  );
 
   return (
     <TimelineGridFrame
       ariaLabel="주간 근무 시간표"
       className="h-full"
       days={timelineDays}
+      getRowHeight={(day) =>
+        rowHeightsByDayId.get(day.id) ?? timelineDefaultRowHeight
+      }
       renderBlocks={(day) => {
         const parsedBlocks =
           dayLayouts.find((layout) => layout.day.id === day.id)?.blocks ?? [];

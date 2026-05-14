@@ -89,8 +89,12 @@ import {
   scheduleTimelineTimeSlots,
 } from "../model/schedule-fixtures";
 import {
+  getTimelineBlockHeight,
+  getTimelineLaneCount,
+  getTimelineRowHeight,
   orderTimelineDaysSundayFirst,
   TimelineBlockText,
+  timelineDefaultRowHeight,
   TimelineGridFrame,
 } from "./timeline-grid-frame";
 
@@ -606,30 +610,44 @@ function DutyTimelineGrid({
   selectedDutyId?: string;
 }) {
   const blocks = buildDutyTimelineBlocks(rows);
-  const dayLayouts = dutyTimelineDays.map((day) => ({
-    day,
-    blocks: layoutDutyTimelineBlocks(
+  const dayLayouts = dutyTimelineDays.map((day) => {
+    const dayBlocks = layoutDutyTimelineBlocks(
       blocks.filter((block) => block.dayId === day.id),
-    ),
-  }));
+    );
+
+    return {
+      day,
+      laneCount: getTimelineLaneCount(dayBlocks),
+      blocks: dayBlocks,
+    };
+  });
+  const rowHeightsByDayId = new Map(
+    dayLayouts.map((layout) => [
+      layout.day.id,
+      getTimelineRowHeight({ laneCount: layout.laneCount }),
+    ]),
+  );
 
   return (
     <TimelineGridFrame
       ariaLabel="Duty timeline"
       className="h-full"
       days={dutyTimelineDays}
+      getRowHeight={(day) =>
+        rowHeightsByDayId.get(day.id) ?? timelineDefaultRowHeight
+      }
       renderBlocks={(day) => {
-        const dayBlocks =
-          dayLayouts.find((layout) => layout.day.id === day.id)?.blocks ?? [];
+        const layout = dayLayouts.find((item) => item.day.id === day.id);
 
-        return dayBlocks.map((block) => (
+        return layout?.blocks.map((block) => (
           <DutyTimelineBlockButton
             block={block}
             key={block.duty.id}
+            laneCount={layout.laneCount}
             onSelect={() => onSelectDuty(block.duty)}
             selected={selectedDutyId === block.duty.id}
           />
-        ));
+        )) ?? null;
       }}
       testId="duty-timeline-view"
       timeSlots={scheduleTimelineTimeSlots}
@@ -639,10 +657,12 @@ function DutyTimelineGrid({
 
 function DutyTimelineBlockButton({
   block,
+  laneCount,
   onSelect,
   selected,
 }: {
   block: PositionedDutyTimelineBlock;
+  laneCount: number;
   onSelect: () => void;
   selected: boolean;
 }) {
@@ -663,7 +683,10 @@ function DutyTimelineBlockButton({
           : undefined
       }
       onClick={onSelect}
-      style={getDutyTimelineBlockStyle(block)}
+      style={{
+        ...getDutyTimelineBlockStyle(block),
+        height: getTimelineBlockHeight({ laneCount }),
+      }}
     >
       <TimelineBlockText
         selected={selected}

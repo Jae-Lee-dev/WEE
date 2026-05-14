@@ -3,15 +3,19 @@ import { cn } from "@/shared/lib/utils";
 import {
   scheduleTimelineDays,
   scheduleTimelineTimeSlots,
-  type ScheduleTimelineDay,
   type ScheduleTimelineBlock,
 } from "../model/schedule-fixtures";
 import {
+  getTimelineRowHeight,
   orderTimelineDaysSundayFirst,
   TimelineBlockText,
+  timelineDefaultRowHeight,
   TimelineGridFrame,
 } from "./timeline-grid-frame";
-import { parseTimelineBlocks } from "./timeline-block-parser";
+import {
+  parseTimelineBlocks,
+  type ParsedTimelineBlock,
+} from "./timeline-block-parser";
 
 const meta = {
   title: "Features/Schedule/TimelineGridFrame",
@@ -80,6 +84,17 @@ const storyBlocks = [
     worker: "미배정",
   },
   {
+    id: "math-h",
+    dayId: "mon",
+    label: "수학 H반",
+    locationName: "잠실 C학원",
+    tone: "orange",
+    time: "14:00~17:00",
+    startHour: 14,
+    endHour: 17,
+    worker: "미배정",
+  },
+  {
     id: "english-c",
     dayId: "mon",
     label: "영어 C반",
@@ -111,34 +126,50 @@ const toneClassNames: Record<ScheduleTimelineBlock["tone"], string> = {
 };
 
 export const WeeklyDutyTimeline: Story = {
-  render: () => (
-    <div className="h-[640px] w-[1160px] bg-gray-50 p-6">
-      <TimelineGridFrame
-        ariaLabel="스토리북 타임라인"
-        className="h-full"
-        days={storyDays}
-        renderBlocks={(day) => <StoryBlocks day={day} />}
-        timeSlots={scheduleTimelineTimeSlots}
-      />
-    </div>
-  ),
+  render: () => {
+    const { dayLayouts } = parseTimelineBlocks({
+      blocks: storyBlocks,
+      days: storyDays,
+      layout: {
+        blockHeight: 46,
+        laneStride: 48,
+        topOffset: 1,
+        xInset: 1,
+      },
+      timeSlots: scheduleTimelineTimeSlots,
+    });
+    const rowHeightsByDayId = new Map(
+      dayLayouts.map((layout) => [
+        layout.day.id,
+        getTimelineRowHeight({ laneCount: layout.laneCount }),
+      ]),
+    );
+
+    return (
+      <div className="h-[640px] w-[1160px] bg-gray-50 p-6">
+        <TimelineGridFrame
+          ariaLabel="스토리북 타임라인"
+          className="h-full"
+          days={storyDays}
+          getRowHeight={(day) =>
+            rowHeightsByDayId.get(day.id) ?? timelineDefaultRowHeight
+          }
+          renderBlocks={(day) => (
+            <StoryBlocks
+              blocks={
+                dayLayouts.find((layout) => layout.day.id === day.id)?.blocks ??
+                []
+              }
+            />
+          )}
+          timeSlots={scheduleTimelineTimeSlots}
+        />
+      </div>
+    );
+  },
 };
 
-function StoryBlocks({ day }: { day: ScheduleTimelineDay }) {
-  const { dayLayouts } = parseTimelineBlocks({
-    blocks: storyBlocks,
-    days: storyDays,
-    layout: {
-      blockHeight: 46,
-      laneStride: 48,
-      topOffset: 1,
-      xInset: 1,
-    },
-    timeSlots: scheduleTimelineTimeSlots,
-  });
-  const blocks =
-    dayLayouts.find((layout) => layout.day.id === day.id)?.blocks ?? [];
-
+function StoryBlocks({ blocks }: { blocks: readonly ParsedTimelineBlock[] }) {
   return blocks.map(({ block, style }) => (
     <div
       aria-label={`${block.label} ${block.locationName}`}

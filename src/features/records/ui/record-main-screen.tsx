@@ -5,7 +5,11 @@ import { IconChevronLeft, IconChevronRight } from "@/shared/ui/icons";
 import { Input } from "@/shared/ui/input";
 import { OptionSelect, type SelectOption } from "@/shared/ui/select";
 import {
+  getTimelineBlockHeight,
+  getTimelineLaneCount,
+  getTimelineRowHeight,
   TimelineBlockText,
+  timelineDefaultRowHeight,
   TimelineGridFrame,
 } from "@/shared/ui/timeline-grid-frame";
 import { Textarea } from "@/shared/ui/textarea";
@@ -601,30 +605,49 @@ function RecordTimelineGrid({
   timeline: RecordTimelineFixture;
 }) {
   const selectedBlockIds = selectedBlockId ? new Set([selectedBlockId]) : new Set();
-  const dayLayouts = timeline.dayLabels.map((day) => ({
-    day,
-    positionedBlocks: layoutBlocks(
+  const dayLayouts = timeline.dayLabels.map((day) => {
+    const positionedBlocks = layoutBlocks(
       blocks.filter((block) => block.dayId === day.id),
-    ),
-  }));
+    );
+
+    return {
+      day,
+      laneCount: getTimelineLaneCount(positionedBlocks),
+      positionedBlocks,
+    };
+  });
+  const rowHeightsByDayId = new Map(
+    dayLayouts.map((layout) => [
+      layout.day.id,
+      getTimelineRowHeight({ laneCount: layout.laneCount }),
+    ]),
+  );
 
   return (
     <TimelineGridFrame
       ariaLabel="주간 근무기록"
       className="h-full"
       days={timeline.dayLabels}
-      renderBlocks={(day) =>
-        dayLayouts
-          .find(({ day: layoutDay }) => layoutDay.id === day.id)
-          ?.positionedBlocks.map((positionedBlock) => (
+      getRowHeight={(day) =>
+        rowHeightsByDayId.get(day.id) ?? timelineDefaultRowHeight
+      }
+      renderBlocks={(day) => {
+        const layout = dayLayouts.find(
+          ({ day: layoutDay }) => layoutDay.id === day.id,
+        );
+
+        return (
+          layout?.positionedBlocks.map((positionedBlock) => (
             <RecordTimelineBlockItem
+              laneCount={layout.laneCount}
               key={positionedBlock.block.id}
               onSelectBlock={onSelectBlock}
               positionedBlock={positionedBlock}
               selected={selectedBlockIds.has(positionedBlock.block.id)}
             />
           )) ?? null
-      }
+        );
+      }}
       testId="record-timeline-scroll"
       timeSlots={timeline.hourLabels}
     />
@@ -632,10 +655,12 @@ function RecordTimelineGrid({
 }
 
 function RecordTimelineBlockItem({
+  laneCount,
   onSelectBlock,
   positionedBlock,
   selected,
 }: {
+  laneCount: number;
   onSelectBlock: (block: RecordTimelineBlock) => void;
   positionedBlock: PositionedRecordBlock;
   selected: boolean;
@@ -643,7 +668,10 @@ function RecordTimelineBlockItem({
   const { block, lane } = positionedBlock;
   const selectedStateId = block.selectedStateId;
   const selectable = Boolean(selectedStateId);
-  const style = getBlockStyle(positionedBlock);
+  const style = {
+    ...getBlockStyle(positionedBlock),
+    height: getTimelineBlockHeight({ laneCount }),
+  };
   const blockClassName = cn(
     "absolute z-10 flex min-w-0 flex-col justify-center overflow-hidden rounded-[6px] border px-1.5 py-1 text-left tracking-normal transition-colors duration-150 ease-out",
     selected

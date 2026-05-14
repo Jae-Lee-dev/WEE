@@ -4,6 +4,7 @@ import type {
   ScheduleTimelineBlock,
   ScheduleTimelineDay,
 } from "../model/schedule-fixtures";
+import { getTimelineBlockHeight } from "./timeline-grid-frame";
 
 export type ParsedTimelineBlock = {
   block: ScheduleTimelineBlock;
@@ -20,6 +21,7 @@ export type ParsedTimelineBlock = {
 export type ParsedTimelineDay = {
   blocks: readonly ParsedTimelineBlock[];
   day: ScheduleTimelineDay;
+  laneCount: number;
 };
 
 export type ParsedTimelineBlocks = {
@@ -69,26 +71,37 @@ export function parseTimelineBlocks({
   )?.id;
 
   return {
-    dayLayouts: days.map((day) => ({
-      day,
-      blocks: layoutTimelineBlocks(
+    dayLayouts: days.map((day) => {
+      const positionedBlocks = layoutTimelineBlocks(
         blocks.filter((block) => block.dayId === day.id),
         columnMeta,
-      ).map((positionedBlock) => {
-        const workerContext = findTimelineWorkerContext(
-          positionedBlock.block,
-          workerContexts,
-        );
+      );
+      const laneCount = getTimelineLaneCount(positionedBlocks);
 
-        return {
-          ...positionedBlock,
-          firstSelectable: positionedBlock.block.id === firstSelectableBlockId,
-          selected: selectedBlockIdSet.has(positionedBlock.block.id),
-          style: getTimelineBlockStyle(positionedBlock, columnMeta, layout),
-          workerContext,
-        } satisfies ParsedTimelineBlock;
-      }),
-    })),
+      return {
+        day,
+        laneCount,
+        blocks: positionedBlocks.map((positionedBlock) => {
+          const workerContext = findTimelineWorkerContext(
+            positionedBlock.block,
+            workerContexts,
+          );
+
+          return {
+            ...positionedBlock,
+            firstSelectable: positionedBlock.block.id === firstSelectableBlockId,
+            selected: selectedBlockIdSet.has(positionedBlock.block.id),
+            style: getTimelineBlockStyle(
+              positionedBlock,
+              columnMeta,
+              layout,
+              laneCount,
+            ),
+            workerContext,
+          } satisfies ParsedTimelineBlock;
+        }),
+      };
+    }),
     firstSelectableBlockId,
   };
 }
@@ -149,6 +162,7 @@ function getTimelineBlockStyle(
   { lane, spanColumns, startColumn }: TimelinePositionedBlock,
   { columnCount }: TimelineColumnMeta,
   layout: TimelineBlockLayoutOptions = {},
+  laneCount: number,
 ): CSSProperties {
   const {
     blockHeight,
@@ -163,10 +177,18 @@ function getTimelineBlockStyle(
   };
 
   if (blockHeight !== undefined) {
-    style.height = blockHeight;
+    style.height = getTimelineBlockHeight({
+      blockHeight,
+      laneCount,
+      topOffset,
+    });
   }
 
   return style;
+}
+
+function getTimelineLaneCount(blocks: readonly TimelinePositionedBlock[]) {
+  return blocks.reduce((count, block) => Math.max(count, block.lane + 1), 0);
 }
 
 function findTimelineWorkerContext(

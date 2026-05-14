@@ -11,6 +11,7 @@ type TimelineGridFrameProps<TDay extends TimelineGridDay = TimelineGridDay> = {
   className?: string;
   dayColumnWidth?: number;
   days: readonly TDay[];
+  getRowHeight?: (day: TDay) => number;
   headerHeight?: number;
   minWidthClassName?: string;
   renderBlocks: (day: TDay) => ReactNode;
@@ -18,6 +19,9 @@ type TimelineGridFrameProps<TDay extends TimelineGridDay = TimelineGridDay> = {
   testId?: string;
   timeSlots: readonly string[];
 };
+
+export const timelineDefaultBlockHeight = 46;
+export const timelineDefaultRowHeight = 110;
 
 const sundayFirstDayOrder = [
   "sun",
@@ -34,6 +38,24 @@ const nextDayBoundaryMarkerStyle = {
     "linear-gradient(to right, var(--color-gray-100) 0, var(--color-gray-100) 1px, transparent 1px, transparent 2px, var(--color-gray-100) 2px, var(--color-gray-100) 3px)",
 } satisfies CSSProperties;
 
+type TimelineLaneBlock = {
+  lane: number;
+};
+
+type TimelineRowHeightOptions = {
+  blockHeight?: number;
+  laneCount: number;
+  minimumLaneCount?: number;
+  rowHeight?: number;
+};
+
+type TimelineBlockHeightOptions = {
+  blockHeight?: number;
+  laneCount: number;
+  rowHeight?: number;
+  topOffset?: number;
+};
+
 export function orderTimelineDaysSundayFirst<TDay extends TimelineGridDay>(
   days: readonly TDay[],
 ) {
@@ -48,15 +70,42 @@ export function orderTimelineDaysSundayFirst<TDay extends TimelineGridDay>(
   });
 }
 
+export function getTimelineLaneCount(blocks: readonly TimelineLaneBlock[]) {
+  return blocks.reduce((count, block) => Math.max(count, block.lane + 1), 0);
+}
+
+export function getTimelineRowHeight({
+  blockHeight = timelineDefaultBlockHeight,
+  laneCount,
+  minimumLaneCount = 2,
+  rowHeight = timelineDefaultRowHeight,
+}: TimelineRowHeightOptions) {
+  return rowHeight + Math.max(0, laneCount - minimumLaneCount) * blockHeight;
+}
+
+export function getTimelineBlockHeight({
+  blockHeight = timelineDefaultBlockHeight,
+  laneCount,
+  rowHeight = timelineDefaultRowHeight,
+  topOffset = 1,
+}: TimelineBlockHeightOptions) {
+  if (laneCount <= 1) {
+    return Math.max(blockHeight, rowHeight - topOffset * 2);
+  }
+
+  return blockHeight;
+}
+
 export function TimelineGridFrame<TDay extends TimelineGridDay>({
   ariaLabel,
   className,
   dayColumnWidth = 46,
   days,
+  getRowHeight,
   headerHeight = 45,
   minWidthClassName = "min-w-[1072px]",
   renderBlocks,
-  rowHeight = 110,
+  rowHeight = timelineDefaultRowHeight,
   testId,
   timeSlots,
 }: TimelineGridFrameProps<TDay>) {
@@ -121,6 +170,7 @@ export function TimelineGridFrame<TDay extends TimelineGridDay>({
 
           {days.map((day, dayIndex) => {
             const isLastDay = dayIndex === days.length - 1;
+            const resolvedRowHeight = getRowHeight?.(day) ?? rowHeight;
 
             return (
               <div className="contents" key={day.id}>
@@ -133,7 +183,7 @@ export function TimelineGridFrame<TDay extends TimelineGridDay>({
                   role="rowheader"
                   style={{
                     borderRightColor: emphasizedTimelineBoundaryColor,
-                    height: rowHeight,
+                    height: resolvedRowHeight,
                   }}
                 >
                   {day.label}
@@ -144,7 +194,7 @@ export function TimelineGridFrame<TDay extends TimelineGridDay>({
                     !isLastDay && "border-b border-gray-100",
                   )}
                   role="row"
-                  style={{ height: rowHeight }}
+                  style={{ height: resolvedRowHeight }}
                 >
                   <div
                     aria-hidden="true"
