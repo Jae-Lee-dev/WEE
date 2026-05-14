@@ -107,6 +107,11 @@ export const adminSections: AdminSection[] = [
     tabs: [
       { label: "근무 타임라인", href: "/records", screenId: "REC-01" },
       {
+        label: "추가근무 이력",
+        href: "/records/overtime-history",
+        screenId: "REC-05",
+      },
+      {
         label: "이상감지처리 이력",
         href: "/records/anomaly-history",
         screenId: "REC-02",
@@ -322,6 +327,13 @@ export const adminRouteRegistry: AdminRouteMeta[] = [
     figmaBacked: true,
     status: "figma-backed",
     authoritativeFrameId: "61:8549",
+  },
+  {
+    screenId: "REC-05",
+    href: "/records/overtime-history",
+    title: "추가근무 이력",
+    figmaBacked: false,
+    status: "detail-ready",
   },
   {
     screenId: "REC-03",
@@ -678,6 +690,24 @@ export const adminScreens: Record<string, AdminScreen> = {
       ["미퇴근", "박서연", "김민채", "알림 발송"],
       ["위치 이탈", "이민재", "김민채", "확인 중"],
       ["시간 중복", "최윤아", "오지후", "보정 완료"],
+    ],
+  },
+  "/records/overtime-history": {
+    href: "/records/overtime-history",
+    screenId: "REC-05",
+    title: "추가근무 이력",
+    description: "추가근무 신청의 접수, 검토, 급여 처리 상태를 봅니다.",
+    metrics: [
+      { label: "승인 대기", value: "1", unit: "건", tag: "현재", tone: "orange" },
+      { label: "승인", value: "4", unit: "건", tag: "30일" },
+      { label: "보류", value: "1", unit: "건", tag: "급여", tone: "blue" },
+    ],
+    tableTitle: "추가근무 신청",
+    tableColumns: ["신청자", "근무일", "시간", "상태"],
+    tableRows: [
+      ["김서연", "05.05", "21:00-21:30", "신청됨"],
+      ["이하은", "04.22", "18:00-18:30", "승인"],
+      ["박정훈", "05.02", "16:00-16:30", "반려"],
     ],
   },
   "/records/corrections": {

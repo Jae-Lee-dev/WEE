@@ -1398,7 +1398,7 @@ function getSegmentGridClassName(optionCount: number) {
 
 function getRecordActionConfirmTitle(action: RecordMainActionInput["action"]) {
   if (action === "approve-overtime") {
-    return "추가근무를 승인할까요?";
+    return "추가근무 신청을 승인할까요?";
   }
 
   if (action === "approve-correction") {
@@ -1453,11 +1453,11 @@ function getRecordActionSavedMessage(action: RecordMainActionInput["action"]) {
   }
 
   if (action === "approve-overtime") {
-    return "추가근무를 승인했습니다.";
+    return "추가근무 신청을 승인했습니다.";
   }
 
   if (action === "reject-overtime") {
-    return "추가근무를 반려했습니다.";
+    return "추가근무 신청을 반려했습니다.";
   }
 
   if (action === "delete") {

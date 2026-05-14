@@ -387,6 +387,8 @@ function createTargetHref(item: OperationalInboxItem) {
       return `/records/corrections${suffix}`;
     case "REC-04":
       return `/records/attendance${suffix}`;
+    case "REC-05":
+      return `/records/overtime-history${suffix}`;
     case "PAY-01":
       return `/payroll${suffix}`;
     case "PAY-02":

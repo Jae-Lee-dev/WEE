@@ -6,6 +6,7 @@ import {
 
 export type RecordsTabId =
   | "records"
+  | "overtime-history"
   | "anomaly-history"
   | "corrections"
   | "attendance";
@@ -223,6 +224,38 @@ export type CorrectionDetail = {
   noteText: string;
 };
 
+export type OvertimeHistoryStatus = "신청됨" | "승인" | "반려" | "철회";
+
+export type OvertimeHistoryRow = {
+  id: string;
+  submittedAt: string;
+  workerName: string;
+  recordName: string;
+  time: string;
+  status: OvertimeHistoryStatus;
+  payrollResult: string;
+  detailButtonLabel: string;
+};
+
+export type OvertimeHistoryDetail = {
+  id: string;
+  badges: readonly {
+    label: string;
+    tone: RecordsTone;
+  }[];
+  title: string;
+  subtitle: string;
+  reasonTitle: string;
+  reasonText: string;
+  requestTitle: string;
+  requestLines: readonly RecordDetailLine[];
+  attendanceTitle: string;
+  attendanceLines: readonly RecordDetailLine[];
+  resultTitle: string;
+  resultLines: readonly RecordDetailLine[];
+  noteText: string;
+};
+
 export type AttendanceLogStatus = "정상" | "이상";
 
 export type AttendanceLogRow = {
@@ -264,6 +297,14 @@ export type CorrectionHistoryViewModel = {
   rows: readonly CorrectionRow[];
 };
 
+export type OvertimeHistoryViewModel = {
+  details: Record<string, OvertimeHistoryDetail>;
+  emptyDetailText: readonly string[];
+  filters: Record<string, readonly RecordsFilterOption[]>;
+  metrics: readonly RecordsMetricCard[];
+  rows: readonly OvertimeHistoryRow[];
+};
+
 export type AttendanceLogViewModel = {
   columns: readonly RecordsTableColumn[];
   filters: readonly RecordsFilterOption[];
@@ -276,6 +317,11 @@ export const recordsTabs = [
     label: "근무 기록",
     count: "6",
     href: "/records",
+  },
+  {
+    id: "overtime-history",
+    label: "추가근무 이력",
+    href: "/records/overtime-history",
   },
   {
     id: "anomaly-history",
@@ -337,13 +383,13 @@ export const recordTimelineFixture = {
       { id: "all", label: "상태 (전체)", selected: true },
       { id: "normal", label: "정상" },
       { id: "anomaly", label: "이상 플래그" },
-      { id: "overtime", label: "추가근무" },
+      { id: "overtime", label: "추가근무 신청" },
       { id: "correction", label: "이의 신청" },
     ],
     type: [
       { id: "all", label: "전체", selected: true },
       { id: "anomaly", label: "이상 플래그" },
-      { id: "overtime", label: "추가근무" },
+      { id: "overtime", label: "추가근무 신청" },
       { id: "correction", label: "이의 신청" },
     ],
   },
@@ -609,7 +655,7 @@ const overtimeRecordDetailStates = {
       { id: "reject-overtime", label: "반려" },
     ],
     lineSections: overtimeLineSections(),
-    statusLabel: "추가근무",
+    statusLabel: "추가근무 신청",
     statusTone: "blue",
     title: "강태우 · 화학 G반",
   },
@@ -649,7 +695,7 @@ const overtimeRecordDetailStates = {
       label: "처리 메모",
       placeholder: "처리 메모를 입력하세요",
     },
-    statusLabel: "추가근무",
+    statusLabel: "추가근무 신청",
     statusTone: "blue",
     submitAction: "approve-overtime",
     title: "강태우 · 화학 G반",
@@ -667,7 +713,7 @@ const overtimeRecordDetailStates = {
       label: "반려 사유",
       placeholder: "반려 사유를 입력하세요",
     },
-    statusLabel: "추가근무",
+    statusLabel: "추가근무 신청",
     statusTone: "blue",
     submitAction: "reject-overtime",
     title: "강태우 · 화학 G반",
@@ -866,6 +912,144 @@ export const correctionHistoryFixtureViewModel = {
   rows: correctionRows,
 } as const satisfies CorrectionHistoryViewModel;
 
+export const overtimeHistoryFilters = {
+  location: [
+    { id: "all", label: "조교 (전체)", selected: true },
+    { id: "kim-seoyeon", label: "김서연" },
+    { id: "lee-haeun", label: "이하은" },
+    { id: "park-junghoon", label: "박정훈" },
+  ],
+  status: [
+    { id: "all", label: "상태 (전체)", selected: true },
+    { id: "submitted", label: "신청됨" },
+    { id: "approved", label: "승인" },
+    { id: "rejected", label: "반려" },
+    { id: "withdrawn", label: "철회" },
+  ],
+  period: [
+    { id: "recent-30", label: "최근 30일", selected: true },
+    { id: "this-month", label: "이번 달" },
+    { id: "last-month", label: "지난 달" },
+  ],
+  payroll: [
+    { id: "all", label: "급여 상태 (전체)", selected: true },
+    { id: "confirmed", label: "확정" },
+    { id: "held", label: "보류" },
+    { id: "none", label: "급여 제외" },
+    { id: "pending", label: "미정" },
+  ],
+} as const satisfies Record<string, readonly RecordsFilterOption[]>;
+
+export const overtimeHistoryMetrics = [
+  { id: "submitted", label: "총 신청", value: "7건", tone: "green" },
+  { id: "pending", label: "승인 대기", value: "1건", tone: "orange" },
+  { id: "approved", label: "승인", value: "4건", tone: "green" },
+  {
+    id: "rejected-or-withdrawn",
+    label: "반려/철회",
+    value: "2건",
+    tone: "pink",
+  },
+] as const satisfies readonly RecordsMetricCard[];
+
+export const overtimeHistoryColumns = [
+  { id: "submittedAt", label: "신청일" },
+  { id: "workerName", label: "조교" },
+  { id: "recordName", label: "근무 명" },
+  { id: "time", label: "시간" },
+  { id: "status", label: "상태" },
+  { id: "payrollResult", label: "급여" },
+  { id: "actions", label: "기타" },
+] as const satisfies readonly RecordsTableColumn[];
+
+export const overtimeHistoryRows = [
+  overtimeHistoryRow(
+    "overtime-kim-seoyeon-0505-submitted",
+    "김서연",
+    "자습실 감독",
+    "21:00 - 21:30",
+    "신청됨",
+    "미정",
+  ),
+  overtimeHistoryRow(
+    "overtime-lee-haeun-0422-approved",
+    "이하은",
+    "행정 지원",
+    "18:00 - 18:30",
+    "승인",
+    "확정",
+  ),
+  overtimeHistoryRow(
+    "overtime-park-junghoon-0502-rejected",
+    "박정훈",
+    "시험 채점",
+    "16:00 - 16:30",
+    "반려",
+    "급여 제외",
+  ),
+  overtimeHistoryRow(
+    "overtime-choi-yujin-0418-withdrawn",
+    "최유진",
+    "모의고사 감독",
+    "19:00 - 19:30",
+    "철회",
+    "급여 제외",
+  ),
+  overtimeHistoryRow(
+    "overtime-jung-hajun-0429-held",
+    "정하준",
+    "야간 질의응답",
+    "22:00 - 22:30",
+    "승인",
+    "보류",
+  ),
+] as const satisfies readonly OvertimeHistoryRow[];
+
+export const selectedOvertimeHistoryDetail = {
+  id: "overtime-kim-seoyeon-0505-submitted",
+  badges: [
+    { label: "신청됨", tone: "orange" },
+    { label: "급여 미정", tone: "grey" },
+  ],
+  title: "김서연 · 자습실 감독",
+  subtitle: "2026.05.05 추가근무 신청",
+  reasonTitle: "조교 사유",
+  reasonText: "학생 질문 응대가 수업 종료 이후 30분 연장되었습니다.",
+  requestTitle: "신청 내용",
+  requestLines: [
+    detailLine("submitted-at", "신청일", "05.05 21:20"),
+    detailLine("overtime-start", "추가근무 시작", "21:00"),
+    detailLine("overtime-end", "추가근무 종료", "21:30"),
+    detailLine("linked-record", "연결 근무", "자습실 감독"),
+  ],
+  attendanceTitle: "연결 출퇴근",
+  attendanceLines: [
+    detailLine("work-start", "근무 시작", "19:00"),
+    detailLine("work-end", "근무 종료", "21:00"),
+    detailLine("check-in", "출근", "18:55"),
+    detailLine("check-out", "퇴근", "21:32"),
+    detailLine("location", "근무지", "대치 A 학원"),
+  ],
+  resultTitle: "처리 결과",
+  resultLines: [
+    detailLine("status", "처리 상태", "승인 대기", "orange"),
+    detailLine("payroll", "급여 상태", "미정"),
+    detailLine("pay-mode", "지급 방식", "미정"),
+    detailLine("amount", "지급액", "-"),
+  ],
+  noteText: "관리자 승인 또는 반려 전까지 급여 산정에는 반영되지 않습니다.",
+} as const satisfies OvertimeHistoryDetail;
+
+export const overtimeHistoryFixtureViewModel = {
+  details: {
+    [selectedOvertimeHistoryDetail.id]: selectedOvertimeHistoryDetail,
+  },
+  emptyDetailText: ["왼쪽 리스트에서", "추가근무 이력을 선택하세요."],
+  filters: overtimeHistoryFilters,
+  metrics: overtimeHistoryMetrics,
+  rows: overtimeHistoryRows,
+} as const satisfies OvertimeHistoryViewModel;
+
 export const attendanceLogFilters = [
   { id: "all", label: "전체 로그 (20)", selected: true },
   { id: "anomaly", label: "이상 표시 (4)" },
@@ -1012,6 +1196,26 @@ function correctionRow(id: string, status: CorrectionStatus): CorrectionRow {
     result: "시작 시간 10분 소급",
     payrollResult: "즉시",
     detailButtonLabel: "상세보기",
+  };
+}
+
+function overtimeHistoryRow(
+  id: string,
+  workerName: string,
+  recordName: string,
+  time: string,
+  status: OvertimeHistoryStatus,
+  payrollResult: string,
+): OvertimeHistoryRow {
+  return {
+    id,
+    detailButtonLabel: "상세보기",
+    payrollResult,
+    recordName,
+    status,
+    submittedAt: "05.05 21:20",
+    time,
+    workerName,
   };
 }
 

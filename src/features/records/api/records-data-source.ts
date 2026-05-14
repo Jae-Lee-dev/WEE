@@ -24,6 +24,7 @@ import {
   anomalyHistoryFixtureViewModel,
   attendanceLogFixtureViewModel,
   correctionHistoryFixtureViewModel,
+  overtimeHistoryFixtureViewModel,
   recordMainFixtureViewModel,
   type AnomalyHistoryDetail,
   type AnomalyHistoryRow,
@@ -36,6 +37,10 @@ import {
   type CorrectionHistoryViewModel,
   type CorrectionRow,
   type CorrectionStatus,
+  type OvertimeHistoryDetail,
+  type OvertimeHistoryRow,
+  type OvertimeHistoryStatus,
+  type OvertimeHistoryViewModel,
   type RecordDetailAction,
   type RecordDetailLine,
   type RecordDetailLineSection,
@@ -62,6 +67,7 @@ export type RecordsDataSource = {
   getAttendanceLogs: () => Promise<AttendanceLogViewModel>;
   getCorrections: () => Promise<CorrectionHistoryViewModel>;
   getMainRecords: () => Promise<RecordMainViewModel>;
+  getOvertimeHistory: () => Promise<OvertimeHistoryViewModel>;
 };
 
 type PayrollEffect = "none" | "hold" | "immediate";
@@ -156,16 +162,22 @@ type CorrectionRequestModel = {
 
 type OvertimeWorkModel = {
   amount: number | null;
+  approvedAt: Date | null;
+  attendanceLogId: string | null;
   createdAt: Date | null;
+  decidedAt: Date | null;
   extraEndAt: Date | null;
   extraStartAt: Date | null;
   id: string;
+  managerNote: string;
   monthKey: string;
   payrollEffect: string;
   payrollPayMode: string;
   payrollStatus: string;
   reason: string;
+  rejectedReason: string;
   status: string;
+  submittedAt: Date | null;
   workRecordId: string | null;
   workerId: string;
   workerName: string;
@@ -232,6 +244,9 @@ function createFixtureRecordsDataSource(): RecordsDataSource {
     },
     async getMainRecords() {
       return recordMainFixtureViewModel;
+    },
+    async getOvertimeHistory() {
+      return overtimeHistoryFixtureViewModel;
     },
   };
 }
@@ -399,6 +414,9 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
     },
     async getMainRecords() {
       return mapRecordMainView(await loadRecordsCollections());
+    },
+    async getOvertimeHistory() {
+      return mapOvertimeHistoryView(await loadRecordsCollections());
     },
   };
 }
@@ -1647,6 +1665,54 @@ function mapCorrectionHistoryView(
   };
 }
 
+function mapOvertimeHistoryView(
+  collections: RecordsCollections,
+): OvertimeHistoryViewModel {
+  const recordsById = toMap(
+    collections.workRecords.map(mapWorkRecord),
+    (record) => record.id,
+  );
+  const attendanceById = toMap(
+    collections.attendanceLogs.map(mapAttendanceLog),
+    (log) => log.id,
+  );
+  const overtimeWorks = collections.overtimeWorks
+    .map(mapOvertimeWork)
+    .sort((first, second) => {
+      return (
+        getSortTime(second.submittedAt ?? second.createdAt) -
+        getSortTime(first.submittedAt ?? first.createdAt)
+      );
+    });
+  const rows = overtimeWorks.map((work) =>
+    mapOvertimeHistoryRow(
+      work,
+      work.workRecordId ? (recordsById.get(work.workRecordId) ?? null) : null,
+    ),
+  );
+
+  return {
+    details: Object.fromEntries(
+      overtimeWorks.map((work) => {
+        const record = work.workRecordId
+          ? (recordsById.get(work.workRecordId) ?? null)
+          : null;
+        const attendanceId = work.attendanceLogId ?? record?.attendanceLogId;
+        const attendance = attendanceId
+          ? (attendanceById.get(attendanceId) ?? null)
+          : null;
+        const detail = mapOvertimeHistoryDetail(work, record, attendance);
+
+        return [detail.id, detail];
+      }),
+    ),
+    emptyDetailText: ["왼쪽 리스트에서", "추가근무 이력을 선택하세요."],
+    filters: createOvertimeHistoryFilters(rows),
+    metrics: createOvertimeHistoryMetrics(rows),
+    rows,
+  };
+}
+
 function mapAttendanceLogView(
   collections: RecordsCollections,
 ): AttendanceLogViewModel {
@@ -1758,16 +1824,22 @@ function mapOvertimeWork(document: FirestoreDocument): OvertimeWorkModel {
   return {
     amount:
       readNullableNumber(data.amount) ?? readNullableNumber(data.fixedAmount),
+    approvedAt: readDate(data.approvedAt),
+    attendanceLogId: readNullableString(data.attendanceLogId),
     createdAt: readDate(data.createdAt),
+    decidedAt: readDate(data.decidedAt),
     extraEndAt: readDate(data.extraEndAt),
     extraStartAt: readDate(data.extraStartAt),
     id: document.id,
+    managerNote: readString(data.managerNote, ""),
     monthKey: readString(data.monthKey, ""),
     payrollEffect: readString(data.payrollEffect, "none"),
     payrollPayMode: readString(data.payrollPayMode, ""),
     payrollStatus: readString(data.payrollStatus, "none"),
     reason: readString(data.reason, "사유가 등록되지 않았습니다."),
+    rejectedReason: readString(data.rejectedReason, ""),
     status: readString(data.status, "submitted"),
+    submittedAt: readDate(data.submittedAt),
     workRecordId: readNullableString(data.workRecordId),
     workerId: readString(data.workerId, ""),
     workerName: readString(data.workerName, "이름 없는 조교"),
@@ -2158,7 +2230,7 @@ function createOvertimeDetailStates(
       attendance,
       overtime,
     ),
-    statusLabel: "추가근무",
+    statusLabel: "추가근무 신청",
     statusTone: "blue" as const,
   };
 
@@ -2523,6 +2595,101 @@ function mapCorrectionDetail(
   };
 }
 
+function mapOvertimeHistoryRow(
+  work: OvertimeWorkModel,
+  record: WorkRecordModel | null,
+): OvertimeHistoryRow {
+  return {
+    detailButtonLabel: "상세보기",
+    id: work.id,
+    payrollResult: getOvertimeHistoryPayrollLabel(work),
+    recordName: record?.dutyName ?? "추가근무 신청",
+    status: getOvertimeHistoryStatus(work.status),
+    submittedAt: formatShortDateTime(work.submittedAt ?? work.createdAt),
+    time: formatTimeRange(work.extraStartAt, work.extraEndAt),
+    workerName: record?.workerName ?? work.workerName,
+  };
+}
+
+function mapOvertimeHistoryDetail(
+  work: OvertimeWorkModel,
+  record: WorkRecordModel | null,
+  attendance: AttendanceLogModel | null,
+): OvertimeHistoryDetail {
+  const status = getOvertimeHistoryStatus(work.status);
+  const payrollLabel = getOvertimeHistoryPayrollLabel(work);
+  const dateKey =
+    record?.dateKey ??
+    (work.extraStartAt ? formatDateKey(work.extraStartAt) : work.monthKey);
+
+  return {
+    attendanceLines: [
+      detailLine(
+        "work-start",
+        "근무 시작",
+        formatTime(record ? getRecordWorkStartAt(record) : null),
+      ),
+      detailLine(
+        "work-end",
+        "근무 종료",
+        formatTime(record ? getRecordWorkEndAt(record) : null),
+      ),
+      detailLine("check-in", "출근", formatTime(attendance?.checkInAt)),
+      detailLine("check-out", "퇴근", formatTime(attendance?.checkOutAt)),
+      detailLine(
+        "location",
+        "근무지",
+        record?.locationName ?? attendance?.locationName ?? "-",
+      ),
+    ],
+    attendanceTitle: "연결 출퇴근",
+    badges: [
+      { label: status, tone: getOvertimeHistoryStatusTone(status) },
+      { label: payrollLabel, tone: getOvertimeHistoryPayrollTone(payrollLabel) },
+    ],
+    id: work.id,
+    noteText: getOvertimeHistoryNoteText(work, status),
+    reasonText: work.reason,
+    reasonTitle: "조교 사유",
+    requestLines: [
+      detailLine(
+        "submitted-at",
+        "신청일",
+        formatShortDateTime(work.submittedAt ?? work.createdAt),
+      ),
+      detailLine(
+        "overtime-start",
+        "추가근무 시작",
+        formatTime(work.extraStartAt),
+      ),
+      detailLine("overtime-end", "추가근무 종료", formatTime(work.extraEndAt)),
+      detailLine("linked-record", "연결 근무", record?.dutyName ?? "-"),
+    ],
+    requestTitle: "신청 내용",
+    resultLines: [
+      detailLine(
+        "status",
+        "처리 상태",
+        status,
+        getOvertimeHistoryStatusTone(status),
+      ),
+      detailLine("payroll", "급여 상태", payrollLabel),
+      detailLine("pay-mode", "지급 방식", getOvertimePayModeLabel(work)),
+      detailLine("amount", "지급액", getOvertimeAmountLabel(work)),
+      detailLine(
+        "decided-at",
+        "처리 시각",
+        formatShortDateTime(work.decidedAt ?? work.approvedAt),
+      ),
+    ],
+    resultTitle: "처리 결과",
+    subtitle: `${formatRecordDate(dateKey)} 추가근무 신청`,
+    title: `${record?.workerName ?? work.workerName} · ${
+      record?.dutyName ?? "추가근무 신청"
+    }`,
+  };
+}
+
 function mapAttendanceLogRow(log: AttendanceLogModel): AttendanceLogRow {
   return {
     checkIn: formatTime(log.checkInAt),
@@ -2574,6 +2741,17 @@ function createCorrectionFilters(
           }
         : option,
     ),
+  };
+}
+
+function createOvertimeHistoryFilters(
+  rows: readonly OvertimeHistoryRow[],
+): Record<string, readonly RecordsFilterOption[]> {
+  return {
+    location: createWorkerFilterOptions(rows.map((row) => row.workerName)),
+    period: overtimeHistoryFixtureViewModel.filters.period,
+    payroll: overtimeHistoryFixtureViewModel.filters.payroll,
+    status: overtimeHistoryFixtureViewModel.filters.status,
   };
 }
 
@@ -2640,6 +2818,43 @@ function createCorrectionMetrics(
     {
       id: "pending",
       label: "처리 대기",
+      value: `${pendingCount}건`,
+      tone: "orange",
+    },
+    {
+      id: "approved",
+      label: "승인",
+      value: `${approvedCount}건`,
+      tone: "green",
+    },
+    {
+      id: "rejected-or-withdrawn",
+      label: "반려/철회",
+      value: `${rejectedOrWithdrawnCount}건`,
+      tone: "pink",
+    },
+  ];
+}
+
+function createOvertimeHistoryMetrics(
+  rows: readonly OvertimeHistoryRow[],
+): readonly RecordsMetricCard[] {
+  const pendingCount = rows.filter((row) => row.status === "신청됨").length;
+  const approvedCount = rows.filter((row) => row.status === "승인").length;
+  const rejectedOrWithdrawnCount = rows.filter(
+    (row) => row.status === "반려" || row.status === "철회",
+  ).length;
+
+  return [
+    {
+      id: "submitted",
+      label: "총 신청",
+      value: `${rows.length}건`,
+      tone: "green",
+    },
+    {
+      id: "pending",
+      label: "승인 대기",
       value: `${pendingCount}건`,
       tone: "orange",
     },
@@ -2783,6 +2998,144 @@ function getCorrectionStatusTone(status: CorrectionStatus): RecordsTone {
   }
 
   return "pink";
+}
+
+function getOvertimeHistoryStatus(status: string): OvertimeHistoryStatus {
+  if (status === "approved") {
+    return "승인";
+  }
+
+  if (status === "rejected") {
+    return "반려";
+  }
+
+  if (status === "withdrawn") {
+    return "철회";
+  }
+
+  return "신청됨";
+}
+
+function getOvertimeHistoryStatusTone(
+  status: OvertimeHistoryStatus,
+): RecordsTone {
+  if (status === "승인") {
+    return "green";
+  }
+
+  if (status === "신청됨") {
+    return "orange";
+  }
+
+  if (status === "철회") {
+    return "grey";
+  }
+
+  return "pink";
+}
+
+function getOvertimeHistoryPayrollLabel(work: OvertimeWorkModel) {
+  if (work.status === "submitted") {
+    return "미정";
+  }
+
+  if (work.status === "rejected" || work.status === "withdrawn") {
+    return "급여 제외";
+  }
+
+  if (
+    work.payrollStatus === "confirmed" ||
+    work.payrollEffect === "confirmed" ||
+    work.payrollEffect === "immediate" ||
+    work.payrollEffect === "applied"
+  ) {
+    return "확정";
+  }
+
+  if (
+    work.payrollStatus === "held" ||
+    work.payrollEffect === "held" ||
+    work.payrollEffect === "hold"
+  ) {
+    return "보류";
+  }
+
+  if (
+    work.payrollStatus === "none" ||
+    work.payrollEffect === "none" ||
+    work.payrollEffect === "excluded"
+  ) {
+    return "급여 제외";
+  }
+
+  return getPayrollEffectLabel(work.payrollEffect || work.payrollStatus);
+}
+
+function getOvertimeHistoryPayrollTone(label: string): RecordsTone {
+  if (label === "확정") {
+    return "green";
+  }
+
+  if (label === "보류" || label === "미정") {
+    return "orange";
+  }
+
+  if (label === "급여 제외") {
+    return "grey";
+  }
+
+  return "grey";
+}
+
+function getOvertimePayModeLabel(work: OvertimeWorkModel) {
+  if (work.status === "submitted") {
+    return "미정";
+  }
+
+  if (work.payrollPayMode === "hourly") {
+    return "시급 처리";
+  }
+
+  if (work.payrollPayMode === "fixed") {
+    return "고정급 지급";
+  }
+
+  return "-";
+}
+
+function getOvertimeAmountLabel(work: OvertimeWorkModel) {
+  if (work.payrollPayMode === "hourly") {
+    return "시급 기준 산정";
+  }
+
+  if (work.amount == null) {
+    return "-";
+  }
+
+  return `₩${Math.round(work.amount).toLocaleString("ko-KR")}`;
+}
+
+function getOvertimeHistoryNoteText(
+  work: OvertimeWorkModel,
+  status: OvertimeHistoryStatus,
+) {
+  if (work.managerNote) {
+    return work.managerNote;
+  }
+
+  if (work.rejectedReason) {
+    return work.rejectedReason;
+  }
+
+  if (status === "신청됨") {
+    return "관리자 승인 또는 반려 전까지 급여 산정에는 반영되지 않습니다.";
+  }
+
+  if (status === "철회") {
+    return "조교가 추가근무 신청을 철회했습니다.";
+  }
+
+  return "처리 메모가 등록되지 않았습니다.";
 }
 
 function getAttendanceLogStatus(log: AttendanceLogModel): AttendanceLogStatus {
@@ -3098,6 +3451,13 @@ function formatTime(date: Date | null | undefined) {
   }
 
   return `${date.getHours()}:${pad2(date.getMinutes())}`;
+}
+
+function formatTimeRange(
+  start: Date | null | undefined,
+  end: Date | null | undefined,
+) {
+  return `${formatTime(start)} - ${formatTime(end)}`;
 }
 
 function formatKoreanTime(date: Date | null | undefined) {

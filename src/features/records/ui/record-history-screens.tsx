@@ -20,12 +20,17 @@ import {
   anomalyHistoryFixtureViewModel,
   correctionColumns,
   correctionHistoryFixtureViewModel,
+  overtimeHistoryColumns,
+  overtimeHistoryFixtureViewModel,
   type AnomalyHistoryDetail,
   type AnomalyHistoryRow,
   type AnomalyHistoryViewModel,
   type CorrectionDetail,
   type CorrectionHistoryViewModel,
   type CorrectionRow,
+  type OvertimeHistoryDetail,
+  type OvertimeHistoryRow,
+  type OvertimeHistoryViewModel,
   type RecordsFilterOption,
   type RecordsMetricCard,
   type RecordsTableColumn,
@@ -193,6 +198,80 @@ export function RecordCorrectionsScreen({
       right={
         selectedDetail ? (
           <CorrectionDetailPanel detail={selectedDetail} />
+        ) : (
+          <EmptyDetailPanel lines={viewModel.emptyDetailText} />
+        )
+      }
+    />
+  );
+}
+
+export function RecordOvertimeHistoryScreen({
+  dataSource: dataSourceProp,
+}: {
+  dataSource?: RecordsDataSource;
+} = {}) {
+  const fixtureMode = shouldUseRecordsFixtureDataSource();
+  const fallbackDataSource = useMemo(() => createRecordsDataSource(), []);
+  const dataSource = dataSourceProp ?? fallbackDataSource;
+  const [viewModel, setViewModel] = useState<OvertimeHistoryViewModel>(
+    fixtureMode ? overtimeHistoryFixtureViewModel : createEmptyOvertimeHistory(),
+  );
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(!fixtureMode);
+  const [errorMessage, setErrorMessage] = useState("");
+  const selectedDetail = selectedId ? viewModel.details[selectedId] : undefined;
+
+  useEffect(() => {
+    let active = true;
+
+    void dataSource
+      .getOvertimeHistory()
+      .then((nextViewModel) => {
+        if (!active) {
+          return;
+        }
+
+        setViewModel(nextViewModel);
+        setSelectedId(null);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setViewModel(createEmptyOvertimeHistory());
+        setSelectedId(null);
+        setErrorMessage("추가근무 이력을 불러오지 못했습니다.");
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [dataSource]);
+
+  return (
+    <HistoryScreenShell
+      screenTestId="record-overtime-history-screen"
+      errorMessage={errorMessage}
+      filters={viewModel.filters}
+      loading={loading}
+      loadingMessage="추가근무 이력을 불러오는 중입니다."
+      metrics={viewModel.metrics}
+      left={
+        <OvertimeHistoryTable
+          rows={viewModel.rows}
+          selectedId={selectedId}
+          onToggleSelected={(rowId) =>
+            setSelectedId((current) => (current === rowId ? null : rowId))
+          }
+        />
+      }
+      right={
+        selectedDetail ? (
+          <OvertimeHistoryDetailPanel detail={selectedDetail} />
         ) : (
           <EmptyDetailPanel lines={viewModel.emptyDetailText} />
         )
@@ -457,6 +536,82 @@ function CorrectionTableRow({
   );
 }
 
+function OvertimeHistoryTable({
+  onToggleSelected,
+  rows,
+  selectedId,
+}: {
+  onToggleSelected: (rowId: string) => void;
+  rows: readonly OvertimeHistoryRow[];
+  selectedId: string | null;
+}) {
+  return (
+    <HistoryTableFrame
+      columns={overtimeHistoryColumns}
+      empty={rows.length === 0}
+      headerGrid="grid-cols-[13%_13%_15%_17%_11%_13%_1fr]"
+    >
+      {rows.map((row, index) => (
+        <OvertimeHistoryTableRow
+          key={row.id}
+          row={row}
+          selected={selectedId === row.id}
+          onToggleSelected={() => onToggleSelected(row.id)}
+          testId={
+            index === 0 ? "record-overtime-history-first-detail" : undefined
+          }
+        />
+      ))}
+    </HistoryTableFrame>
+  );
+}
+
+function OvertimeHistoryTableRow({
+  row,
+  selected,
+  onToggleSelected,
+  testId,
+}: {
+  row: OvertimeHistoryRow;
+  selected: boolean;
+  onToggleSelected: () => void;
+  testId?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "grid min-h-11 grid-cols-[13%_13%_15%_17%_11%_13%_1fr] items-center border-b border-gray-100 px-4 text-h-18-regular tracking-normal text-gray-900 last:border-b-0",
+        selected && "bg-green-50",
+      )}
+    >
+      <TableCell>{row.submittedAt}</TableCell>
+      <TableCell>{row.workerName}</TableCell>
+      <TableCell>{row.recordName}</TableCell>
+      <TableCell>{row.time}</TableCell>
+      <div>
+        <StatusBadge
+          label={row.status}
+          tone={getOvertimeStatusTone(row.status)}
+        />
+      </div>
+      <div>
+        <StatusBadge
+          label={row.payrollResult}
+          tone={getOvertimePayrollTone(row.payrollResult)}
+        />
+      </div>
+      <div className="flex justify-end">
+        <DetailToggleButton
+          selected={selected}
+          testId={testId}
+          onClick={onToggleSelected}
+          label={row.detailButtonLabel}
+        />
+      </div>
+    </div>
+  );
+}
+
 function HistoryTableFrame({
   columns,
   empty,
@@ -531,6 +686,36 @@ function StatusBadge({ label, tone }: { label: string; tone: RecordsTone }) {
   );
 }
 
+function getOvertimeStatusTone(
+  status: OvertimeHistoryRow["status"],
+): RecordsTone {
+  if (status === "승인") {
+    return "green";
+  }
+
+  if (status === "신청됨") {
+    return "orange";
+  }
+
+  if (status === "철회") {
+    return "grey";
+  }
+
+  return "pink";
+}
+
+function getOvertimePayrollTone(label: string): RecordsTone {
+  if (label === "확정") {
+    return "green";
+  }
+
+  if (label === "보류" || label === "미정") {
+    return "orange";
+  }
+
+  return "grey";
+}
+
 function TableCell({ children }: { children: ReactNode }) {
   return <div className="min-w-0 truncate">{children}</div>;
 }
@@ -580,6 +765,25 @@ function createEmptyCorrections(): CorrectionHistoryViewModel {
   };
 }
 
+function createEmptyOvertimeHistory(): OvertimeHistoryViewModel {
+  return {
+    ...overtimeHistoryFixtureViewModel,
+    details: {},
+    metrics: [
+      { id: "submitted", label: "총 신청", value: "0건", tone: "green" },
+      { id: "pending", label: "승인 대기", value: "0건", tone: "orange" },
+      { id: "approved", label: "승인", value: "0건", tone: "green" },
+      {
+        id: "rejected-or-withdrawn",
+        label: "반려/철회",
+        value: "0건",
+        tone: "pink",
+      },
+    ],
+    rows: [],
+  };
+}
+
 function AnomalyHistoryDetailPanel({
   detail,
 }: {
@@ -597,6 +801,38 @@ function AnomalyHistoryDetailPanel({
       <DetailSection title={detail.infoTitle}>
         <DetailLineBox lines={detail.infoLines} />
       </DetailSection>
+    </DetailPanel>
+  );
+}
+
+function OvertimeHistoryDetailPanel({
+  detail,
+}: {
+  detail: OvertimeHistoryDetail;
+}) {
+  return (
+    <DetailPanel testId="record-overtime-history-selected-detail">
+      <DetailTitle detail={detail} />
+      <div className="rounded-[8px] border border-gray-200 px-4 py-4">
+        <div className="text-detail-16-semibold tracking-normal text-green-400">
+          {detail.reasonTitle}
+        </div>
+        <p className="mt-3 text-h-18-regular leading-[22px] tracking-normal text-gray-900">
+          {detail.reasonText}
+        </p>
+      </div>
+      <DetailSection title={detail.requestTitle}>
+        <DetailLineBox lines={detail.requestLines} />
+      </DetailSection>
+      <DetailSection title={detail.attendanceTitle}>
+        <DetailLineBox lines={detail.attendanceLines} />
+      </DetailSection>
+      <DetailSection title={detail.resultTitle}>
+        <DetailLineBox lines={detail.resultLines} />
+      </DetailSection>
+      <div className="rounded-[8px] bg-green-50 px-4 py-4 text-body-16-regular leading-[22px] tracking-normal text-green-400">
+        {detail.noteText}
+      </div>
     </DetailPanel>
   );
 }
@@ -635,7 +871,7 @@ function DetailPanel({
 }) {
   return (
     <div
-      className="flex h-full min-h-[560px] flex-col gap-4 px-4 py-4"
+      className="flex h-full min-h-[560px] flex-col gap-4 overflow-y-auto px-4 py-4"
       data-testid={testId}
     >
       {children}

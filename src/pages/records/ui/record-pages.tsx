@@ -3,6 +3,7 @@ import {
   RecordAttendanceScreen,
   RecordCorrectionsScreen,
   RecordMainScreen,
+  RecordOvertimeHistoryScreen,
 } from "@/features/records";
 
 export type RecordsPageSearchParams = {
@@ -30,6 +31,10 @@ export function RecordAttendancePage() {
 
 export function RecordCorrectionsPage() {
   return <RecordCorrectionsScreen />;
+}
+
+export function RecordOvertimeHistoryPage() {
+  return <RecordOvertimeHistoryScreen />;
 }
 
 export function RecordAnomalyHistoryPage() {
