@@ -1066,6 +1066,19 @@ function SelectedDetail({
             </div>
           ) : null}
 
+          {state.noteText ? (
+            <section className={cn(state.alertText ? "mt-5" : "mt-6")}>
+              {state.noteTitle ? (
+                <h3 className="text-h-16-semibold tracking-normal text-gray-900">
+                  {state.noteTitle}
+                </h3>
+              ) : null}
+              <p className="mt-2 whitespace-pre-wrap text-body-16-regular leading-[1.55] tracking-normal text-gray-700">
+                {state.noteText}
+              </p>
+            </section>
+          ) : null}
+
           {state.actions ? (
             <div className={cn("flex items-center gap-3", compactForm ? "mt-4" : "mt-5")}>
               {state.actions.map((action) => (

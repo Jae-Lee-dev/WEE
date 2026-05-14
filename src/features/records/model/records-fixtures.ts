@@ -132,6 +132,8 @@ export type RecordDetailState = {
   lineSections?: readonly RecordDetailLineSection[];
   lines?: readonly RecordDetailLine[];
   alertText?: string;
+  noteText?: string;
+  noteTitle?: string;
   actions?: readonly RecordDetailAction[];
   helperText?: string;
   confirmTitle?: string;
