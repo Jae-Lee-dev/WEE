@@ -204,7 +204,7 @@ test(`DSH-02 location-jamsil ${desktop}`, async ({ page }) => {
   });
 });
 
-test("DSH-02 location export includes context and review priority", async ({
+test("DSH-02 location export includes objective attendance fields", async ({
   page,
 }) => {
   await prepareVisualPage({
@@ -238,8 +238,6 @@ test("DSH-02 location export includes context and review priority", async ({
       "위치이상",
       "결근",
       "이상 비율",
-      "관리 우선순위",
-      "권장 확인",
     ]
       .map((cell) => `"${cell}"`)
       .join(","),
@@ -255,8 +253,6 @@ test("DSH-02 location export includes context and review priority", async ({
       "1건",
       "0건",
       "4.2%",
-      "확인 필요",
-      "지각 1회 / 위치이상 1건",
     ]
       .map((cell) => `"${cell}"`)
       .join(","),
@@ -354,10 +350,8 @@ test("DSH-03 worker export includes work hours and payroll detail", async ({
       "추가근무",
       "보너스",
       "추가근무 미처리",
-      "급여 검토",
       "이상 플래그",
       "지각률",
-      "관리 우선순위",
     ]
       .map((cell) => `"${cell}"`)
       .join(","),
@@ -373,10 +367,8 @@ test("DSH-03 worker export includes work hours and payroll detail", async ({
       "35,000원",
       "25,000원",
       "1건",
-      "추가근무 1건 확인",
       "1건",
       "4.2%",
-      "확인 필요",
     ]
       .map((cell) => `"${cell}"`)
       .join(","),

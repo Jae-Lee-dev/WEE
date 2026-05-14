@@ -26,7 +26,7 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
   });
 }
 
-test("PAY-01 export includes payment and manager action columns", async ({
+test("PAY-01 export includes objective payment columns", async ({
   page,
 }) => {
   await prepareVisualPage({ page, path: "/payroll", viewport: desktop });
@@ -54,8 +54,6 @@ test("PAY-01 export includes payment and manager action columns", async ({
       "세금",
       "명세 상태",
       "미처리 항목",
-      "확정 가능",
-      "관리자 액션",
     ]
       .map((cell) => `"${cell}"`)
       .join(","),
@@ -71,8 +69,6 @@ test("PAY-01 export includes payment and manager action columns", async ({
       "₩11,880",
       "미확정",
       "미처리 4건",
-      "불가",
-      "미처리 4건 처리",
     ]
       .map((cell) => `"${cell}"`)
       .join(","),
