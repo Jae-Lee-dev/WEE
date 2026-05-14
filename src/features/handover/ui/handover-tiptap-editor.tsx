@@ -60,6 +60,10 @@ const handoverTiptapExtensions = [
           const { state, view } = this.editor;
           const { selection } = state;
 
+          if (view.composing) {
+            return false;
+          }
+
           if (!selection.empty) {
             return false;
           }

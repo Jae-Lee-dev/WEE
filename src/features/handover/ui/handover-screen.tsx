@@ -1,7 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import type { Editor } from "@tiptap/core";
 import type { JSONContent } from "@tiptap/core";
 import { Button } from "@/shared/ui/button";
@@ -539,6 +545,8 @@ function HandoverChatPanel({
   onSelectStarter: (value: string) => void;
   onSend: () => void;
 }) {
+  const inputComposingRef = useRef(false);
+
   return (
     <aside
       aria-label={handoverChatCopy.title}
@@ -566,8 +574,20 @@ function HandoverChatPanel({
           disabled={disabled}
           value={inputValue}
           onChange={(event) => onChangeInput(event.target.value)}
+          onCompositionEnd={() => {
+            window.setTimeout(() => {
+              inputComposingRef.current = false;
+            }, 0);
+          }}
+          onCompositionStart={() => {
+            inputComposingRef.current = true;
+          }}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+            if (isImeComposingKeyDown(event, inputComposingRef.current)) {
+              return;
+            }
+
+            if (event.key === "Enter") {
               onSend();
             }
           }}
@@ -812,10 +832,22 @@ function PublishDiffPreview({
 
 function getToolbarButtonClass(active: boolean) {
   return cn(
-    "flex h-9 min-w-9 items-center justify-center rounded-[6px] border px-3 text-h-16-semibold tracking-normal shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-200 disabled:pointer-events-none disabled:opacity-40",
+    "flex h-9 min-w-9 items-center justify-center rounded-[6px] border px-3 text-h-16-semibold tracking-normal shadow-[0px_1px_2px_rgba(17,24,39,0.03)] transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-40",
     active
-      ? "border-gray-900 bg-gray-900 text-white"
-      : "border-gray-200 bg-white text-gray-800 hover:border-gray-300 hover:bg-gray-50",
+      ? "border-green-400 bg-green-400 text-white hover:border-green-450 hover:bg-green-450 active:border-green-500 active:bg-green-500 focus-visible:ring-green-200"
+      : "border-gray-200 bg-white text-gray-800 hover:border-gray-300 hover:bg-gray-50 focus-visible:ring-gray-200",
+  );
+}
+
+function isImeComposingKeyDown(
+  event: KeyboardEvent<HTMLInputElement>,
+  isComposing: boolean,
+) {
+  return (
+    isComposing ||
+    event.nativeEvent.isComposing ||
+    event.nativeEvent.keyCode === 229 ||
+    event.key === "Process"
   );
 }
 

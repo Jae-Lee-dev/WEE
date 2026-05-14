@@ -576,13 +576,19 @@ body:has([data-admin-shell="compact"]) [data-slot="table-cell"] {
 
   .handover-tiptap-prosemirror ul {
     margin: 0;
-    padding-left: 0;
-    list-style-position: inside;
+    padding-left: 24px;
+    list-style-position: outside;
+    list-style-type: disc;
   }
 
   .handover-tiptap-prosemirror li {
+    display: list-item;
     min-height: 25px;
     padding-left: 0;
+  }
+
+  .handover-tiptap-prosemirror li > p {
+    margin: 0;
   }
 
   .handover-tiptap-prosemirror hr {

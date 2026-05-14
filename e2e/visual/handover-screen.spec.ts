@@ -66,13 +66,22 @@ test("HO-01 editor formats blocks and deletes dividers", async ({ page }) => {
     .first();
   const paragraphValue = await paragraph.textContent();
   const toolbar = page.getByTestId("handover-editor-toolbar");
+  const listButton = toolbar.getByRole("button", {
+    exact: true,
+    name: "목록",
+  });
 
   await paragraph.click();
-  await toolbar.getByRole("button", { exact: true, name: "목록" }).click();
+  await listButton.click();
 
   await expect(
     editor.locator("li").filter({ hasText: paragraphValue ?? "" }),
   ).toBeVisible();
+  await expect(
+    editor.locator("ul").filter({ hasText: paragraphValue ?? "" }).first(),
+  ).toHaveCSS("list-style-type", "disc");
+  await page.mouse.move(0, 0);
+  await expect(listButton).toHaveCSS("background-color", "rgb(48, 193, 121)");
 
   const dividerCount = await editor.locator("hr").count();
 
@@ -159,6 +168,31 @@ test("HO-01 prompt starter fills the request input", async ({ page }) => {
   await expect(page.getByLabel("수정할 내용")).toHaveValue(
     "수학 A반 유의사항을 보강해줘",
   );
+  await expect(page.getByTestId("handover-prompt-starters")).toBeVisible();
+});
+
+test("HO-01 chat input does not send while IME is composing", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/handover",
+    viewport: "laptop-1366",
+  });
+  await page.evaluate(() => document.fonts.ready);
+
+  const input = page.getByLabel("수정할 내용");
+
+  await input.fill("한글 조합 중");
+  await input.evaluate((element) => {
+    element.dispatchEvent(
+      new CompositionEvent("compositionstart", {
+        bubbles: true,
+        data: "ㅎ",
+      }),
+    );
+  });
+  await input.press("Enter");
+
+  await expect(input).toHaveValue("한글 조합 중");
   await expect(page.getByTestId("handover-prompt-starters")).toBeVisible();
 });
 
