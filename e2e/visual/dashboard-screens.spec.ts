@@ -204,6 +204,65 @@ test(`DSH-02 location-jamsil ${desktop}`, async ({ page }) => {
   });
 });
 
+test("DSH-02 location export includes context and review priority", async ({
+  page,
+}) => {
+  await prepareVisualPage({
+    page,
+    path: "/dashboard/locations",
+    viewport: desktop,
+  });
+  await page.evaluate(() => document.fonts.ready);
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "필터 기준 엑셀 내보내기" }).click();
+  const download = await downloadPromise;
+  const downloadPath = await download.path();
+
+  expect(download.suggestedFilename()).toBe(
+    "wee-location-dashboard-daechi-2026-04.csv",
+  );
+  expect(downloadPath).not.toBeNull();
+
+  const csv = (await readFile(downloadPath ?? "", "utf8")).replace(/^\uFEFF/, "");
+  const [header = "", firstRow = ""] = csv.split("\n");
+
+  expect(header).toBe(
+    [
+      "조교",
+      "근무지",
+      "집계 기간",
+      "근무시간",
+      "근태 이슈",
+      "지각",
+      "위치이상",
+      "결근",
+      "이상 비율",
+      "관리 우선순위",
+      "권장 확인",
+    ]
+      .map((cell) => `"${cell}"`)
+      .join(","),
+  );
+  expect(firstRow).toBe(
+    [
+      "김서연",
+      "대치 A학원",
+      "2026년 4월",
+      "48h",
+      "2건",
+      "1회",
+      "1건",
+      "0건",
+      "4.2%",
+      "확인 필요",
+      "지각 1회 / 위치이상 1건",
+    ]
+      .map((cell) => `"${cell}"`)
+      .join(","),
+  );
+});
+
 test(`DSH-03 search-worker ${desktop}`, async ({ page }) => {
   await prepareVisualPage({
     page,
@@ -295,8 +354,10 @@ test("DSH-03 worker export includes work hours and payroll detail", async ({
       "추가근무",
       "보너스",
       "추가근무 미처리",
+      "급여 검토",
       "이상 플래그",
       "지각률",
+      "관리 우선순위",
     ]
       .map((cell) => `"${cell}"`)
       .join(","),
@@ -312,8 +373,10 @@ test("DSH-03 worker export includes work hours and payroll detail", async ({
       "35,000원",
       "25,000원",
       "1건",
+      "추가근무 1건 확인",
       "1건",
       "4.2%",
+      "확인 필요",
     ]
       .map((cell) => `"${cell}"`)
       .join(","),

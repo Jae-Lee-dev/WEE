@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { expect, test } from "playwright/test";
 import {
   captureActualScreenshot,
@@ -24,6 +25,59 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     });
   });
 }
+
+test("PAY-01 export includes payment and manager action columns", async ({
+  page,
+}) => {
+  await prepareVisualPage({ page, path: "/payroll", viewport: desktop });
+  await page.evaluate(() => document.fonts.ready);
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "내보내기" }).click();
+  const download = await downloadPromise;
+  const downloadPath = await download.path();
+
+  expect(download.suggestedFilename()).toBe("payroll-2026.04.csv");
+  expect(downloadPath).not.toBeNull();
+
+  const csv = (await readFile(downloadPath ?? "", "utf8")).replace(/^\uFEFF/, "");
+  const [header = "", firstRow = ""] = csv.split("\n");
+
+  expect(header).toBe(
+    [
+      "산정 월",
+      "조교",
+      "지급 대상액",
+      "일반근무",
+      "추가근무",
+      "보너스/차감",
+      "세금",
+      "명세 상태",
+      "미처리 항목",
+      "확정 가능",
+      "관리자 액션",
+    ]
+      .map((cell) => `"${cell}"`)
+      .join(","),
+  );
+  expect(firstRow).toBe(
+    [
+      "2026.04",
+      "김서연",
+      "₩348,120",
+      "₩300,000",
+      "₩10,000",
+      "+ ₩50,000",
+      "₩11,880",
+      "미확정",
+      "미처리 4건",
+      "불가",
+      "미처리 4건 처리",
+    ]
+      .map((cell) => `"${cell}"`)
+      .join(","),
+  );
+});
 
 test(`PAY-01 detail ${desktop}`, async ({ page }) => {
   await prepareVisualPage({ page, path: "/payroll", viewport: desktop });

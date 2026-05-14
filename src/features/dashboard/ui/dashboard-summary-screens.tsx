@@ -178,17 +178,11 @@ export function DashboardLocationsScreen() {
           onClick={() =>
             downloadCsv(
               `wee-location-dashboard-${locationId || "all"}-${periodId || "period"}.csv`,
-              [
-                ["조교", "근무시간", "지각", "위치이상", "결근", "이상 비율"],
-                ...rows.map((row) => [
-                  row.workerName,
-                  `${row.workHours}h`,
-                  `${row.lateCount}회`,
-                  `${row.locationAnomalyCount}건`,
-                  `${row.absenceCount}건`,
-                  `${row.anomalyRate.toFixed(1)}%`,
-                ]),
-              ],
+              createLocationExportRows({
+                locationLabel: getOptionLabel(viewModel.locationOptions, locationId),
+                periodLabel,
+                rows,
+              }),
             )
           }
           className="h-10 rounded-full px-4 text-h-18-regular font-normal tracking-normal"
@@ -468,6 +462,50 @@ export function DashboardAiMonitoringScreen({
   );
 }
 
+function createLocationExportRows({
+  locationLabel,
+  periodLabel,
+  rows,
+}: {
+  locationLabel: string;
+  periodLabel: string;
+  rows: readonly DashboardLocationWorkerRow[];
+}) {
+  return [
+    [
+      "조교",
+      "근무지",
+      "집계 기간",
+      "근무시간",
+      "근태 이슈",
+      "지각",
+      "위치이상",
+      "결근",
+      "이상 비율",
+      "관리 우선순위",
+      "권장 확인",
+    ],
+    ...rows.map((row) => {
+      const issueCount =
+        row.lateCount + row.locationAnomalyCount + row.absenceCount;
+
+      return [
+        row.workerName,
+        locationLabel,
+        periodLabel,
+        `${row.workHours}h`,
+        `${issueCount}건`,
+        `${row.lateCount}회`,
+        `${row.locationAnomalyCount}건`,
+        `${row.absenceCount}건`,
+        `${row.anomalyRate.toFixed(1)}%`,
+        getLocationManagementPriority(row),
+        getLocationReviewSummary(row),
+      ];
+    }),
+  ] as const;
+}
+
 function createWorkerExportRows({
   periodId,
   periodLabel,
@@ -487,8 +525,10 @@ function createWorkerExportRows({
       "추가근무",
       "보너스",
       "추가근무 미처리",
+      "급여 검토",
       "이상 플래그",
       "지각률",
+      "관리 우선순위",
     ],
     ...workers.map((worker) => {
       const profile = dashboardWorkerPeriodProfiles[periodId];
@@ -515,11 +555,75 @@ function createWorkerExportRows({
         formatCurrency(overtimePay),
         formatCurrency(bonusPay),
         `${worker.payrollDetail.overtimePendingCount}건`,
+        getWorkerPayrollReview(worker),
         `${totalFlags}건`,
         `${lateRate.toFixed(1)}%`,
+        getWorkerManagementPriority({
+          lateRate,
+          overtimePendingCount: worker.payrollDetail.overtimePendingCount,
+          totalFlags,
+        }),
       ];
     }),
   ] as const;
+}
+
+function getLocationManagementPriority(row: DashboardLocationWorkerRow) {
+  const issueCount =
+    row.lateCount + row.locationAnomalyCount + row.absenceCount;
+
+  if (
+    row.absenceCount > 0 ||
+    row.locationAnomalyCount > 0 ||
+    row.anomalyRate >= 8 ||
+    issueCount >= 3
+  ) {
+    return "확인 필요";
+  }
+
+  if (row.lateCount > 0 || row.anomalyRate >= 5) {
+    return "관찰";
+  }
+
+  return "정상";
+}
+
+function getLocationReviewSummary(row: DashboardLocationWorkerRow) {
+  const reviewItems = [
+    row.lateCount > 0 ? `지각 ${row.lateCount}회` : "",
+    row.locationAnomalyCount > 0 ? `위치이상 ${row.locationAnomalyCount}건` : "",
+    row.absenceCount > 0 ? `결근 ${row.absenceCount}건` : "",
+  ].filter(Boolean);
+
+  return reviewItems.length > 0 ? reviewItems.join(" / ") : "없음";
+}
+
+function getWorkerPayrollReview(worker: DashboardWorkerSummary) {
+  if (worker.payrollDetail.overtimePendingCount > 0) {
+    return `추가근무 ${worker.payrollDetail.overtimePendingCount}건 확인`;
+  }
+
+  if (worker.payrollDetail.bonusPay !== 0) {
+    return "보너스 반영 확인";
+  }
+
+  return "확정 가능";
+}
+
+function getWorkerManagementPriority({
+  lateRate,
+  overtimePendingCount,
+  totalFlags,
+}: {
+  lateRate: number;
+  overtimePendingCount: number;
+  totalFlags: number;
+}) {
+  if (overtimePendingCount > 0 || totalFlags > 0 || lateRate >= 5) {
+    return "확인 필요";
+  }
+
+  return "정상";
 }
 
 function LocationWorkerTable({
