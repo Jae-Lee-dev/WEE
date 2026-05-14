@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ComponentProps,
+  type CSSProperties,
+} from "react";
+import { FilterChip } from "@/shared/ui/filter-chip";
 import { IconChevronLeft, IconChevronRight } from "@/shared/ui/icons";
 import {
   Dialog,
@@ -130,6 +137,24 @@ const blockSignalToneByKind: Record<RecordTimelineBlockKind, RecordsTone> = {
   "location-anomaly": "pink",
   overtime: "blue",
   correction: "orange",
+};
+
+type FilterChipVariant = NonNullable<
+  ComponentProps<typeof FilterChip>["variant"]
+>;
+
+const recordTypeFilterVariants: Record<
+  RecordsTone,
+  {
+    selected: FilterChipVariant;
+    unselected: FilterChipVariant;
+  }
+> = {
+  green: { selected: "selected", unselected: "neutral" },
+  orange: { selected: "orangeSelected", unselected: "orange" },
+  pink: { selected: "dangerSelected", unselected: "danger" },
+  blue: { selected: "blueSelected", unselected: "blue" },
+  grey: { selected: "selected", unselected: "neutral" },
 };
 
 export function RecordMainScreen({
@@ -613,23 +638,18 @@ function RecordTypeChips({
               : option.id === "correction"
                 ? "orange"
                 : "green";
+        const variants = recordTypeFilterVariants[tone];
 
         return (
-          <button
+          <FilterChip
             key={option.id}
-            type="button"
             aria-pressed={selected}
             onClick={() => onSelect(option.id)}
-            className={cn(
-              "flex h-9 items-center justify-center rounded-full border px-4 text-h-18-semibold tracking-normal transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
-              selected
-                ? "border-green-400 bg-green-400 text-white hover:border-green-450 hover:bg-green-450"
-                : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50",
-            )}
-            style={selected ? undefined : toneTextStyles[tone]}
+            variant={selected ? variants.selected : variants.unselected}
+            className="h-9 px-4 py-0 text-h-18-semibold tracking-normal focus-visible:ring-offset-0"
           >
             {option.label}
-          </button>
+          </FilterChip>
         );
       })}
     </div>

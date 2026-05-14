@@ -9,7 +9,16 @@ const meta = {
   argTypes: {
     variant: {
       control: "select",
-      options: ["selected", "neutral", "danger"],
+      options: [
+        "selected",
+        "neutral",
+        "danger",
+        "dangerSelected",
+        "orange",
+        "orangeSelected",
+        "blue",
+        "blueSelected",
+      ],
     },
   },
   args: {
@@ -36,6 +45,21 @@ export const FigmaStates: Story = {
       </FilterChip>
       <FilterChip variant="danger" aria-pressed={false}>
         전체
+      </FilterChip>
+      <FilterChip variant="dangerSelected" aria-pressed>
+        이상 플래그
+      </FilterChip>
+      <FilterChip variant="blue" aria-pressed={false}>
+        추가근무 신청
+      </FilterChip>
+      <FilterChip variant="blueSelected" aria-pressed>
+        추가근무 신청
+      </FilterChip>
+      <FilterChip variant="orange" aria-pressed={false}>
+        이의 신청
+      </FilterChip>
+      <FilterChip variant="orangeSelected" aria-pressed>
+        이의 신청
       </FilterChip>
     </div>
   ),

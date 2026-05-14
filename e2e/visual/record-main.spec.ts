@@ -155,6 +155,22 @@ test("REC-01 workerName query applies worker filter", async ({ page }) => {
   ).toHaveCount(0);
 });
 
+test("REC-01 record type filters use signal chip variants", async ({ page }) => {
+  await prepareVisualPage({ page, path: "/records", viewport: desktop });
+
+  const anomalyChip = page.getByRole("button", { name: "이상 플래그" });
+  const overtimeChip = page.getByRole("button", { name: "추가근무 신청" });
+  const correctionChip = page.getByRole("button", { name: "이의 신청" });
+
+  await expect(anomalyChip).toHaveAttribute("data-slot", "filter-chip");
+  await expect(anomalyChip).toHaveAttribute("data-variant", "danger");
+  await expect(overtimeChip).toHaveAttribute("data-variant", "blue");
+  await expect(correctionChip).toHaveAttribute("data-variant", "orange");
+
+  await anomalyChip.click();
+  await expect(anomalyChip).toHaveAttribute("data-variant", "dangerSelected");
+});
+
 test("REC-01 overtime approval asks payroll handling in confirmation modal", async ({
   page,
 }) => {
