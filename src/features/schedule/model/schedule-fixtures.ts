@@ -113,7 +113,12 @@ export type ScheduleSelectedWorkerContext = {
   };
 };
 
-const selectedApprovalTimelineBlocks = [
+type ScheduleApprovalRequestSeedRow = Omit<
+  ScheduleApprovalRequestRow,
+  "selectedDetail"
+>;
+
+const selectedApprovalBaseTimelineBlocks = [
   block(
     "approval-kim-mon-math-b",
     "mon",
@@ -164,235 +169,199 @@ const selectedApprovalTimelineBlocks = [
   ),
 ] as const satisfies readonly ScheduleTimelineBlock[];
 
-const selectedApprovalDetail = {
-  workerName: "김서연",
-  workerTag: "베테랑",
-  workerStatusText: "활성",
-  submittedAt: "04.15",
-  submittedKindText: "변경",
-  submittedBlockCountText: "5건",
-  correctionStatusText: "없음",
-  adjustmentDutyName: "수학 B반",
-  adjustmentDayText: "월요일",
-  adjustmentLocationName: "대치 A학원",
-  adjustmentTimeText: "19:00~21:00",
-  adjustmentStartTime: "19:00",
-  adjustmentEndTime: "21:00",
-  timelineBlocks: selectedApprovalTimelineBlocks,
-  rejectDialog: {
-    title: "시간표 반려",
-    reasonLabel: "반려 사유 (선택)",
-    reasonPlaceholder: "반려 사유를 입력해 주세요",
-    confirmLabel: "반려 확정하기",
+const scheduleApprovalRequestSeedRows = [
+  {
+    id: "request-kim-seoyeon-change-0415-1",
+    workerName: "김서연",
+    dutyName: "수학 B반",
+    requestDate: "26.04.15",
+    requestedTime: "19:00~21:00",
+    requestKind: "change",
+    requestKindText: "변경",
+    reasonText: "수학 B반 추가",
+    statusText: "승인 대기",
   },
-} as const satisfies ScheduleApprovalRequestDetail;
+  {
+    id: "request-kim-seoyeon-initial-0415-1",
+    workerName: "김서연",
+    dutyName: "수학 B반",
+    requestDate: "26.04.15",
+    requestedTime: "14:00~16:00",
+    requestKind: "initial",
+    requestKindText: "최초",
+    reasonText: "수학 B반 추가",
+    statusText: "승인 대기",
+  },
+  {
+    id: "request-kim-seoyeon-initial-0415-2",
+    workerName: "김서연",
+    dutyName: "수학 B반",
+    requestDate: "26.04.15",
+    requestedTime: "16:00~18:00",
+    requestKind: "initial",
+    requestKindText: "최초",
+    reasonText: "수학 B반 추가",
+    statusText: "승인 대기",
+  },
+  {
+    id: "request-kim-seoyeon-change-0415-2",
+    workerName: "김서연",
+    dutyName: "수학 B반",
+    requestDate: "26.04.15",
+    requestedTime: "18:00~20:00",
+    requestKind: "change",
+    requestKindText: "변경",
+    reasonText: "수학 B반 추가",
+    statusText: "승인 대기",
+  },
+  {
+    id: "request-kim-seoyeon-change-0415-3",
+    workerName: "김서연",
+    dutyName: "수학 B반",
+    requestDate: "26.04.15",
+    requestedTime: "20:00~22:00",
+    requestKind: "change",
+    requestKindText: "변경",
+    reasonText: "수학 B반 추가",
+    statusText: "승인 대기",
+  },
+  {
+    id: "request-kim-seoyeon-change-0415-4",
+    workerName: "김서연",
+    dutyName: "수학 B반",
+    requestDate: "26.04.15",
+    requestedTime: "19:00~21:00",
+    requestKind: "change",
+    requestKindText: "변경",
+    reasonText: "수학 B반 추가",
+    statusText: "승인 대기",
+  },
+  {
+    id: "request-kim-seoyeon-change-0415-5",
+    workerName: "김서연",
+    dutyName: "수학 B반",
+    requestDate: "26.04.15",
+    requestedTime: "19:00~21:00",
+    requestKind: "change",
+    requestKindText: "변경",
+    reasonText: "수학 B반 추가",
+    statusText: "검토 대기",
+  },
+  {
+    id: "request-kim-seoyeon-change-0415-6",
+    workerName: "김서연",
+    dutyName: "수학 B반",
+    requestDate: "26.04.15",
+    requestedTime: "19:00~21:00",
+    requestKind: "change",
+    requestKindText: "변경",
+    reasonText: "수학 B반 추가",
+    statusText: "승인 대기",
+  },
+  {
+    id: "request-kim-seoyeon-change-0415-7",
+    workerName: "김서연",
+    dutyName: "수학 B반",
+    requestDate: "26.04.15",
+    requestedTime: "19:00~21:00",
+    requestKind: "change",
+    requestKindText: "변경",
+    reasonText: "수학 B반 추가",
+    statusText: "승인 대기",
+  },
+  {
+    id: "request-kim-seoyeon-change-0415-8",
+    workerName: "김서연",
+    dutyName: "수학 B반",
+    requestDate: "26.04.15",
+    requestedTime: "19:00~21:00",
+    requestKind: "change",
+    requestKindText: "변경",
+    reasonText: "수학 B반 추가",
+    statusText: "승인 대기",
+  },
+  {
+    id: "request-kim-seoyeon-change-0415-9",
+    workerName: "김서연",
+    dutyName: "수학 B반",
+    requestDate: "26.04.15",
+    requestedTime: "19:00~21:00",
+    requestKind: "change",
+    requestKindText: "변경",
+    reasonText: "수학 B반 추가",
+    statusText: "승인 대기",
+  },
+  {
+    id: "request-kim-seoyeon-change-0415-10",
+    workerName: "김서연",
+    dutyName: "수학 B반",
+    requestDate: "26.04.15",
+    requestedTime: "19:00~21:00",
+    requestKind: "change",
+    requestKindText: "변경",
+    reasonText: "수학 B반 추가",
+    statusText: "승인 대기",
+  },
+  {
+    id: "request-kim-seoyeon-change-0415-11",
+    workerName: "김서연",
+    dutyName: "수학 B반",
+    requestDate: "26.04.15",
+    requestedTime: "19:00~21:00",
+    requestKind: "change",
+    requestKindText: "변경",
+    reasonText: "수학 B반 추가",
+    statusText: "승인 대기",
+  },
+  {
+    id: "request-kim-seoyeon-change-0415-12",
+    workerName: "김서연",
+    dutyName: "수학 B반",
+    requestDate: "26.04.15",
+    requestedTime: "19:00~21:00",
+    requestKind: "change",
+    requestKindText: "변경",
+    reasonText: "수학 B반 추가",
+    statusText: "승인 대기",
+  },
+  {
+    id: "request-kim-seoyeon-change-0415-13",
+    workerName: "김서연",
+    dutyName: "수학 B반",
+    requestDate: "26.04.15",
+    requestedTime: "19:00~21:00",
+    requestKind: "change",
+    requestKindText: "변경",
+    reasonText: "수학 B반 추가",
+    statusText: "승인 대기",
+  },
+  {
+    id: "request-kim-seoyeon-change-0415-14",
+    workerName: "김서연",
+    dutyName: "수학 B반",
+    requestDate: "26.04.15",
+    requestedTime: "19:00~21:00",
+    requestKind: "change",
+    requestKindText: "변경",
+    reasonText: "수학 B반 추가",
+    statusText: "승인 대기",
+  },
+  {
+    id: "request-ihaeun-change-0415",
+    workerName: "이하은",
+    dutyName: "수학 A반",
+    requestDate: "26.04.15",
+    requestedTime: "19:00~21:00",
+    requestKind: "change",
+    requestKindText: "변경",
+    reasonText: "수학 A반 추가",
+    statusText: "승인 대기",
+  },
+] as const satisfies readonly ScheduleApprovalRequestSeedRow[];
 
-export const scheduleApprovalRequests = [
-  requestRow(
-    "request-kim-seoyeon-change-0415-1",
-    "김서연",
-    "수학 B반",
-    "26.04.15",
-    "19:00~21:00",
-    "change",
-    "변경",
-    "수학 B반 추가",
-    "승인 대기",
-    selectedApprovalDetail,
-  ),
-  requestRow(
-    "request-kim-seoyeon-initial-0415-1",
-    "김서연",
-    "수학 B반",
-    "26.04.15",
-    "14:00~16:00",
-    "initial",
-    "최초",
-    "수학 B반 추가",
-    "승인 대기",
-    selectedApprovalDetail,
-  ),
-  requestRow(
-    "request-kim-seoyeon-initial-0415-2",
-    "김서연",
-    "수학 B반",
-    "26.04.15",
-    "16:00~18:00",
-    "initial",
-    "최초",
-    "수학 B반 추가",
-    "승인 대기",
-    selectedApprovalDetail,
-  ),
-  requestRow(
-    "request-kim-seoyeon-change-0415-2",
-    "김서연",
-    "수학 B반",
-    "26.04.15",
-    "18:00~20:00",
-    "change",
-    "변경",
-    "수학 B반 추가",
-    "승인 대기",
-    selectedApprovalDetail,
-  ),
-  requestRow(
-    "request-kim-seoyeon-change-0415-3",
-    "김서연",
-    "수학 B반",
-    "26.04.15",
-    "20:00~22:00",
-    "change",
-    "변경",
-    "수학 B반 추가",
-    "승인 대기",
-    selectedApprovalDetail,
-  ),
-  requestRow(
-    "request-kim-seoyeon-change-0415-4",
-    "김서연",
-    "수학 B반",
-    "26.04.15",
-    "19:00~21:00",
-    "change",
-    "변경",
-    "수학 B반 추가",
-    "승인 대기",
-    selectedApprovalDetail,
-  ),
-  requestRow(
-    "request-kim-seoyeon-change-0415-5",
-    "김서연",
-    "수학 B반",
-    "26.04.15",
-    "19:00~21:00",
-    "change",
-    "변경",
-    "수학 B반 추가",
-    "검토 대기",
-    selectedApprovalDetail,
-  ),
-  requestRow(
-    "request-kim-seoyeon-change-0415-6",
-    "김서연",
-    "수학 B반",
-    "26.04.15",
-    "19:00~21:00",
-    "change",
-    "변경",
-    "수학 B반 추가",
-    "승인 대기",
-    selectedApprovalDetail,
-  ),
-  requestRow(
-    "request-kim-seoyeon-change-0415-7",
-    "김서연",
-    "수학 B반",
-    "26.04.15",
-    "19:00~21:00",
-    "change",
-    "변경",
-    "수학 B반 추가",
-    "승인 대기",
-    selectedApprovalDetail,
-  ),
-  requestRow(
-    "request-kim-seoyeon-change-0415-8",
-    "김서연",
-    "수학 B반",
-    "26.04.15",
-    "19:00~21:00",
-    "change",
-    "변경",
-    "수학 B반 추가",
-    "승인 대기",
-    selectedApprovalDetail,
-  ),
-  requestRow(
-    "request-kim-seoyeon-change-0415-9",
-    "김서연",
-    "수학 B반",
-    "26.04.15",
-    "19:00~21:00",
-    "change",
-    "변경",
-    "수학 B반 추가",
-    "승인 대기",
-    selectedApprovalDetail,
-  ),
-  requestRow(
-    "request-kim-seoyeon-change-0415-10",
-    "김서연",
-    "수학 B반",
-    "26.04.15",
-    "19:00~21:00",
-    "change",
-    "변경",
-    "수학 B반 추가",
-    "승인 대기",
-    selectedApprovalDetail,
-  ),
-  requestRow(
-    "request-kim-seoyeon-change-0415-11",
-    "김서연",
-    "수학 B반",
-    "26.04.15",
-    "19:00~21:00",
-    "change",
-    "변경",
-    "수학 B반 추가",
-    "승인 대기",
-    selectedApprovalDetail,
-  ),
-  requestRow(
-    "request-kim-seoyeon-change-0415-12",
-    "김서연",
-    "수학 B반",
-    "26.04.15",
-    "19:00~21:00",
-    "change",
-    "변경",
-    "수학 B반 추가",
-    "승인 대기",
-    selectedApprovalDetail,
-  ),
-  requestRow(
-    "request-kim-seoyeon-change-0415-13",
-    "김서연",
-    "수학 B반",
-    "26.04.15",
-    "19:00~21:00",
-    "change",
-    "변경",
-    "수학 B반 추가",
-    "승인 대기",
-    selectedApprovalDetail,
-  ),
-  requestRow(
-    "request-kim-seoyeon-change-0415-14",
-    "김서연",
-    "수학 B반",
-    "26.04.15",
-    "19:00~21:00",
-    "change",
-    "변경",
-    "수학 B반 추가",
-    "승인 대기",
-    selectedApprovalDetail,
-  ),
-  requestRow(
-    "request-ihaeun-change-0415",
-    "이하은",
-    "수학 A반",
-    "26.04.15",
-    "19:00~21:00",
-    "change",
-    "변경",
-    "수학 A반 추가",
-    "승인 대기",
-    selectedApprovalDetail,
-  ),
-] as const satisfies readonly ScheduleApprovalRequestRow[];
+export const scheduleApprovalRequests = scheduleApprovalRequestSeedRows.map(
+  requestRow,
+) satisfies readonly ScheduleApprovalRequestRow[];
 
 export const scheduleApprovalSummary = {
   listCountText: "17",
@@ -627,30 +596,95 @@ export const scheduleSelectedWorkerContext = {
   },
 } as const satisfies ScheduleSelectedWorkerContext;
 
-function requestRow(
-  id: string,
-  workerName: string,
-  dutyName: string,
-  requestDate: string,
-  requestedTime: string,
-  requestKind: ScheduleRequestKind,
-  requestKindText: string,
-  reasonText: string,
-  statusText: ScheduleApprovalStatusText,
-  selectedDetail: ScheduleApprovalRequestDetail,
-): ScheduleApprovalRequestRow {
+function requestRow(row: ScheduleApprovalRequestSeedRow): ScheduleApprovalRequestRow {
   return {
-    id,
-    workerName,
-    dutyName,
-    requestDate,
-    requestedTime,
-    requestKind,
-    requestKindText,
-    reasonText,
-    statusText,
-    selectedDetail,
+    ...row,
+    selectedDetail: createApprovalRequestDetail(row),
   };
+}
+
+function createApprovalRequestDetail(
+  row: ScheduleApprovalRequestSeedRow,
+): ScheduleApprovalRequestDetail {
+  const [adjustmentStartTime = "", adjustmentEndTime = ""] =
+    row.requestedTime.split("~");
+  const requestedBlock = createRequestedApprovalBlock(row);
+  const timelineBlocks = [
+    requestedBlock,
+    ...selectedApprovalBaseTimelineBlocks.filter(
+      (block) =>
+        !(
+          block.dayId === requestedBlock.dayId &&
+          block.label === requestedBlock.label &&
+          block.time === requestedBlock.time &&
+          block.locationName === requestedBlock.locationName
+        ),
+    ),
+  ];
+
+  return {
+    adjustmentDayText: "월요일",
+    adjustmentDutyName: row.dutyName,
+    adjustmentEndTime,
+    adjustmentLocationName: requestedBlock.locationName,
+    adjustmentStartTime,
+    adjustmentTimeText: row.requestedTime,
+    correctionStatusText: "없음",
+    rejectDialog: {
+      confirmLabel: "반려 확정하기",
+      reasonLabel: "반려 사유 (선택)",
+      reasonPlaceholder: "반려 사유를 입력해 주세요",
+      title: "시간표 반려",
+    },
+    submittedAt: row.requestDate.split(".").slice(1).join("."),
+    submittedBlockCountText: `${timelineBlocks.length}건`,
+    submittedKindText: row.requestKindText,
+    timelineBlocks,
+    workerName: row.workerName,
+    workerStatusText: "활성",
+    workerTag: row.workerName === "김서연" ? "베테랑" : "신입",
+  };
+}
+
+function createRequestedApprovalBlock(
+  row: ScheduleApprovalRequestSeedRow,
+): ScheduleTimelineBlock {
+  const [startTime = "", endTime = ""] = row.requestedTime.split("~");
+
+  return block(
+    `${row.id}-requested-block`,
+    "mon",
+    row.dutyName,
+    row.workerName,
+    row.requestedTime,
+    parseFixtureHour(startTime, 19),
+    parseFixtureHour(endTime, 21),
+    getApprovalDutyLocationName(row.dutyName),
+    row.requestKind === "initial" ? "green" : "orange",
+    getApprovalDutyTagLabel(row.dutyName),
+  );
+}
+
+function getApprovalDutyLocationName(dutyName: string) {
+  if (dutyName === "수학 A반" || dutyName === "수학 B반") {
+    return "대치 A학원";
+  }
+
+  return "근무지 미지정";
+}
+
+function getApprovalDutyTagLabel(dutyName: string) {
+  if (dutyName === "수학 A반" || dutyName === "수학 B반") {
+    return "질문";
+  }
+
+  return undefined;
+}
+
+function parseFixtureHour(value: string, fallback: number) {
+  const hour = Number(value.split(":")[0]);
+
+  return Number.isFinite(hour) ? hour : fallback;
 }
 
 function block(

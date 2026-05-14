@@ -95,6 +95,7 @@ export function ScheduleApprovalScreen({
   if (selectedRequest) {
     return (
       <SelectedApprovalState
+        key={selectedRequest.id}
         approveLabel={viewModel.approveLabel}
         errorMessage={errorMessage}
         request={selectedRequest}
@@ -243,6 +244,7 @@ function ApprovalWaitingRow({
         <button
           type="button"
           data-testid={first ? "schedule-approval-first-detail" : undefined}
+          data-request-id={row.id}
           onClick={onSelect}
           className="flex h-9 items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-16-medium tracking-normal text-gray-800 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
         >

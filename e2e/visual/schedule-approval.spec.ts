@@ -39,6 +39,9 @@ test(`SCH-01 selected-request ${desktop}`, async ({ page }) => {
   await expect(
     page.getByTestId("schedule-approval-selected-timeline-block"),
   ).toContainText("수학 B반");
+  await expect(
+    page.getByTestId("schedule-approval-selected-timeline-block"),
+  ).toContainText("19:00~21:00");
 
   await captureActualScreenshot({
     page,
@@ -46,6 +49,35 @@ test(`SCH-01 selected-request ${desktop}`, async ({ page }) => {
     state: "selected-request",
     viewport: desktop,
   });
+});
+
+test(`SCH-01 selected-request focus changes by row ${desktop}`, async ({
+  page,
+}) => {
+  await prepareVisualPage({ page, path: "/schedule", viewport: desktop });
+  await page.evaluate(() => document.fonts.ready);
+
+  await page
+    .locator('[data-request-id="request-kim-seoyeon-initial-0415-1"]')
+    .click();
+  await expect(
+    page.getByTestId("schedule-approval-selected-timeline-block"),
+  ).toContainText("수학 B반");
+  await expect(
+    page.getByTestId("schedule-approval-selected-timeline-block"),
+  ).toContainText("14:00~16:00");
+
+  await page.getByRole("button", { name: "승인 대기 목록" }).click();
+  await page.locator('[data-request-id="request-ihaeun-change-0415"]').click();
+  await expect(
+    page.getByTestId("schedule-approval-selected-state").locator("h2").first(),
+  ).toHaveText("수학 A반");
+  await expect(
+    page.getByTestId("schedule-approval-selected-timeline-block"),
+  ).toContainText("수학 A반");
+  await expect(
+    page.getByTestId("schedule-approval-selected-timeline-block"),
+  ).toContainText("19:00~21:00");
 });
 
 test(`SCH-01 reject-dialog ${desktop}`, async ({ page }) => {
