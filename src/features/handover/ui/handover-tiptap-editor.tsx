@@ -144,6 +144,7 @@ export function HandoverTiptapEditor({
   onEditorReady,
 }: HandoverTiptapEditorProps) {
   const appliedContentVersion = useRef(-1);
+  const composingRef = useRef(false);
   const editor = useEditor({
     content,
     editable: !locked,
@@ -151,6 +152,29 @@ export function HandoverTiptapEditor({
       attributes: {
         "aria-label": "인수인계 문서 본문",
         class: "handover-tiptap-prosemirror",
+      },
+      handleDOMEvents: {
+        compositionend: () => {
+          window.setTimeout(() => {
+            composingRef.current = false;
+          }, 0);
+
+          return false;
+        },
+        compositionstart: () => {
+          composingRef.current = true;
+
+          return false;
+        },
+        keydown: (_view, event) => {
+          if (!isImeComposingKeyDown(event, composingRef.current)) {
+            return false;
+          }
+
+          event.stopPropagation();
+
+          return true;
+        },
       },
     },
     extensions: handoverTiptapExtensions,
@@ -327,4 +351,13 @@ function formatProposalLine(markdown: string) {
   }
 
   return displayText;
+}
+
+function isImeComposingKeyDown(event: KeyboardEvent, isComposing: boolean) {
+  return (
+    isComposing ||
+    event.isComposing ||
+    event.keyCode === 229 ||
+    event.key === "Process"
+  );
 }

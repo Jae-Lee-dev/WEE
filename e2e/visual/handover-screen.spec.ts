@@ -196,6 +196,54 @@ test("HO-01 chat input does not send while IME is composing", async ({ page }) =
   await expect(page.getByTestId("handover-prompt-starters")).toBeVisible();
 });
 
+test("HO-01 editor does not create a block while IME is composing", async ({
+  page,
+}) => {
+  await prepareVisualPage({
+    page,
+    path: "/handover",
+    viewport: "laptop-1366",
+  });
+  await page.evaluate(() => document.fonts.ready);
+
+  const editor = page
+    .getByTestId("handover-editor")
+    .locator(".handover-tiptap-prosemirror");
+  const paragraph = editor
+    .locator("p")
+    .filter({ hasText: "반드시 앱에서 출근 처리를 완료해주세요." })
+    .first();
+
+  await paragraph.click();
+  await page.keyboard.press("End");
+  await page.keyboard.insertText(" 한글");
+
+  const paragraphCount = await editor.locator("p").count();
+  const defaultPrevented = await editor.evaluate((element) => {
+    element.dispatchEvent(
+      new CompositionEvent("compositionstart", {
+        bubbles: true,
+        data: "ㅎ",
+      }),
+    );
+
+    const event = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      isComposing: true,
+      key: "Enter",
+    });
+
+    element.dispatchEvent(event);
+
+    return event.defaultPrevented;
+  });
+
+  expect(defaultPrevented).toBe(false);
+  await expect(editor.locator("p")).toHaveCount(paragraphCount);
+  await expect(paragraph).toContainText("한글");
+});
+
 test("HO-01 blocks screen navigation when unpublished edits exist", async ({
   page,
 }) => {
