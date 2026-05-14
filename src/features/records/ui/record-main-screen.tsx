@@ -38,6 +38,7 @@ import {
   type RecordDetailStateId,
   type RecordMainViewModel,
   type RecordTimelineBlock,
+  type RecordTimelineBlockKind,
   type RecordTimelineFixture,
   type RecordsFilterOption,
   type RecordsTone,
@@ -76,12 +77,28 @@ const blockToneClassNames: Record<RecordsTone, string> = {
   grey: "border-gray-500 bg-gray-50 text-gray-900",
 };
 
+const blockToneBackgroundStyles: Record<RecordsTone, string> = {
+  green: "var(--color-green-100)",
+  orange: "var(--color-orange-100)",
+  pink: "var(--color-red-50)",
+  blue: "var(--color-blue-50)",
+  grey: "var(--color-gray-50)",
+};
+
 const selectedBlockToneClassNames: Record<RecordsTone, string> = {
   green: "border-green-400 bg-green-400 text-white",
   orange: "border-orange-400 bg-orange-400 text-white",
   pink: "border-red-500 bg-red-500 text-white",
   blue: "border-blue-500 bg-blue-500 text-white",
   grey: "border-gray-500 bg-gray-500 text-white",
+};
+
+const selectedBlockToneBackgroundStyles: Record<RecordsTone, string> = {
+  green: "var(--color-green-400)",
+  orange: "var(--color-orange-400)",
+  pink: "var(--color-red-500)",
+  blue: "var(--color-blue-500)",
+  grey: "var(--color-gray-500)",
 };
 
 const focusRingToneClassNames: Record<RecordsTone, string> = {
@@ -106,6 +123,13 @@ const toneTextStyles: Record<RecordsTone, CSSProperties> = {
   pink: { color: "var(--color-red-500)" },
   blue: { color: "var(--color-blue-500)" },
   grey: { color: "var(--color-gray-600)" },
+};
+
+const blockSignalToneByKind: Record<RecordTimelineBlockKind, RecordsTone> = {
+  normal: "green",
+  "location-anomaly": "pink",
+  overtime: "blue",
+  correction: "orange",
 };
 
 export function RecordMainScreen({
@@ -689,6 +713,7 @@ function RecordTimelineBlockItem({
   const selectable = Boolean(selectedStateId);
   const style = {
     ...getBlockStyle(positionedBlock),
+    ...getRecordTimelineBlockBackgroundStyle(block, selected),
     height: getTimelineBlockHeight({ laneCount }),
     top: getTimelineLaneTop({ lane, laneCount }),
   };
@@ -720,6 +745,7 @@ function RecordTimelineBlockItem({
         aria-pressed={selected}
         className={blockClassName}
         data-record-block-id={block.id}
+        data-record-signal-kinds={block.signalKinds.join(" ")}
         data-testid={
           selectedStateId === "normal-selected"
             ? "record-block-normal"
@@ -739,12 +765,36 @@ function RecordTimelineBlockItem({
       className={blockClassName}
       data-lane={lane}
       data-record-block-id={block.id}
+      data-record-signal-kinds={block.signalKinds.join(" ")}
       role="gridcell"
       style={style}
     >
       {content}
     </div>
   );
+}
+
+function getRecordTimelineBlockBackgroundStyle(
+  block: RecordTimelineBlock,
+  selected: boolean,
+): CSSProperties {
+  const signalTones = block.signalKinds.map(
+    (kind) => blockSignalToneByKind[kind],
+  );
+
+  if (signalTones.length < 2) {
+    return {};
+  }
+
+  const firstTone = signalTones[0];
+  const secondTone = signalTones[1];
+  const toneBackgroundStyles = selected
+    ? selectedBlockToneBackgroundStyles
+    : blockToneBackgroundStyles;
+
+  return {
+    backgroundImage: `linear-gradient(to bottom right, ${toneBackgroundStyles[firstTone]} 0 49.5%, ${toneBackgroundStyles[secondTone]} 50.5% 100%)`,
+  };
 }
 
 function RecordTimelineBlockText({

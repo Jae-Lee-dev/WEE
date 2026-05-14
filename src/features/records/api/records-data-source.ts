@@ -1878,13 +1878,22 @@ function mapTimelineBlock(
     record,
     new Map([[record.id, options.flag]]),
   );
-  const kind = getTimelineBlockKind(record, {
+  const hasPendingCorrection =
+    record.hasPendingCorrection || options.pendingCorrectionIds.has(record.id);
+  const hasPendingOvertime =
+    record.hasPendingOvertime || options.pendingOvertimeIds.has(record.id);
+  const kind = getTimelineBlockKind({
+    hasPendingCorrection,
+    hasPendingOvertime,
     hasUnresolvedFlag,
-    pendingCorrectionIds: options.pendingCorrectionIds,
-    pendingOvertimeIds: options.pendingOvertimeIds,
   });
   const workStartAt = getRecordWorkStartAt(record);
   const workEndAt = getRecordWorkEndAt(record);
+  const signalKinds = getTimelineBlockSignalKinds({
+    hasPendingCorrection,
+    hasPendingOvertime,
+    hasUnresolvedFlag,
+  });
 
   return {
     id: record.id,
@@ -1904,6 +1913,7 @@ function mapTimelineBlock(
     kind,
     locationName: record.locationName,
     selectedStateId: hasUnresolvedFlag ? "anomaly-step-1" : "normal-selected",
+    signalKinds,
     startHour: getRecordStartHour(record),
     startMinute: workStartAt?.getMinutes() ?? 0,
     startTime: formatTime(workStartAt),
@@ -2907,30 +2917,42 @@ function createSnapshotLines(
   ];
 }
 
-function getTimelineBlockKind(
-  record: WorkRecordModel,
-  options: {
-    hasUnresolvedFlag: boolean;
-    pendingCorrectionIds: ReadonlySet<string>;
-    pendingOvertimeIds: ReadonlySet<string>;
-  },
-): RecordTimelineBlockKind {
+function getTimelineBlockKind(options: {
+  hasPendingCorrection: boolean;
+  hasPendingOvertime: boolean;
+  hasUnresolvedFlag: boolean;
+}): RecordTimelineBlockKind {
   if (options.hasUnresolvedFlag) {
     return "location-anomaly";
   }
 
-  if (
-    record.hasPendingCorrection ||
-    options.pendingCorrectionIds.has(record.id)
-  ) {
+  if (options.hasPendingCorrection) {
     return "correction";
   }
 
-  if (record.hasPendingOvertime || options.pendingOvertimeIds.has(record.id)) {
+  if (options.hasPendingOvertime) {
     return "overtime";
   }
 
   return "normal";
+}
+
+function getTimelineBlockSignalKinds({
+  hasPendingCorrection,
+  hasPendingOvertime,
+  hasUnresolvedFlag,
+}: {
+  hasPendingCorrection: boolean;
+  hasPendingOvertime: boolean;
+  hasUnresolvedFlag: boolean;
+}): readonly RecordTimelineBlockKind[] {
+  const signalKinds = [
+    hasPendingCorrection ? "correction" : null,
+    hasUnresolvedFlag ? "location-anomaly" : null,
+    hasPendingOvertime ? "overtime" : null,
+  ].filter((kind): kind is RecordTimelineBlockKind => Boolean(kind));
+
+  return signalKinds.length > 0 ? signalKinds : ["normal"];
 }
 
 function getTimelineBlockTone(kind: RecordTimelineBlockKind): RecordsTone {

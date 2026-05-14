@@ -323,11 +323,13 @@ function matchesBlockKindFilter(block: RecordTimelineBlock, filterId: string) {
     return true;
   }
 
-  return getBlockFilterKind(block) === filterId;
+  return block.signalKinds.some(
+    (kind) => getBlockKindFilterId(kind) === filterId,
+  );
 }
 
-function getBlockFilterKind(block: RecordTimelineBlock) {
-  return block.kind === "location-anomaly" ? "anomaly" : block.kind;
+function getBlockKindFilterId(kind: RecordTimelineBlock["kind"]) {
+  return kind === "location-anomaly" ? "anomaly" : kind;
 }
 
 function createStableFilterId(value: string) {

@@ -48,6 +48,17 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await expect(normalBlock).toContainText(
       /이하은\s*영어 C반\s*19:00~21:00/,
     );
+    const mixedSignalBlock = page.locator(
+      "[data-record-block-id='record-song-hyunwoo-physics-f-mon']",
+    );
+    await expect(mixedSignalBlock).toHaveAttribute(
+      "data-record-signal-kinds",
+      "correction location-anomaly",
+    );
+    const mixedSignalBackground = await mixedSignalBlock.evaluate((element) =>
+      getComputedStyle(element).backgroundImage,
+    );
+    expect(mixedSignalBackground).toContain("linear-gradient");
 
     if (viewport === "laptop-1366") {
       await expectTimelineFrameOwnsStickyScroll({

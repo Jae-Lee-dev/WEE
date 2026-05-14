@@ -63,6 +63,7 @@ export type RecordTimelineBlock = {
   startTime: string;
   endTime: string;
   kind: RecordTimelineBlockKind;
+  signalKinds: readonly RecordTimelineBlockKind[];
   tone: RecordsTone;
   selectedStateId?: RecordDetailStateId;
 };
@@ -420,6 +421,7 @@ export const recordTimelineBlocks = [
     "location-anomaly",
     "pink",
     "anomaly-step-1",
+    ["correction", "location-anomaly"],
   ),
   timelineBlock(
     "record-jung-suhyun-korean-d-mon",
@@ -1100,6 +1102,7 @@ function timelineBlock(
   kind: RecordTimelineBlockKind,
   tone: RecordsTone,
   selectedStateId?: RecordDetailStateId,
+  signalKinds: readonly RecordTimelineBlockKind[] = [kind],
 ): RecordTimelineBlock {
   const [startHour = 0, startMinute = 0] = startTime
     .split(":")
@@ -1119,6 +1122,7 @@ function timelineBlock(
     startTime,
     endTime,
     kind,
+    signalKinds,
     tone,
     selectedStateId,
   };
