@@ -32,14 +32,10 @@ import {
   TimelineBlockText,
   TimelineGridFrame,
 } from "./timeline-grid-frame";
-
-type PositionedBlock = {
-  block: ScheduleTimelineBlock;
-  lane: number;
-  startColumn: number;
-  spanColumns: number;
-  endColumn: number;
-};
+import {
+  parseTimelineBlocks,
+  type ParsedTimelineBlock,
+} from "./timeline-block-parser";
 
 type ScheduleTimelineFilterKey = "location" | "duty" | "dutyTag" | "worker";
 type ScheduleTimelineFilterState = Record<ScheduleTimelineFilterKey, string>;
@@ -49,8 +45,6 @@ type AssignmentTagTone = {
   style?: CSSProperties;
 };
 
-const timelineColumnCount = scheduleTimelineTimeSlots.length;
-const timelineStartHour = Number(scheduleTimelineTimeSlots[0]);
 const timelineLaneHeight = 54;
 const timelineLaneStride = 55;
 const timelineDays = orderTimelineDaysSundayFirst(scheduleTimelineDays);
@@ -415,16 +409,18 @@ function TimelineGrid({
   workerContexts: readonly ScheduleSelectedWorkerContext[];
   onWorkerSelect: (workerId: string) => void;
 }) {
-  const selectedBlockIdSet = new Set(selectedBlockIds);
-  const firstSelectableBlockId = blocks.find((block) =>
-    findWorkerContextForBlock(block, workerContexts),
-  )?.id;
-  const dayLayouts = timelineDays.map((day) => ({
-    day,
-    positionedBlocks: layoutBlocks(
-      blocks.filter((block) => block.dayId === day.id),
-    ),
-  }));
+  const { dayLayouts } = parseTimelineBlocks({
+    blocks,
+    days: timelineDays,
+    layout: {
+      blockHeight: timelineLaneHeight,
+      laneStride: timelineLaneStride,
+      topOffset: 1,
+    },
+    selectedBlockIds,
+    timeSlots: scheduleTimelineTimeSlots,
+    workerContexts,
+  });
 
   return (
     <TimelineGridFrame
@@ -432,21 +428,14 @@ function TimelineGrid({
       className="h-full"
       days={timelineDays}
       renderBlocks={(day) => {
-        const positionedBlocks =
-          dayLayouts.find((layout) => layout.day.id === day.id)
-            ?.positionedBlocks ?? [];
+        const parsedBlocks =
+          dayLayouts.find((layout) => layout.day.id === day.id)?.blocks ?? [];
 
-        return positionedBlocks.map((positionedBlock) => (
+        return parsedBlocks.map((parsedBlock) => (
           <TimelineBlock
-            key={positionedBlock.block.id}
-            firstSelectableBlockId={firstSelectableBlockId}
+            key={parsedBlock.block.id}
             onWorkerSelect={onWorkerSelect}
-            positionedBlock={positionedBlock}
-            selected={selectedBlockIdSet.has(positionedBlock.block.id)}
-            workerContext={findWorkerContextForBlock(
-              positionedBlock.block,
-              workerContexts,
-            )}
+            parsedBlock={parsedBlock}
           />
         ));
       }}
@@ -457,22 +446,15 @@ function TimelineGrid({
 }
 
 function TimelineBlock({
-  firstSelectableBlockId,
   onWorkerSelect,
-  positionedBlock,
-  selected,
-  workerContext,
+  parsedBlock,
 }: {
-  firstSelectableBlockId: string | undefined;
   onWorkerSelect: (workerId: string) => void;
-  positionedBlock: PositionedBlock;
-  selected: boolean;
-  workerContext: ScheduleSelectedWorkerContext | null;
+  parsedBlock: ParsedTimelineBlock;
 }) {
-  const { block, lane } = positionedBlock;
+  const { block, firstSelectable, lane, selected, style, workerContext } =
+    parsedBlock;
   const selectable = workerContext !== null;
-  const firstSelectableBlock = block.id === firstSelectableBlockId;
-  const style = getBlockStyle(positionedBlock);
   const blockClassName = cn(
     "absolute z-10 flex min-w-0 flex-col justify-center overflow-hidden rounded-[6px] border px-2 text-left tracking-normal transition-colors duration-150 ease-out",
     selected
@@ -499,7 +481,7 @@ function TimelineBlock({
         data-lane={lane}
         data-schedule-block-id={block.id}
         data-testid={
-          firstSelectableBlock ? "schedule-timeline-worker-select" : undefined
+          firstSelectable ? "schedule-timeline-worker-select" : undefined
         }
         onClick={() => onWorkerSelect(workerContext.workerId)}
         style={style}
@@ -520,22 +502,6 @@ function TimelineBlock({
     >
       {content}
     </div>
-  );
-}
-
-function findWorkerContextForBlock(
-  block: ScheduleTimelineBlock,
-  workerContexts: readonly ScheduleSelectedWorkerContext[],
-) {
-  if (block.workerId) {
-    return (
-      workerContexts.find((context) => context.workerId === block.workerId) ??
-      null
-    );
-  }
-
-  return (
-    workerContexts.find((context) => context.workerName === block.worker) ?? null
   );
 }
 
@@ -814,81 +780,4 @@ function getTimelineBlocksForDisplay(
         }
       : block,
   );
-}
-
-function layoutBlocks(
-  blocks: readonly ScheduleTimelineBlock[],
-): PositionedBlock[] {
-  const laneEnds: number[] = [];
-
-  return [...blocks]
-    .sort((firstBlock, secondBlock) => {
-      const firstRange = getBlockColumnRange(firstBlock);
-      const secondRange = getBlockColumnRange(secondBlock);
-
-      return (
-        firstRange.startColumn - secondRange.startColumn ||
-        firstRange.endColumn - secondRange.endColumn
-      );
-    })
-    .map((block) => {
-      const range = getBlockColumnRange(block);
-      let lane = laneEnds.findIndex(
-        (endColumn) => range.startColumn >= endColumn,
-      );
-
-      if (lane === -1) {
-        lane = laneEnds.length;
-      }
-
-      laneEnds[lane] = range.endColumn;
-
-      return {
-        block,
-        lane,
-        ...range,
-      };
-    });
-}
-
-function getBlockColumnRange(block: ScheduleTimelineBlock) {
-  const startHour = normalizeHour(block.startHour);
-  const endHour = normalizeHour(block.endHour);
-  const startColumn = clamp(
-    startHour - timelineStartHour,
-    0,
-    timelineColumnCount - 1,
-  );
-  const endColumn = clamp(
-    endHour - timelineStartHour,
-    startColumn + 1,
-    timelineColumnCount,
-  );
-
-  return {
-    startColumn,
-    endColumn,
-    spanColumns: endColumn - startColumn,
-  };
-}
-
-function getBlockStyle({
-  lane,
-  spanColumns,
-  startColumn,
-}: PositionedBlock): CSSProperties {
-  return {
-    height: timelineLaneHeight,
-    left: `${(startColumn / timelineColumnCount) * 100}%`,
-    top: 1 + lane * timelineLaneStride,
-    width: `${(spanColumns / timelineColumnCount) * 100}%`,
-  };
-}
-
-function normalizeHour(hour: number) {
-  return hour < timelineStartHour ? hour + 24 : hour;
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
 }

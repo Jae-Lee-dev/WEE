@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import {
@@ -29,10 +29,12 @@ import {
   type ScheduleTimelineBlock,
 } from "../model/schedule-fixtures";
 import { TimelineBlockText, TimelineGridFrame } from "./timeline-grid-frame";
+import {
+  parseTimelineBlocks,
+  type ParsedTimelineBlock,
+} from "./timeline-block-parser";
 
 const visibleTimelineDays = scheduleTimelineDays.slice(0, 5);
-const timelineStartHour = Number(scheduleTimelineTimeSlots[0]);
-const timelineColumnCount = scheduleTimelineTimeSlots.length;
 const activeBadgeStyle = { color: "var(--color-green-400)" };
 
 export function ScheduleApprovalScreen({
@@ -537,6 +539,16 @@ function ApprovalTimelineGrid({
   blocks: readonly ScheduleTimelineBlock[];
   selectedBlockId?: string;
 }) {
+  const { dayLayouts } = parseTimelineBlocks({
+    blocks,
+    days: visibleTimelineDays,
+    layout: {
+      xInset: 2,
+    },
+    selectedBlockIds: selectedBlockId ? [selectedBlockId] : [],
+    timeSlots: scheduleTimelineTimeSlots,
+  });
+
   return (
     <TimelineGridFrame
       ariaLabel="승인 요청 주간 시간표"
@@ -545,30 +557,24 @@ function ApprovalTimelineGrid({
       days={visibleTimelineDays}
       headerHeight={47}
       minWidthClassName="min-w-[920px]"
-      renderBlocks={(day) =>
-        blocks
-          .filter((block) => block.dayId === day.id)
-          .map((block) => (
-            <TimelineBlock
-              key={block.id}
-              block={block}
-              selected={block.id === selectedBlockId}
-            />
-          ))
-      }
+      renderBlocks={(day) => {
+        const parsedBlocks =
+          dayLayouts.find((layout) => layout.day.id === day.id)?.blocks ?? [];
+
+        return parsedBlocks.map((parsedBlock) => (
+          <TimelineBlock
+            key={parsedBlock.block.id}
+            parsedBlock={parsedBlock}
+          />
+        ));
+      }}
       timeSlots={scheduleTimelineTimeSlots}
     />
   );
 }
 
-function TimelineBlock({
-  block,
-  selected,
-}: {
-  block: ScheduleTimelineBlock;
-  selected: boolean;
-}) {
-  const style = getTimelineBlockStyle(block);
+function TimelineBlock({ parsedBlock }: { parsedBlock: ParsedTimelineBlock }) {
+  const { block, selected, style } = parsedBlock;
 
   return (
     <div
@@ -752,32 +758,4 @@ function RejectDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-function getTimelineBlockStyle(block: ScheduleTimelineBlock): CSSProperties {
-  const startHour = normalizeHour(block.startHour);
-  const endHour = normalizeHour(block.endHour);
-  const startColumn = clamp(
-    startHour - timelineStartHour,
-    0,
-    timelineColumnCount - 1,
-  );
-  const endColumn = clamp(
-    endHour - timelineStartHour,
-    startColumn + 1,
-    timelineColumnCount,
-  );
-
-  return {
-    left: `calc(${(startColumn / timelineColumnCount) * 100}% + 2px)`,
-    width: `calc(${((endColumn - startColumn) / timelineColumnCount) * 100}% - 4px)`,
-  };
-}
-
-function normalizeHour(hour: number) {
-  return hour < timelineStartHour ? hour + 24 : hour;
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
 }
