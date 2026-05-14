@@ -134,6 +134,8 @@ export type RecordDetailState = {
   alertText?: string;
   actions?: readonly RecordDetailAction[];
   helperText?: string;
+  confirmTitle?: string;
+  confirmDescription?: string;
   reasonField?: {
     label: string;
     placeholder: string;

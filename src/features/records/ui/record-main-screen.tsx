@@ -997,8 +997,9 @@ function SelectedDetail({
 }) {
   const compactForm = state.id === "anomaly-step-3";
   const action = getRecordActionFromState(state.id, state);
-  const inlineReasonField = action === "edit" ? undefined : state.reasonField;
-  const inlineTimeFields = action === "edit" ? undefined : state.timeFields;
+  const inlineActionForm = usesInlineActionForm(action);
+  const inlineReasonField = inlineActionForm ? state.reasonField : undefined;
+  const inlineTimeFields = inlineActionForm ? state.timeFields : undefined;
   const [reason, setReason] = useState("");
   const [timeValues, setTimeValues] = useState<Record<string, string>>(() =>
     createTimeInputValues(state.timeFields),
@@ -1015,6 +1016,7 @@ function SelectedDetail({
       reason: "",
       setSaveErrorMessage,
       state: actionState,
+      validate: false,
     });
 
     if (input) {
@@ -1225,11 +1227,19 @@ function DetailActionButton({
           onOpenActionDialog("anomaly-step-4");
         }
 
-        if (action.id === "approve-correction" || action.id === "approve-overtime") {
+        if (action.id === "approve-correction") {
+          onOpenActionDialog("anomaly-step-3");
+        }
+
+        if (action.id === "approve-overtime") {
           onSelectState("anomaly-step-3");
         }
 
-        if (action.id === "reject-correction" || action.id === "reject-overtime") {
+        if (action.id === "reject-correction") {
+          onOpenActionDialog("anomaly-step-4");
+        }
+
+        if (action.id === "reject-overtime") {
           onSelectState("anomaly-step-4");
         }
       }}
@@ -1274,6 +1284,10 @@ function isTimeInputValue(value: string | undefined) {
   return Boolean(value?.match(/^\d{2}:\d{2}$/));
 }
 
+function usesInlineActionForm(action: RecordMainActionInput["action"]) {
+  return action === "approve-overtime" || action === "reject-overtime";
+}
+
 function parseMoneyInput(value: string) {
   const normalized = value.replace(/[^0-9]/g, "");
   const amount = Number.parseInt(normalized, 10);
@@ -1287,18 +1301,20 @@ function createPendingRecordActionInput({
   setSaveErrorMessage,
   startTime,
   state,
+  validate = true,
 }: {
   endTime?: string;
   reason: string;
   setSaveErrorMessage: (message: string) => void;
   startTime?: string;
   state: RecordDetailState;
+  validate?: boolean;
 }): Omit<RecordMainActionInput, "recordId"> | null {
   const action = getRecordActionFromState(state.id, state);
 
   setSaveErrorMessage("");
 
-  if (action === "reject-correction" && !reason.trim()) {
+  if (validate && action === "reject-correction" && !reason.trim()) {
     setSaveErrorMessage("반려 사유를 입력해 주세요.");
     return null;
   }
@@ -1350,8 +1366,8 @@ function RecordActionConfirmDialog({
   const hasPayrollDecision = Boolean(state.payrollMode);
   const showPayMode = hasPayrollDecision && payrollEffect === "immediate";
   const showAmountField = showPayMode && payMode === "fixed" && state.amountField;
-  const editReasonField = input.action === "edit" ? state.reasonField : undefined;
-  const showEditTimeFields = input.action === "edit" && Boolean(state.timeFields);
+  const dialogReasonField = getDialogReasonField(input.action, state);
+  const showDialogTimeFields = shouldShowDialogTimeFields(input.action, state);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -1361,10 +1377,11 @@ function RecordActionConfirmDialog({
       >
         <DialogHeader className="gap-3">
           <DialogTitle className="text-h-20 tracking-normal text-gray-900">
-            {getRecordActionConfirmTitle(input.action)}
+            {state.confirmTitle ?? getRecordActionConfirmTitle(input.action)}
           </DialogTitle>
           <DialogDescription className="text-body-16-regular leading-[24px] tracking-normal text-gray-600">
-            {getRecordActionConfirmDescription(input.action, hasPayrollDecision)}
+            {state.confirmDescription ??
+              getRecordActionConfirmDescription(input.action, hasPayrollDecision)}
           </DialogDescription>
         </DialogHeader>
 
@@ -1394,25 +1411,25 @@ function RecordActionConfirmDialog({
           </section>
         ) : null}
 
-        {editReasonField ? (
+        {dialogReasonField ? (
           <label className="mt-5 block">
             <span className="text-h-18-semibold tracking-normal text-gray-900">
-              {editReasonField.label}
+              {dialogReasonField.label}
             </span>
             <Textarea
-              aria-label={editReasonField.label}
+              aria-label={dialogReasonField.label}
               className="mt-3 h-[84px] w-full rounded-[8px] border-gray-200 bg-white py-4 text-h-18-regular tracking-normal text-gray-800"
-              placeholder={editReasonField.placeholder}
+              placeholder={dialogReasonField.placeholder}
               value={reasonText}
               onChange={(event) => setReasonText(event.target.value)}
             />
           </label>
         ) : null}
 
-        {showEditTimeFields ? (
+        {showDialogTimeFields ? (
           <section className="mt-5">
             <h3 className="text-h-18-semibold tracking-normal text-gray-900">
-              변경 예정 시간
+              {input.action === "approve-correction" ? "반영할 근무 시간" : "변경 예정 시간"}
             </h3>
             <div className="mt-3 grid grid-cols-2 gap-4">
               {state.timeFields?.map((field) => (
@@ -1502,25 +1519,25 @@ function RecordActionConfirmDialog({
             className="h-11 rounded-[8px] bg-green-400 px-6 text-h-18-semibold tracking-normal text-white transition-colors hover:bg-green-450 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:bg-gray-300"
             onClick={() => {
               const amount = showAmountField ? parseMoneyInput(amountText) : null;
-              const startTime = showEditTimeFields
+              const startTime = showDialogTimeFields
                 ? timeValues["check-in"]
                 : input.startTime;
-              const endTime = showEditTimeFields
+              const endTime = showDialogTimeFields
                 ? timeValues["check-out"]
                 : input.endTime;
-              const reason = editReasonField ? reasonText.trim() : input.reason;
+              const reason = dialogReasonField ? reasonText.trim() : input.reason;
 
               setDialogError("");
-              if (editReasonField && !reason) {
-                setDialogError("수정 사유를 입력해 주세요.");
+              if (isDialogReasonRequired(input.action, state) && !reason) {
+                setDialogError(getDialogReasonRequiredMessage(input.action, state));
                 return;
               }
 
               if (
-                showEditTimeFields &&
+                showDialogTimeFields &&
                 (!isTimeInputValue(startTime) || !isTimeInputValue(endTime))
               ) {
-                setDialogError("변경할 근무 시간을 입력해 주세요.");
+                setDialogError(getDialogTimeRequiredMessage(input.action));
                 return;
               }
 
@@ -1556,6 +1573,62 @@ function RecordActionConfirmDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function getDialogReasonField(
+  action: RecordMainActionInput["action"],
+  state: RecordDetailState,
+) {
+  if (
+    action === "edit" ||
+    action === "approve-correction" ||
+    action === "reject-correction"
+  ) {
+    return state.reasonField;
+  }
+
+  return undefined;
+}
+
+function shouldShowDialogTimeFields(
+  action: RecordMainActionInput["action"],
+  state: RecordDetailState,
+) {
+  return (action === "edit" || action === "approve-correction") && Boolean(state.timeFields);
+}
+
+function isDialogReasonRequired(
+  action: RecordMainActionInput["action"],
+  state: RecordDetailState,
+) {
+  return (
+    action === "edit" ||
+    action === "reject-correction" ||
+    (action === "approve-correction" && !state.payrollMode)
+  );
+}
+
+function getDialogReasonRequiredMessage(
+  action: RecordMainActionInput["action"],
+  state: RecordDetailState,
+) {
+  if (action === "reject-correction") {
+    return "반려 사유를 입력해 주세요.";
+  }
+
+  if (action === "approve-correction" && state.payrollMode) {
+    return "처리 메모를 입력해 주세요.";
+  }
+
+  return "수정 사유를 입력해 주세요.";
+}
+
+function getDialogTimeRequiredMessage(action: RecordMainActionInput["action"]) {
+  if (action === "approve-correction") {
+    return "반영할 근무 시간을 입력해 주세요.";
+  }
+
+  return "변경할 근무 시간을 입력해 주세요.";
 }
 
 function getRecordActionFromState(
@@ -1627,6 +1700,14 @@ function getRecordActionConfirmDescription(
 
   if (action === "edit") {
     return "일반근무 시간 변경은 근무시간 기준 급여 산정에 반영됩니다.";
+  }
+
+  if (action === "approve-correction") {
+    return "조교가 보낸 이의 사유를 검토하고, 관리자가 입력한 근무시간으로 반영합니다.";
+  }
+
+  if (action === "reject-correction") {
+    return "반려 사유만 조교에게 전달하고 근무기록은 변경하지 않습니다.";
   }
 
   if (action === "delete") {

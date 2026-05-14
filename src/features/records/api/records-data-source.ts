@@ -730,20 +730,12 @@ function queueCorrectionAction({
     );
     const nextExtraStartAt = resolveActionTimestamp({
       dateKey,
-      fallback:
-        readDate(afterRequestSnapshot.extraStartAt) ??
-        readDate(afterRequestSnapshot.overtimeStartAt) ??
-        readDate(overtime.data.extraStartAt) ??
-        getRecordStartDate(recordData),
+      fallback: readDate(overtime.data.extraStartAt) ?? getRecordStartDate(recordData),
       timeValue: input.startTime,
     });
     const nextExtraEndAt = resolveActionTimestamp({
       dateKey,
-      fallback:
-        readDate(afterRequestSnapshot.extraEndAt) ??
-        readDate(afterRequestSnapshot.overtimeEndAt) ??
-        readDate(overtime.data.extraEndAt) ??
-        getRecordEndDate(recordData),
+      fallback: readDate(overtime.data.extraEndAt) ?? getRecordEndDate(recordData),
       timeValue: input.endTime,
     });
     const payMode = getConfirmedOvertimePayMode(input);
@@ -769,6 +761,15 @@ function queueCorrectionAction({
     });
     batch.update(requestRef, {
       amount: fixedAmount,
+      afterSnapshot: {
+        ...afterRequestSnapshot,
+        changeReason: input.reason || null,
+        changeType: "modified",
+        extraEndAt: toTimestampOrNull(nextExtraEndAt),
+        extraStartAt: toTimestampOrNull(nextExtraStartAt),
+        overtimeWorkId: overtime.id,
+        targetType: "overtime",
+      },
       decidedAt: serverTimestamp(),
       decidedBy: managerUid,
       managerNote: input.reason,
@@ -820,28 +821,21 @@ function queueCorrectionAction({
   };
   const nextStartAt = resolveActionTimestamp({
     dateKey,
-    fallback:
-      readDate(afterRequestSnapshot.effectiveStartAt) ??
-      readDate(afterRequestSnapshot.plannedStartAt) ??
-      getRecordStartDate(recordData),
+    fallback: getRecordStartDate(recordData),
     timeValue: input.startTime,
   });
   const nextEndAt = resolveActionTimestamp({
     dateKey,
-    fallback:
-      readDate(afterRequestSnapshot.effectiveEndAt) ??
-      readDate(afterRequestSnapshot.plannedEndAt) ??
-      getRecordEndDate(recordData),
+    fallback: getRecordEndDate(recordData),
     timeValue: input.endTime,
   });
-  const changeType = readString(afterRequestSnapshot.changeType, "modified");
   const recordUpdate: Record<string, unknown> = {
     "managerOnly.correctionRequestId": request.id,
     "managerOnly.payrollApplication": "applied",
     "managerOnly.reviewedBy": managerUid,
     hasPendingCorrection: false,
     hasUnresolvedAnomaly: false,
-    status: changeType === "deleted" ? "deleted" : "resolved",
+    status: "resolved",
     updatedAt: serverTimestamp(),
   };
 
@@ -853,12 +847,22 @@ function queueCorrectionAction({
     recordUpdate.effectiveEndAt = Timestamp.fromDate(nextEndAt);
   }
 
-  if (changeType === "deleted") {
-    recordUpdate.deletedAt = serverTimestamp();
-  }
+  const afterSnapshot = createWorkerSafeRecordSnapshot(
+    {
+      ...recordData,
+      effectiveEndAt: nextEndAt ? Timestamp.fromDate(nextEndAt) : null,
+      effectiveStartAt: nextStartAt ? Timestamp.fromDate(nextStartAt) : null,
+      status: "resolved",
+    },
+    {
+      changeReason: input.reason,
+      changeType: "modified",
+    },
+  );
 
   batch.update(recordRef, recordUpdate);
   batch.update(requestRef, {
+    afterSnapshot,
     decidedAt: serverTimestamp(),
     decidedBy: managerUid,
     managerNote: input.reason,
@@ -889,8 +893,8 @@ function queueCorrectionAction({
     db,
     input: regularPayrollInput,
     monthKey,
-    newEndAt: changeType === "deleted" ? null : nextEndAt,
-    newStartAt: changeType === "deleted" ? null : nextStartAt,
+    newEndAt: nextEndAt,
+    newStartAt: nextStartAt,
     recordData,
     sourceId: request.id,
     workspaceId,
@@ -2139,40 +2143,36 @@ function createCorrectionDetailStates(
 ): Record<RecordDetailStateId, RecordDetailState> {
   const base = createRecordActionDetailBase(record, attendance);
   const overtimeCorrection = isCorrectionForOvertime(correction);
-  const afterStartAt = overtimeCorrection
-    ? (readDate(correction.afterSnapshot.extraStartAt) ??
-      readDate(correction.afterSnapshot.overtimeStartAt) ??
-      overtime?.extraStartAt ??
-      record.effectiveStartAt ??
-      record.plannedStartAt)
-    : (readDate(correction.afterSnapshot.effectiveStartAt) ??
-      readDate(correction.afterSnapshot.plannedStartAt) ??
-      record.effectiveStartAt ??
-      record.plannedStartAt);
-  const afterEndAt = overtimeCorrection
-    ? (readDate(correction.afterSnapshot.extraEndAt) ??
-      readDate(correction.afterSnapshot.overtimeEndAt) ??
-      overtime?.extraEndAt ??
-      record.effectiveEndAt ??
-      record.plannedEndAt)
-    : (readDate(correction.afterSnapshot.effectiveEndAt) ??
-      readDate(correction.afterSnapshot.plannedEndAt) ??
-      record.effectiveEndAt ??
-      record.plannedEndAt);
+  const editableStartAt = overtimeCorrection
+    ? (overtime?.extraStartAt ?? record.effectiveStartAt ?? record.plannedStartAt)
+    : (record.effectiveStartAt ?? record.plannedStartAt);
+  const editableEndAt = overtimeCorrection
+    ? (overtime?.extraEndAt ?? record.effectiveEndAt ?? record.plannedEndAt)
+    : (record.effectiveEndAt ?? record.plannedEndAt);
+  const approveConfirmTitle = overtimeCorrection
+    ? "추가근무 이의신청을 승인할까요?"
+    : "이의신청을 승인하고 근무기록을 수정할까요?";
+  const approveConfirmDescription = overtimeCorrection
+    ? "조교가 보낸 이의 사유를 검토하고, 입력한 추가근무 시간과 급여 처리값으로 반영합니다."
+    : getRegularCorrectionApprovalDescription(payrollSetting);
   const approveState: RecordDetailState = {
     ...base,
     actions: [
       { id: "approve-correction", label: "승인", active: true },
       { id: "reject-correction", label: "반려" },
     ],
+    confirmDescription: approveConfirmDescription,
     confirmLabel: "승인",
+    confirmTitle: approveConfirmTitle,
     helperText: overtimeCorrection
-      ? "승인 시 요청된 추가근무 시간으로 갱신합니다."
-      : "승인 시 요청된 값으로 근무기록을 갱신합니다.",
+      ? "승인 시 관리자가 입력한 추가근무 시간으로 갱신합니다."
+      : "승인 시 관리자가 입력한 값으로 근무기록을 갱신합니다.",
     id: "anomaly-step-3",
     reasonField: {
-      label: "처리 메모",
-      placeholder: "처리 메모를 입력하세요",
+      label: overtimeCorrection ? "처리 메모" : "수정 사유",
+      placeholder: overtimeCorrection
+        ? "처리 메모를 입력하세요"
+        : "수정 사유를 입력하세요",
     },
     statusLabel: "이의신청",
     statusTone: "orange",
@@ -2181,12 +2181,12 @@ function createCorrectionDetailStates(
       {
         id: "check-in",
         label: overtimeCorrection ? "추가근무 시작" : "근무 시작",
-        value: formatKoreanTime(afterStartAt),
+        value: formatKoreanTime(editableStartAt),
       },
       {
         id: "check-out",
         label: overtimeCorrection ? "추가근무 종료" : "근무 종료",
-        value: formatKoreanTime(afterEndAt),
+        value: formatKoreanTime(editableEndAt),
       },
     ],
     ...(overtimeCorrection
@@ -2223,6 +2223,9 @@ function createCorrectionDetailStates(
         { id: "reject-correction", label: "반려", active: true },
       ],
       confirmLabel: "반려",
+      confirmDescription:
+        "이의신청을 반려로 종료하고 근무기록과 급여 산정값은 변경하지 않습니다.",
+      confirmTitle: "이의신청을 반려할까요?",
       id: "anomaly-step-4",
       reasonField: {
         label: "반려 사유",
@@ -2299,6 +2302,20 @@ function createOvertimeDetailStates(
       submitAction: "reject-overtime",
     },
   };
+}
+
+function getRegularCorrectionApprovalDescription(
+  payrollSetting: PayrollSettingModel | null,
+) {
+  if (payrollSetting?.payrollType === "hourly") {
+    return "시급제 조교의 일반근무 시간을 수정하고 변경된 근무시간을 급여 산정에 반영합니다.";
+  }
+
+  if (payrollSetting?.payrollType === "monthly") {
+    return "월급제 조교의 일반근무 시간을 수정하고 필요한 급여 보정 항목을 반영합니다.";
+  }
+
+  return "일반근무 시간을 수정하고 변경된 값을 급여 산정에 반영합니다.";
 }
 
 function createOvertimePayrollMode(): NonNullable<
