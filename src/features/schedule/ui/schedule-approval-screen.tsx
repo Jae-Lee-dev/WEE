@@ -358,7 +358,7 @@ function SelectedApprovalState({
 
       <main className="min-h-0 flex-1 overflow-hidden px-4 py-5">
         <div className="flex h-full min-h-0 flex-col gap-4">
-          <SelectedProfileHeader
+          <SelectedRequestHeader
             approveLabel={approveLabel}
             request={request}
             rejectLabel={rejectLabel}
@@ -439,7 +439,7 @@ function SelectedApprovalState({
   );
 }
 
-function SelectedProfileHeader({
+function SelectedRequestHeader({
   approveLabel,
   onApprove,
   request,
@@ -463,17 +463,24 @@ function SelectedProfileHeader({
       <div className="min-w-0">
         <div className="flex items-center gap-3">
           <h2 className="text-h-20 tracking-normal text-gray-900">
-            {detail.workerName}
+            {detail.adjustmentDutyName}
           </h2>
-          <Badge variant="grey" size="M">
-            {detail.workerTag}
+          <Badge
+            variant={request.requestKind === "initial" ? "green" : "orange"}
+            size="M"
+            style={
+              request.requestKind === "initial" ? activeBadgeStyle : undefined
+            }
+          >
+            {detail.submittedKindText}
           </Badge>
-          <Badge variant="green" size="M" style={activeBadgeStyle}>
-            {detail.workerStatusText}
+          <Badge variant="grey" size="M">
+            {detail.adjustmentTimeText}
           </Badge>
         </div>
         <p className="mt-2 text-h-18-regular tracking-normal text-gray-700">
-          {request.requestDate} {detail.submittedKindText}
+          {detail.adjustmentDayText} · {detail.adjustmentLocationName} ·{" "}
+          {request.requestDate} 제출
         </p>
       </div>
 
@@ -508,10 +515,16 @@ function ApprovalSummaryCards({
   detail: ScheduleApprovalRequestDetail;
 }) {
   const summaryCards = [
-    { label: "제출 유형", value: detail.submittedKindText },
-    { label: "제출일", value: detail.submittedAt },
-    { label: "제출 블록", value: detail.submittedBlockCountText },
-    { label: "수정 반영", value: detail.correctionStatusText },
+    { label: "요청 근무", value: detail.adjustmentDutyName },
+    {
+      label: "요청 시간",
+      value: `${detail.adjustmentDayText} ${detail.adjustmentTimeText}`,
+    },
+    { label: "근무지", value: detail.adjustmentLocationName },
+    {
+      label: "제출 정보",
+      value: `${detail.submittedKindText} · ${detail.submittedAt}`,
+    },
   ] as const;
 
   return (
@@ -579,7 +592,7 @@ function TimelineBlock({ parsedBlock }: { parsedBlock: ParsedTimelineBlock }) {
 
   return (
     <div
-      aria-label={`${block.worker} ${block.label} ${block.time}`}
+      aria-label={`${block.label} ${block.time}`}
       className={cn(
         "absolute top-0 z-10 flex h-[46px] min-w-0 flex-col justify-center overflow-hidden rounded-[6px] border px-1.5 py-1 text-left tracking-normal",
         selected
@@ -591,8 +604,8 @@ function TimelineBlock({ parsedBlock }: { parsedBlock: ParsedTimelineBlock }) {
     >
       <TimelineBlockText
         selected={selected}
-        subtitle={block.label}
-        title={block.worker}
+        subtitle={block.time}
+        title={block.label}
       />
     </div>
   );
