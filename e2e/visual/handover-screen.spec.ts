@@ -20,6 +20,13 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await expect(
       page.getByPlaceholder("수정 요청을 입력하세요..."),
     ).toBeVisible();
+    await expect(page.getByTestId("handover-prompt-starters")).toBeVisible();
+    await expect(page.getByText("자주 쓰는 요청")).toBeVisible();
+    await expect(
+      page.getByRole("button", {
+        name: "오늘 전달사항을 간결하게 정리해줘",
+      }),
+    ).toBeVisible();
     await expect(page.getByRole("button", { name: "전송" })).toBeVisible();
 
     await captureActualScreenshot({
@@ -59,6 +66,25 @@ test("HO-01 AI proposal blocks changed rows until review", async ({ page }) => {
     );
   expect(listItems).toContain("보강 자료 프린트 준비");
   await expect(page.getByPlaceholder("수정 요청을 입력하세요...")).toBeEnabled();
+});
+
+test("HO-01 prompt starter fills the request input", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/handover",
+    viewport: "laptop-1366",
+  });
+  await page.evaluate(() => document.fonts.ready);
+
+  const starter = page.getByRole("button", {
+    name: "수학 A반 유의사항을 보강해줘",
+  });
+  await starter.click();
+
+  await expect(page.getByLabel("수정할 내용")).toHaveValue(
+    "수학 A반 유의사항을 보강해줘",
+  );
+  await expect(page.getByTestId("handover-prompt-starters")).toBeVisible();
 });
 
 test("HO-01 blocks screen navigation when unpublished edits exist", async ({

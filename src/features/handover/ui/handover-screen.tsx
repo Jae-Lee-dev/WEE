@@ -45,6 +45,13 @@ const handoverChatCopy = {
   disabledPlaceholder: "수정안을 먼저 검토해 주세요.",
   inputPlaceholder: "수정 요청을 입력하세요...",
   sendLabel: "전송",
+  starterLabel: "자주 쓰는 요청",
+  starters: [
+    "오늘 전달사항을 간결하게 정리해줘",
+    "수학 A반 유의사항을 보강해줘",
+    "중복 표현을 줄여줘",
+    "조교가 바로 실행할 일만 목록으로 정리해줘",
+  ],
   title: "AI 수정 요청",
 } as const;
 
@@ -223,6 +230,7 @@ export function HandoverScreen() {
             inputValue={chatInput}
             messages={chatMessages}
             onChangeInput={setChatInput}
+            onSelectStarter={setChatInput}
             onSend={sendAiInstruction}
           />
           {publishDialogOpen ? (
@@ -671,12 +679,14 @@ function HandoverChatPanel({
   inputValue,
   messages,
   onChangeInput,
+  onSelectStarter,
   onSend,
 }: {
   disabled: boolean;
   inputValue: string;
   messages: readonly HandoverChatMessage[];
   onChangeInput: (value: string) => void;
+  onSelectStarter: (value: string) => void;
   onSend: () => void;
 }) {
   return (
@@ -689,9 +699,16 @@ function HandoverChatPanel({
         <h2 className="text-h-20 text-gray-900">{handoverChatCopy.title}</h2>
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-auto px-4 pt-0">
-        {messages.map((message) => (
-          <HandoverChatMessageBubble key={message.id} message={message} />
-        ))}
+        {messages.length ? (
+          messages.map((message) => (
+            <HandoverChatMessageBubble key={message.id} message={message} />
+          ))
+        ) : (
+          <HandoverPromptStarters
+            disabled={disabled}
+            onSelectStarter={onSelectStarter}
+          />
+        )}
       </div>
       <div className="flex h-14 shrink-0 items-center gap-3 border-t border-gray-200 px-4">
         <Input
@@ -721,6 +738,38 @@ function HandoverChatPanel({
         </Button>
       </div>
     </aside>
+  );
+}
+
+function HandoverPromptStarters({
+  disabled,
+  onSelectStarter,
+}: {
+  disabled: boolean;
+  onSelectStarter: (value: string) => void;
+}) {
+  return (
+    <div
+      className="mt-1 rounded-[8px] border border-gray-100 bg-gray-50 px-4 py-3"
+      data-testid="handover-prompt-starters"
+    >
+      <p className="text-body-14-medium tracking-normal text-gray-600">
+        {handoverChatCopy.starterLabel}
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {handoverChatCopy.starters.map((starter) => (
+          <button
+            key={starter}
+            type="button"
+            disabled={disabled}
+            onClick={() => onSelectStarter(starter)}
+            className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-body-14-medium tracking-normal text-gray-700 transition-colors duration-150 ease-out hover:border-green-200 hover:bg-green-50 hover:text-green-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:pointer-events-none disabled:opacity-50"
+          >
+            {starter}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
