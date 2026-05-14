@@ -219,27 +219,43 @@ test("HO-01 editor does not create a block while IME is composing", async ({
   await page.keyboard.insertText(" 한글");
 
   const paragraphCount = await editor.locator("p").count();
-  const defaultPrevented = await editor.evaluate((element) => {
+  const eventResult = await editor.evaluate((element) => {
     element.dispatchEvent(
       new CompositionEvent("compositionstart", {
         bubbles: true,
         data: "ㅎ",
       }),
     );
+    element.dispatchEvent(
+      new CompositionEvent("compositionend", {
+        bubbles: true,
+        data: "한",
+      }),
+    );
 
-    const event = new KeyboardEvent("keydown", {
+    const keydownEvent = new KeyboardEvent("keydown", {
       bubbles: true,
       cancelable: true,
-      isComposing: true,
+      isComposing: false,
       key: "Enter",
     });
+    const beforeInputEvent = new InputEvent("beforeinput", {
+      bubbles: true,
+      cancelable: true,
+      inputType: "insertParagraph",
+    });
 
-    element.dispatchEvent(event);
+    element.dispatchEvent(keydownEvent);
+    element.dispatchEvent(beforeInputEvent);
 
-    return event.defaultPrevented;
+    return {
+      beforeInputDefaultPrevented: beforeInputEvent.defaultPrevented,
+      keydownDefaultPrevented: keydownEvent.defaultPrevented,
+    };
   });
 
-  expect(defaultPrevented).toBe(false);
+  expect(eventResult.keydownDefaultPrevented).toBe(false);
+  expect(eventResult.beforeInputDefaultPrevented).toBe(true);
   await expect(editor.locator("p")).toHaveCount(paragraphCount);
   await expect(paragraph).toContainText("한글");
 });
