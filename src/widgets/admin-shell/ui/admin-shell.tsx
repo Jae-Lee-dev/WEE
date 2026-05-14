@@ -358,11 +358,7 @@ function useAdminShellBadgeCounts() {
     [],
   );
   const [counts, setCounts] = useState<AdminShellBadgeCounts>(
-    {
-      ...(dataSource.initialCounts ?? emptyAdminShellBadgeCounts),
-      workerApplications:
-        workerApplicationsDataSource.initialApplicationCount ?? 0,
-    },
+    emptyAdminShellBadgeCounts,
   );
 
   useEffect(() => {

@@ -241,7 +241,7 @@ export function WorkerTagsScreen({
 
   return (
     <section
-      aria-label="근무자 태그 관리"
+      aria-label="근무자 태그 목록"
       className="flex h-[calc(100vh-144px)] min-h-140 w-full flex-col gap-4"
       data-testid="worker-tags-screen"
     >
@@ -312,7 +312,7 @@ function WorkerTagListPanel({
     <div className="flex min-w-0 flex-col overflow-hidden rounded-[8px] bg-white">
       <div className="flex h-14 shrink-0 items-center justify-between gap-3 px-4">
         <div className="flex min-w-0 items-center gap-3">
-          <h2 className="text-h-20 text-gray-900">근무자 태그 관리</h2>
+          <h2 className="text-h-20 text-gray-900">근무자 태그 목록</h2>
           <Badge variant="grey" size="M">
             {rows.length}개
           </Badge>

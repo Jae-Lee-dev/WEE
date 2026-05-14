@@ -377,6 +377,7 @@ service cloud.firestore {
 
       return resource.data.status != 'deleted'
         && changedKeys.hasOnly([
+          'approvedAt',
           'membershipStatus',
           'rejectionReason',
           'status',
@@ -396,7 +397,63 @@ service cloud.firestore {
           !data.keys().hasAny(['rejectionReason']) ||
           data.rejectionReason is string
         )
+        && (
+          !changedKeys.hasAny(['approvedAt']) ||
+          data.approvedAt == request.time
+        )
         && data.updatedAt == request.time;
+    }
+
+    function isWorkerApprovalCreate(workspaceId, workerId) {
+      let data = request.resource.data;
+
+      return data.keys().hasOnly([
+          'account',
+          'appliedAt',
+          'approvedAt',
+          'bankbookDownloadUrl',
+          'bankbookStatus',
+          'contact',
+          'createdAt',
+          'membershipId',
+          'membershipStatus',
+          'name',
+          'nameKey',
+          'status',
+          'tagIds',
+          'updatedAt',
+          'workerId',
+          'workerUid',
+          'workspaceId'
+        ])
+        && data.workspaceId == workspaceId
+        && data.workerId == workerId
+        && data.membershipId is string
+        && data.membershipId.size() > 0
+        && data.name is string
+        && data.name.size() > 0
+        && data.nameKey is string
+        && data.nameKey.size() > 0
+        && data.contact is string
+        && data.membershipStatus == 'approved'
+        && data.status == 'active'
+        && data.tagIds is list
+        && data.tagIds.size() <= 20
+        && data.createdAt == request.time
+        && data.approvedAt == request.time
+        && data.updatedAt == request.time
+        && (
+          !data.keys().hasAny(['workerUid']) ||
+          data.workerUid is string
+        )
+        && (
+          !data.keys().hasAny(['bankbookDownloadUrl']) ||
+          data.bankbookDownloadUrl is string
+        )
+        && (
+          !data.keys().hasAny(['bankbookStatus']) ||
+          data.bankbookStatus is string
+        );
     }
 
     function isPayrollDateValue(value) {
@@ -692,7 +749,9 @@ service cloud.firestore {
             isWorkerDetailEdit() ||
             isWorkerMembershipDecisionEdit()
           );
-        allow create, delete: if false;
+        allow create: if isWorkspaceManagerAfter(workspaceId)
+          && isWorkerApprovalCreate(workspaceId, workerId);
+        allow delete: if false;
       }
 
       match /memberships/{membershipId} {

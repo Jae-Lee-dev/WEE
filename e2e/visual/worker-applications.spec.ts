@@ -12,9 +12,11 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
   test(`WKR-01 default ${viewport}`, async ({ page }) => {
     await prepareVisualPage({ page, path: "/workers/applications", viewport });
     await page.evaluate(() => document.fonts.ready);
-    await expect(page.getByRole("heading", { name: "신청 목록" })).toBeVisible();
     await expect(
-      page.getByText("신청 건을 선택하면").first(),
+      page.getByRole("heading", { name: "신청 목록" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("선택된 소속 신청이 없습니다").first(),
     ).toBeVisible();
     await expectWorkerApplicationIndicatorToMatchList(page);
 
@@ -34,7 +36,9 @@ test(`WKR-01 selected-application ${desktop}`, async ({ page }) => {
   });
   await page.evaluate(() => document.fonts.ready);
   await page.getByTestId("worker-application-row-1").click();
-  await expect(page.getByRole("heading", { name: "소속 승인" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "소속 신청 상세" }),
+  ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "통장 사본 다운로드" }),
   ).toHaveAttribute("href", /worker-application-bankbook/);
@@ -43,6 +47,29 @@ test(`WKR-01 selected-application ${desktop}`, async ({ page }) => {
     page,
     screenId: "WKR-01",
     state: "selected-application",
+    viewport: desktop,
+  });
+});
+
+test(`WKR-01 focus-query-keeps-default ${desktop}`, async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/workers/applications?focus=application-kim-seoyeon-1",
+    viewport: desktop,
+  });
+  await page.evaluate(() => document.fonts.ready);
+  await expect(page.getByTestId("worker-application-row-1")).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+  await expect(
+    page.getByText("선택된 소속 신청이 없습니다").first(),
+  ).toBeVisible();
+
+  await captureActualScreenshot({
+    page,
+    screenId: "WKR-01",
+    state: "focus-query-default",
     viewport: desktop,
   });
 });
@@ -90,7 +117,9 @@ test(`WKR-01 tag-added ${desktop}`, async ({ page }) => {
   });
 });
 
-test("WKR-01 tag picker ignores Enter while IME is composing", async ({ page }) => {
+test("WKR-01 tag picker ignores Enter while IME is composing", async ({
+  page,
+}) => {
   await prepareVisualPage({
     page,
     path: "/workers/applications",
@@ -152,17 +181,43 @@ test(`WKR-01 monthly-pay-selected ${desktop}`, async ({ page }) => {
   await page.getByRole("combobox", { name: "근무자 태그 검색" }).click();
   await page.getByRole("option", { name: "베테랑" }).click();
   await page.getByTestId("worker-application-pay-monthly").click();
-  await expect(page.getByTestId("worker-application-pay-monthly")).toHaveAttribute(
+  await expect(
+    page.getByTestId("worker-application-pay-monthly"),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByText("원천징수")).toBeVisible();
+  await expect(page.getByTestId("worker-application-tax-withholding")).toHaveAttribute(
     "aria-selected",
     "true",
   );
-  await expect(page.getByLabel("세율 직접 입력")).toHaveCount(0);
   await page.waitForTimeout(segmentAnimationMs);
 
   await captureActualScreenshot({
     page,
     screenId: "WKR-01",
     state: "monthly-pay-selected",
+    viewport: desktop,
+  });
+});
+
+test(`WKR-01 tax-none-selected ${desktop}`, async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/workers/applications",
+    viewport: desktop,
+  });
+  await page.evaluate(() => document.fonts.ready);
+  await page.getByTestId("worker-application-row-1").click();
+  await page.getByTestId("worker-application-tax-none").click();
+  await expect(page.getByTestId("worker-application-tax-none")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await page.waitForTimeout(segmentAnimationMs);
+
+  await captureActualScreenshot({
+    page,
+    screenId: "WKR-01",
+    state: "tax-none-selected",
     viewport: desktop,
   });
 });
@@ -177,11 +232,15 @@ test("WKR-01 row click toggles application selection", async ({ page }) => {
 
   await firstRow.click();
   await expect(firstRow).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("heading", { name: "소속 승인" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "소속 신청 상세" }),
+  ).toBeVisible();
 
   await firstRow.click();
   await expect(firstRow).toHaveAttribute("aria-pressed", "false");
-  await expect(page.getByText("신청 건을 선택하면").first()).toBeVisible();
+  await expect(
+    page.getByText("선택된 소속 신청이 없습니다").first(),
+  ).toBeVisible();
 });
 
 async function expectWorkerApplicationIndicatorToMatchList(page: Page) {

@@ -37,7 +37,9 @@ import {
   type WorkerApplicationTag,
 } from "../model/worker-applications-fixtures";
 
-const fixedWorkerApplicationTaxRatePercent = 3.3;
+type WorkerApplicationTaxKind = "none" | "withholding";
+
+const workerApplicationWithholdingTaxRatePercent = 3.3;
 const draftWorkerTagValuePrefix = "draft-worker-tag:";
 
 export function WorkerApplicationsScreen({
@@ -50,14 +52,13 @@ export function WorkerApplicationsScreen({
     [],
   );
   const dataSource = dataSourceProp ?? fallbackDataSource;
-  const [applicationData, setApplicationData] = useState<WorkerApplicationsData>(
-    dataSource.initialData ?? emptyWorkerApplicationsData,
-  );
+  const [applicationData, setApplicationData] =
+    useState<WorkerApplicationsData>(emptyWorkerApplicationsData);
   const [selectedApplicationId, setSelectedApplicationId] = useState<
     string | undefined
   >();
   const [payKind, setPayKind] = useState<WorkerApplicationPayKind>("hourly");
-  const [loading, setLoading] = useState(!dataSource.initialData);
+  const [loading, setLoading] = useState(true);
   const [savingDecision, setSavingDecision] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
@@ -103,7 +104,9 @@ export function WorkerApplicationsScreen({
 
     setSelectedApplicationId(nextApplication?.id);
     setPayKind(
-      nextApplication ? getDefaultApplicationPayKind(nextApplication) : "hourly",
+      nextApplication
+        ? getDefaultApplicationPayKind(nextApplication)
+        : "hourly",
     );
     setStatusMessage("");
     setErrorMessage("");
@@ -152,9 +155,7 @@ export function WorkerApplicationsScreen({
       className="grid h-[calc(100vh-144px)] min-h-[520px] w-full grid-cols-[minmax(520px,1fr)_minmax(380px,560px)] gap-4"
       data-testid="worker-applications-screen"
       data-worker-applications-state={
-        selectedApplication
-          ? `${selectedApplication.id}:${payKind}`
-          : "default"
+        selectedApplication ? `${selectedApplication.id}:${payKind}` : "default"
       }
     >
       {statusMessage ? (
@@ -206,7 +207,11 @@ function ApplicationList({
     <div className="min-w-0 overflow-hidden rounded-[8px] bg-white">
       <div className="flex h-[56px] items-center gap-3 px-4">
         <h2 className="text-h-20 text-gray-900">신청 목록</h2>
-        <Badge variant="grey" size="M" data-testid="worker-application-list-count">
+        <Badge
+          variant="grey"
+          size="M"
+          data-testid="worker-application-list-count"
+        >
           {rows.length}건
         </Badge>
       </div>
@@ -311,6 +316,8 @@ function ApplicationDecisionPanel({
     readonly TagSearchPickerOption[]
   >([]);
   const [payAmount, setPayAmount] = useState(extractFirstNumber(requested));
+  const [taxKind, setTaxKind] =
+    useState<WorkerApplicationTaxKind>("withholding");
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -321,7 +328,10 @@ function ApplicationDecisionPanel({
     ],
     [draftTagOptions, tags],
   );
-  const existingTagIds = useMemo(() => new Set(tags.map((tag) => tag.id)), [tags]);
+  const existingTagIds = useMemo(
+    () => new Set(tags.map((tag) => tag.id)),
+    [tags],
+  );
   const workerTagOptionByValue = useMemo(
     () => new Map(workerTagOptions.map((option) => [option.value, option])),
     [workerTagOptions],
@@ -344,9 +354,7 @@ function ApplicationDecisionPanel({
     return (
       <aside className="flex min-w-0 items-center justify-center rounded-[8px] border border-transparent bg-white px-6 text-center">
         <p className="text-h-18-regular text-gray-400">
-          신청 건을 선택하면
-          <br />
-          우측에서 승인/반려를 처리합니다.
+          선택된 소속 신청이 없습니다
         </p>
       </aside>
     );
@@ -355,7 +363,7 @@ function ApplicationDecisionPanel({
   return (
     <aside className="flex min-w-0 flex-col overflow-hidden rounded-[8px] border border-transparent bg-white">
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4">
-        <h2 className="text-h-20 text-gray-900">소속 승인</h2>
+        <h2 className="text-h-20 text-gray-900">소속 신청 상세</h2>
         <div className="mt-5 flex flex-col gap-4">
           <ApplicationInfoCard info={selectedApplication.info} />
           <WorkerTagCard
@@ -363,7 +371,10 @@ function ApplicationDecisionPanel({
             options={workerTagOptions}
             selectedValues={selectedTagValues}
             onCreateTag={(label) => {
-              const option = createDraftWorkerTagOption(label, workerTagOptions);
+              const option = createDraftWorkerTagOption(
+                label,
+                workerTagOptions,
+              );
 
               setDraftTagOptions((currentOptions) =>
                 mergeTagSearchPickerOptions(currentOptions, [option]),
@@ -377,8 +388,10 @@ function ApplicationDecisionPanel({
             amount={payAmount}
             amountError={submitted && normalizedPayAmount === null}
             payKind={payKind}
+            taxKind={taxKind}
             onAmountChange={setPayAmount}
             onSelectPayKind={onSelectPayKind}
+            onSelectTaxKind={setTaxKind}
           />
           {statusMessage || errorMessage ? (
             <p
@@ -418,12 +431,16 @@ function ApplicationDecisionPanel({
               applicationId: selectedApplication.id,
               hourlyRate: payKind === "hourly" ? normalizedPayAmount : null,
               membershipId: selectedApplication.membershipId,
-              monthlySalary:
-                payKind === "monthly" ? normalizedPayAmount : null,
+              monthlySalary: payKind === "monthly" ? normalizedPayAmount : null,
               newTagLabels,
               payrollType: payKind,
               tagIds: selectedTagIds,
-              taxRatePercent: fixedWorkerApplicationTaxRatePercent,
+              taxRatePercent:
+                taxKind === "withholding"
+                  ? workerApplicationWithholdingTaxRatePercent
+                  : null,
+              workerContact:
+                selectedApplication.phone === "-" ? "" : selectedApplication.phone,
               workerId: selectedApplication.workerId ?? selectedApplication.id,
               workerName: selectedApplication.name,
             });
@@ -564,14 +581,18 @@ function PaySettingCard({
   amount,
   amountError,
   payKind,
+  taxKind,
   onAmountChange,
   onSelectPayKind,
+  onSelectTaxKind,
 }: {
   amount: string;
   amountError: boolean;
   payKind: WorkerApplicationPayKind;
+  taxKind: WorkerApplicationTaxKind;
   onAmountChange: (value: string) => void;
   onSelectPayKind: (payKind: WorkerApplicationPayKind) => void;
+  onSelectTaxKind: (taxKind: WorkerApplicationTaxKind) => void;
 }) {
   const setting = workerApplicationPaySettings[payKind];
 
@@ -581,7 +602,8 @@ function PaySettingCard({
         급여 설정 <span className="text-red-500">*</span>
       </h3>
       <Segment
-        className="mt-3 grid h-11 w-full grid-cols-2 [&_[data-slot=tabs-trigger]]:h-9 [&_[data-slot=tabs-trigger]]:py-0"
+        size="lg"
+        className="mt-3 grid w-full grid-cols-2"
         options={[
           {
             value: "hourly",
@@ -601,11 +623,12 @@ function PaySettingCard({
       <div className="mt-4 flex items-center gap-3">
         <Input
           inputMode="numeric"
+          size="lg"
           value={amount}
           onChange={(event) => onAmountChange(event.target.value)}
           placeholder={setting.placeholder}
           aria-invalid={amountError}
-          className="h-11 min-w-0 flex-1 rounded-[8px] border-gray-200 bg-gray-50 text-h-18-regular text-gray-900"
+          className="min-w-0 flex-1 rounded-[8px] border-gray-200 bg-gray-50 text-gray-900"
           aria-label="급여 입력"
         />
         <span className="w-[52px] shrink-0 text-right text-h-18-regular text-gray-900">
@@ -613,16 +636,28 @@ function PaySettingCard({
         </span>
       </div>
 
-      <div className="mt-4 flex min-h-[48px] items-center gap-3 border-t border-gray-100 pt-4">
-        <span className="shrink-0 text-h-18-semibold text-gray-800">세율</span>
-        <Badge
-          variant="greenSolid"
-          size="L"
-          shape="pill"
-          className="px-4"
-        >
-          {fixedWorkerApplicationTaxRatePercent}%
-        </Badge>
+      <div className="mt-4 flex min-h-[48px] items-center justify-between gap-3 border-t border-gray-100 pt-4">
+        <span className="shrink-0 text-h-18-semibold text-gray-800">
+          원천징수
+        </span>
+        <Segment
+          size="sm"
+          className="grid w-[148px] grid-cols-2"
+          options={[
+            {
+              value: "none",
+              label: "없음",
+              testId: "worker-application-tax-none",
+            },
+            {
+              value: "withholding",
+              label: `${workerApplicationWithholdingTaxRatePercent}%`,
+              testId: "worker-application-tax-withholding",
+            },
+          ]}
+          value={taxKind}
+          onChange={onSelectTaxKind}
+        />
       </div>
       {amountError ? (
         <p className="mt-2 text-label-12-medium text-red-500">
@@ -700,7 +735,9 @@ function extractFirstNumber(value: string) {
 function getDefaultApplicationPayKind(
   application: WorkerApplicationRow,
 ): WorkerApplicationPayKind {
-  return application.info?.requestedPay?.includes("월급") ? "monthly" : "hourly";
+  return application.info?.requestedPay?.includes("월급")
+    ? "monthly"
+    : "hourly";
 }
 
 function createDraftWorkerTagOption(

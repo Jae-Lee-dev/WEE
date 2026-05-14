@@ -809,7 +809,7 @@ function createWorkerTags(workspaceId, managerUid) {
   return [
     ["worker_tag_new", "신입", "green", 1],
     ["worker_tag_veteran", "베테랑", "grey", 2],
-    ["worker_tag_grade12", "고3", "blue", 3],
+    ["worker_tag_grade12", "고3", "blue", 2],
     ["worker_tag_watch", "유의대상", "red", 1],
     ["worker_tag_weekend", "주말", "orange", 2],
   ].map(([id, name, color, usageCount], index) => ({
@@ -843,13 +843,13 @@ function createWorkers(workspaceId, managerUid) {
   const pending = createAffiliationApplicationWorkers(workspaceId);
   const rejectedReason = "계좌 정보 확인 불가";
   const rejected = {
-    ...worker("worker_oh_rejected", "worker-auth-oh", "오지훈", ["worker_tag_watch"], "2026-04-18T12:40:00+09:00"),
+    ...worker("worker_oh_rejected", "worker-auth-oh", "오지훈", [], "2026-04-18T12:40:00+09:00"),
     membershipStatus: "rejected",
     status: "inactive",
     updatedAt: ts("2026-04-18T16:00:00+09:00"),
     workspaceId,
   };
-  const all = [...active, ...pending, rejected];
+  const all = active;
   const memberships = [
     ...active.map((item) => ({
       id: `membership_${item.id}`,
@@ -866,7 +866,10 @@ function createWorkers(workspaceId, managerUid) {
     ...pending.map((item) => pendingMembership(item, workspaceId)),
     {
       id: "membership_worker_oh_rejected",
+      account: rejected.account,
       appliedAt: rejected.appliedAt,
+      bankbookStatus: "업로드 완료",
+      contact: rejected.contact,
       createdAt: rejected.appliedAt,
       decidedAt: ts("2026-04-18T16:00:00+09:00"),
       decidedBy: managerUid,
@@ -888,7 +891,7 @@ function createAffiliationApplicationWorkers(workspaceId) {
       "worker_yang_pending",
       "worker-auth-yang",
       "양도현",
-      ["worker_tag_new"],
+      [],
       "2026-05-10T14:10:00+09:00",
       { requestedHourlyRate: 9800 },
     ),
@@ -896,7 +899,7 @@ function createAffiliationApplicationWorkers(workspaceId) {
       "worker_han_pending",
       "worker-auth-han",
       "한지우",
-      ["worker_tag_grade12"],
+      [],
       "2026-05-11T09:35:00+09:00",
       {
         bankbookDownloadUrl: "https://example.com/seed/worker-han-bankbook.png",
@@ -907,7 +910,7 @@ function createAffiliationApplicationWorkers(workspaceId) {
       "worker_seo_pending",
       "worker-auth-seo",
       "서민아",
-      ["worker_tag_weekend"],
+      [],
       "2026-05-11T11:20:00+09:00",
       {
         bankbookMissing: true,
@@ -918,7 +921,7 @@ function createAffiliationApplicationWorkers(workspaceId) {
       "worker_lim_pending",
       "worker-auth-lim",
       "임태준",
-      ["worker_tag_new", "worker_tag_weekend"],
+      [],
       "2026-05-12T08:50:00+09:00",
       { requestedHourlyRate: 11200 },
     ),
@@ -963,7 +966,7 @@ function applicationWorker(id, workerUid, name, tagIds, appliedIso, options = {}
     createdAt: appliedAt,
     name,
     nameKey: name.toLocaleLowerCase("ko-KR"),
-    tagIds,
+    ...(tagIds.length > 0 ? { tagIds } : {}),
     workerUid,
   };
 }
@@ -971,8 +974,13 @@ function applicationWorker(id, workerUid, name, tagIds, appliedIso, options = {}
 function pendingMembership(worker, workspaceId) {
   return {
     id: membershipDocumentId(worker),
+    account: worker.account,
     appliedAt: worker.appliedAt,
+    ...(worker.bankbookDownloadUrl
+      ? { bankbookDownloadUrl: worker.bankbookDownloadUrl }
+      : {}),
     bankbookStatus: worker.bankbookStatus,
+    contact: worker.contact,
     createdAt: worker.appliedAt,
     requestedHourlyRate: worker.requestedHourlyRate ?? null,
     requestedMonthlySalary: worker.requestedMonthlySalary ?? null,
@@ -1025,7 +1033,7 @@ function worker(id, workerUid, name, tagIds, approvedIso) {
     createdAt: appliedAt,
     name,
     nameKey: name.toLocaleLowerCase("ko-KR"),
-    tagIds,
+    ...(tagIds.length > 0 ? { tagIds } : {}),
     workerUid,
   };
 }

@@ -2,6 +2,7 @@ import {
   collection,
   deleteField,
   doc,
+  getDoc,
   getDocs,
   increment,
   serverTimestamp,
@@ -42,6 +43,7 @@ export type ApproveWorkerApplicationInput = {
   applicationId: string;
   membershipId?: string;
   workerId: string;
+  workerContact: string;
   workerName: string;
   tagIds: readonly string[];
   newTagLabels: readonly string[];
@@ -59,6 +61,8 @@ export type RejectWorkerApplicationInput = {
 };
 
 type WorkerApplicationStatus = "pending" | "rejected";
+
+const inlineWorkerTagColors = ["green", "blue", "orange", "red", "grey"] as const;
 
 type FirestoreDocument = {
   data: DocumentData;
@@ -213,6 +217,24 @@ function createFirestoreWorkerApplicationsDataSource(): WorkerApplicationsDataSo
         input.membershipId || input.applicationId || `membership_${input.workerId}`,
       );
       const workerRef = doc(db, "workspaces", workspaceId, "workers", input.workerId);
+      const payrollRef = doc(
+        db,
+        "workspaces",
+        workspaceId,
+        "payrollSettings",
+        `payroll_${input.workerId}`,
+      );
+      const [membershipSnapshot, workerSnapshot, payrollSnapshot] = await Promise.all([
+        getDoc(membershipRef),
+        getDoc(workerRef),
+        getDoc(payrollRef),
+      ]);
+      const membershipData = membershipSnapshot.exists()
+        ? membershipSnapshot.data()
+        : undefined;
+      const existingWorkerData = workerSnapshot.exists()
+        ? workerSnapshot.data()
+        : undefined;
       const newTagIds = input.newTagLabels.map((label) => createInlineTagId(label));
       const tagIds = [...new Set([...input.tagIds, ...newTagIds])];
 
@@ -224,7 +246,7 @@ function createFirestoreWorkerApplicationsDataSource(): WorkerApplicationsDataSo
         }
 
         batch.set(doc(db, "workspaces", workspaceId, "workerTags", tagId), {
-          color: "green",
+          color: getRandomInlineWorkerTagColor(),
           createdAt: serverTimestamp(),
           createdBy: decidedBy,
           name: label,
@@ -262,32 +284,58 @@ function createFirestoreWorkerApplicationsDataSource(): WorkerApplicationsDataSo
         },
         { merge: true },
       );
-      batch.update(workerRef, {
-        membershipStatus: "approved",
-        rejectionReason: deleteField(),
-        status: "active",
-        tagIds,
-        updatedAt: serverTimestamp(),
-      });
-      batch.set(
-        doc(db, "workspaces", workspaceId, "payrollSettings", `payroll_${input.workerId}`),
-        {
-          createdAt: serverTimestamp(),
-          effectiveFrom: getCurrentMonthStartDateKey(),
-          hourlyRate: input.payrollType === "hourly" ? input.hourlyRate : null,
-          monthlySalary:
-            input.payrollType === "monthly" ? input.monthlySalary : null,
-          payrollType: input.payrollType,
+      if (workerSnapshot.exists()) {
+        batch.update(workerRef, {
+          approvedAt: serverTimestamp(),
+          membershipStatus: "approved",
+          rejectionReason: deleteField(),
           status: "active",
-          taxRatePercent: input.taxRatePercent,
-          taxType: input.taxRatePercent == null ? "none" : "custom",
+          tagIds,
           updatedAt: serverTimestamp(),
-          workerId: input.workerId,
-          workerName: input.workerName,
-          workspaceId,
-        },
-        { merge: true },
-      );
+        });
+      } else {
+        batch.set(
+          workerRef,
+          createApprovedWorkerDocument({
+            contact:
+              normalizeOptionalString(input.workerContact) ||
+              normalizeOptionalString(
+                readPhoneLabel(membershipData, existingWorkerData),
+              ) ||
+              "",
+            membershipData,
+            membershipId: input.membershipId || input.applicationId,
+            tagIds,
+            workerData: existingWorkerData,
+            workerId: input.workerId,
+            workerName: input.workerName,
+            workspaceId,
+          }),
+        );
+      }
+      const payrollSettingData = {
+        effectiveFrom: getCurrentMonthStartDateKey(),
+        hourlyRate: input.payrollType === "hourly" ? input.hourlyRate : null,
+        monthlySalary:
+          input.payrollType === "monthly" ? input.monthlySalary : null,
+        payrollType: input.payrollType,
+        status: "active",
+        taxRatePercent: input.taxRatePercent,
+        taxType: input.taxRatePercent == null ? "none" : "custom",
+        updatedAt: serverTimestamp(),
+        workerId: input.workerId,
+        workerName: input.workerName,
+        workspaceId,
+      };
+
+      if (payrollSnapshot.exists()) {
+        batch.update(payrollRef, payrollSettingData);
+      } else {
+        batch.set(payrollRef, {
+          ...payrollSettingData,
+          createdAt: serverTimestamp(),
+        });
+      }
 
       await batch.commit();
 
@@ -337,6 +385,8 @@ function createFirestoreWorkerApplicationsDataSource(): WorkerApplicationsDataSo
       const db = getFirebaseDb();
       const batch = writeBatch(db);
       const decidedBy = getFirebaseAuth().currentUser?.uid ?? null;
+      const workerRef = doc(db, "workspaces", workspaceId, "workers", input.workerId);
+      const workerSnapshot = await getDoc(workerRef);
 
       batch.set(
         doc(
@@ -357,12 +407,14 @@ function createFirestoreWorkerApplicationsDataSource(): WorkerApplicationsDataSo
         },
         { merge: true },
       );
-      batch.update(doc(db, "workspaces", workspaceId, "workers", input.workerId), {
-        membershipStatus: "rejected",
-        rejectionReason: deleteField(),
-        status: "inactive",
-        updatedAt: serverTimestamp(),
-      });
+      if (workerSnapshot.exists()) {
+        batch.update(workerRef, {
+          membershipStatus: "rejected",
+          rejectionReason: deleteField(),
+          status: "inactive",
+          updatedAt: serverTimestamp(),
+        });
+      }
 
       await batch.commit();
 
@@ -387,6 +439,59 @@ async function requireActiveWorkspaceId() {
 
 function shouldUseFixtureDataSource() {
   return isMockFirebaseProject() || readActiveWorkspaceId() === "workspace_visual";
+}
+
+function createApprovedWorkerDocument({
+  contact,
+  membershipData,
+  membershipId,
+  tagIds,
+  workerData,
+  workerId,
+  workerName,
+  workspaceId,
+}: {
+  contact: string;
+  membershipData: DocumentData | undefined;
+  membershipId: string;
+  tagIds: readonly string[];
+  workerData: DocumentData | undefined;
+  workerId: string;
+  workerName: string;
+  workspaceId: string;
+}) {
+  const account = readObject(membershipData?.account) ?? readObject(workerData?.account);
+  const appliedAt =
+    membershipData?.appliedAt ?? membershipData?.createdAt ?? workerData?.appliedAt;
+  const bankbookDownloadUrl =
+    normalizeOptionalString(membershipData?.bankbookDownloadUrl) ||
+    normalizeOptionalString(workerData?.bankbookDownloadUrl);
+  const bankbookStatus =
+    normalizeOptionalString(membershipData?.bankbookStatus) ||
+    normalizeOptionalString(workerData?.bankbookStatus);
+  const workerUid =
+    normalizeOptionalString(membershipData?.workerUid) ||
+    normalizeOptionalString(workerData?.workerUid);
+
+  return {
+    ...(account ? { account } : {}),
+    ...(appliedAt ? { appliedAt } : {}),
+    approvedAt: serverTimestamp(),
+    ...(bankbookDownloadUrl ? { bankbookDownloadUrl } : {}),
+    ...(bankbookStatus ? { bankbookStatus } : {}),
+    contact,
+    createdAt: serverTimestamp(),
+    membershipId,
+    membershipStatus: "approved",
+    name: workerName,
+    nameKey: createNameKey(workerName),
+    status: "active",
+    tagIds,
+    updatedAt: serverTimestamp(),
+    workerId,
+    ...(workerUid ? { workerUid } : {}),
+    workspaceId,
+  };
 }
 
 function mapDocument(
@@ -476,7 +581,7 @@ async function createApplicationModel({
       appliedAt: info.appliedAt,
       info,
       statusText: info.statusText,
-      tagIds: readStringArray(workerData?.tagIds),
+      tagIds: [],
       workerId,
     },
     sortAt: appliedAt,
@@ -668,10 +773,8 @@ function readString(value: unknown, fallback: string) {
   return typeof value === "string" && value.trim() ? value : fallback;
 }
 
-function readStringArray(value: unknown) {
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string")
-    : [];
+function normalizeOptionalString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : "";
 }
 
 function readObject(value: unknown): Record<string, unknown> | null {
@@ -752,6 +855,12 @@ function createInlineTagId(label: string) {
   return `worker_tag_${createNameKey(label)
     .replace(/[^a-z0-9가-힣]+/gi, "_")
     .replace(/^_+|_+$/g, "")}`;
+}
+
+function getRandomInlineWorkerTagColor() {
+  return inlineWorkerTagColors[
+    Math.floor(Math.random() * inlineWorkerTagColors.length)
+  ];
 }
 
 function getCurrentMonthStartDateKey() {
