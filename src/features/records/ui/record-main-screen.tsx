@@ -18,7 +18,6 @@ import {
   getTimelineLaneTop,
   getTimelineLaneCount,
   getTimelineRowHeight,
-  TimelineBlockText,
   timelineDefaultRowHeight,
   TimelineGridFrame,
 } from "@/shared/ui/timeline-grid-frame";
@@ -719,10 +718,11 @@ function RecordTimelineBlockItem({
       ),
   );
   const content = (
-    <TimelineBlockText
+    <RecordTimelineBlockText
+      dutyName={block.dutyName}
       selected={selected}
-      subtitle={`${block.startTime}~${block.endTime} · ${block.dutyName}`}
-      title={block.workerName}
+      timeText={`${block.startTime}~${block.endTime}`}
+      workerName={block.workerName}
     />
   );
 
@@ -758,6 +758,33 @@ function RecordTimelineBlockItem({
     >
       {content}
     </div>
+  );
+}
+
+function RecordTimelineBlockText({
+  dutyName,
+  selected = false,
+  timeText,
+  workerName,
+}: {
+  dutyName: string;
+  selected?: boolean;
+  timeText: string;
+  workerName: string;
+}) {
+  const secondaryClassName = cn(
+    "truncate text-[11px] leading-3 tracking-normal",
+    selected ? "text-white/90" : "text-gray-800",
+  );
+
+  return (
+    <>
+      <span className="truncate text-[11px] leading-3 font-semibold tracking-normal">
+        {workerName}
+      </span>
+      <span className={secondaryClassName}>{dutyName}</span>
+      <span className={secondaryClassName}>{timeText}</span>
+    </>
   );
 }
 

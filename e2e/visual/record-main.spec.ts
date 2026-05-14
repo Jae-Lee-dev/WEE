@@ -42,9 +42,12 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await expect(grid.getByRole("rowheader", { name: "토" })).toHaveClass(
       /text-blue-500/,
     );
-    await expect(
-      page.locator("[data-record-block-id='record-lee-haeun-english-c-mon']"),
-    ).toContainText("19:00~21:00");
+    const normalBlock = page.locator(
+      "[data-record-block-id='record-lee-haeun-english-c-mon']",
+    );
+    await expect(normalBlock).toContainText(
+      /이하은\s*영어 C반\s*19:00~21:00/,
+    );
 
     if (viewport === "laptop-1366") {
       await expectTimelineFrameOwnsStickyScroll({
