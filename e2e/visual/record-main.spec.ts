@@ -82,7 +82,11 @@ test("REC-01 uses shared selects and edits selected records", async ({ page }) =
 
   await detail.getByLabel("수정 사유").fill("출퇴근 시간 확인");
   await detail.getByLabel("출근 시간").fill("14:10");
-  await detail.getByRole("button", { name: "보류" }).click();
+  await detail.getByRole("tab", { name: "보류" }).click();
+  await expect(detail.getByRole("tab", { name: "보류" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   await detail.getByRole("button", { name: "확인" }).click();
 
   await expect(

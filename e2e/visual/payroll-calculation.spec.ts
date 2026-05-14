@@ -114,6 +114,17 @@ test(`PAY-01 bonus-add ${desktop}`, async ({ page }) => {
     page.getByRole("heading", { name: "보너스/차감 추가" }),
   ).toBeVisible();
   await expect(page.getByPlaceholder("예) 야근수당")).toBeVisible();
+  const form = page.getByTestId("payroll-calculation-bonus-add-form");
+  await form.getByRole("tab", { name: "-" }).click();
+  await form.getByRole("tab", { name: "세후" }).click();
+  await expect(form.getByRole("tab", { name: "-" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(form.getByRole("tab", { name: "세후" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
 
   await captureActualScreenshot({
     page,

@@ -16,6 +16,7 @@ import {
 } from "@/shared/ui/dialog";
 import { IconNotice } from "@/shared/ui/icons";
 import { Input } from "@/shared/ui/input";
+import { Segment } from "@/shared/ui/segment";
 import { cn } from "@/shared/lib/utils";
 import {
   createPayrollDataSource,
@@ -811,23 +812,16 @@ function AdjustmentForm({
           value={label}
           onChange={(event) => setLabel(event.target.value)}
         />
-        <div className="grid h-11 grid-cols-2 overflow-hidden rounded-[8px] border border-gray-200 bg-white p-1">
-          {form.operators.map((operator) => (
-            <button
-              key={operator.id}
-              type="button"
-              onClick={() => setOperatorId(operator.id)}
-              className={cn(
-                "flex items-center justify-center rounded-[7px] text-h-18-semibold tracking-normal transition-colors duration-150 ease-out",
-                operator.id === operatorId
-                  ? "bg-green-400 text-white"
-                  : "text-gray-600 hover:bg-gray-50",
-              )}
-            >
-              {operator.label}
-            </button>
-          ))}
-        </div>
+        <Segment
+          size="lg"
+          className="grid w-full grid-cols-2"
+          options={form.operators.map((operator) => ({
+            label: operator.label,
+            value: operator.id,
+          }))}
+          value={operatorId}
+          onChange={setOperatorId}
+        />
         <Input
           aria-label={form.amountLabel}
           inputMode="numeric"
@@ -836,28 +830,16 @@ function AdjustmentForm({
           value={amountText}
           onChange={(event) => setAmountText(event.target.value)}
         />
-        <div className="grid h-11 grid-cols-2 overflow-hidden rounded-[8px] border border-gray-200 bg-white p-1">
-          {[
-            { id: "pre_tax", label: "세전" },
-            { id: "post_tax", label: "세후" },
-          ].map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              onClick={() =>
-                setTaxScope(option.id as PayrollAdjustmentInput["taxScope"])
-              }
-              className={cn(
-                "flex items-center justify-center rounded-[7px] text-h-16-semibold tracking-normal transition-colors duration-150 ease-out",
-                option.id === taxScope
-                  ? "bg-green-400 text-white"
-                  : "text-gray-600 hover:bg-gray-50",
-              )}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+        <Segment
+          size="lg"
+          className="grid w-full grid-cols-2"
+          options={[
+            { value: "pre_tax", label: "세전" },
+            { value: "post_tax", label: "세후" },
+          ]}
+          value={taxScope}
+          onChange={setTaxScope}
+        />
       </div>
       <div className="mt-3 flex justify-end">
         <Button

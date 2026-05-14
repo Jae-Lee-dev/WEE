@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { IconChevronLeft, IconChevronRight } from "@/shared/ui/icons";
 import { Input } from "@/shared/ui/input";
+import { Segment } from "@/shared/ui/segment";
 import { OptionSelect, type SelectOption } from "@/shared/ui/select";
 import {
   getTimelineBlockHeight,
@@ -916,24 +917,16 @@ function SelectedDetail({
               <h3 className="text-h-18-semibold tracking-normal text-gray-900">
                 {state.payrollMode.label}
               </h3>
-              <div className="mt-3 grid h-[58px] grid-cols-2 rounded-[8px] border border-gray-200 bg-white p-1">
-                {state.payrollMode.options.map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    aria-pressed={payrollModeId === option.id}
-                    onClick={() => setPayrollModeId(option.id)}
-                    className={cn(
-                      "rounded-[6px] text-h-18-semibold tracking-normal transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200",
-                      payrollModeId === option.id
-                        ? "bg-green-400 text-white"
-                        : "text-gray-800 hover:bg-gray-50",
-                    )}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
+              <Segment
+                size="lg"
+                className="mt-3 grid w-full grid-cols-2 rounded-[8px]"
+                options={state.payrollMode.options.map((option) => ({
+                  label: option.label,
+                  value: option.id,
+                }))}
+                value={payrollModeId}
+                onChange={setPayrollModeId}
+              />
             </div>
           ) : null}
 
