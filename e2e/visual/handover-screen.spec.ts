@@ -57,3 +57,36 @@ test("HO-01 AI proposal blocks changed rows until review", async ({ page }) => {
   expect(listItems).toContain("보강 자료 프린트 준비");
   await expect(page.getByPlaceholder("수정할 내용을 입력하세요...")).toBeEnabled();
 });
+
+test("HO-01 blocks screen navigation when unpublished edits exist", async ({
+  page,
+}) => {
+  await prepareVisualPage({
+    page,
+    path: "/handover",
+    viewport: "laptop-1366",
+  });
+  await page.evaluate(() => document.fonts.ready);
+
+  await page
+    .getByRole("textbox", { name: "제목" })
+    .first()
+    .fill("업무 공통 안내 수정");
+  await page.getByTestId("admin-sidebar-item-dashboard").click();
+
+  const dialog = page.getByTestId("handover-unsaved-navigation-dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText("게시하지 않은 변경사항이 있습니다");
+  await expect(page).toHaveURL(/\/handover$/);
+
+  await dialog.getByRole("button", { name: "머무르기" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL(/\/handover$/);
+
+  await page.getByTestId("admin-sidebar-item-dashboard").click();
+  await page
+    .getByTestId("handover-unsaved-navigation-dialog")
+    .getByRole("button", { name: "나가기" })
+    .click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+});

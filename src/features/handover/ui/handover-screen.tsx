@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
@@ -36,7 +37,13 @@ import {
   type HandoverFixture,
 } from "../model/handover-fixtures";
 
+type PendingNavigationTarget = {
+  href: string;
+  internalPath?: string;
+};
+
 export function HandoverScreen() {
+  const router = useRouter();
   const dataSource = useMemo(() => createHandoverDataSource(), []);
   const [fixture, setFixture] = useState<HandoverFixture>(handoverFixture);
   const [editorNodes, setEditorNodes] = useState<readonly HandoverEditorNode[]>(
@@ -53,6 +60,8 @@ export function HandoverScreen() {
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [pendingNavigation, setPendingNavigation] =
+    useState<PendingNavigationTarget | null>(null);
   const currentContent = useMemo(
     () => serializeEditorNodes(editorNodes),
     [editorNodes],
@@ -60,6 +69,13 @@ export function HandoverScreen() {
   const pendingProposal = hasPendingProposal(editorNodes);
   const dirty = currentContent.trim() !== publishedContent.trim();
   const editorLocked = aiSaving || loading;
+  const navigationGuardEnabled =
+    !loading && (dirty || pendingProposal || aiSaving);
+
+  useHandoverUnsavedNavigationGuard({
+    enabled: navigationGuardEnabled,
+    onNavigateRequest: setPendingNavigation,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -236,10 +252,97 @@ export function HandoverScreen() {
               }}
             />
           ) : null}
+          {pendingNavigation ? (
+            <UnsavedNavigationDialog
+              aiSaving={aiSaving}
+              pendingProposal={pendingProposal}
+              onCancel={() => setPendingNavigation(null)}
+              onConfirm={() => {
+                const target = pendingNavigation;
+
+                setPendingNavigation(null);
+
+                if (target.internalPath) {
+                  router.push(target.internalPath);
+                } else {
+                  window.location.assign(target.href);
+                }
+              }}
+            />
+          ) : null}
         </>
       )}
     </section>
   );
+}
+
+function useHandoverUnsavedNavigationGuard({
+  enabled,
+  onNavigateRequest,
+}: {
+  enabled: boolean;
+  onNavigateRequest: (target: PendingNavigationTarget) => void;
+}) {
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
+    function handleClick(event: MouseEvent) {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+
+      const anchor = getAnchorFromEventTarget(event.target);
+
+      if (!anchor || anchor.hasAttribute("download")) {
+        return;
+      }
+
+      if (anchor.target && anchor.target !== "_self") {
+        return;
+      }
+
+      const target = getNavigationTarget(anchor);
+
+      if (!target) {
+        return;
+      }
+
+      event.preventDefault();
+      onNavigateRequest(target);
+    }
+
+    document.addEventListener("click", handleClick, true);
+
+    return () => {
+      document.removeEventListener("click", handleClick, true);
+    };
+  }, [enabled, onNavigateRequest]);
 }
 
 function HandoverState({
@@ -711,6 +814,61 @@ function PublishDialog({
   );
 }
 
+function UnsavedNavigationDialog({
+  aiSaving,
+  onCancel,
+  onConfirm,
+  pendingProposal,
+}: {
+  aiSaving: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+  pendingProposal: boolean;
+}) {
+  const description = aiSaving
+    ? "AI가 수정안을 생성하는 중입니다. 화면을 나가면 현재 요청과 편집 중인 내용이 저장되지 않습니다."
+    : pendingProposal
+      ? "검토하지 않은 AI 수정안이 있습니다. 화면을 나가면 현재 수정안과 편집 중인 내용이 저장되지 않습니다."
+      : "게시하지 않은 수정사항이 있습니다. 화면을 나가면 현재 편집 내용이 저장되지 않습니다.";
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onCancel()}>
+      <DialogContent
+        data-testid="handover-unsaved-navigation-dialog"
+        showCloseButton={false}
+        className="flex w-[calc(100vw-32px)] max-w-[480px] flex-col rounded-[8px] bg-white p-8 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0"
+      >
+        <DialogHeader className="gap-3">
+          <DialogTitle className="text-h-20 tracking-normal text-gray-900">
+            게시하지 않은 변경사항이 있습니다
+          </DialogTitle>
+          <DialogDescription className="text-h-18-regular leading-[27px] tracking-normal text-gray-600">
+            {description}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="-mx-0 -mb-0 mt-7 flex-row justify-end gap-3 rounded-none border-0 bg-transparent p-0">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onCancel}
+            className="h-11 rounded-[8px] px-6"
+          >
+            머무르기
+          </Button>
+          <Button
+            type="button"
+            variant="danger"
+            onClick={onConfirm}
+            className="h-11 rounded-[8px] px-6"
+          >
+            나가기
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function PublishDiffPreview({
   currentContent,
   publishedContent,
@@ -826,4 +984,33 @@ function formatDiffLine(markdown: string) {
 function resizeTextarea(textarea: HTMLTextAreaElement) {
   textarea.style.height = "auto";
   textarea.style.height = `${textarea.scrollHeight}px`;
+}
+
+function getAnchorFromEventTarget(target: EventTarget | null) {
+  return target instanceof Element
+    ? target.closest<HTMLAnchorElement>("a[href]")
+    : null;
+}
+
+function getNavigationTarget(anchor: HTMLAnchorElement) {
+  const url = new URL(anchor.href, window.location.href);
+
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return null;
+  }
+
+  const currentUrl = new URL(window.location.href);
+
+  if (url.href === currentUrl.href) {
+    return null;
+  }
+
+  if (url.origin !== currentUrl.origin) {
+    return { href: url.href };
+  }
+
+  return {
+    href: url.href,
+    internalPath: `${url.pathname}${url.search}${url.hash}`,
+  };
 }

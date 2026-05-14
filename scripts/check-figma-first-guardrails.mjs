@@ -80,12 +80,14 @@ const allowedSubmitDrivenTransitionFiles = new Set([
   "src/features/entry/ui/entry-screens.tsx",
   "src/features/entry/ui/login-form.tsx",
   "src/features/entry/ui/signup-form.tsx",
+  "src/features/handover/ui/handover-screen.tsx",
   "src/features/schedule/ui/duty-list-screen.tsx",
   "src/features/settings/ui/settings-locations-screen.tsx",
   "src/features/settings/ui/settings-workspace-screen.tsx",
 ]);
 const allowedLocalArrayMutationTransitionFiles = new Set([
   "src/features/entry/ui/signup-form.tsx",
+  "src/features/handover/ui/handover-screen.tsx",
   "src/features/schedule/ui/duty-list-screen.tsx",
   "src/features/schedule/ui/duty-tags-screen.tsx",
   "src/features/settings/ui/settings-locations-screen.tsx",

@@ -903,6 +903,29 @@ export function LoginPlaceholder() {
     },
   },
   {
+    name: "handover unsaved navigation guard transition passes",
+    expectSuccess: true,
+    setup(root) {
+      writeFixtureFile(
+        root,
+        "src/features/handover/ui/handover-screen.tsx",
+        `import { useRouter } from "next/navigation";
+
+export function HandoverScreen() {
+  const router = useRouter();
+
+  function leave(event: MouseEvent) {
+    event.preventDefault();
+    router.push("/dashboard");
+  }
+
+  document.addEventListener("click", leave);
+}
+`,
+      );
+    },
+  },
+  {
     name: "firebase import is blocked",
     expectSuccess: false,
     expectedOutput: "Firebase import or require",
