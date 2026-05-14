@@ -281,6 +281,7 @@ export function DashboardWorkersScreen() {
     filteredWorkers.find((worker) => worker.id === selectedWorkerId) ??
     filteredWorkers[0];
   const activeWorkerId = selectedWorker?.id ?? "";
+  const periodLabel = getOptionLabel(dashboardWorkerPeriodOptions, periodId);
 
   return (
     <section
@@ -305,42 +306,14 @@ export function DashboardWorkersScreen() {
             size="sm"
             disabled={loading || !!errorMessage}
             onClick={() =>
-              downloadCsv("wee-worker-dashboard.csv", [
-                [
-                  "조교",
-                  "태그",
-                  "근무시간",
-                  "예상 급여",
-                  "이상 플래그",
-                  "지각률",
-                ],
-                ...filteredWorkers.map((worker) => [
-                  worker.name,
-                  worker.tags
-                    .map((tag) => getOptionLabel(viewModel.tagOptions, tag))
-                    .join(" / "),
-                  `${Math.round(
-                    worker.baseHours *
-                      dashboardWorkerPeriodProfiles[periodId].hoursFactor,
-                  )}h`,
-                  formatCurrency(
-                    Math.round(
-                      worker.basePay *
-                        dashboardWorkerPeriodProfiles[periodId].payFactor,
-                    ),
-                  ),
-                  `${Math.max(
-                    0,
-                    worker.baseFlags +
-                      dashboardWorkerPeriodProfiles[periodId].flagDelta,
-                  )}건`,
-                  `${Math.max(
-                    0,
-                    worker.lateRate +
-                      dashboardWorkerPeriodProfiles[periodId].lateDelta,
-                  ).toFixed(1)}%`,
-                ]),
-              ])
+              downloadCsv(
+                `wee-worker-dashboard-${periodId}.csv`,
+                createWorkerExportRows({
+                  periodId,
+                  periodLabel,
+                  workers: filteredWorkers,
+                }),
+              )
             }
             className="h-10 rounded-full px-4 text-h-18-regular font-normal tracking-normal"
           >
@@ -493,6 +466,60 @@ export function DashboardAiMonitoringScreen({
       )}
     </section>
   );
+}
+
+function createWorkerExportRows({
+  periodId,
+  periodLabel,
+  workers,
+}: {
+  periodId: DashboardWorkerPeriodId;
+  periodLabel: string;
+  workers: readonly DashboardWorkerSummary[];
+}) {
+  return [
+    [
+      "조교",
+      "집계 기간",
+      "근무시간",
+      "예상 급여",
+      "일반근무",
+      "추가근무",
+      "보너스",
+      "추가근무 미처리",
+      "이상 플래그",
+      "지각률",
+    ],
+    ...workers.map((worker) => {
+      const profile = dashboardWorkerPeriodProfiles[periodId];
+      const regularWorkPay = Math.round(
+        worker.payrollDetail.regularWorkPay * profile.payFactor,
+      );
+      const overtimePay = Math.round(
+        worker.payrollDetail.overtimePay * profile.payFactor,
+      );
+      const bonusPay = Math.round(
+        worker.payrollDetail.bonusPay * profile.payFactor,
+      );
+      const expectedPay = Math.round(worker.basePay * profile.payFactor);
+      const totalHours = Math.round(worker.baseHours * profile.hoursFactor);
+      const totalFlags = Math.max(0, worker.baseFlags + profile.flagDelta);
+      const lateRate = Math.max(0, worker.lateRate + profile.lateDelta);
+
+      return [
+        worker.name,
+        periodLabel,
+        `${totalHours}h`,
+        formatCurrency(expectedPay),
+        formatCurrency(regularWorkPay),
+        formatCurrency(overtimePay),
+        formatCurrency(bonusPay),
+        `${worker.payrollDetail.overtimePendingCount}건`,
+        `${totalFlags}건`,
+        `${lateRate.toFixed(1)}%`,
+      ];
+    }),
+  ] as const;
 }
 
 function LocationWorkerTable({

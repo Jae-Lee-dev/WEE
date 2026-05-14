@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "playwright/test";
 import {
   captureActualScreenshot,
@@ -261,6 +262,62 @@ test("DSH-03 weekly trend uses Sunday to Saturday order", async ({ page }) => {
     );
 
   expect(labels).toEqual(["일", "월", "화", "수", "목", "금", "토"]);
+});
+
+test("DSH-03 worker export includes work hours and payroll detail", async ({
+  page,
+}) => {
+  await prepareVisualPage({
+    page,
+    path: "/dashboard/workers",
+    viewport: desktop,
+  });
+  await page.evaluate(() => document.fonts.ready);
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "선택 기간 엑셀 내보내기" }).click();
+  const download = await downloadPromise;
+  const downloadPath = await download.path();
+
+  expect(download.suggestedFilename()).toBe("wee-worker-dashboard-month.csv");
+  expect(downloadPath).not.toBeNull();
+
+  const csv = (await readFile(downloadPath ?? "", "utf8")).replace(/^\uFEFF/, "");
+  const [header = "", firstRow = ""] = csv.split("\n");
+
+  expect(header).toBe(
+    [
+      "조교",
+      "집계 기간",
+      "근무시간",
+      "예상 급여",
+      "일반근무",
+      "추가근무",
+      "보너스",
+      "추가근무 미처리",
+      "이상 플래그",
+      "지각률",
+    ]
+      .map((cell) => `"${cell}"`)
+      .join(","),
+  );
+  expect(header).not.toContain("태그");
+  expect(firstRow).toBe(
+    [
+      "김서연",
+      "최근 1개월",
+      "48h",
+      "552,000원",
+      "492,000원",
+      "35,000원",
+      "25,000원",
+      "1건",
+      "1건",
+      "4.2%",
+    ]
+      .map((cell) => `"${cell}"`)
+      .join(","),
+  );
 });
 
 test("DSH-03 detail panel owns vertical scroll", async ({ page }) => {
