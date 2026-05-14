@@ -428,7 +428,7 @@ function LocationDialog({
   const [lookupState, setLookupState] = useState<LocationLookupState>(() =>
     location?.coordinate
       ? { message: "위치 확인 완료", status: "resolved" }
-      : { message: "도로명 주소를 입력하면 위치를 확인합니다.", status: "idle" },
+      : { message: "주소를 입력하면 위치를 확인합니다.", status: "idle" },
   );
   const errors = getSettingsLocationFormErrors(form, locations, location?.id);
   const normalizedRoadAddress = normalizeLocationText(form.roadAddress);
@@ -679,7 +679,7 @@ function LocationDialog({
               message:
                 current.status === "unavailable"
                   ? current.message
-                  : "도로명 주소 위치를 확인한 뒤 저장해 주세요.",
+                  : "주소 위치를 확인한 뒤 저장해 주세요.",
               status: current.status === "unavailable" ? "unavailable" : "failed",
             },
       );
@@ -881,6 +881,7 @@ function LocationDialogField({
         name={name}
         aria-describedby={error ? errorId : undefined}
         aria-invalid={Boolean(error)}
+        size="lg"
         className="mt-3 h-11 rounded-[8px] border-gray-200 bg-gray-50 text-h-18-regular text-gray-800"
         {...props}
       />
@@ -1004,6 +1005,7 @@ function LocationRadiusField({
           disabled={saving}
           aria-describedby="settings-location-radius-unit"
           aria-invalid={Boolean(error)}
+          size="lg"
           className="h-11 w-60 rounded-[8px] border-gray-200 bg-gray-50 px-4 text-right text-h-18-regular text-gray-800"
         />
         <span
@@ -1231,7 +1233,7 @@ function mapGeocoderSearchResult(
     address: roadAddress,
     coordinate,
     id: `address-${result.x}-${result.y}-${roadAddress}`,
-    subtitle: address === roadAddress ? "도로명 주소" : address,
+    subtitle: address === roadAddress ? "주소" : address,
     title: roadAddress,
   };
 }

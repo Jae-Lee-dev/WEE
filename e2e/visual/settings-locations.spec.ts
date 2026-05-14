@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "playwright/test";
+import { expect, test, type Locator, type Page } from "playwright/test";
 import {
   captureActualScreenshot,
   prepareVisualPage,
@@ -51,13 +51,17 @@ test(`SET-02 location-dialog ${desktop}`, async ({ page }) => {
   await expect(dialog).toContainText("출퇴근 허용 반경");
   await expect(page.getByTestId("settings-location-map")).toBeVisible();
   await expect(dialog.getByLabel("근무지 이름")).toBeEditable();
-  await expect(dialog.getByLabel("도로명 주소")).toBeEditable();
+  await expect(dialog.getByLabel("주소")).toBeEditable();
+  await expect(dialog).toHaveCSS("transform", "none");
 
   const radiusInput = dialog.getByRole("spinbutton", {
     name: "출퇴근 허용 반경",
   });
   await expect(radiusInput).toHaveAttribute("type", "number");
   await expect(radiusInput).toHaveValue("100");
+  await expectControlHeight(dialog.getByLabel("근무지 이름"), 44);
+  await expectControlHeight(dialog.locator('[data-slot="search-field"]'), 44);
+  await expectControlHeight(radiusInput, 44);
   await expect(dialog.locator("#settings-location-radius-unit")).toHaveText(
     "m",
   );
@@ -99,12 +103,12 @@ test("SET-02 creates, edits, and deletes location through Firestore", async ({
 
   const dialog = page.getByTestId("settings-location-dialog");
   await dialog.getByLabel("근무지 이름").fill(locationName);
-  await dialog.getByLabel("도로명 주소").fill("서울 마포구 양화로 45");
+  await dialog.getByLabel("주소").fill("서울 마포구 양화로 45");
   await page.getByTestId("settings-location-address-result").first().click();
   await expect(dialog.getByRole("button", { name: "저장" })).toBeEnabled({
     timeout: 10000,
   });
-  await dialog.getByLabel("도로명 주소").press("Enter");
+  await dialog.getByLabel("주소").press("Enter");
   await expect(dialog).toBeVisible();
   await dialog.getByRole("spinbutton", { name: "출퇴근 허용 반경" }).fill("90");
   await dialog.getByRole("button", { name: "저장" }).click();
@@ -172,4 +176,11 @@ async function expectDialogWithinViewport(page: Page, testId: string) {
   expect(box.y + box.height).toBeLessThanOrEqual(
     viewport.height - verticalInset + 1,
   );
+}
+
+async function expectControlHeight(locator: Locator, expectedHeight: number) {
+  const box = await locator.boundingBox();
+
+  expect(box).not.toBeNull();
+  expect(Math.round(box?.height ?? 0)).toBe(expectedHeight);
 }
