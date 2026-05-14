@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Check, Copy, LogOut, X } from "lucide-react";
+import { Check, ChevronRight, Copy, LogOut, X } from "lucide-react";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import {
   adminSections,
@@ -22,7 +22,6 @@ import {
   workerApplicationsCountChangedEvent,
 } from "@/features/workers";
 import { HeaderNotificationSlot } from "./header-notification-slot";
-import { IconChevronLeft } from "@/shared/ui/icons";
 import { Badge } from "@/shared/ui/badge";
 import {
   DropdownMenu,
@@ -68,12 +67,21 @@ type AdminShellAccount = {
   workspaceName: string;
 };
 
+type HeaderBreadcrumb = {
+  href: string;
+  label: string;
+};
+
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "/";
   const currentSection = findSectionByPath(pathname);
   const workerDetail = isWorkerDetailPath(pathname);
   const account = useAdminShellAccount();
   const badgeCounts = useAdminShellBadgeCounts();
+  const breadcrumbs = useMemo(
+    () => createHeaderBreadcrumbs(pathname, currentSection),
+    [currentSection, pathname],
+  );
 
   return (
     <div
@@ -87,8 +95,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-gray-100">
         <AdminHeader
-          title={workerDetail ? "조교 상세" : currentSection.label}
-          backHref={workerDetail ? "/workers" : undefined}
+          breadcrumbs={breadcrumbs}
           inviteCode={account.workspaceCode}
           isInviteCodeLoading={account.isLoading}
         />
@@ -539,13 +546,11 @@ function SidebarIcon({ name }: { name: AdminIconName }) {
 }
 
 function AdminHeader({
-  title,
-  backHref,
+  breadcrumbs,
   inviteCode,
   isInviteCodeLoading,
 }: {
-  title: string;
-  backHref?: string;
+  breadcrumbs: HeaderBreadcrumb[];
   inviteCode: string | null;
   isInviteCodeLoading: boolean;
 }) {
@@ -586,20 +591,9 @@ function AdminHeader({
   }
 
   return (
-    <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4">
-      <div className="flex items-center gap-3">
-        {backHref ? (
-          <Link
-            href={backHref}
-            aria-label="조교 목록으로 돌아가기"
-            className="flex size-5 items-center justify-center text-gray-800 transition-colors duration-150 ease-out hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
-          >
-            <IconChevronLeft className="size-5" />
-          </Link>
-        ) : null}
-        <h1 className="text-h-18-semibold text-gray-900">{title}</h1>
-      </div>
-      <div className="flex items-center gap-4">
+    <header className="flex h-[72px] shrink-0 items-center justify-between gap-4 border-b border-gray-200 bg-white px-4">
+      <HeaderBreadcrumbs breadcrumbs={breadcrumbs} />
+      <div className="flex shrink-0 items-center gap-4">
         <button
           type="button"
           aria-disabled={canCopyInviteCode ? undefined : true}
@@ -643,6 +637,56 @@ function AdminHeader({
         <HeaderNotificationSlot />
       </div>
     </header>
+  );
+}
+
+function HeaderBreadcrumbs({
+  breadcrumbs,
+}: {
+  breadcrumbs: HeaderBreadcrumb[];
+}) {
+  return (
+    <nav
+      aria-label="현재 위치"
+      className="min-w-0 flex-1"
+      data-testid="admin-header-breadcrumbs"
+    >
+      <ol className="flex min-w-0 items-center gap-1 text-h-16-medium text-gray-500">
+        {breadcrumbs.map((breadcrumb, index) => {
+          const current = index === breadcrumbs.length - 1;
+
+          return (
+            <li
+              key={`${breadcrumb.href}-${breadcrumb.label}-${index}`}
+              className="flex min-w-0 items-center gap-1"
+            >
+              {index > 0 ? (
+                <ChevronRight
+                  aria-hidden="true"
+                  className="size-4 shrink-0 text-gray-300"
+                  strokeWidth={2}
+                />
+              ) : null}
+              {current ? (
+                <h1
+                  aria-current="page"
+                  className="truncate text-h-18-semibold text-gray-900"
+                >
+                  {breadcrumb.label}
+                </h1>
+              ) : (
+                <Link
+                  href={breadcrumb.href}
+                  className="block truncate rounded-[6px] px-1 py-1 transition-colors duration-150 ease-out hover:text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+                >
+                  {breadcrumb.label}
+                </Link>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
   );
 }
 
@@ -783,4 +827,74 @@ function findActiveTabHref(pathname: string, tabs: AdminTab[]) {
     .find(
       (tab) => pathname === tab.href || pathname.startsWith(`${tab.href}/`),
     )?.href;
+}
+
+function findActiveTab(pathname: string, tabs: AdminTab[]) {
+  const activeTabHref = findActiveTabHref(pathname, tabs);
+
+  return tabs.find((tab) => tab.href === activeTabHref);
+}
+
+function createHeaderBreadcrumbs(
+  pathname: string,
+  currentSection: AdminSection,
+): HeaderBreadcrumb[] {
+  const activeTab = findActiveTab(pathname, currentSection.tabs);
+  const sectionBreadcrumb: HeaderBreadcrumb = {
+    href: currentSection.href,
+    label: currentSection.label,
+  };
+  const activeTabBreadcrumbs: HeaderBreadcrumb[] = activeTab
+    ? [
+        {
+          href: activeTab.href,
+          label: activeTab.label,
+        },
+      ]
+    : [];
+
+  return [
+    sectionBreadcrumb,
+    ...activeTabBreadcrumbs,
+    ...createDetailBreadcrumbs(pathname),
+  ];
+}
+
+function createDetailBreadcrumbs(pathname: string): HeaderBreadcrumb[] {
+  const workerDetailMatch = /^\/workers\/([^/]+)(?:\/([^/]+))?$/.exec(pathname);
+
+  if (workerDetailMatch) {
+    const [, workerId, segment] = workerDetailMatch;
+    const workerDetailHref = `/workers/${workerId}`;
+    const workerDetailTab = getWorkerDetailTabBreadcrumb(
+      segment,
+      workerDetailHref,
+    );
+
+    return [
+      { href: workerDetailHref, label: "조교 상세" },
+      workerDetailTab,
+    ];
+  }
+
+  if (/^\/schedule\/duties\/[^/]+$/.test(pathname)) {
+    return [{ href: pathname, label: "근무 상세" }];
+  }
+
+  return [];
+}
+
+function getWorkerDetailTabBreadcrumb(
+  segment: string | undefined,
+  workerDetailHref: string,
+): HeaderBreadcrumb {
+  if (segment === "schedule") {
+    return { href: `${workerDetailHref}/schedule`, label: "시간표" };
+  }
+
+  if (segment === "payroll") {
+    return { href: `${workerDetailHref}/payroll`, label: "급여 현황" };
+  }
+
+  return { href: workerDetailHref, label: "기본 정보" };
 }

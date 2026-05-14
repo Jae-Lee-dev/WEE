@@ -13,7 +13,12 @@ for (const viewport of viewports) {
     await expect(
       page.getByRole("navigation", { name: "관리자 메뉴" }),
     ).toBeVisible();
-    await expect(page.getByRole("heading", { name: "대시보드" })).toBeVisible();
+    const breadcrumbs = page.getByTestId("admin-header-breadcrumbs");
+    await expect(breadcrumbs.getByRole("link", { name: "대시보드" }))
+      .toHaveAttribute("href", "/dashboard");
+    await expect(
+      breadcrumbs.getByRole("heading", { name: "운영 인박스" }),
+    ).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "확인 필요" }),
     ).toBeVisible();
@@ -25,16 +30,16 @@ for (const viewport of viewports) {
       "6",
     );
     await expect(page.getByTestId("admin-sidebar-item-schedule")).toContainText(
-      "1",
+      "4",
     );
     await expect(page.getByTestId("admin-sidebar-item-records")).toContainText(
-      "3",
+      "12",
     );
     await expect(page.getByTestId("admin-sidebar-item-schedule")).not.toContainText(
       "12",
     );
     await expect(page.getByTestId("admin-sidebar-item-records")).not.toContainText(
-      "22",
+      "3",
     );
 
     const logoHeaderMetrics = await page.evaluate(() => {

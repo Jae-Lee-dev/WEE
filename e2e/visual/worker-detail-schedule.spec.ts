@@ -23,11 +23,21 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     const detailTabs = detailShell.getByRole("navigation", {
       name: "조교 상세 탭",
     });
+    const breadcrumbs = page.getByTestId("admin-header-breadcrumbs");
 
     await expect(page.getByTestId("admin-shell-content-scroll")).toHaveCSS(
       "scrollbar-gutter",
       /stable/,
     );
+    await expect(breadcrumbs.getByRole("link", { name: "조교 관리" }))
+      .toHaveAttribute("href", "/workers");
+    await expect(breadcrumbs.getByRole("link", { name: "조교 목록" }))
+      .toHaveAttribute("href", "/workers");
+    await expect(breadcrumbs.getByRole("link", { name: "조교 상세" }))
+      .toHaveAttribute("href", "/workers/worker_kim_seoyeon");
+    await expect(
+      breadcrumbs.getByRole("heading", { name: "시간표" }),
+    ).toBeVisible();
     await expect(detailTabs).toHaveCSS("padding-left", "0px");
     await expect(detailTabs.getByRole("link", { name: "시간표" })).toHaveCSS(
       "padding-left",
@@ -35,7 +45,7 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     );
     await expect(detailTabs.getByRole("link", { name: "시간표" })).toHaveCSS(
       "font-size",
-      "16px",
+      "14px",
     );
     await expect(detailTabs.getByRole("link", { name: "시간표" })).toHaveAttribute(
       "aria-current",
