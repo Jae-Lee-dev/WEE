@@ -61,6 +61,8 @@ export function TimelineGridFrame<TDay extends TimelineGridDay>({
   timeSlots,
 }: TimelineGridFrameProps<TDay>) {
   const nextDayBoundaryIndex = getNextDayBoundaryIndex(timeSlots);
+  const firstNextDaySlotIndex =
+    nextDayBoundaryIndex === -1 ? -1 : nextDayBoundaryIndex + 1;
 
   return (
     <div
@@ -96,12 +98,19 @@ export function TimelineGridFrame<TDay extends TimelineGridDay>({
               <div
                 className={cn(
                   "flex min-w-0 items-center justify-center border-r border-gray-100 px-1 text-h-14-regular tracking-normal text-gray-500",
-                  index === nextDayBoundaryIndex && "relative",
+                  (index === nextDayBoundaryIndex ||
+                    index === firstNextDaySlotIndex) &&
+                    "relative",
                   index === timeSlots.length - 1 && "border-r-0",
                 )}
                 key={slot}
                 role="columnheader"
               >
+                {index === firstNextDaySlotIndex && (
+                  <span className="pointer-events-none absolute top-[2px] left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] leading-[10px] tracking-normal text-gray-400">
+                    익일
+                  </span>
+                )}
                 <span className="truncate">{slot}</span>
                 {index === nextDayBoundaryIndex && (
                   <TimelineNextDayBoundaryMarker />

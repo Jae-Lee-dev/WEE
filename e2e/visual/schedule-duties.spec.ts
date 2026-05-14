@@ -15,6 +15,11 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await prepareVisualPage({ page, path: routePath, viewport });
     await page.evaluate(() => document.fonts.ready);
     await expect(page.getByTestId("duty-timeline-view")).toBeVisible();
+    const timelineHeaders = page
+      .getByRole("grid", { name: "Duty timeline" })
+      .getByRole("columnheader");
+    await expect(timelineHeaders.nth(16)).toContainText("익일");
+    await expect(timelineHeaders.nth(16)).toContainText("00");
     await expect(
       page.getByText("근무를 선택하면 근무 상세가 표시됩니다."),
     ).toBeVisible();
