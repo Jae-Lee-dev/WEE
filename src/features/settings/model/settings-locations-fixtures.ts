@@ -61,7 +61,7 @@ export const settingsLocationsFixture = {
     nameLabel: "근무지 이름",
     namePlaceholder: "예: 대치 A 학원",
     roadAddressLabel: "도로명 주소",
-    roadAddressPlaceholder: "서울 강남구 테헤란로 412",
+    roadAddressPlaceholder: "도로명, 지번, 학원명 검색",
     radiusLabel: "출퇴근 허용 반경",
     radiusUnit: "m",
     cancelLabel: "취소",

@@ -100,6 +100,7 @@ test("SET-02 creates, edits, and deletes location through Firestore", async ({
   const dialog = page.getByTestId("settings-location-dialog");
   await dialog.getByLabel("근무지 이름").fill(locationName);
   await dialog.getByLabel("도로명 주소").fill("서울 마포구 양화로 45");
+  await page.getByTestId("settings-location-address-result").first().click();
   await expect(page.getByTestId("settings-location-map-status")).toContainText(
     "위치 확인 완료",
     { timeout: 10000 },

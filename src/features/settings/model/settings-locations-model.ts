@@ -75,7 +75,7 @@ export function getSettingsLocationFormErrors(
   }
 
   if (!roadAddress) {
-    errors.roadAddress = "도로명 주소를 입력해 주세요.";
+    errors.roadAddress = "주소 검색 결과를 선택해 주세요.";
   }
 
   if (radiusMeters === null) {

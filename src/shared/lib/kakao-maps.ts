@@ -26,6 +26,12 @@ export type KakaoCircle = {
 
 export type KakaoGeocoderResult = {
   address_name: string;
+  address?: {
+    address_name: string;
+  };
+  road_address?: {
+    address_name: string;
+  } | null;
   x: string;
   y: string;
 };
@@ -34,6 +40,25 @@ export type KakaoGeocoder = {
   addressSearch: (
     address: string,
     callback: (result: KakaoGeocoderResult[], status: string) => void,
+    options?: { page?: number; size?: number },
+  ) => void;
+};
+
+export type KakaoPlaceSearchResult = {
+  address_name: string;
+  id: string;
+  phone?: string;
+  place_name: string;
+  road_address_name: string;
+  x: string;
+  y: string;
+};
+
+export type KakaoPlaces = {
+  keywordSearch: (
+    keyword: string,
+    callback: (result: KakaoPlaceSearchResult[], status: string) => void,
+    options?: { page?: number; size?: number },
   ) => void;
 };
 
@@ -60,6 +85,7 @@ export type KakaoMapsSdk = {
   load: (callback: () => void) => void;
   services: {
     Geocoder: new () => KakaoGeocoder;
+    Places: new (map?: KakaoMap) => KakaoPlaces;
     Status: {
       OK: string;
     };

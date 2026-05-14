@@ -10,14 +10,15 @@ import {
   type ComponentProps,
   type FormEvent,
 } from "react";
-import { useDebouncedValue } from "@/shared/lib";
 import {
   getKakaoMapJavaScriptKey,
   loadKakaoMapsSdk,
   type KakaoCircle,
+  type KakaoGeocoderResult,
   type KakaoMap,
   type KakaoMapsSdk,
   type KakaoMarker,
+  type KakaoPlaceSearchResult,
 } from "@/shared/lib/kakao-maps";
 import { Button } from "@/shared/ui/button";
 import {
@@ -29,6 +30,7 @@ import {
   DialogTitle,
 } from "@/shared/ui/dialog";
 import { Input } from "@/shared/ui/input";
+import { SearchField } from "@/shared/ui/search-field";
 import {
   createSettingsLocationsDataSource,
   type SettingsLocationsDataSource,
@@ -64,6 +66,14 @@ type LocationLookupState = {
 type ResolvedLocationCoordinate = {
   address: string;
   coordinate: SettingsLocationCoordinate;
+};
+
+type LocationAddressSearchResult = {
+  address: string;
+  coordinate: SettingsLocationCoordinate;
+  id: string;
+  subtitle: string;
+  title: string;
 };
 
 const kakaoMapJavaScriptKey =
@@ -397,6 +407,13 @@ function LocationDialog({
       ? toSettingsLocationFormState(location)
       : initialSettingsLocationForm,
   );
+  const [addressQuery, setAddressQuery] = useState(
+    location?.roadAddress ?? initialSettingsLocationForm.roadAddress,
+  );
+  const [addressSearchResults, setAddressSearchResults] = useState<
+    readonly LocationAddressSearchResult[]
+  >([]);
+  const addressSearchRequestRef = useRef(0);
   const [submitted, setSubmitted] = useState(false);
   const [resolvedLocation, setResolvedLocation] =
     useState<ResolvedLocationCoordinate | null>(() =>
@@ -418,6 +435,7 @@ function LocationDialog({
     resolvedLocation?.address === normalizedRoadAddress
       ? resolvedLocation.coordinate
       : null;
+  const hasAddressSearchResults = addressSearchResults.length > 0;
   const radiusMeters =
     Number(normalizeRadiusInput(form.radiusMeters)) ||
     defaultLocationRadiusMeters;
@@ -438,40 +456,192 @@ function LocationDialog({
           ? normalizeRadiusInput(event.target.value)
           : event.target.value;
 
-      if (field === "roadAddress") {
-        const nextAddress = normalizeLocationText(nextValue);
-
-        setResolvedLocation((current) =>
-          current?.address === nextAddress ? current : null,
-        );
-        setLookupState((current) =>
-          current.status === "unavailable"
-            ? current
-            : {
-                message: nextAddress
-                  ? "주소 확인 대기"
-                  : "도로명 주소를 입력하면 위치를 확인합니다.",
-                status: "idle",
-              },
-        );
-      }
-
       setForm((current) => ({
         ...current,
         [field]: nextValue,
       }));
     };
 
-  const handleCoordinateResolve = useCallback(
-    (nextResolvedLocation: ResolvedLocationCoordinate) => {
-      setResolvedLocation(nextResolvedLocation);
+  const handleAddressQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextQuery = event.target.value;
+    const nextAddress = normalizeLocationText(nextQuery);
+
+    setAddressQuery(nextQuery);
+    setAddressSearchResults([]);
+    addressSearchRequestRef.current += 1;
+
+    if (!nextAddress) {
+      setResolvedLocation(null);
+      setForm((current) => ({ ...current, roadAddress: "" }));
+      setLookupState((current) =>
+        current.status === "unavailable"
+          ? current
+          : {
+              message: "주소를 검색해 주세요.",
+              status: "idle",
+            },
+      );
+      return;
+    }
+
+    if (resolvedLocation?.address === nextAddress) {
+      setForm((current) => ({ ...current, roadAddress: nextAddress }));
+      setLookupState({
+        message: "위치 확인 완료",
+        status: "resolved",
+      });
+      return;
+    }
+
+    setResolvedLocation(null);
+    setForm((current) => ({ ...current, roadAddress: "" }));
+    setLookupState((current) =>
+      current.status === "unavailable"
+        ? current
+        : {
+            message: "주소 검색 대기",
+            status: "idle",
+          },
+    );
+  };
+
+  const handleAddressSearch = useCallback(
+    (query: string) => {
+      const normalizedQuery = normalizeLocationText(query);
+
+      if (!normalizedQuery || resolvedLocation?.address === normalizedQuery) {
+        return;
+      }
+
+      if (!kakaoMapJavaScriptKey) {
+        setLookupState({
+          message: "카카오 지도 키를 확인해 주세요.",
+          status: "unavailable",
+        });
+        setAddressSearchResults([]);
+        return;
+      }
+
+      addressSearchRequestRef.current += 1;
+      const requestId = addressSearchRequestRef.current;
+      const isActiveSearch = () => requestId === addressSearchRequestRef.current;
+
+      setLookupState({
+        message: "주소 검색 중",
+        status: "loading",
+      });
+      setAddressSearchResults([]);
+
+      void loadKakaoMapsSdk(kakaoMapJavaScriptKey)
+        .then((sdk) => {
+          if (!isActiveSearch()) {
+            return;
+          }
+
+          const places = new sdk.services.Places();
+
+          places.keywordSearch(
+            normalizedQuery,
+            (placeResults, placeStatus) => {
+              if (!isActiveSearch()) {
+                return;
+              }
+
+              const nextPlaceResults =
+                placeStatus === sdk.services.Status.OK
+                  ? placeResults
+                      .map(mapPlaceSearchResult)
+                      .filter(isLocationAddressSearchResult)
+                  : [];
+
+              if (nextPlaceResults.length > 0) {
+                setAddressSearchResults(
+                  dedupeAddressSearchResults(nextPlaceResults).slice(0, 5),
+                );
+                setLookupState({
+                  message: "검색 결과에서 위치를 선택해 주세요.",
+                  status: "idle",
+                });
+                return;
+              }
+
+              const geocoder = new sdk.services.Geocoder();
+
+              geocoder.addressSearch(
+                normalizedQuery,
+                (addressResults, addressStatus) => {
+                  if (!isActiveSearch()) {
+                    return;
+                  }
+
+                  const nextAddressResults =
+                    addressStatus === sdk.services.Status.OK
+                      ? addressResults
+                          .map(mapGeocoderSearchResult)
+                          .filter(isLocationAddressSearchResult)
+                      : [];
+
+                  if (nextAddressResults.length === 0) {
+                    setLookupState({
+                      message: "검색 결과가 없습니다.",
+                      status: "failed",
+                    });
+                    setAddressSearchResults([]);
+                    return;
+                  }
+
+                  setAddressSearchResults(
+                    dedupeAddressSearchResults(nextAddressResults).slice(0, 5),
+                  );
+                  setLookupState({
+                    message: "검색 결과에서 위치를 선택해 주세요.",
+                    status: "idle",
+                  });
+                },
+                { size: 5 },
+              );
+            },
+            { size: 5 },
+          );
+        })
+        .catch(() => {
+          if (!isActiveSearch()) {
+            return;
+          }
+
+          setLookupState({
+            message: "주소 검색을 사용할 수 없습니다.",
+            status: "unavailable",
+          });
+          setAddressSearchResults([]);
+        });
     },
-    [],
+    [resolvedLocation?.address],
   );
 
   const handleLookupStateChange = useCallback((state: LocationLookupState) => {
     setLookupState(state);
   }, []);
+
+  const handleAddressResultSelect = useCallback(
+    (result: LocationAddressSearchResult) => {
+      setAddressQuery(result.address);
+      setAddressSearchResults([]);
+      setForm((current) => ({
+        ...current,
+        roadAddress: result.address,
+      }));
+      setResolvedLocation({
+        address: result.address,
+        coordinate: result.coordinate,
+      });
+      setLookupState({
+        message: "위치 확인 완료",
+        status: "resolved",
+      });
+    },
+    [],
+  );
 
   const handleSave = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -517,7 +687,7 @@ function LocationDialog({
           <DialogHeader className="gap-0">
             <DialogTitle
               id="settings-location-dialog-title"
-              className="text-h-20 text-gray-900"
+              className="text-h-20 font-semibold tracking-normal text-gray-900"
             >
               {location ? dialog.editTitle : dialog.createTitle}
             </DialogTitle>
@@ -537,14 +707,17 @@ function LocationDialog({
               disabled={saving}
             />
 
-            <LocationDialogField
+            <LocationAddressSearchField
               error={submitted ? errors.roadAddress : undefined}
+              hasResults={hasAddressSearchResults}
               label={dialog.roadAddressLabel}
-              name="roadAddress"
-              onChange={handleFieldChange("roadAddress")}
+              onChange={handleAddressQueryChange}
+              onDebouncedSearch={handleAddressSearch}
+              onSelectResult={handleAddressResultSelect}
               placeholder={dialog.roadAddressPlaceholder}
-              value={form.roadAddress}
-              disabled={saving}
+              results={addressSearchResults}
+              saving={saving}
+              value={addressQuery}
             />
 
             <LocationRadiusField
@@ -555,10 +728,8 @@ function LocationDialog({
             />
 
             <KakaoRadiusMap
-              address={normalizedRoadAddress}
               coordinate={resolvedCoordinate}
               lookupState={lookupState}
-              onCoordinateResolve={handleCoordinateResolve}
               onLookupStateChange={handleLookupStateChange}
               radiusMeters={radiusMeters}
             />
@@ -700,6 +871,85 @@ function LocationDialogField({
   );
 }
 
+function LocationAddressSearchField({
+  error,
+  hasResults,
+  label,
+  onChange,
+  onDebouncedSearch,
+  onSelectResult,
+  placeholder,
+  results,
+  saving,
+  value,
+}: {
+  error?: string;
+  hasResults: boolean;
+  label: string;
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onDebouncedSearch: (value: string) => void;
+  onSelectResult: (result: LocationAddressSearchResult) => void;
+  placeholder: string;
+  results: readonly LocationAddressSearchResult[];
+  saving: boolean;
+  value: string;
+}) {
+  const inputId = "settings-location-roadAddress";
+  const labelId = `${inputId}-label`;
+  const errorId = `${inputId}-error`;
+
+  return (
+    <div className="mt-6">
+      <span id={labelId} className="text-h-18-semibold text-gray-900">
+        {label}
+      </span>
+      <SearchField
+        id={inputId}
+        name="roadAddress"
+        aria-describedby={error ? errorId : undefined}
+        aria-invalid={Boolean(error)}
+        aria-labelledby={labelId}
+        autoComplete="off"
+        className="mt-3 h-11 rounded-[8px] border-gray-200 bg-gray-50 py-0"
+        debounceMs={350}
+        disabled={saving}
+        onChange={onChange}
+        onDebouncedValueChange={onDebouncedSearch}
+        placeholder={placeholder}
+        value={value}
+      />
+      {hasResults ? (
+        <div
+          className="mt-2 max-h-[184px] overflow-y-auto rounded-[8px] border border-gray-100 bg-white shadow-[0px_8px_22px_rgba(17,24,39,0.08)]"
+          data-testid="settings-location-address-results"
+        >
+          {results.map((result) => (
+            <button
+              key={result.id}
+              type="button"
+              className="block w-full border-b border-gray-100 px-4 py-3 text-left transition-colors duration-150 ease-out last:border-b-0 hover:bg-gray-50 focus-visible:bg-green-50 focus-visible:outline-none"
+              data-testid="settings-location-address-result"
+              onClick={() => onSelectResult(result)}
+            >
+              <span className="block truncate text-h-16-semibold tracking-normal text-gray-900">
+                {result.title}
+              </span>
+              <span className="mt-1 block truncate text-body-14-regular tracking-normal text-gray-500">
+                {result.subtitle}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {error ? (
+        <p id={errorId} className="mt-2 text-label-12-medium text-red-500">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function LocationRadiusField({
   error,
   onChange,
@@ -746,17 +996,13 @@ function LocationRadiusField({
 }
 
 function KakaoRadiusMap({
-  address,
   coordinate,
   lookupState,
-  onCoordinateResolve,
   onLookupStateChange,
   radiusMeters,
 }: {
-  address: string;
   coordinate: SettingsLocationCoordinate | null;
   lookupState: LocationLookupState;
-  onCoordinateResolve: (location: ResolvedLocationCoordinate) => void;
   onLookupStateChange: (state: LocationLookupState) => void;
   radiusMeters: number;
 }) {
@@ -765,7 +1011,6 @@ function KakaoRadiusMap({
   const mapRef = useRef<KakaoMap | null>(null);
   const markerRef = useRef<KakaoMarker | null>(null);
   const circleRef = useRef<KakaoCircle | null>(null);
-  const debouncedAddress = useDebouncedValue(address, 450);
   const [sdkStatus, setSdkStatus] = useState<
     "idle" | "loading" | "ready" | "failed" | "missing-key"
   >(kakaoMapJavaScriptKey ? "loading" : "missing-key");
@@ -781,11 +1026,6 @@ function KakaoRadiusMap({
 
     let active = true;
 
-    onLookupStateChange({
-      message: "지도 준비 중",
-      status: "loading",
-    });
-
     void loadKakaoMapsSdk(kakaoMapJavaScriptKey)
       .then((sdk) => {
         if (!active) {
@@ -794,6 +1034,12 @@ function KakaoRadiusMap({
 
         sdkRef.current = sdk;
         setSdkStatus("ready");
+        if (coordinate) {
+          onLookupStateChange({
+            message: "위치 확인 완료",
+            status: "resolved",
+          });
+        }
       })
       .catch(() => {
         if (!active) {
@@ -810,7 +1056,7 @@ function KakaoRadiusMap({
     return () => {
       active = false;
     };
-  }, [onLookupStateChange]);
+  }, [coordinate, onLookupStateChange]);
 
   useEffect(() => {
     const sdk = sdkRef.current;
@@ -886,80 +1132,6 @@ function KakaoRadiusMap({
     map.setCenter(center);
   }, [coordinate, radiusMeters, sdkStatus]);
 
-  useEffect(() => {
-    const sdk = sdkRef.current;
-
-    if (sdkStatus !== "ready" || !sdk) {
-      return;
-    }
-
-    if (!debouncedAddress) {
-      onLookupStateChange({
-        message: "도로명 주소를 입력하면 위치를 확인합니다.",
-        status: "idle",
-      });
-      return;
-    }
-
-    let active = true;
-    const geocoder = new sdk.services.Geocoder();
-
-    onLookupStateChange({
-      message: "주소 확인 중",
-      status: "loading",
-    });
-
-    geocoder.addressSearch(debouncedAddress, (result, status) => {
-      if (!active) {
-        return;
-      }
-
-      const firstResult = result[0];
-
-      if (status !== sdk.services.Status.OK || !firstResult) {
-        onLookupStateChange({
-          message: "주소를 찾을 수 없습니다.",
-          status: "failed",
-        });
-        return;
-      }
-
-      const nextCoordinate = {
-        lat: Number(firstResult.y),
-        lng: Number(firstResult.x),
-      };
-
-      if (
-        !Number.isFinite(nextCoordinate.lat) ||
-        !Number.isFinite(nextCoordinate.lng)
-      ) {
-        onLookupStateChange({
-          message: "주소 좌표를 확인하지 못했습니다.",
-          status: "failed",
-        });
-        return;
-      }
-
-      onCoordinateResolve({
-        address: debouncedAddress,
-        coordinate: nextCoordinate,
-      });
-      onLookupStateChange({
-        message: "위치 확인 완료",
-        status: "resolved",
-      });
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [
-    debouncedAddress,
-    onCoordinateResolve,
-    onLookupStateChange,
-    sdkStatus,
-  ]);
-
   return (
     <div className="mt-8">
       <div
@@ -997,6 +1169,88 @@ function toKakaoLatLng(
   coordinate: SettingsLocationCoordinate,
 ) {
   return new sdk.LatLng(coordinate.lat, coordinate.lng);
+}
+
+function mapPlaceSearchResult(
+  result: KakaoPlaceSearchResult,
+): LocationAddressSearchResult | null {
+  const coordinate = readKakaoSearchCoordinate(result);
+  const address = normalizeLocationText(
+    result.road_address_name || result.address_name,
+  );
+  const title = normalizeLocationText(result.place_name || address);
+
+  if (!coordinate || !address || !title) {
+    return null;
+  }
+
+  return {
+    address,
+    coordinate,
+    id: `place-${result.id || `${result.x}-${result.y}`}`,
+    subtitle: address,
+    title,
+  };
+}
+
+function mapGeocoderSearchResult(
+  result: KakaoGeocoderResult,
+): LocationAddressSearchResult | null {
+  const coordinate = readKakaoSearchCoordinate(result);
+  const roadAddress = normalizeLocationText(
+    result.road_address?.address_name || result.address_name,
+  );
+  const address = normalizeLocationText(result.address_name || roadAddress);
+
+  if (!coordinate || !roadAddress) {
+    return null;
+  }
+
+  return {
+    address: roadAddress,
+    coordinate,
+    id: `address-${result.x}-${result.y}-${roadAddress}`,
+    subtitle: address === roadAddress ? "도로명 주소" : address,
+    title: roadAddress,
+  };
+}
+
+function isLocationAddressSearchResult(
+  value: LocationAddressSearchResult | null,
+): value is LocationAddressSearchResult {
+  return value !== null;
+}
+
+function dedupeAddressSearchResults(
+  results: readonly LocationAddressSearchResult[],
+) {
+  const resultByKey = new Map<string, LocationAddressSearchResult>();
+
+  for (const result of results) {
+    const key = `${result.address}:${result.coordinate.lat}:${result.coordinate.lng}`;
+
+    if (!resultByKey.has(key)) {
+      resultByKey.set(key, result);
+    }
+  }
+
+  return Array.from(resultByKey.values());
+}
+
+function readKakaoSearchCoordinate(result: { x: string; y: string }) {
+  const coordinate = {
+    lat: Number(result.y),
+    lng: Number(result.x),
+  };
+
+  if (
+    !Number.isFinite(coordinate.lat) ||
+    !Number.isFinite(coordinate.lng)
+  ) {
+    return null;
+  }
+
+  return coordinate satisfies SettingsLocationCoordinate;
 }
 
 function StaticRadiusMapFallback() {
