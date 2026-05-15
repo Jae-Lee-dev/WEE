@@ -16,7 +16,6 @@ import {
 } from "@/shared/ui/dialog";
 import { IconNotice } from "@/shared/ui/icons";
 import { Input } from "@/shared/ui/input";
-import { Segment } from "@/shared/ui/segment";
 import { useWeeErrorToast, useWeeSuccessToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
@@ -1086,24 +1085,21 @@ function AdjustmentForm({
       >
         <Input
           aria-label={form.itemLabel}
+          size="lg"
           className="h-11 min-w-0 rounded-[8px] border-gray-200 bg-white text-h-18-regular tracking-normal text-gray-900"
           placeholder={form.itemPlaceholder}
           value={label}
           onChange={(event) => setLabel(event.target.value)}
         />
-        <Segment
-          size="lg"
-          className="grid w-full grid-cols-2"
-          options={form.operators.map((operator) => ({
-            label: operator.label,
-            value: operator.id,
-          }))}
+        <AdjustmentOperatorSegment
+          options={form.operators}
           value={operatorId}
           onChange={setOperatorId}
         />
         <Input
           aria-label={form.amountLabel}
           inputMode="numeric"
+          size="lg"
           className="h-11 min-w-0 rounded-[8px] border-gray-200 bg-white text-h-18-regular tracking-normal text-gray-900"
           placeholder={form.amountPlaceholder}
           value={amountText}
@@ -1111,6 +1107,7 @@ function AdjustmentForm({
         />
         <button
           type="button"
+          data-testid="payroll-calculation-add-adjustment-submit"
           disabled={!canSubmit}
           onClick={handleSubmit}
           className="flex h-11 min-w-0 items-center justify-center rounded-full bg-green-400 px-3 text-h-16-semibold tracking-normal text-white transition-colors hover:bg-green-500 disabled:cursor-not-allowed disabled:bg-green-200"
@@ -1119,6 +1116,46 @@ function AdjustmentForm({
           {saving ? "저장 중" : form.submitLabel}
         </button>
       </div>
+    </div>
+  );
+}
+
+function AdjustmentOperatorSegment({
+  onChange,
+  options,
+  value,
+}: {
+  onChange: (value: string) => void;
+  options: readonly PayrollAdjustmentForm["operators"][number][];
+  value: string;
+}) {
+  return (
+    <div
+      className="grid h-11 min-h-11 w-full grid-cols-2 overflow-hidden rounded-[8px] border border-gray-200 bg-white"
+      data-testid="payroll-calculation-adjustment-operator"
+      role="tablist"
+    >
+      {options.map((option) => {
+        const selected = option.id === value;
+
+        return (
+          <button
+            key={option.id}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            onClick={() => onChange(option.id)}
+            className={cn(
+              "flex h-11 min-w-0 items-center justify-center text-h-18-semibold tracking-normal transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200",
+              selected
+                ? "bg-green-400 text-white"
+                : "bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900",
+            )}
+          >
+            {option.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

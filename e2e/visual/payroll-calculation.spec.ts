@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { expect, test, type Page } from "playwright/test";
+import { expect, test, type Locator, type Page } from "playwright/test";
 import {
   captureActualScreenshot,
   prepareVisualPage,
@@ -193,6 +193,7 @@ test(`PAY-01 adjustment form ${desktop}`, async ({ page }) => {
   ).toHaveCount(0);
   await expect(page.getByPlaceholder("예) 야근수당")).toBeVisible();
   const form = page.getByTestId("payroll-calculation-bonus-add-form");
+  await expectAdjustmentFormControlsToShareHeight(form);
   await expectPayrollDetailPanelsToShareHeight(page);
   await form.getByRole("tab", { name: "-" }).click();
   await expect(form.getByRole("tab", { name: "-" })).toHaveAttribute(
@@ -223,11 +224,34 @@ test("PAY-01 adjustment form stays inside calculation card on laptop", async ({
   await expect(
     page.getByTestId("payroll-calculation-bonus-add-form"),
   ).toBeVisible();
+  await expectAdjustmentFormControlsToShareHeight(
+    page.getByTestId("payroll-calculation-bonus-add-form"),
+  );
   await expectElementToStayInside(
     page.getByTestId("payroll-calculation-bonus-add-form-controls"),
     page.getByTestId("payroll-calculation-card"),
   );
 });
+
+async function expectAdjustmentFormControlsToShareHeight(form: Locator) {
+  const controls = [
+    form.getByLabel("항목명"),
+    form.getByTestId("payroll-calculation-adjustment-operator"),
+    form.getByLabel("지급액"),
+    form.getByTestId("payroll-calculation-add-adjustment-submit"),
+  ];
+
+  await expect
+    .poll(async () => {
+      const boxes = await Promise.all(
+        controls.map((control) => control.boundingBox()),
+      );
+      const heights = boxes.map((box) => box?.height ?? 0);
+
+      return Math.max(...heights) - Math.min(...heights);
+    })
+    .toBeLessThanOrEqual(1);
+}
 
 async function expectPayrollDetailPanelsToShareHeight(page: Page) {
   const calculationCard = page.getByTestId("payroll-calculation-card");
