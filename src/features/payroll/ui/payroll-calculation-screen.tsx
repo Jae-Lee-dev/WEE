@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Plus, Printer } from "lucide-react";
+import { ChevronDown, Plus, Printer, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Badge } from "@/shared/ui/badge";
@@ -37,6 +37,7 @@ import {
   payrollCalculationFixture,
   type PayrollAdjustmentItem,
   type PayrollAdjustmentForm,
+  type PayrollAdjustmentTaxScope,
   type PayrollAmountTone,
   type PayrollCalculationDetail,
   type PayrollCalculationFixture,
@@ -74,7 +75,6 @@ const amountToneClassName: Record<PayrollAmountTone, string> = {
 
 const openItemsPanelHeight: Record<PayrollDetailStateId, string> = {
   detail: "max-h-[855px]",
-  "bonus-add": "max-h-[1030px]",
   "no-open-items": "max-h-[855px]",
 };
 
@@ -308,7 +308,7 @@ export function PayrollCalculationScreen({
           workerName: target.workerName,
         }),
       target,
-      "보너스/차감 항목을 추가했습니다.",
+      "급여 조정 항목을 추가했습니다.",
     );
 
     if (success) {
@@ -326,7 +326,7 @@ export function PayrollCalculationScreen({
           adjustmentId,
         }),
       target,
-      "보너스/차감 항목을 삭제했습니다.",
+      "급여 조정 항목을 삭제했습니다.",
     );
   };
 
@@ -705,10 +705,14 @@ function PayrollDetailScreen({
   onShowNoOpenItems: () => void;
 }) {
   const detailKey = `${detail.id}:${detail.worker.id}`;
-  const [adjustmentFormTargetKey, setAdjustmentFormTargetKey] = useState<
-    string | null
-  >(null);
-  const adjustmentFormOpen = adjustmentFormTargetKey === detailKey;
+  const [adjustmentFormTarget, setAdjustmentFormTarget] = useState<{
+    detailKey: string;
+    taxScope: PayrollAdjustmentTaxScope;
+  } | null>(null);
+  const activeAdjustmentTaxScope =
+    adjustmentFormTarget?.detailKey === detailKey
+      ? adjustmentFormTarget.taxScope
+      : null;
   const actionErrorMessage =
     status?.kind === "error" ? status.message : "";
   const actionSuccessMessage =
@@ -762,13 +766,15 @@ function PayrollDetailScreen({
 
           <div className="grid items-start gap-4 xl:grid-cols-[minmax(540px,1fr)_minmax(520px,1fr)]">
             <PayrollCalculationCard
-              adjustmentFormOpen={adjustmentFormOpen}
+              activeAdjustmentTaxScope={activeAdjustmentTaxScope}
               detail={detail}
               saving={saving}
               onCreateAdjustment={onCreateAdjustment}
               onDeleteAdjustment={onDeleteAdjustment}
-              onHideAdjustmentForm={() => setAdjustmentFormTargetKey(null)}
-              onShowBonusForm={() => setAdjustmentFormTargetKey(detailKey)}
+              onHideAdjustmentForm={() => setAdjustmentFormTarget(null)}
+              onShowAdjustmentForm={(taxScope) =>
+                setAdjustmentFormTarget({ detailKey, taxScope })
+              }
             />
             <OpenItemsPanel
               detail={detail}
@@ -826,21 +832,21 @@ function WorkerSummaryCard({ detail }: { detail: PayrollCalculationDetail }) {
 }
 
 function PayrollCalculationCard({
-  adjustmentFormOpen,
+  activeAdjustmentTaxScope,
   detail,
   saving,
   onCreateAdjustment,
   onDeleteAdjustment,
   onHideAdjustmentForm,
-  onShowBonusForm,
+  onShowAdjustmentForm,
 }: {
-  adjustmentFormOpen: boolean;
+  activeAdjustmentTaxScope: PayrollAdjustmentTaxScope | null;
   detail: PayrollCalculationDetail;
   saving: boolean;
   onCreateAdjustment: (input: CreateAdjustmentPayload) => Promise<void>;
   onDeleteAdjustment: (adjustmentId: string) => Promise<void>;
   onHideAdjustmentForm: () => void;
-  onShowBonusForm: () => void;
+  onShowAdjustmentForm: (taxScope: PayrollAdjustmentTaxScope) => void;
 }) {
   return (
     <section className="rounded-[8px] bg-white px-4 pb-4 pt-4">
@@ -857,9 +863,29 @@ function PayrollCalculationCard({
       </div>
 
       <div className="mt-5">
-        {detail.calculationRows.map((row) => (
-          <CalculationLine key={row.id} row={row} />
-        ))}
+        {detail.calculationRows.map((row) => {
+          const taxScope = getAdjustmentTaxScopeForLine(row);
+
+          return taxScope ? (
+            <AdjustmentCalculationLine
+              key={row.id}
+              form={detail.adjustmentForm}
+              formOpen={activeAdjustmentTaxScope === taxScope}
+              items={detail.adjustmentItems.filter(
+                (item) => item.taxScope === taxScope,
+              )}
+              row={row}
+              saving={saving}
+              taxScope={taxScope}
+              onCreateAdjustment={onCreateAdjustment}
+              onDeleteAdjustment={onDeleteAdjustment}
+              onHideAdjustmentForm={onHideAdjustmentForm}
+              onShowAdjustmentForm={onShowAdjustmentForm}
+            />
+          ) : (
+            <CalculationLine key={row.id} row={row} />
+          );
+        })}
       </div>
 
       <div className="mt-10 flex items-center justify-between border-t border-gray-600 pt-6 text-h-18-semibold tracking-normal text-gray-900">
@@ -869,15 +895,6 @@ function PayrollCalculationCard({
         </span>
       </div>
 
-      <AdjustmentsBox
-        adjustmentFormOpen={adjustmentFormOpen}
-        detail={detail}
-        saving={saving}
-        onCreateAdjustment={onCreateAdjustment}
-        onDeleteAdjustment={onDeleteAdjustment}
-        onHideAdjustmentForm={onHideAdjustmentForm}
-        onShowBonusForm={onShowBonusForm}
-      />
     </section>
   );
 }
@@ -898,88 +915,111 @@ function CalculationLine({ row }: { row: PayrollCalculationLine }) {
   );
 }
 
-function AdjustmentsBox({
-  adjustmentFormOpen,
-  detail,
+function AdjustmentCalculationLine({
+  form,
+  formOpen,
+  items,
+  row,
   saving,
+  taxScope,
   onCreateAdjustment,
   onDeleteAdjustment,
   onHideAdjustmentForm,
-  onShowBonusForm,
+  onShowAdjustmentForm,
 }: {
-  adjustmentFormOpen: boolean;
-  detail: PayrollCalculationDetail;
+  form: PayrollAdjustmentForm;
+  formOpen: boolean;
+  items: readonly PayrollAdjustmentItem[];
+  row: PayrollCalculationLine;
   saving: boolean;
+  taxScope: PayrollAdjustmentTaxScope;
   onCreateAdjustment: (input: CreateAdjustmentPayload) => Promise<void>;
   onDeleteAdjustment: (adjustmentId: string) => Promise<void>;
   onHideAdjustmentForm: () => void;
-  onShowBonusForm: () => void;
+  onShowAdjustmentForm: (taxScope: PayrollAdjustmentTaxScope) => void;
 }) {
-  const adjustmentForm = adjustmentFormOpen
-    ? payrollCalculationFixture.details["bonus-add"].adjustmentForm
-    : undefined;
-
   return (
-    <section className="mt-6 rounded-[8px] border border-gray-100 px-4 py-4">
-      <div className="flex items-center justify-between gap-4">
-        <h3 className="text-h-18-semibold tracking-normal text-gray-900">
-          {detail.adjustmentsTitle}
-        </h3>
-        <button
-          type="button"
-          data-testid="payroll-calculation-add-adjustment"
-          aria-expanded={adjustmentFormOpen}
-          onClick={onShowBonusForm}
-          className="flex h-9 items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-16-medium tracking-normal text-gray-800 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
-        >
-          {detail.addButtonLabel}
-        </button>
+    <div className="border-b border-gray-200 py-3">
+      <div className="flex min-h-[40px] items-center justify-between gap-4 text-h-18-regular tracking-normal">
+        <span className="text-gray-600">{row.label}</span>
+        <div className="flex items-center gap-3">
+          <span
+            className={cn(
+              "text-right text-h-18-semibold tracking-normal",
+              amountToneClassName[row.tone ?? "default"],
+            )}
+          >
+            {row.value}
+          </span>
+          <button
+            type="button"
+            data-testid={`payroll-calculation-add-adjustment-${taxScope}`}
+            aria-expanded={formOpen}
+            aria-label={`${row.label} 항목 추가`}
+            onClick={() => onShowAdjustmentForm(taxScope)}
+            className="flex size-8 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
+          >
+            <Plus className="size-4" />
+          </button>
+        </div>
       </div>
 
-      {adjustmentForm ? (
+      {items.length > 0 ? (
+        <div className="mt-1 flex flex-col gap-1">
+          {items.map((item) => (
+            <AdjustmentRow
+              key={item.id}
+              item={item}
+              saving={saving}
+              onDeleteAdjustment={onDeleteAdjustment}
+            />
+          ))}
+        </div>
+      ) : null}
+
+      {formOpen ? (
         <AdjustmentForm
-          form={adjustmentForm}
+          form={form}
           saving={saving}
+          taxScope={taxScope}
           onCreateAdjustment={onCreateAdjustment}
           onSubmitted={onHideAdjustmentForm}
         />
       ) : null}
-
-      <div
-        className={cn(
-          "mt-8",
-          adjustmentForm && "mt-10 border-t border-gray-600 pt-6",
-        )}
-      >
-        {detail.adjustmentItems.map((item) => (
-          <AdjustmentRow
-            key={item.id}
-            item={item}
-            saving={saving}
-            onDeleteAdjustment={onDeleteAdjustment}
-          />
-        ))}
-      </div>
-    </section>
+    </div>
   );
+}
+
+function getAdjustmentTaxScopeForLine(
+  row: PayrollCalculationLine,
+): PayrollAdjustmentTaxScope | null {
+  if (row.id === "pre-pay-adjustment") {
+    return "pre_tax";
+  }
+
+  if (row.id === "post-pay-adjustment") {
+    return "post_tax";
+  }
+
+  return null;
 }
 
 function AdjustmentForm({
   form,
   onSubmitted,
   saving,
+  taxScope,
   onCreateAdjustment,
 }: {
   form: PayrollAdjustmentForm;
   onSubmitted: () => void;
   saving: boolean;
+  taxScope: PayrollAdjustmentTaxScope;
   onCreateAdjustment: (input: CreateAdjustmentPayload) => Promise<void>;
 }) {
   const [label, setLabel] = useState("");
   const [operatorId, setOperatorId] = useState("plus");
   const [amountText, setAmountText] = useState("");
-  const [taxScope, setTaxScope] =
-    useState<PayrollAdjustmentInput["taxScope"]>("pre_tax");
 
   const parsedAmount = parseMoneyInput(amountText);
   const signedAmount =
@@ -1007,19 +1047,21 @@ function AdjustmentForm({
     setLabel("");
     setAmountText("");
     setOperatorId("plus");
-    setTaxScope("pre_tax");
     onSubmitted();
   };
 
   return (
-    <div className="mt-4" data-testid="payroll-calculation-bonus-add-form">
-      <div className="grid grid-cols-[minmax(180px,1fr)_90px_minmax(150px,0.7fr)_140px] gap-4 text-h-16-semibold tracking-normal text-gray-900">
+    <div
+      className="mt-3 rounded-[8px] bg-gray-50 p-3"
+      data-testid="payroll-calculation-bonus-add-form"
+    >
+      <div className="grid grid-cols-[minmax(180px,1fr)_90px_minmax(150px,0.7fr)_104px] gap-3 text-h-16-semibold tracking-normal text-gray-900">
         <span>{form.itemLabel}</span>
         <span>{form.operatorLabel}</span>
         <span>{form.amountLabel}</span>
-        <span>반영 기준</span>
+        <span />
       </div>
-      <div className="mt-2 grid grid-cols-[minmax(180px,1fr)_90px_minmax(150px,0.7fr)_140px] gap-4">
+      <div className="mt-2 grid grid-cols-[minmax(180px,1fr)_90px_minmax(150px,0.7fr)_104px] gap-3">
         <Input
           aria-label={form.itemLabel}
           className="h-11 min-w-0 rounded-[8px] border-gray-200 bg-white text-h-18-regular tracking-normal text-gray-900"
@@ -1045,27 +1087,15 @@ function AdjustmentForm({
           value={amountText}
           onChange={(event) => setAmountText(event.target.value)}
         />
-        <Segment
-          size="lg"
-          className="grid w-full grid-cols-2"
-          options={[
-            { value: "pre_tax", label: "세전" },
-            { value: "post_tax", label: "세후" },
-          ]}
-          value={taxScope}
-          onChange={setTaxScope}
-        />
-      </div>
-      <div className="mt-3 flex justify-end">
-        <Button
+        <button
           type="button"
           disabled={!canSubmit}
           onClick={handleSubmit}
-          className="h-12 rounded-[10px] px-7"
+          className="flex h-11 items-center justify-center rounded-full bg-green-400 px-4 text-h-16-semibold tracking-normal text-white transition-colors hover:bg-green-500 disabled:cursor-not-allowed disabled:bg-green-200"
         >
-          <Plus className="size-5" />
+          <Plus className="size-4" />
           {saving ? "저장 중" : form.submitLabel}
-        </Button>
+        </button>
       </div>
     </div>
   );
@@ -1080,30 +1110,40 @@ function AdjustmentRow({
   saving: boolean;
   onDeleteAdjustment: (adjustmentId: string) => Promise<void>;
 }) {
-  const canDelete = item.id !== "empty" && item.actionLabel === "삭제";
+  const { amount, sign } = splitSignedAmount(item.amount);
+  const canDelete = item.actionLabel === "삭제";
   const held = item.statusLabel === "보류";
 
   return (
-    <div className="flex min-h-[48px] items-center gap-4 border-b border-gray-100 text-h-18-regular tracking-normal last:border-b-0">
-      <span className="min-w-0 flex-1 text-gray-600">{item.label}</span>
+    <div className="flex min-h-8 items-center gap-3 rounded-[6px] px-3 text-h-16-regular tracking-normal text-gray-700">
       <span
         className={cn(
-          "text-right text-h-18-semibold tracking-normal",
+          "w-3 shrink-0 text-center text-h-16-semibold tracking-normal",
           amountToneClassName[item.tone],
         )}
       >
-        {item.amount}
+        {sign}
+      </span>
+      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+      <span
+        className={cn(
+          "shrink-0 text-right text-h-16-semibold tracking-normal",
+          amountToneClassName[item.tone],
+        )}
+      >
+        {amount}
       </span>
       {canDelete ? (
         <button
           type="button"
+          aria-label={`${item.label} 삭제`}
           disabled={saving}
           onClick={() => {
             void onDeleteAdjustment(item.id);
           }}
-          className="flex h-[28px] items-center justify-center rounded-[4px] border border-gray-300 bg-white px-1.5 text-detail-16-semibold tracking-normal text-gray-800 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
+          className="flex size-7 shrink-0 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 disabled:cursor-not-allowed disabled:text-gray-300"
         >
-          {item.actionLabel}
+          <X className="size-4" />
         </button>
       ) : held ? (
         <Badge variant="orange" size="M">
@@ -1112,6 +1152,19 @@ function AdjustmentRow({
       ) : null}
     </div>
   );
+}
+
+function splitSignedAmount(amount: string) {
+  const trimmed = amount.trim();
+
+  if (trimmed.startsWith("+") || trimmed.startsWith("-")) {
+    return {
+      amount: trimmed.slice(1).trim(),
+      sign: trimmed[0] ?? "",
+    };
+  }
+
+  return { amount: trimmed, sign: "" };
 }
 
 function OpenItemsPanel({

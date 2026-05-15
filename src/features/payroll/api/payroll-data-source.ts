@@ -22,6 +22,7 @@ import {
   payrollRequiredSettingsFixture,
   payrollStatementFixture,
   type PayrollAdjustmentItem,
+  type PayrollAdjustmentTaxScope,
   type PayrollAmountTone,
   type PayrollCalculationDetail,
   type PayrollCalculationFixture,
@@ -311,7 +312,7 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
       const payrollContext = getPayrollMutationContext(collections, input);
 
       if (payrollContext.paid) {
-        throw new Error("지급 완료된 월의 보너스/차감 항목은 수정할 수 없습니다.");
+        throw new Error("지급 완료된 월의 급여 조정 항목은 수정할 수 없습니다.");
       }
 
       const adjustmentRef = doc(getPayrollCollectionRef(workspaceId, "bonusItems"));
@@ -331,7 +332,7 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
       });
       queuePayrollReconfirmation({
         batch,
-        reason: "보너스/차감 항목 추가",
+        reason: "급여 조정 항목 추가",
         workspaceId,
         ...payrollContext,
       });
@@ -496,7 +497,7 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
       const payrollContext = getPayrollMutationContext(collections, input);
 
       if (payrollContext.paid) {
-        throw new Error("지급 완료된 월의 보너스/차감 항목은 수정할 수 없습니다.");
+        throw new Error("지급 완료된 월의 급여 조정 항목은 수정할 수 없습니다.");
       }
 
       const batch = writeBatch(getFirebaseDb());
@@ -511,7 +512,7 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
       );
       queuePayrollReconfirmation({
         batch,
-        reason: "보너스/차감 항목 삭제",
+        reason: "급여 조정 항목 삭제",
         workspaceId,
         ...payrollContext,
       });
@@ -1032,20 +1033,6 @@ function buildCalculationDetailSet({
     calculationRules,
     correctionRequests,
     id: "detail",
-    includeAdjustmentForm: false,
-    overtimeWorks,
-    projection,
-    records,
-    setting,
-    statement,
-  });
-  const bonusAdd = buildCalculationDetail({
-    anomalyFlags,
-    bonuses,
-    calculationRules,
-    correctionRequests,
-    id: "bonus-add",
-    includeAdjustmentForm: true,
     overtimeWorks,
     projection,
     records,
@@ -1058,7 +1045,6 @@ function buildCalculationDetailSet({
     calculationRules,
     correctionRequests: [],
     id: "no-open-items",
-    includeAdjustmentForm: false,
     overtimeWorks: [],
     projection,
     records,
@@ -1068,7 +1054,6 @@ function buildCalculationDetailSet({
 
   return {
     detail,
-    "bonus-add": bonusAdd,
     "no-open-items": noOpenItems,
   };
 }
@@ -1079,7 +1064,6 @@ function buildCalculationDetail({
   calculationRules,
   correctionRequests,
   id,
-  includeAdjustmentForm,
   overtimeWorks,
   projection,
   records,
@@ -1091,7 +1075,6 @@ function buildCalculationDetail({
   calculationRules: PayrollCalculationRules;
   correctionRequests: readonly CorrectionRequest[];
   id: PayrollDetailStateId;
-  includeAdjustmentForm: boolean;
   overtimeWorks: readonly OvertimeWork[];
   projection: PayrollWorkerMonthProjection;
   records: readonly WorkRecord[];
@@ -1138,12 +1121,8 @@ function buildCalculationDetail({
 
   return {
     id,
-    addButtonLabel: "항목 추가",
-    adjustmentForm: includeAdjustmentForm
-      ? payrollCalculationFixture.details["bonus-add"].adjustmentForm
-      : undefined,
+    adjustmentForm: payrollCalculationFixture.details.detail.adjustmentForm,
     adjustmentItems: buildAdjustmentItems(bonuses),
-    adjustmentsTitle: "보너스/차감 항목",
     calculationRuleLabel: formatCalculationRules(calculationRules),
     calculationRows: buildCalculationLines({
       amounts,
@@ -1354,23 +1333,22 @@ function formatTotalWorkTimeValue(
 function buildAdjustmentItems(
   bonuses: readonly BonusItem[],
 ): readonly PayrollAdjustmentItem[] {
-  return bonuses.length > 0
-    ? bonuses.map((bonus) => ({
-        amount: formatSignedWon(bonus.amount),
-        actionLabel: bonus.payrollStatus === "held" ? undefined : "삭제",
-        id: bonus.id,
-        label: bonus.label,
-        statusLabel: bonus.payrollStatus === "held" ? "보류" : undefined,
-        tone: getAmountTone(bonus.amount),
-      }))
-    : [
-        {
-          amount: "-",
-          id: "empty",
-          label: "등록된 보너스/차감 항목이 없습니다.",
-          tone: "muted",
-        },
-      ];
+  return bonuses
+    .filter((bonus) => bonus.payrollStatus !== "held")
+    .map((bonus) => ({
+      amount: formatSignedWon(bonus.amount),
+      actionLabel: "삭제",
+      id: bonus.id,
+      label: bonus.label,
+      taxScope: normalizeAdjustmentTaxScope(bonus.taxScope),
+      tone: getAmountTone(bonus.amount),
+    }));
+}
+
+function normalizeAdjustmentTaxScope(
+  taxScope: string,
+): PayrollAdjustmentTaxScope {
+  return taxScope === "post_tax" ? "post_tax" : "pre_tax";
 }
 
 function buildOpenItemCards({

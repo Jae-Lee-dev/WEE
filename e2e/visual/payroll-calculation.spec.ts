@@ -87,10 +87,16 @@ test(`PAY-01 detail ${desktop}`, async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByText("현재 급여 계산")).toHaveCount(0);
   await expect(page.getByText("수기 보너스 차감")).toHaveCount(0);
+  await expect(page.getByText("보너스/차감 항목")).toHaveCount(0);
   await expect(page.getByText("총 근무 시간")).toBeVisible();
   await expect(page.getByText("추가근무 수당")).toBeVisible();
   await expect(page.getByText("세전 보너스/차감")).toBeVisible();
   await expect(page.getByText("세후 보너스/차감")).toBeVisible();
+  await expect(page.getByText("신입 교육 지원")).toBeVisible();
+  await expect(page.getByText("지각 차감")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "신입 교육 지원 삭제" }),
+  ).toBeVisible();
   await expect(page.getByTestId("payroll-calculation-rounding-rule")).toHaveText(
     "근무시간 6분 단위 · 급여 원 단위",
   );
@@ -157,7 +163,9 @@ test(`PAY-01 adjustment form ${desktop}`, async ({ page }) => {
   await prepareVisualPage({ page, path: "/payroll", viewport: desktop });
   await page.evaluate(() => document.fonts.ready);
   await page.getByTestId("payroll-calculation-first-detail").click();
-  await page.getByTestId("payroll-calculation-add-adjustment").click();
+  await page
+    .getByTestId("payroll-calculation-add-adjustment-pre_tax")
+    .click();
   await expect(
     page.getByTestId("payroll-calculation-state-detail"),
   ).toBeVisible();
@@ -173,20 +181,16 @@ test(`PAY-01 adjustment form ${desktop}`, async ({ page }) => {
   await expect(page.getByPlaceholder("예) 야근수당")).toBeVisible();
   const form = page.getByTestId("payroll-calculation-bonus-add-form");
   await form.getByRole("tab", { name: "-" }).click();
-  await form.getByRole("tab", { name: "세후" }).click();
   await expect(form.getByRole("tab", { name: "-" })).toHaveAttribute(
     "aria-selected",
     "true",
   );
-  await expect(form.getByRole("tab", { name: "세후" })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
+  await expect(form.getByRole("tab", { name: "세후" })).toHaveCount(0);
 
   await captureActualScreenshot({
     page,
     screenId: "PAY-01",
-    state: "adjustment-form",
+    state: "pre-tax-adjustment-form",
     viewport: desktop,
     fullPage: true,
   });

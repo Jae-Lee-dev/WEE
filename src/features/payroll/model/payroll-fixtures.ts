@@ -4,6 +4,8 @@ export type PayrollTone = "default" | "green" | "orange" | "pink" | "grey";
 
 export type PayrollAmountTone = "default" | "positive" | "negative" | "muted";
 
+export type PayrollAdjustmentTaxScope = "pre_tax" | "post_tax";
+
 export type PayrollCalculationStatus =
   | "미확정"
   | "확정"
@@ -13,7 +15,7 @@ export type PayrollCalculationStatus =
 
 export type PayrollStatementStatus = "처리중" | "처리 완료" | "지급 완료";
 
-export type PayrollDetailStateId = "detail" | "bonus-add" | "no-open-items";
+export type PayrollDetailStateId = "detail" | "no-open-items";
 
 export type PayrollRequiredSettingsFieldId =
   | "workTimeRoundingUnitMinutes"
@@ -91,6 +93,7 @@ export type PayrollAdjustmentItem = {
   label: string;
   amount: string;
   tone: PayrollAmountTone;
+  taxScope: PayrollAdjustmentTaxScope;
   actionLabel?: string;
   statusLabel?: string;
 };
@@ -170,10 +173,8 @@ export type PayrollCalculationDetail = {
   calculationRows: readonly PayrollCalculationLine[];
   expectedPayLabel: string;
   expectedPay: string;
-  adjustmentsTitle: string;
-  addButtonLabel: string;
   adjustmentItems: readonly PayrollAdjustmentItem[];
-  adjustmentForm?: PayrollAdjustmentForm;
+  adjustmentForm: PayrollAdjustmentForm;
   workRecordSection: {
     title: string;
     totalCount: string;
@@ -360,23 +361,33 @@ const payrollCalculationLines = [
 
 const payrollAdjustmentItems = [
   {
-    id: "transport-support",
-    label: "교통비 지원",
-    amount: "+\u20a920,000",
+    id: "newcomer-training-support",
+    label: "신입 교육 지원",
+    amount: "+ \u20a945,000",
     tone: "positive",
+    taxScope: "pre_tax",
     actionLabel: "삭제",
   },
   {
-    id: "hospital-deduction",
-    label: "병원 차감",
-    amount: "-\u20a915,000",
+    id: "late-deduction",
+    label: "지각 차감",
+    amount: "- \u20a910,000",
     tone: "negative",
+    taxScope: "pre_tax",
+    actionLabel: "삭제",
+  },
+  {
+    id: "transport-support",
+    label: "교통비 지원",
+    amount: "+ \u20a920,000",
+    tone: "positive",
+    taxScope: "post_tax",
     actionLabel: "삭제",
   },
 ] as const satisfies readonly PayrollAdjustmentItem[];
 
 const payrollAdjustmentForm = {
-  title: "보너스/차감 항목",
+  title: "급여 조정 항목",
   itemLabel: "항목명",
   itemPlaceholder: "예) 야근수당",
   operatorLabel: "연산",
@@ -640,33 +651,6 @@ export const payrollCalculationFixture = {
       calculationRows: payrollCalculationLines,
       expectedPayLabel: "지급 예상액",
       expectedPay: "\u20a9353,615",
-      adjustmentsTitle: "보너스/차감 항목",
-      addButtonLabel: "항목 추가",
-      adjustmentItems: payrollAdjustmentItems,
-      workRecordSection: {
-        title: "월 근무기록 \u00b7 미처리 항목",
-        totalCount: "10건",
-        openCount: "미처리 4건",
-        cards: unresolvedPayrollOpenItemCards,
-      },
-      footer: {
-        title: "급여 확정하기",
-        description: "미처리 항목을 처리해야 급여 확정이 가능합니다.",
-        actionLabel: "급여 확정 (미처리 항목 4/4)",
-        actionDisabled: true,
-      },
-    },
-    "bonus-add": {
-      id: "bonus-add",
-      headerTitle: "급여 산정 목록",
-      worker: kimSeoyeonPayrollSummary,
-      calculationTitle: "급여 산정 내역",
-      calculationRuleLabel: "근무시간 6분 단위 · 급여 원 단위",
-      calculationRows: payrollCalculationLines,
-      expectedPayLabel: "지급 예상액",
-      expectedPay: "\u20a9353,615",
-      adjustmentsTitle: "보너스/차감 항목",
-      addButtonLabel: "항목 추가",
       adjustmentForm: payrollAdjustmentForm,
       adjustmentItems: payrollAdjustmentItems,
       workRecordSection: {
@@ -691,8 +675,7 @@ export const payrollCalculationFixture = {
       calculationRows: payrollCalculationLines,
       expectedPayLabel: "지급 예상액",
       expectedPay: "\u20a9353,615",
-      adjustmentsTitle: "보너스/차감 항목",
-      addButtonLabel: "항목 추가",
+      adjustmentForm: payrollAdjustmentForm,
       adjustmentItems: payrollAdjustmentItems,
       workRecordSection: {
         title: "월 근무기록 \u00b7 미처리 항목",
