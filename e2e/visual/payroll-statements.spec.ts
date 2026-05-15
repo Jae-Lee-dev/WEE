@@ -62,3 +62,23 @@ test(`PAY-02 statement-detail ${desktop}`, async ({ page }) => {
     viewport: desktop,
   });
 });
+
+test("PAY-02 keeps statement rows scrolling inside payroll content", async ({
+  page,
+}) => {
+  await prepareVisualPage({
+    page,
+    path: "/payroll/statements",
+    viewport: "laptop-1366",
+  });
+  await page.evaluate(() => document.fonts.ready);
+
+  const tableBody = page.getByTestId("payroll-statements-table-body");
+  await expect(tableBody).toBeVisible();
+  await tableBody.evaluate((element) => {
+    element.scrollTop = 180;
+  });
+  await expect
+    .poll(() => tableBody.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+});

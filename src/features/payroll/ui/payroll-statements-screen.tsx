@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Badge } from "@/shared/ui/badge";
 import { DetailStateHeader } from "@/shared/ui/detail-state-header";
 import { IconChevronDown, IconNotice } from "@/shared/ui/icons";
-import { useWeeErrorToast } from "@/shared/ui/wee-toast";
+import { useWeeErrorToast, useWeeSuccessToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
   createPayrollDataSource,
   type PayrollDataSource,
+  type PayrollRequiredSettingsInput,
 } from "../api/payroll-data-source";
 import {
   payrollStatementFixture,
@@ -21,6 +22,7 @@ import {
   type PayrollTone,
   type PayrollWorkerSummary,
 } from "../model/payroll-fixtures";
+import { PayrollRequiredSettingsDialog } from "./payroll-required-settings-dialog";
 
 type BadgeToneConfig = {
   variant: "green" | "orange" | "red" | "grey" | "outline";
@@ -82,7 +84,14 @@ export function PayrollStatementsScreen({
   const [selectedRowId, setSelectedRowId] = useState(initialDetailTarget.rowId);
   const [loading, setLoading] = useState(!fixtureMode);
   const [errorMessage, setErrorMessage] = useState("");
+  const [requiredSettingsSaving, setRequiredSettingsSaving] = useState(false);
+  const [requiredSettingsErrorMessage, setRequiredSettingsErrorMessage] =
+    useState("");
+  const [requiredSettingsSuccessMessage, setRequiredSettingsSuccessMessage] =
+    useState("");
   useWeeErrorToast(errorMessage);
+  useWeeErrorToast(requiredSettingsErrorMessage, { title: "저장 실패" });
+  useWeeSuccessToast(requiredSettingsSuccessMessage);
 
   useEffect(() => {
     if (fixtureMode) {
@@ -129,22 +138,74 @@ export function PayrollStatementsScreen({
     };
   }, [dataSource, fixtureMode, initialFocusId, initialMonthKey, initialWorkerId]);
 
+  const requiredSettingsMissing =
+    viewModel.requiredSettings.missingFieldIds.length > 0;
+  const requiredSettingsDialogOpen = !loading && requiredSettingsMissing;
+
+  const handleSaveRequiredSettings = async (
+    input: PayrollRequiredSettingsInput,
+  ) => {
+    const selectedRow =
+      viewModel.rows.find((row) => row.id === selectedRowId) ?? viewModel.rows[0];
+    const target = {
+      focusId: selectedRow?.id ?? initialFocusId,
+      monthKey: selectedRow?.monthKey ?? initialMonthKey,
+      workerId: selectedRow?.workerId ?? initialWorkerId,
+    };
+
+    setRequiredSettingsSaving(true);
+    setRequiredSettingsErrorMessage("");
+    setRequiredSettingsSuccessMessage("");
+
+    try {
+      await dataSource.updateRequiredSettings(input);
+      const nextViewModel = await dataSource.loadStatements(target);
+      const nextDetailTarget = resolveStatementDetailTarget(nextViewModel, target);
+
+      setViewModel(nextViewModel);
+      setSelectedRowId(nextDetailTarget.rowId);
+      setRequiredSettingsSuccessMessage("급여 계산 기준을 저장했습니다.");
+    } catch (error: unknown) {
+      setRequiredSettingsSuccessMessage("");
+      setRequiredSettingsErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "급여 계산 기준을 저장하지 못했습니다.",
+      );
+    } finally {
+      setRequiredSettingsSaving(false);
+    }
+  };
+
+  const requiredSettingsDialog = requiredSettingsDialogOpen ? (
+    <PayrollRequiredSettingsDialog
+      blocking={requiredSettingsMissing}
+      saving={requiredSettingsSaving}
+      settings={viewModel.requiredSettings}
+      onClose={() => undefined}
+      onSave={handleSaveRequiredSettings}
+    />
+  ) : null;
+
   if (detailOpen) {
     const detail =
       viewModel.detailsByRowId?.[selectedRowId] ?? viewModel.selectedDetail;
 
     return (
-      <PayrollStatementDetailState
-        detail={detail}
-        onBack={() => setDetailOpen(false)}
-      />
+      <>
+        <PayrollStatementDetailState
+          detail={detail}
+          onBack={() => setDetailOpen(false)}
+        />
+        {requiredSettingsDialog}
+      </>
     );
   }
 
   return (
     <section
       aria-label="급여 명세"
-      className="mx-auto flex w-full max-w-[1480px] flex-col gap-4 tracking-normal"
+      className="mx-auto flex h-full min-h-0 w-full max-w-[1480px] flex-col gap-4 tracking-normal"
       data-testid="payroll-statements-screen"
     >
       <MonthSelect viewModel={viewModel} />
@@ -159,6 +220,7 @@ export function PayrollStatementsScreen({
         rows={viewModel.rows}
         viewModel={viewModel}
       />
+      {requiredSettingsDialog}
     </section>
   );
 }
@@ -256,10 +318,10 @@ function StatementTable({
   return (
     <section
       aria-label="급여 명세 표"
-      className="h-[calc(100vh-340px)] min-h-[320px] overflow-hidden rounded-[8px] bg-white"
+      className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[8px] bg-white"
       data-testid="payroll-statements-table"
     >
-      <div className="flex h-[56px] items-center gap-3 px-4">
+      <div className="flex h-[56px] shrink-0 items-center gap-3 px-4">
         <h2 className="text-h-20 text-gray-900">
           {viewModel.listTitle}
         </h2>
@@ -269,7 +331,7 @@ function StatementTable({
       </div>
 
       <div
-        className="grid h-9 grid-cols-[22.5%_22.5%_22.5%_22.5%_1fr] items-center border-b border-gray-300 px-4 text-h-18-regular text-gray-500"
+        className="grid h-9 shrink-0 grid-cols-[22.5%_22.5%_22.5%_22.5%_1fr] items-center border-b border-gray-300 px-4 text-h-18-regular text-gray-500"
         role="row"
       >
         {viewModel.columns.map((column) => (
@@ -288,7 +350,11 @@ function StatementTable({
       ) : errorMessage ? (
         <StatementTableState>급여 명세 목록을 표시할 수 없습니다.</StatementTableState>
       ) : rows.length > 0 ? (
-        <div role="rowgroup">
+        <div
+          className="min-h-0 flex-1 overflow-y-auto"
+          data-testid="payroll-statements-table-body"
+          role="rowgroup"
+        >
           {rows.map((row) => (
             <StatementTableRow
               key={row.id}
@@ -396,17 +462,22 @@ function PayrollStatementDetailState({
         }
       />
 
-      <main className="min-h-0 flex-1 overflow-hidden px-4 py-7">
-        <WorkerSummaryCard worker={detail.worker} />
-        {detail.bodySections.length > 0 ? (
-          <StatementBodySections sections={detail.bodySections} />
-        ) : (
-          <div
-            aria-hidden="true"
-            className="min-h-[calc(100vh-236px)]"
-            data-testid="payroll-statements-detail-empty"
-          />
-        )}
+      <main
+        className="min-h-0 flex-1 overflow-y-auto px-4 py-7"
+        data-testid="payroll-statements-detail-scroll"
+      >
+        <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-4">
+          <WorkerSummaryCard worker={detail.worker} />
+          {detail.bodySections.length > 0 ? (
+            <StatementBodySections sections={detail.bodySections} />
+          ) : (
+            <div
+              aria-hidden="true"
+              className="min-h-[calc(100vh-236px)]"
+              data-testid="payroll-statements-detail-empty"
+            />
+          )}
+        </div>
       </main>
     </section>
   );
@@ -461,7 +532,7 @@ function StatementBodySections({
 }) {
   return (
     <div
-      className="mt-4 grid grid-cols-2 gap-4"
+      className="grid grid-cols-2 gap-4"
       data-testid="payroll-statements-detail-body"
     >
       {sections.map((section) => (

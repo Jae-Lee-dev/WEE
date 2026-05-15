@@ -31,6 +31,7 @@ import {
   type PayrollDataSource,
   type PayrollDecisionInput,
   type PayrollOpenItemResolutionInput,
+  type PayrollRequiredSettingsInput,
 } from "../api/payroll-data-source";
 import {
   payrollCalculationFixture,
@@ -45,6 +46,7 @@ import {
   type PayrollOpenItemLine,
   type PayrollTone,
 } from "../model/payroll-fixtures";
+import { PayrollRequiredSettingsDialog } from "./payroll-required-settings-dialog";
 
 type BadgeConfig = {
   variant: "green" | "orange" | "red" | "grey" | "outline";
@@ -67,12 +69,6 @@ const amountToneClassName: Record<PayrollAmountTone, string> = {
   positive: "text-green-400",
   negative: "text-red-500",
   muted: "text-gray-500",
-};
-
-const detailMinHeight: Record<PayrollDetailStateId, string> = {
-  detail: "min-h-[980px]",
-  "bonus-add": "min-h-[1100px]",
-  "no-open-items": "min-h-[950px]",
 };
 
 const openItemsPanelHeight: Record<PayrollDetailStateId, string> = {
@@ -157,10 +153,17 @@ export function PayrollCalculationScreen({
     null,
   );
   const [savingAction, setSavingAction] = useState(false);
+  const [requiredSettingsSaving, setRequiredSettingsSaving] = useState(false);
+  const [requiredSettingsErrorMessage, setRequiredSettingsErrorMessage] =
+    useState("");
+  const [requiredSettingsSuccessMessage, setRequiredSettingsSuccessMessage] =
+    useState("");
   const [recordViewModel, setRecordViewModel] =
     useState<PayrollRecordActionViewModel | null>(null);
   const [recordViewErrorMessage, setRecordViewErrorMessage] = useState("");
   useWeeErrorToast(errorMessage);
+  useWeeErrorToast(requiredSettingsErrorMessage, { title: "저장 실패" });
+  useWeeSuccessToast(requiredSettingsSuccessMessage);
 
   useEffect(() => {
     if (fixtureMode) {
@@ -244,6 +247,9 @@ export function PayrollCalculationScreen({
   const selectedRow =
     viewModel.rows.find((row) => row.id === selectedRowId) ??
     viewModel.rows[0];
+  const requiredSettingsMissing =
+    viewModel.requiredSettings.missingFieldIds.length > 0;
+  const requiredSettingsDialogOpen = !loading && requiredSettingsMissing;
 
   const applyMutatedViewModel = (
     nextViewModel: PayrollCalculationFixture,
@@ -400,34 +406,78 @@ export function PayrollCalculationScreen({
     }
   };
 
+  const handleSaveRequiredSettings = async (
+    input: PayrollRequiredSettingsInput,
+  ) => {
+    const target = createPayrollReloadTarget(selectedRow, {
+      focusId: initialFocusId,
+      monthKey: initialMonthKey,
+      workerId: initialWorkerId,
+    });
+
+    setRequiredSettingsSaving(true);
+    setRequiredSettingsErrorMessage("");
+    setRequiredSettingsSuccessMessage("");
+
+    try {
+      await dataSource.updateRequiredSettings(input);
+      const nextViewModel = await dataSource.loadCalculation(target);
+
+      applyMutatedViewModel(nextViewModel, target);
+      setRequiredSettingsSuccessMessage("급여 계산 기준을 저장했습니다.");
+    } catch (error: unknown) {
+      setRequiredSettingsSuccessMessage("");
+      setRequiredSettingsErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "급여 계산 기준을 저장하지 못했습니다.",
+      );
+    } finally {
+      setRequiredSettingsSaving(false);
+    }
+  };
+
+  const requiredSettingsDialog = requiredSettingsDialogOpen ? (
+    <PayrollRequiredSettingsDialog
+      blocking={requiredSettingsMissing}
+      saving={requiredSettingsSaving}
+      settings={viewModel.requiredSettings}
+      onClose={() => undefined}
+      onSave={handleSaveRequiredSettings}
+    />
+  ) : null;
+
   if (detailState) {
     const detailSet =
       viewModel.detailByRowId?.[selectedRowId] ?? viewModel.details;
 
     return (
-      <PayrollDetailScreen
-        detail={detailSet[detailState] ?? detailSet.detail}
-        recordActionErrorMessage={recordViewErrorMessage}
-        recordActionViewModel={recordViewModel}
-        status={actionStatus}
-        saving={savingAction}
-        selectedRow={selectedRow}
-        onBack={() => setDetailState(null)}
-        onConfirmOpenRecordAction={handleConfirmOpenRecordAction}
-        onCreateAdjustment={handleCreateAdjustment}
-        onDeleteAdjustment={handleDeleteAdjustment}
-        onDecidePayroll={handleDecidePayroll}
-        onResolveOpenItem={handleResolveOpenItem}
-        onShowBonusForm={() => setDetailState("bonus-add")}
-        onShowNoOpenItems={() => setDetailState("no-open-items")}
-      />
+      <>
+        <PayrollDetailScreen
+          detail={detailSet[detailState] ?? detailSet.detail}
+          recordActionErrorMessage={recordViewErrorMessage}
+          recordActionViewModel={recordViewModel}
+          status={actionStatus}
+          saving={savingAction}
+          selectedRow={selectedRow}
+          onBack={() => setDetailState(null)}
+          onConfirmOpenRecordAction={handleConfirmOpenRecordAction}
+          onCreateAdjustment={handleCreateAdjustment}
+          onDeleteAdjustment={handleDeleteAdjustment}
+          onDecidePayroll={handleDecidePayroll}
+          onResolveOpenItem={handleResolveOpenItem}
+          onShowBonusForm={() => setDetailState("bonus-add")}
+          onShowNoOpenItems={() => setDetailState("no-open-items")}
+        />
+        {requiredSettingsDialog}
+      </>
     );
   }
 
   return (
     <section
       aria-label="급여 산정"
-      className="flex w-full flex-col gap-4"
+      className="mx-auto flex h-full min-h-0 w-full max-w-[1480px] flex-col gap-4"
       data-testid="payroll-calculation-screen"
       data-payroll-calculation-state="default"
     >
@@ -446,6 +496,7 @@ export function PayrollCalculationScreen({
         selectedRowId={selectedRowId}
         viewModel={viewModel}
       />
+      {requiredSettingsDialog}
     </section>
   );
 }
@@ -525,8 +576,8 @@ function PayrollListTable({
   viewModel: PayrollCalculationFixture;
 }) {
   return (
-    <section className="h-[calc(100vh-144px)] min-h-[520px] overflow-hidden rounded-[8px] bg-white">
-      <div className="flex h-[56px] items-center gap-3 px-4">
+    <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[8px] bg-white">
+      <div className="flex h-[56px] shrink-0 items-center gap-3 px-4">
         <h2 className="text-h-20 tracking-normal text-gray-900">
           {viewModel.listTitle}
         </h2>
@@ -535,7 +586,7 @@ function PayrollListTable({
         </span>
       </div>
 
-      <div className="grid h-9 grid-cols-[0.9fr_1.2fr_1.2fr_1.25fr_0.95fr_1.25fr_0.95fr_1.05fr_96px] items-center border-b border-gray-300 px-4 text-h-18-regular tracking-normal text-gray-500">
+      <div className="grid h-9 shrink-0 grid-cols-[0.9fr_1.2fr_1.2fr_1.25fr_0.95fr_1.25fr_0.95fr_1.05fr_96px] items-center border-b border-gray-300 px-4 text-h-18-regular tracking-normal text-gray-500">
         {viewModel.columns.map((column) => (
           <div key={column.id} className="min-w-0 truncate">
             {column.label}
@@ -548,7 +599,10 @@ function PayrollListTable({
       ) : errorMessage ? (
         <PayrollTableState>급여 산정 목록을 표시할 수 없습니다.</PayrollTableState>
       ) : rows.length > 0 ? (
-        <div>
+        <div
+          className="min-h-0 flex-1 overflow-y-auto"
+          data-testid="payroll-calculation-table-body"
+        >
           {rows.map((row) => (
             <PayrollListRow
               key={row.id}
@@ -663,8 +717,7 @@ function PayrollDetailScreen({
     <section
       aria-label={detail.headerTitle}
       className={cn(
-        "absolute left-[var(--admin-sidebar-width)] right-0 top-0 z-40 flex min-w-[808px] flex-col bg-gray-100",
-        detailMinHeight[detail.id],
+        "fixed bottom-0 left-[var(--admin-sidebar-width)] right-0 top-0 z-40 flex min-w-[808px] flex-col overflow-hidden bg-gray-100",
       )}
       data-testid="payroll-calculation-detail-state"
       data-payroll-calculation-state={detail.id}
@@ -697,27 +750,30 @@ function PayrollDetailScreen({
       />
 
       <main
-        className="flex flex-1 flex-col gap-4 px-4 py-7"
+        className="min-h-0 flex-1 overflow-y-auto px-4 py-7"
         data-testid={`payroll-calculation-state-${detail.id}`}
+        data-payroll-detail-scroll
       >
-        <WorkerSummaryCard detail={detail} />
+        <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-4">
+          <WorkerSummaryCard detail={detail} />
 
-        <div className="grid items-start gap-4 xl:grid-cols-[minmax(540px,1fr)_minmax(520px,1fr)]">
-          <PayrollCalculationCard
-            detail={detail}
-            saving={saving}
-            onCreateAdjustment={onCreateAdjustment}
-            onDeleteAdjustment={onDeleteAdjustment}
-            onShowBonusForm={onShowBonusForm}
-          />
-          <OpenItemsPanel
-            detail={detail}
-            recordActionErrorMessage={recordActionErrorMessage}
-            recordActionViewModel={recordActionViewModel}
-            saving={saving}
-            onConfirmOpenRecordAction={onConfirmOpenRecordAction}
-            onResolveOpenItem={onResolveOpenItem}
-          />
+          <div className="grid items-start gap-4 xl:grid-cols-[minmax(540px,1fr)_minmax(520px,1fr)]">
+            <PayrollCalculationCard
+              detail={detail}
+              saving={saving}
+              onCreateAdjustment={onCreateAdjustment}
+              onDeleteAdjustment={onDeleteAdjustment}
+              onShowBonusForm={onShowBonusForm}
+            />
+            <OpenItemsPanel
+              detail={detail}
+              recordActionErrorMessage={recordActionErrorMessage}
+              recordActionViewModel={recordActionViewModel}
+              saving={saving}
+              onConfirmOpenRecordAction={onConfirmOpenRecordAction}
+              onResolveOpenItem={onResolveOpenItem}
+            />
+          </div>
         </div>
       </main>
 
@@ -1520,6 +1576,25 @@ function createPayrollMutationTarget(
     workerId: row.workerId,
     workerName: row.workerName,
   };
+}
+
+function createPayrollReloadTarget(
+  row: PayrollCalculationRow | undefined,
+  fallback: {
+    focusId?: string;
+    monthKey?: string;
+    workerId?: string;
+  },
+) {
+  if (row?.monthKey && row.workerId) {
+    return {
+      focusId: row.id,
+      monthKey: row.monthKey,
+      workerId: row.workerId,
+    };
+  }
+
+  return fallback;
 }
 
 function getPayrollDecisionSuccessMessage(

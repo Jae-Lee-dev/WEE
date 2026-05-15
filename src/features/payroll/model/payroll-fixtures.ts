@@ -15,6 +15,31 @@ export type PayrollStatementStatus = "처리중" | "처리 완료" | "지급 완
 
 export type PayrollDetailStateId = "detail" | "bonus-add" | "no-open-items";
 
+export type PayrollRequiredSettingsFieldId =
+  | "workTimeRoundingUnitMinutes"
+  | "payrollRoundingUnitWon"
+  | "regularPaymentDay";
+
+export type PayrollRequiredSettingsField = {
+  id: PayrollRequiredSettingsFieldId;
+  label: string;
+  options?: readonly {
+    label: string;
+    value: string;
+  }[];
+  suffix?: string;
+  value: string;
+  kind: "number" | "select";
+};
+
+export type PayrollRequiredSettingsState = {
+  title: string;
+  description: string;
+  fields: readonly PayrollRequiredSettingsField[];
+  missingFieldIds: readonly PayrollRequiredSettingsFieldId[];
+  saveLabel: string;
+};
+
 export type PayrollTab = {
   id: PayrollTabId;
   label: string;
@@ -167,6 +192,7 @@ export type PayrollCalculationFixture = {
   columns: readonly PayrollTableColumn[];
   rows: readonly PayrollCalculationRow[];
   selectedRowId: string;
+  requiredSettings: PayrollRequiredSettingsState;
   defaultDetailId: PayrollDetailStateId;
   detailByRowId?: Record<
     string,
@@ -232,6 +258,7 @@ export type PayrollStatementFixture = {
   columns: readonly PayrollTableColumn[];
   rows: readonly PayrollStatementRow[];
   selectedRowId: string;
+  requiredSettings: PayrollRequiredSettingsState;
   detailsByRowId?: Record<string, PayrollStatementDetail>;
   selectedDetail: PayrollStatementDetail;
 };
@@ -248,6 +275,40 @@ const payrollTabs = [
     href: "/payroll/statements",
   },
 ] as const satisfies readonly PayrollTab[];
+
+export const payrollRequiredSettingsFixture = {
+  title: "급여 계산 기준 설정",
+  description: "급여 산정에 필요한 운영 설정을 저장합니다.",
+  fields: [
+    {
+      id: "workTimeRoundingUnitMinutes",
+      label: "근무 시간 올림 단위",
+      value: "6",
+      suffix: "분",
+      kind: "number",
+    },
+    {
+      id: "payrollRoundingUnitWon",
+      label: "급여 올림 단위",
+      value: "1",
+      kind: "select",
+      options: [
+        { value: "1", label: "원 단위" },
+        { value: "10", label: "십의 자리 올림" },
+        { value: "100", label: "백의 자리 올림" },
+      ],
+    },
+    {
+      id: "regularPaymentDay",
+      label: "정기 지급일",
+      value: "5",
+      suffix: "일",
+      kind: "number",
+    },
+  ],
+  missingFieldIds: [],
+  saveLabel: "저장",
+} as const satisfies PayrollRequiredSettingsState;
 
 const kimSeoyeonPayrollSummary = {
   id: "worker-kim-seoyeon",
@@ -576,6 +637,7 @@ export const payrollCalculationFixture = {
     calculationRow("payroll-202604-kim-seoyeon-17", "확정", "-"),
   ],
   selectedRowId: "payroll-202604-kim-seoyeon-01",
+  requiredSettings: payrollRequiredSettingsFixture,
   defaultDetailId: "detail",
   details: {
     detail: {
@@ -707,6 +769,7 @@ export const payrollStatementFixture = {
     statementRow("statement-202604-kim-seoyeon-14", "처리 완료"),
   ],
   selectedRowId: "statement-202604-kim-seoyeon-01",
+  requiredSettings: payrollRequiredSettingsFixture,
   selectedDetail: {
     id: "statement-202604-kim-seoyeon-01",
     headerTitle: "급여 명세 목록",

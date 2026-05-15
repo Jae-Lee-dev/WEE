@@ -102,6 +102,32 @@ test(`PAY-01 detail ${desktop}`, async ({ page }) => {
   });
 });
 
+test("PAY-01 keeps list and detail scrolling inside payroll content", async ({
+  page,
+}) => {
+  await prepareVisualPage({ page, path: "/payroll", viewport: "laptop-1366" });
+  await page.evaluate(() => document.fonts.ready);
+
+  const tableBody = page.getByTestId("payroll-calculation-table-body");
+  await expect(tableBody).toBeVisible();
+  await tableBody.evaluate((element) => {
+    element.scrollTop = 180;
+  });
+  await expect
+    .poll(() => tableBody.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+
+  await page.getByTestId("payroll-calculation-first-detail").click();
+  const detailScroll = page.getByTestId("payroll-calculation-state-detail");
+  await expect(detailScroll).toBeVisible();
+  await detailScroll.evaluate((element) => {
+    element.scrollTop = 180;
+  });
+  await expect
+    .poll(() => detailScroll.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+});
+
 test("PAY-01 opens monthly work-record item actions inline", async ({ page }) => {
   await prepareVisualPage({ page, path: "/payroll", viewport: desktop });
   await page.evaluate(() => document.fonts.ready);

@@ -19,6 +19,7 @@ import { readActiveWorkspaceId } from "@/entities/workspace";
 import { getFirebaseDb, isMockFirebaseProject } from "@/shared/api/firebase/client";
 import {
   payrollCalculationFixture,
+  payrollRequiredSettingsFixture,
   payrollStatementFixture,
   type PayrollAdjustmentItem,
   type PayrollAmountTone,
@@ -29,6 +30,8 @@ import {
   type PayrollOpenItemCard,
   type PayrollOpenItemAction,
   type PayrollCalculationRow,
+  type PayrollRequiredSettingsFieldId,
+  type PayrollRequiredSettingsState,
   type PayrollStatementBodySection,
   type PayrollStatementDetail,
   type PayrollStatementFixture,
@@ -70,6 +73,7 @@ export type PayrollDataSource = {
   resolveOpenItem: (
     input: PayrollOpenItemResolutionInput,
   ) => Promise<PayrollCalculationFixture>;
+  updateRequiredSettings: (input: PayrollRequiredSettingsInput) => Promise<void>;
 };
 
 export type PayrollMutationTarget = {
@@ -100,6 +104,12 @@ export type PayrollOpenItemResolutionInput = PayrollMutationTarget & {
   itemId: string;
   itemType: "bonus" | "correction" | "overtime" | "workRecord";
   workerName: string;
+};
+
+export type PayrollRequiredSettingsInput = {
+  payrollRoundingUnitWon: number;
+  regularPaymentDay: number;
+  workTimeRoundingUnitMinutes: number;
 };
 
 type PayrollDocument = {
@@ -288,6 +298,8 @@ function createFixturePayrollDataSource(): PayrollDataSource {
     async resolveOpenItem() {
       return payrollCalculationFixture;
     },
+
+    async updateRequiredSettings() {},
   };
 }
 
@@ -544,6 +556,18 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
 
     async loadStatements(target) {
       return buildStatementViewModel(await loadPayrollCollections(), target);
+    },
+
+    async updateRequiredSettings(input) {
+      const workspaceId = await requireActiveWorkspaceId();
+
+      await updateDoc(doc(getFirebaseDb(), "workspaces", workspaceId), {
+        "settings.payrollRoundingUnitWon": input.payrollRoundingUnitWon,
+        "settings.regularPaymentDay": input.regularPaymentDay,
+        "settings.workTimeRoundingUnitMinutes":
+          input.workTimeRoundingUnitMinutes,
+        updatedAt: serverTimestamp(),
+      });
     },
   };
 }
@@ -813,6 +837,7 @@ function buildCalculationViewModel(
     mapPayrollWorkerMonthProjection,
   );
   const calculationRules = mapWorkspaceCalculationRules(collections.workspace);
+  const requiredSettings = mapWorkspaceRequiredSettings(collections.workspace);
   const settings = collections.payrollSettings.map(mapPayrollSetting);
   const bonuses = collections.bonusItems
     .map(mapBonusItem)
@@ -908,6 +933,7 @@ function buildCalculationViewModel(
     detailByRowId,
     details: firstDetailSet ?? payrollCalculationFixture.details,
     listCountText: `${rows.length}명`,
+    requiredSettings,
     rows,
     selectedMonthLabel: formatMonthDot(monthKey),
     selectedRowId: rows[0]?.id ?? "",
@@ -1976,6 +2002,7 @@ function buildStatementViewModel(
     mapPayrollWorkerMonthProjection,
   );
   const calculationRules = mapWorkspaceCalculationRules(collections.workspace);
+  const requiredSettings = mapWorkspaceRequiredSettings(collections.workspace);
   const settings = collections.payrollSettings.map(mapPayrollSetting);
   const monthKey = selectStatementMonthKey(statements, projections, target);
   const projectionByWorkerMonth = indexBy(projections, (row) =>
@@ -2014,6 +2041,7 @@ function buildStatementViewModel(
     ...payrollStatementFixture,
     detailsByRowId,
     listCountText: `${rows.length}명`,
+    requiredSettings,
     rows,
     selectedDetail:
       detailsByRowId[selectedRowId] ??
@@ -2334,20 +2362,91 @@ function mapWorkspaceCalculationRules(
 
   return {
     payrollRoundingUnitWon: readPayrollRoundingUnit(
-      settings.payrollRoundingUnitWon ?? data.payrollRoundingUnitWon,
+      readWorkspaceSettingValue(settings, data, "payrollRoundingUnitWon"),
     ),
     regularPaymentDay: readNullableBoundedInteger(
-      settings.regularPaymentDay ?? data.regularPaymentDay,
+      readWorkspaceSettingValue(settings, data, "regularPaymentDay"),
       1,
       31,
     ),
     workTimeRoundingUnitMinutes: readBoundedInteger(
-      settings.workTimeRoundingUnitMinutes ?? data.workTimeRoundingUnitMinutes,
+      readWorkspaceSettingValue(settings, data, "workTimeRoundingUnitMinutes"),
       6,
       1,
       60,
     ),
   };
+}
+
+function mapWorkspaceRequiredSettings(
+  document: PayrollDocument,
+): PayrollRequiredSettingsState {
+  const data = document.data;
+  const settings = readRecord(data.settings);
+  const rawWorkTimeRounding =
+    readWorkspaceSettingValue(settings, data, "workTimeRoundingUnitMinutes");
+  const rawPayrollRounding =
+    readWorkspaceSettingValue(settings, data, "payrollRoundingUnitWon");
+  const rawRegularPaymentDay =
+    readWorkspaceSettingValue(settings, data, "regularPaymentDay");
+  const missingFieldIds = [
+    isValidBoundedInteger(rawWorkTimeRounding, 1, 60)
+      ? null
+      : "workTimeRoundingUnitMinutes",
+    isValidPayrollRoundingUnit(rawPayrollRounding)
+      ? null
+      : "payrollRoundingUnitWon",
+    isValidBoundedInteger(rawRegularPaymentDay, 1, 31)
+      ? null
+      : "regularPaymentDay",
+  ].filter((id): id is PayrollRequiredSettingsFieldId => id !== null);
+
+  return {
+    ...payrollRequiredSettingsFixture,
+    fields: payrollRequiredSettingsFixture.fields.map((field) => {
+      if (field.id === "workTimeRoundingUnitMinutes") {
+        return {
+          ...field,
+          value: String(
+            isValidBoundedInteger(rawWorkTimeRounding, 1, 60)
+              ? rawWorkTimeRounding
+              : 6,
+          ),
+        };
+      }
+
+      if (field.id === "payrollRoundingUnitWon") {
+        return {
+          ...field,
+          value: String(
+            isValidPayrollRoundingUnit(rawPayrollRounding)
+              ? rawPayrollRounding
+              : 1,
+          ),
+        };
+      }
+
+      return {
+        ...field,
+        value: String(
+          isValidBoundedInteger(rawRegularPaymentDay, 1, 31)
+            ? rawRegularPaymentDay
+            : 5,
+        ),
+      };
+    }),
+    missingFieldIds,
+  };
+}
+
+function readWorkspaceSettingValue(
+  settings: Record<string, unknown>,
+  workspaceData: Record<string, unknown>,
+  key: string,
+) {
+  return Object.prototype.hasOwnProperty.call(settings, key)
+    ? settings[key]
+    : workspaceData[key];
 }
 
 function getDefaultCalculationRules(): PayrollCalculationRules {
@@ -3008,6 +3107,19 @@ function readNullableBoundedInteger(
 
 function readPayrollRoundingUnit(value: unknown) {
   return value === 10 || value === 100 ? value : 1;
+}
+
+function isValidBoundedInteger(value: unknown, min: number, max: number) {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= min &&
+    value <= max
+  );
+}
+
+function isValidPayrollRoundingUnit(value: unknown) {
+  return value === 1 || value === 10 || value === 100;
 }
 
 function readStringArray(value: unknown) {
