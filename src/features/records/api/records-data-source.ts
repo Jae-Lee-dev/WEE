@@ -1940,7 +1940,8 @@ function mapRecordMainView(
   const records = collections.workRecords
     .map(mapWorkRecord)
     .sort(compareRecords);
-  const recordsById = toMap(records, (record) => record.id);
+  const timelineRecords = records.filter(isVisibleMainTimelineRecord);
+  const recordsById = toMap(timelineRecords, (record) => record.id);
   const activeWorkers = collections.workers
     .map(mapWorker)
     .filter(isActiveWorker)
@@ -2012,17 +2013,17 @@ function mapRecordMainView(
       .filter((id): id is string => Boolean(id)),
   );
   const weekNavigation = createWeekNavigation(
-    records,
+    timelineRecords,
     standaloneVisibleOvertimeWorks.map((work) =>
       getOvertimeDate(work, getAttendanceForOvertime(work)),
     ),
   );
   const initialWeekStartKey = weekNavigation.initialWeekStartKey;
-  const initialRecord = selectInitialRecord(records, {
+  const initialRecord = selectInitialRecord(timelineRecords, {
     flagsByRecordId,
     weekStartKey: initialWeekStartKey,
   });
-  const recordBlocks = records.map((record) =>
+  const recordBlocks = timelineRecords.map((record) =>
     mapTimelineBlock(record, {
       correctionIdsByRecordId,
       flag: flagsByRecordId.get(record.id),
@@ -2044,7 +2045,7 @@ function mapRecordMainView(
     ? (selectedBlock.selectedStateId ?? "normal-selected")
     : getInitialDetailStateId(initialRecord, flagsByRecordId);
   const detailStatesByBlockId = {
-    ...createDetailStatesByBlockId(records, {
+    ...createDetailStatesByBlockId(timelineRecords, {
       attendanceById,
       pendingCorrectionByRecordId,
       overtimeByRecordId: visibleOvertimeByRecordId,
@@ -2088,7 +2089,7 @@ function mapRecordMainView(
     initialBlockId: selectedBlock?.id ?? null,
     initialWeekStartKey,
     initialDetailStateId,
-    overtimeCreate: createOvertimeCreateView(records, {
+    overtimeCreate: createOvertimeCreateView(timelineRecords, {
       attendanceById,
       pendingOvertimeAttendanceIds,
       pendingOvertimeIds,
@@ -2097,7 +2098,7 @@ function mapRecordMainView(
       ...recordMainFixtureViewModel.timeline,
       weekNavigation,
       filters: createMainFilters(
-        records,
+        timelineRecords,
         activeWorkers,
         standaloneVisibleOvertimeWorks,
       ),
@@ -2106,6 +2107,10 @@ function mapRecordMainView(
         : createWeekLabel(records),
     },
   };
+}
+
+function isVisibleMainTimelineRecord(record: WorkRecordModel) {
+  return record.status !== "deleted";
 }
 
 function mapAnomalyHistoryView(
