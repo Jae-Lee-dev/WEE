@@ -132,6 +132,7 @@ export type PayrollDetailFooter = {
   description: string;
   actionLabel: string;
   actionDisabled: boolean;
+  defaultScheduledPaymentDate?: string | null;
 };
 
 export type PayrollCalculationDetail = {
@@ -301,7 +302,7 @@ const payrollCalculationLines = [
   {
     id: "rounding",
     label: "올림 기준",
-    value: "원 단위",
+    value: "근무시간 6분 단위 · 급여 원 단위",
   },
 ] as const satisfies readonly PayrollCalculationLine[];
 
@@ -715,8 +716,42 @@ export const payrollStatementFixture = {
     statusTone: "pink",
     confirmedAmount: "\u20a9370,734",
     confirmedDate: "04.11",
-    bodyState: "blank",
-    bodySections: [],
+    bodyState: "ready",
+    bodySections: [
+      {
+        id: "snapshot-summary",
+        title: "명세 스냅샷",
+        lines: [
+          { id: "final-amount", label: "최종 지급액", value: "\u20a9370,734" },
+          { id: "payment-date", label: "지급 예정일", value: "05.05" },
+          { id: "payroll-type", label: "급여 유형", value: "시급제" },
+          { id: "setting-effective-from", label: "급여 설정 적용일", value: "2026.04.01" },
+        ],
+      },
+      {
+        id: "amount-breakdown",
+        title: "금액 산정",
+        lines: [
+          { id: "base-pay", label: "기본급", value: "\u20a9300,000" },
+          { id: "overtime-pay", label: "추가근무", value: "\u20a910,000", tone: "positive" },
+          { id: "pre-tax-adjustment", label: "세전 보너스/차감", value: "+ \u20a925,000", tone: "positive" },
+          { id: "tax", label: "세금", value: "\u20a911,385", tone: "negative" },
+          { id: "post-tax-adjustment", label: "세후 보너스/차감", value: "+ \u20a920,000", tone: "positive" },
+          { id: "bonus-count", label: "보너스/차감 건수", value: "2건" },
+        ],
+      },
+      {
+        id: "calculation-metadata",
+        title: "계산 기준",
+        lines: [
+          { id: "payroll-setting", label: "급여 설정", value: "시급제 · 시급 \u20a910,000 · 세율 3.3%" },
+          { id: "total-work-minutes", label: "근무시간 합산", value: "30시간" },
+          { id: "work-rounding", label: "근무시간 올림", value: "6분 단위" },
+          { id: "pay-rounding", label: "급여 올림", value: "원 단위" },
+          { id: "regular-payment-day", label: "정기 지급일", value: "미설정" },
+        ],
+      },
+    ],
   },
 } as const satisfies PayrollStatementFixture;
 

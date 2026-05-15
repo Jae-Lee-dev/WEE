@@ -82,6 +82,7 @@ test(`PAY-01 detail ${desktop}`, async ({ page }) => {
   await expect(
     page.getByTestId("payroll-calculation-state-detail"),
   ).toBeVisible();
+  await expect(page.getByText("근무시간 6분 단위 · 급여 원 단위")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "급여 산정" }),
   ).toBeVisible();

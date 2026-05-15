@@ -50,6 +50,10 @@ test(`PAY-02 statement-detail ${desktop}`, async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "2026년 4월 명세 상세" }),
   ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "계산 기준" })).toBeVisible();
+  await expect(page.getByText("근무시간 올림")).toBeVisible();
+  await expect(page.getByText("6분 단위")).toBeVisible();
+  await expect(page.getByText("급여 올림")).toBeVisible();
 
   await captureActualScreenshot({
     page,

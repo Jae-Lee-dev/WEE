@@ -1425,6 +1425,7 @@ function PayrollDetailFooter({
       {dialogOpen && action ? (
         <PayrollDecisionDialog
           action={action}
+          defaultScheduledPaymentDate={detail.footer.defaultScheduledPaymentDate}
           saving={saving}
           workerName={selectedRow?.workerName ?? detail.worker.name}
           onClose={() => setDialogOpen(false)}
@@ -1440,12 +1441,14 @@ function PayrollDetailFooter({
 
 function PayrollDecisionDialog({
   action,
+  defaultScheduledPaymentDate,
   saving,
   workerName,
   onClose,
   onConfirm,
 }: {
   action: PayrollDecisionInput["action"];
+  defaultScheduledPaymentDate?: string | null;
   saving: boolean;
   workerName: string;
   onClose: () => void;
@@ -1453,7 +1456,7 @@ function PayrollDecisionDialog({
 }) {
   const needsPaymentDate = action !== "mark_paid";
   const [scheduledPaymentDate, setScheduledPaymentDate] = useState(
-    getTomorrowDateKey(),
+    defaultScheduledPaymentDate ?? getTomorrowDateKey(),
   );
   const dateValid =
     !needsPaymentDate ||

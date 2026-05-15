@@ -551,6 +551,7 @@ function createSeedPlan(options) {
     managerUid,
     workers.active,
     bonusItems,
+    payrollSettings,
   );
   const handover = createHandoverDocuments(workspaceId, managerUid);
   const aiRuns = createAiRuns(workspaceId, managerUid, attendance.workRecords);
@@ -579,6 +580,12 @@ function createSeedPlan(options) {
   addWorkspace({
     billingStatus: "active",
     plan: "standard",
+    settings: {
+      anomalyToleranceMinutes: 5,
+      payrollRoundingUnitWon: 1,
+      regularPaymentDay: 5,
+      workTimeRoundingUnitMinutes: 6,
+    },
     setup: {
       completedAt: ts("2026-04-13T10:00:00+09:00"),
       dutyCount: duties.length,
@@ -2521,9 +2528,20 @@ function bonus(id, workerId, workerName, monthKey, amount, taxScope, label, crea
   };
 }
 
-function createPayrollDocuments(workspaceId, managerUid, activeWorkers, bonusItems) {
+function createPayrollDocuments(
+  workspaceId,
+  managerUid,
+  activeWorkers,
+  bonusItems,
+  payrollSettings,
+) {
   const paidAt = ts("2026-05-05T11:00:00+09:00");
   const confirmedAt = ts("2026-05-02T14:00:00+09:00");
+  const calculationRules = {
+    payrollRoundingUnitWon: 1,
+    regularPaymentDay: 5,
+    workTimeRoundingUnitMinutes: 6,
+  };
   const configs = [
     ["worker_kim", "paid", false, 438900, paidAt],
     ["worker_choi", "paid", false, 1814200, paidAt],
@@ -2531,8 +2549,18 @@ function createPayrollDocuments(workspaceId, managerUid, activeWorkers, bonusIte
     ["worker_park", "processing", false, 338600, null],
   ];
   const byWorker = Object.fromEntries(activeWorkers.map((worker) => [worker.id, worker]));
+  const settingsByWorker = Object.fromEntries(
+    payrollSettings.map((setting) => [setting.workerId, setting]),
+  );
   const managerStatements = configs.map(([workerId, status, needsReconfirmation, finalAmount, statusAt]) => {
     const worker = byWorker[workerId];
+    const payrollSetting = settingsByWorker[workerId];
+    const workerBonusItems = bonusItems.filter(
+      (item) =>
+        item.workerId === workerId &&
+        item.monthKey === "2026-04" &&
+        item.payrollStatus === "confirmed",
+    );
 
     return {
       id: `pay_202604_${workerId}`,
@@ -2549,13 +2577,31 @@ function createPayrollDocuments(workspaceId, managerUid, activeWorkers, bonusIte
       paidAt: status === "paid" ? statusAt : null,
       scheduledPaymentDate: "2026-05-05",
       snapshot: {
-        bonusItemIds: bonusItems
-          .filter((item) => item.workerId === workerId && item.monthKey === "2026-04" && item.payrollStatus === "confirmed")
-          .map((item) => item.id),
+        basePay: workerId === "worker_choi" ? 1850000 : Math.max(finalAmount - (workerId === "worker_kim" ? 10000 : 0), 0),
+        bonusItemCount: workerBonusItems.length,
+        bonusItemIds: workerBonusItems.map((item) => item.id),
+        calculationRules,
         finalAmount,
         overtimePay: workerId === "worker_kim" ? 10000 : 0,
+        payrollSetting: payrollSetting
+          ? {
+              effectiveFrom: payrollSetting.effectiveFrom,
+              hourlyRate: payrollSetting.hourlyRate ?? null,
+              monthlySalary: payrollSetting.monthlySalary ?? null,
+              payrollType: payrollSetting.payrollType,
+              taxRatePercent: payrollSetting.taxRatePercent ?? null,
+              workerId,
+            }
+          : null,
         payrollType: workerId === "worker_choi" ? "monthly" : "hourly",
+        postTaxAdjustment: workerBonusItems
+          .filter((item) => item.taxScope === "post_tax")
+          .reduce((total, item) => total + item.amount, 0),
+        preTaxAdjustment: workerBonusItems
+          .filter((item) => item.taxScope !== "post_tax")
+          .reduce((total, item) => total + item.amount, 0),
         taxAmount: Math.round(finalAmount * 0.033),
+        totalWorkMinutes: workerId === "worker_choi" ? 0 : 2400,
       },
       status,
       workerId,

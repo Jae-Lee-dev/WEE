@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   serverTimestamp,
   setDoc,
@@ -115,6 +116,7 @@ type PayrollCollections = {
   payrollSettings: readonly PayrollDocument[];
   payrollWorkerMonthRows: readonly PayrollDocument[];
   workerPayStatements: readonly PayrollDocument[];
+  workspace: PayrollDocument;
   workRecords: readonly PayrollDocument[];
 };
 
@@ -144,6 +146,12 @@ type PayrollSetting = {
   workerId: string;
 };
 
+type PayrollCalculationRules = {
+  payrollRoundingUnitWon: number;
+  regularPaymentDay: number | null;
+  workTimeRoundingUnitMinutes: number;
+};
+
 type BonusItem = {
   amount: number;
   createdAt: Date | null;
@@ -156,7 +164,9 @@ type BonusItem = {
 };
 
 type PayStatement = {
+  basePay: number | null;
   bonusItemCount: number;
+  calculationRules: PayrollCalculationRules | null;
   confirmedAt: Date | null;
   currentFinalAmount: number | null;
   finalAmount: number | null;
@@ -165,10 +175,14 @@ type PayStatement = {
   monthKey: string;
   overtimePay: number;
   paidAt: Date | null;
+  payrollSetting: PayrollSetting | null;
   payrollType: string;
+  postTaxAdjustment: number;
+  preTaxAdjustment: number;
   scheduledPaymentDate: string | null;
   status: "processing" | "paid";
   taxAmount: number;
+  totalWorkMinutes: number | null;
   workerId: string;
   workerName: string;
 };
@@ -236,6 +250,7 @@ type CalculationAmounts = {
   finalAmount: number | null;
   postTaxAdjustment: number;
   preTaxAdjustment: number;
+  roundedFinalAmount: number | null;
   taxAmount: number;
   totalWorkMinutes: number;
   overtimePay: number;
@@ -328,6 +343,7 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
       }
 
       const workerMonthKey = getWorkerMonthKey(projection.workerId, projection.monthKey);
+      const calculationRules = mapWorkspaceCalculationRules(collections.workspace);
       const settings = collections.payrollSettings.map(mapPayrollSetting);
       const resolveSetting = createPayrollSettingResolver(settings);
       const bonusesByWorkerMonth = groupBy(
@@ -378,11 +394,18 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
         overtimeWorks: overtimeByWorkerMonth[workerMonthKey] ?? [],
         projection,
         records: recordsByWorkerMonth[workerMonthKey] ?? [],
+        calculationRules,
         setting,
         statement,
       });
       const statementId =
         statement?.id ?? `pay_${projection.monthKey.replace("-", "")}_${projection.workerId}`;
+      const scheduledPaymentDate =
+        input.scheduledPaymentDate ??
+        getDefaultScheduledPaymentDate(
+          projection.monthKey,
+          calculationRules.regularPaymentDay,
+        );
 
       if (input.action === "mark_paid") {
         await Promise.all([
@@ -419,13 +442,13 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
                 needsReconfirmation: false,
               },
               monthKey: projection.monthKey,
-              scheduledPaymentDate: input.scheduledPaymentDate ?? null,
-              snapshot: {
-                finalAmount: amounts.finalAmount,
-                overtimePay: amounts.overtimePay,
-                payrollType: setting?.payrollType ?? "hourly",
-                taxAmount: amounts.taxAmount,
-              },
+              scheduledPaymentDate,
+              snapshot: createPayStatementSnapshot({
+                amounts,
+                bonuses: bonusesByWorkerMonth[workerMonthKey] ?? [],
+                calculationRules,
+                setting,
+              }),
               status: "processing",
               updatedAt: serverTimestamp(),
               workerId: projection.workerId,
@@ -528,6 +551,7 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
 async function loadPayrollCollections(): Promise<PayrollCollections> {
   const workspaceId = await requireActiveWorkspaceId();
   const [
+    workspaceSnapshot,
     anomalyFlags,
     payrollWorkerMonthRows,
     payStatements,
@@ -538,6 +562,7 @@ async function loadPayrollCollections(): Promise<PayrollCollections> {
     correctionRequests,
     workRecords,
   ] = await Promise.all([
+    getDoc(doc(getFirebaseDb(), "workspaces", workspaceId)),
     getPayrollCollection(workspaceId, "anomalyFlags"),
     getPayrollCollection(workspaceId, "payrollWorkerMonthRows"),
     getPayrollCollection(workspaceId, "payStatements"),
@@ -558,6 +583,10 @@ async function loadPayrollCollections(): Promise<PayrollCollections> {
     payrollSettings,
     payrollWorkerMonthRows,
     workerPayStatements,
+    workspace: {
+      data: (workspaceSnapshot.data() as Record<string, unknown> | undefined) ?? {},
+      id: workspaceId,
+    },
     workRecords,
   };
 }
@@ -649,6 +678,43 @@ function queuePayrollReconfirmation({
       { merge: true },
     );
   }
+}
+
+function createPayStatementSnapshot({
+  amounts,
+  bonuses,
+  calculationRules,
+  setting,
+}: {
+  amounts: CalculationAmounts;
+  bonuses: readonly BonusItem[];
+  calculationRules: PayrollCalculationRules;
+  setting?: PayrollSetting;
+}) {
+  return {
+    basePay: amounts.basePay,
+    bonusItemCount: bonuses.length,
+    bonusItemIds: bonuses.map((bonus) => bonus.id),
+    calculationRules,
+    finalAmount: amounts.finalAmount,
+    overtimePay: amounts.overtimePay,
+    payrollSetting: setting
+      ? {
+          effectiveFrom: setting.effectiveFrom,
+          hourlyRate: setting.hourlyRate,
+          monthlySalary: setting.monthlySalary,
+          payrollType: setting.payrollType,
+          taxRatePercent: setting.taxRatePercent,
+          workerId: setting.workerId,
+        }
+      : null,
+    payrollType: setting?.payrollType ?? "hourly",
+    postTaxAdjustment: amounts.postTaxAdjustment,
+    preTaxAdjustment: amounts.preTaxAdjustment,
+    roundedFinalAmount: amounts.roundedFinalAmount,
+    taxAmount: amounts.taxAmount,
+    totalWorkMinutes: amounts.totalWorkMinutes,
+  };
 }
 
 function queueOpenItemResolution({
@@ -746,6 +812,7 @@ function buildCalculationViewModel(
   const projections = collections.payrollWorkerMonthRows.map(
     mapPayrollWorkerMonthProjection,
   );
+  const calculationRules = mapWorkspaceCalculationRules(collections.workspace);
   const settings = collections.payrollSettings.map(mapPayrollSetting);
   const bonuses = collections.bonusItems
     .map(mapBonusItem)
@@ -798,6 +865,7 @@ function buildCalculationViewModel(
         overtimeWorks: overtimeByWorkerMonth[workerMonthKey] ?? [],
         projection,
         records: recordsByWorkerMonth[workerMonthKey] ?? [],
+        calculationRules,
         setting,
         statement:
           (projection.payStatementId
@@ -826,6 +894,7 @@ function buildCalculationViewModel(
           overtimeWorks: overtimeByWorkerMonth[workerMonthKey] ?? [],
           projection,
           records: recordsByWorkerMonth[workerMonthKey] ?? [],
+          calculationRules,
           setting,
           statement,
         }),
@@ -848,6 +917,7 @@ function buildCalculationViewModel(
 function buildCalculationRow({
   anomalyFlags,
   bonuses,
+  calculationRules,
   correctionRequests,
   overtimeWorks,
   projection,
@@ -857,6 +927,7 @@ function buildCalculationRow({
 }: {
   anomalyFlags: readonly AnomalyFlag[];
   bonuses: readonly BonusItem[];
+  calculationRules: PayrollCalculationRules;
   correctionRequests: readonly CorrectionRequest[];
   overtimeWorks: readonly OvertimeWork[];
   projection: PayrollWorkerMonthProjection;
@@ -869,7 +940,13 @@ function buildCalculationRow({
     overtimeWorks,
     projection,
     records,
+    calculationRules,
     setting,
+    statement,
+  });
+  const rowStatus = getEffectiveCalculationRowStatus({
+    amounts,
+    projection,
     statement,
   });
   const openItemCount = getOpenItemCount({
@@ -893,8 +970,8 @@ function buildCalculationRow({
     openItemsTone: openItemCount > 0 ? "orange" : "default",
     overtimePay: formatWon(amounts.overtimePay),
     payStatementId: projection.payStatementId ?? undefined,
-    status: getCalculationStatusLabel(projection.rowStatus),
-    statusTone: getCalculationStatusTone(projection.rowStatus),
+    status: getCalculationStatusLabel(rowStatus),
+    statusTone: getCalculationStatusTone(rowStatus),
     tax: amounts.taxAmount > 0 ? formatWon(amounts.taxAmount) : "-",
     monthKey: projection.monthKey,
     workerId: projection.workerId,
@@ -905,6 +982,7 @@ function buildCalculationRow({
 function buildCalculationDetailSet({
   anomalyFlags,
   bonuses,
+  calculationRules,
   correctionRequests,
   overtimeWorks,
   projection,
@@ -914,6 +992,7 @@ function buildCalculationDetailSet({
 }: {
   anomalyFlags: readonly AnomalyFlag[];
   bonuses: readonly BonusItem[];
+  calculationRules: PayrollCalculationRules;
   correctionRequests: readonly CorrectionRequest[];
   overtimeWorks: readonly OvertimeWork[];
   projection: PayrollWorkerMonthProjection;
@@ -924,6 +1003,7 @@ function buildCalculationDetailSet({
   const detail = buildCalculationDetail({
     anomalyFlags,
     bonuses,
+    calculationRules,
     correctionRequests,
     id: "detail",
     includeAdjustmentForm: false,
@@ -936,6 +1016,7 @@ function buildCalculationDetailSet({
   const bonusAdd = buildCalculationDetail({
     anomalyFlags,
     bonuses,
+    calculationRules,
     correctionRequests,
     id: "bonus-add",
     includeAdjustmentForm: true,
@@ -948,6 +1029,7 @@ function buildCalculationDetailSet({
   const noOpenItems = buildCalculationDetail({
     anomalyFlags: [],
     bonuses,
+    calculationRules,
     correctionRequests: [],
     id: "no-open-items",
     includeAdjustmentForm: false,
@@ -968,6 +1050,7 @@ function buildCalculationDetailSet({
 function buildCalculationDetail({
   anomalyFlags,
   bonuses,
+  calculationRules,
   correctionRequests,
   id,
   includeAdjustmentForm,
@@ -979,6 +1062,7 @@ function buildCalculationDetail({
 }: {
   anomalyFlags: readonly AnomalyFlag[];
   bonuses: readonly BonusItem[];
+  calculationRules: PayrollCalculationRules;
   correctionRequests: readonly CorrectionRequest[];
   id: PayrollDetailStateId;
   includeAdjustmentForm: boolean;
@@ -993,13 +1077,21 @@ function buildCalculationDetail({
     overtimeWorks,
     projection,
     records,
+    calculationRules,
     setting,
+    statement,
+  });
+  const rowStatus = getEffectiveCalculationRowStatus({
+    amounts,
+    projection,
     statement,
   });
   const openCards = buildOpenItemCards({
     anomalyFlags,
     bonuses,
+    calculationRules,
     correctionRequests,
+    currentFinalAmount: amounts.finalAmount,
     overtimeWorks,
     records,
     statement,
@@ -1008,10 +1100,14 @@ function buildCalculationDetail({
   const resolvedCards =
     openCards.length > 0
       ? openCards
-      : buildResolvedWorkRecordCards(records.slice(0, 8));
+      : buildResolvedWorkRecordCards(records.slice(0, 8), calculationRules);
   const footer = buildCalculationFooter({
+    calculationRules,
     openItemCount: blockingOpenItemCount,
-    projection,
+    projection: {
+      ...projection,
+      rowStatus,
+    },
   });
 
   return {
@@ -1024,6 +1120,7 @@ function buildCalculationDetail({
     adjustmentsTitle: "수기 보너스 차감",
     calculationRows: buildCalculationLines({
       amounts,
+      calculationRules,
       setting,
     }),
     calculationTitle: "현재 급여 계산",
@@ -1052,6 +1149,7 @@ function buildCalculationDetail({
 
 function calculateAmounts({
   bonuses,
+  calculationRules,
   overtimeWorks,
   projection,
   records,
@@ -1059,6 +1157,7 @@ function calculateAmounts({
   statement,
 }: {
   bonuses: readonly BonusItem[];
+  calculationRules: PayrollCalculationRules;
   overtimeWorks: readonly OvertimeWork[];
   projection: PayrollWorkerMonthProjection;
   records: readonly WorkRecord[];
@@ -1066,7 +1165,7 @@ function calculateAmounts({
   statement?: PayStatement;
 }): CalculationAmounts {
   const totalWorkMinutes = records.reduce(
-    (total, record) => total + getPayrollRecordMinutes(record),
+    (total, record) => total + getPayrollRecordMinutes(record, calculationRules),
     0,
   );
   const basePay = estimateBasePayFromRecords(totalWorkMinutes, setting);
@@ -1088,10 +1187,15 @@ function calculateAmounts({
       );
   const calculatedFinalAmount =
     taxableSubtotal - taxAmount + postTaxAdjustment;
-  const calculatedFinalAmountOrNull =
-    basePay == null ? null : Math.max(Math.round(calculatedFinalAmount), 0);
+  const roundedFinalAmount =
+    basePay == null
+      ? null
+      : roundUpToUnit(
+          Math.max(Math.round(calculatedFinalAmount), 0),
+          calculationRules.payrollRoundingUnitWon,
+        );
   const finalAmount = resolveCalculationFinalAmount({
-    calculatedFinalAmount: calculatedFinalAmountOrNull,
+    calculatedFinalAmount: roundedFinalAmount,
     projection,
     statement,
   });
@@ -1102,6 +1206,7 @@ function calculateAmounts({
     overtimePay,
     postTaxAdjustment,
     preTaxAdjustment,
+    roundedFinalAmount,
     taxAmount,
     totalWorkMinutes,
   };
@@ -1131,11 +1236,44 @@ function resolveCalculationFinalAmount({
   );
 }
 
+function getEffectiveCalculationRowStatus({
+  amounts,
+  projection,
+  statement,
+}: {
+  amounts: CalculationAmounts;
+  projection: PayrollWorkerMonthProjection;
+  statement?: PayStatement;
+}): PayrollRowStatus {
+  if (
+    projection.rowStatus === "processing" &&
+    hasStatementCalculationMismatch(statement, amounts.finalAmount)
+  ) {
+    return "needs_reconfirmation";
+  }
+
+  return projection.rowStatus;
+}
+
+function hasStatementCalculationMismatch(
+  statement: PayStatement | undefined,
+  currentFinalAmount: number | null,
+) {
+  return (
+    statement?.status === "processing" &&
+    statement.finalAmount != null &&
+    currentFinalAmount != null &&
+    statement.finalAmount !== currentFinalAmount
+  );
+}
+
 function buildCalculationLines({
   amounts,
+  calculationRules,
   setting,
 }: {
   amounts: CalculationAmounts;
+  calculationRules: PayrollCalculationRules;
   setting?: PayrollSetting;
 }): readonly PayrollCalculationLine[] {
   const payBasis =
@@ -1181,7 +1319,7 @@ function buildCalculationLines({
     {
       id: "rounding",
       label: "올림 기준",
-      value: "원 단위",
+      value: formatCalculationRules(calculationRules),
     },
   ];
 }
@@ -1214,14 +1352,18 @@ function buildAdjustmentItems(
 function buildOpenItemCards({
   anomalyFlags,
   bonuses,
+  calculationRules,
   correctionRequests,
+  currentFinalAmount,
   overtimeWorks,
   records,
   statement,
 }: {
   anomalyFlags: readonly AnomalyFlag[];
   bonuses: readonly BonusItem[];
+  calculationRules: PayrollCalculationRules;
   correctionRequests: readonly CorrectionRequest[];
+  currentFinalAmount: number | null;
   overtimeWorks: readonly OvertimeWork[];
   records: readonly WorkRecord[];
   statement?: PayStatement;
@@ -1250,11 +1392,11 @@ function buildOpenItemCards({
           tone: "negative",
           value: "보류",
         },
-        {
-          id: "duration",
-          label: "산정 제외 시간",
-          value: formatHours(getRecordMinutes(record)),
-        },
+          {
+            id: "duration",
+            label: "산정 제외 시간",
+            value: formatHours(getRoundedRecordMinutes(record, calculationRules)),
+          },
       ],
       locationName: record.locationName,
       state: "open",
@@ -1394,10 +1536,10 @@ function buildOpenItemCards({
           title: bonus.label,
         }) satisfies PayrollOpenItemCard,
     );
-  const reconfirmationCards = readBoolean(
-    statement?.managerOnly.needsReconfirmation,
-    false,
-  )
+  const needsReconfirmationCard =
+    readBoolean(statement?.managerOnly.needsReconfirmation, false) ||
+    hasStatementCalculationMismatch(statement, currentFinalAmount);
+  const reconfirmationCards = needsReconfirmationCard
     ? [
         {
           actions: statement
@@ -1427,7 +1569,7 @@ function buildOpenItemCards({
               id: "current",
               label: "현재 산정",
               tone: "positive",
-              value: formatWon(statement?.currentFinalAmount),
+              value: formatWon(currentFinalAmount ?? statement?.currentFinalAmount),
             },
           ],
           locationName: "급여 명세",
@@ -1510,6 +1652,7 @@ function isBlockingOpenItemCard(card: PayrollOpenItemCard) {
 
 function buildResolvedWorkRecordCards(
   records: readonly WorkRecord[],
+  calculationRules: PayrollCalculationRules,
 ): readonly PayrollOpenItemCard[] {
   return records.map((record) => ({
     actions: [],
@@ -1521,11 +1664,11 @@ function buildResolvedWorkRecordCards(
         label: "상태",
         value: getWorkRecordStatusLabel(record.status),
       },
-      {
-        id: "duration",
-        label: "반영 시간",
-        value: formatHours(getPayrollRecordMinutes(record)),
-      },
+        {
+          id: "duration",
+          label: "반영 시간",
+          value: formatHours(getPayrollRecordMinutes(record, calculationRules)),
+        },
     ],
     locationName: record.locationName,
     state: "resolved",
@@ -1537,9 +1680,11 @@ function buildResolvedWorkRecordCards(
 }
 
 function buildCalculationFooter({
+  calculationRules,
   openItemCount,
   projection,
 }: {
+  calculationRules: PayrollCalculationRules;
   openItemCount: number;
   projection: PayrollWorkerMonthProjection;
 }) {
@@ -1547,6 +1692,7 @@ function buildCalculationFooter({
     return {
       actionDisabled: true,
       actionLabel: "지급 완료됨",
+      defaultScheduledPaymentDate: null,
       description: "지급 완료된 월은 산정 입력 변경이 잠겨 있습니다.",
       title: "급여 지급 완료",
     };
@@ -1565,6 +1711,10 @@ function buildCalculationFooter({
     return {
       actionDisabled: true,
       actionLabel: `${baseAction} (미처리 항목 ${blockerCount}/${blockerCount})`,
+      defaultScheduledPaymentDate: getDefaultScheduledPaymentDate(
+        projection.monthKey,
+        calculationRules.regularPaymentDay,
+      ),
       description: "미처리 항목을 처리해야 급여 결정을 진행할 수 있습니다.",
       title: `${baseAction}하기`,
     };
@@ -1573,6 +1723,10 @@ function buildCalculationFooter({
   return {
     actionDisabled: false,
     actionLabel: baseAction,
+    defaultScheduledPaymentDate: getDefaultScheduledPaymentDate(
+      projection.monthKey,
+      calculationRules.regularPaymentDay,
+    ),
     description: "현재 산정 결과를 기준으로 다음 급여 결정을 진행할 수 있습니다.",
     title: `${baseAction}하기`,
   };
@@ -1597,6 +1751,14 @@ function estimateBasePayFromRecords(
   return Math.round((totalWorkMinutes / 60) * setting.hourlyRate);
 }
 
+function roundUpToUnit(value: number, unit: number) {
+  if (!Number.isFinite(value) || unit <= 1) {
+    return Math.max(Math.round(value), 0);
+  }
+
+  return Math.ceil(value / unit) * unit;
+}
+
 function getRecordMinutes(record: WorkRecord) {
   const start = record.effectiveStartAt ?? record.plannedStartAt;
   const end = record.effectiveEndAt ?? record.plannedEndAt;
@@ -1608,8 +1770,23 @@ function getRecordMinutes(record: WorkRecord) {
   return Math.max(Math.round((end.getTime() - start.getTime()) / 60000), 0);
 }
 
-function getPayrollRecordMinutes(record: WorkRecord) {
-  return isRecordExcludedFromPayroll(record) ? 0 : getRecordMinutes(record);
+function getRoundedRecordMinutes(
+  record: WorkRecord,
+  calculationRules: PayrollCalculationRules,
+) {
+  return roundUpToUnit(
+    getRecordMinutes(record),
+    calculationRules.workTimeRoundingUnitMinutes,
+  );
+}
+
+function getPayrollRecordMinutes(
+  record: WorkRecord,
+  calculationRules: PayrollCalculationRules,
+) {
+  return isRecordExcludedFromPayroll(record)
+    ? 0
+    : getRoundedRecordMinutes(record, calculationRules);
 }
 
 function isRecordExcludedFromPayroll(record: WorkRecord) {
@@ -1798,6 +1975,7 @@ function buildStatementViewModel(
   const projections = collections.payrollWorkerMonthRows.map(
     mapPayrollWorkerMonthProjection,
   );
+  const calculationRules = mapWorkspaceCalculationRules(collections.workspace);
   const settings = collections.payrollSettings.map(mapPayrollSetting);
   const monthKey = selectStatementMonthKey(statements, projections, target);
   const projectionByWorkerMonth = indexBy(projections, (row) =>
@@ -1820,6 +1998,7 @@ function buildStatementViewModel(
     rowsForMonth.map((statement) => [
       statement.id,
       buildStatementDetail({
+        calculationRules,
         projection:
           projectionByWorkerMonth[
             getWorkerMonthKey(statement.workerId, statement.monthKey)
@@ -1870,15 +2049,22 @@ function buildStatementRow({
 }
 
 function buildStatementDetail({
+  calculationRules,
   projection,
   setting,
   statement,
 }: {
+  calculationRules: PayrollCalculationRules;
   projection?: PayrollWorkerMonthProjection;
   setting?: PayrollSetting;
   statement: PayStatement;
 }): PayrollStatementDetail {
-  const bodySections = buildStatementBodySections(statement, setting);
+  const statementSetting = statement.payrollSetting ?? setting;
+  const bodySections = buildStatementBodySections(
+    statement,
+    statementSetting,
+    statement.calculationRules ?? calculationRules,
+  );
 
   return {
     id: statement.id,
@@ -1906,7 +2092,8 @@ function buildStatementDetail({
         workerId: statement.workerId,
         workerName: statement.workerName,
       },
-      setting,
+      setting: statementSetting,
+      totalWorkMinutes: statement.totalWorkMinutes ?? undefined,
     }),
   };
 }
@@ -1947,11 +2134,20 @@ function buildStatementMetrics(
 function buildStatementBodySections(
   statement: PayStatement,
   setting?: PayrollSetting,
+  calculationRules: PayrollCalculationRules = getDefaultCalculationRules(),
 ): readonly PayrollStatementBodySection[] {
   const finalAmount = statement.finalAmount;
   const taxAmount = statement.taxAmount;
   const overtimePay = statement.overtimePay;
-  const basePay = estimateBasePay(finalAmount, overtimePay, 0, taxAmount, setting);
+  const basePay =
+    statement.basePay ??
+    estimateBasePay(
+      finalAmount,
+      overtimePay,
+      statement.preTaxAdjustment + statement.postTaxAdjustment,
+      taxAmount,
+      setting,
+    );
   const paidOrScheduledDate =
     formatShortDate(statement.paidAt) ??
     formatShortDate(statement.scheduledPaymentDate) ??
@@ -1977,6 +2173,11 @@ function buildStatementBodySections(
           label: "급여 유형",
           value: getPayrollTypeLabel(statement.payrollType || setting?.payrollType),
         },
+        {
+          id: "setting-effective-from",
+          label: "급여 설정 적용일",
+          value: setting?.effectiveFrom ? formatDateKeyDot(setting.effectiveFrom) : "-",
+        },
       ],
     },
     {
@@ -1995,18 +2196,64 @@ function buildStatementBodySections(
           value: formatWon(overtimePay),
         },
         {
-          id: "bonus-count",
-          label: "보너스/차감 반영",
-          value:
-            statement.bonusItemCount > 0
-              ? `${statement.bonusItemCount.toLocaleString("ko-KR")}건`
-              : "-",
+          id: "pre-tax-adjustment",
+          label: "세전 보너스/차감",
+          tone: getAmountTone(statement.preTaxAdjustment),
+          value: formatSignedWon(statement.preTaxAdjustment),
         },
         {
           id: "tax",
           label: "세금",
           tone: taxAmount > 0 ? "negative" : "muted",
           value: formatWon(taxAmount),
+        },
+        {
+          id: "post-tax-adjustment",
+          label: "세후 보너스/차감",
+          tone: getAmountTone(statement.postTaxAdjustment),
+          value: formatSignedWon(statement.postTaxAdjustment),
+        },
+        {
+          id: "bonus-count",
+          label: "보너스/차감 건수",
+          value:
+            statement.bonusItemCount > 0
+              ? `${statement.bonusItemCount.toLocaleString("ko-KR")}건`
+              : "-",
+        },
+      ],
+    },
+    {
+      id: "calculation-metadata",
+      title: "계산 기준",
+      lines: [
+        {
+          id: "payroll-setting",
+          label: "급여 설정",
+          value: formatPayrollSettingSummary(setting),
+        },
+        {
+          id: "total-work-minutes",
+          label: "근무시간 합산",
+          value:
+            statement.totalWorkMinutes == null
+              ? "-"
+              : formatHours(statement.totalWorkMinutes),
+        },
+        {
+          id: "work-rounding",
+          label: "근무시간 올림",
+          value: `${calculationRules.workTimeRoundingUnitMinutes}분 단위`,
+        },
+        {
+          id: "pay-rounding",
+          label: "급여 올림",
+          value: formatPayRounding(calculationRules.payrollRoundingUnitWon),
+        },
+        {
+          id: "regular-payment-day",
+          label: "정기 지급일",
+          value: formatRegularPaymentDay(calculationRules.regularPaymentDay),
         },
       ],
     },
@@ -2079,6 +2326,87 @@ function mapPayrollSetting(document: PayrollDocument): PayrollSetting {
   };
 }
 
+function mapWorkspaceCalculationRules(
+  document: PayrollDocument,
+): PayrollCalculationRules {
+  const data = document.data;
+  const settings = readRecord(data.settings);
+
+  return {
+    payrollRoundingUnitWon: readPayrollRoundingUnit(
+      settings.payrollRoundingUnitWon ?? data.payrollRoundingUnitWon,
+    ),
+    regularPaymentDay: readNullableBoundedInteger(
+      settings.regularPaymentDay ?? data.regularPaymentDay,
+      1,
+      31,
+    ),
+    workTimeRoundingUnitMinutes: readBoundedInteger(
+      settings.workTimeRoundingUnitMinutes ?? data.workTimeRoundingUnitMinutes,
+      6,
+      1,
+      60,
+    ),
+  };
+}
+
+function getDefaultCalculationRules(): PayrollCalculationRules {
+  return {
+    payrollRoundingUnitWon: 1,
+    regularPaymentDay: null,
+    workTimeRoundingUnitMinutes: 6,
+  };
+}
+
+function readCalculationRulesSnapshot(
+  value: unknown,
+): PayrollCalculationRules | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const data = value as Record<string, unknown>;
+
+  return {
+    payrollRoundingUnitWon: readPayrollRoundingUnit(
+      data.payrollRoundingUnitWon,
+    ),
+    regularPaymentDay: readNullableBoundedInteger(
+      data.regularPaymentDay,
+      1,
+      31,
+    ),
+    workTimeRoundingUnitMinutes: readBoundedInteger(
+      data.workTimeRoundingUnitMinutes,
+      6,
+      1,
+      60,
+    ),
+  };
+}
+
+function readPayrollSettingSnapshot(value: unknown): PayrollSetting | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const data = value as Record<string, unknown>;
+  const payrollType = readString(data.payrollType, "");
+
+  if (!payrollType) {
+    return null;
+  }
+
+  return {
+    effectiveFrom: readNullableString(data.effectiveFrom),
+    hourlyRate: readNullableNumber(data.hourlyRate),
+    monthlySalary: readNullableNumber(data.monthlySalary),
+    payrollType,
+    taxRatePercent: readNullableNumber(data.taxRatePercent),
+    workerId: readString(data.workerId, ""),
+  };
+}
+
 function mapBonusItem(document: PayrollDocument): BonusItem {
   const data = document.data;
 
@@ -2098,6 +2426,8 @@ function mapPayStatement(document: PayrollDocument): PayStatement | null {
   const data = document.data;
   const status = readPayStatementStatus(data.status);
   const snapshot = readRecord(data.snapshot);
+  const calculationRules = readCalculationRulesSnapshot(snapshot.calculationRules);
+  const payrollSetting = readPayrollSettingSnapshot(snapshot.payrollSetting);
   const currentCalculationSummary = readRecord(data.currentCalculationSummary);
 
   if (!status) {
@@ -2105,7 +2435,11 @@ function mapPayStatement(document: PayrollDocument): PayStatement | null {
   }
 
   return {
-    bonusItemCount: readStringArray(snapshot.bonusItemIds).length,
+    basePay: readNullableNumber(snapshot.basePay),
+    bonusItemCount:
+      readStringArray(snapshot.bonusItemIds).length ||
+      readNumber(snapshot.bonusItemCount, 0),
+    calculationRules,
     confirmedAt: readTimestamp(data.confirmedAt),
     currentFinalAmount: readNullableNumber(currentCalculationSummary.finalAmount),
     finalAmount: readNullableNumber(snapshot.finalAmount),
@@ -2114,10 +2448,14 @@ function mapPayStatement(document: PayrollDocument): PayStatement | null {
     monthKey: readMonthKey(data.monthKey),
     overtimePay: readNumber(snapshot.overtimePay, 0),
     paidAt: readTimestamp(data.paidAt),
+    payrollSetting,
     payrollType: readString(snapshot.payrollType, ""),
+    postTaxAdjustment: readNumber(snapshot.postTaxAdjustment, 0),
+    preTaxAdjustment: readNumber(snapshot.preTaxAdjustment, 0),
     scheduledPaymentDate: readNullableString(data.scheduledPaymentDate),
     status,
     taxAmount: readNumber(snapshot.taxAmount, 0),
+    totalWorkMinutes: readNullableNumber(snapshot.totalWorkMinutes),
     workerId: readString(data.workerId, ""),
     workerName: readString(data.workerName, "이름 없는 조교"),
   };
@@ -2237,6 +2575,45 @@ function getMonthEndDateKey(monthKey: string) {
   const lastDay = new Date(Number(year), Number(month), 0).getDate();
 
   return `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
+}
+
+function getDefaultScheduledPaymentDate(
+  monthKey: string,
+  regularPaymentDay: number | null,
+) {
+  if (regularPaymentDay == null) {
+    return null;
+  }
+
+  const [year, month] = splitMonthKey(monthKey);
+  const paymentDate = createPaymentDate(
+    Number(year),
+    Number(month),
+    regularPaymentDay,
+  );
+  const today = startOfLocalDay(new Date());
+
+  while (paymentDate < today) {
+    const nextMonthDate = createPaymentDate(
+      paymentDate.getFullYear(),
+      paymentDate.getMonth() + 1,
+      regularPaymentDay,
+    );
+
+    paymentDate.setTime(nextMonthDate.getTime());
+  }
+
+  return formatDateKey(paymentDate);
+}
+
+function createPaymentDate(year: number, monthIndex: number, day: number) {
+  const lastDayOfMonth = new Date(year, monthIndex + 1, 0).getDate();
+
+  return new Date(year, monthIndex, Math.min(day, lastDayOfMonth));
+}
+
+function startOfLocalDay(value: Date) {
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate());
 }
 
 function selectCalculationMonthKey(
@@ -2436,6 +2813,43 @@ function formatPayrollBasis(setting?: PayrollSetting) {
   return `시급 ${formatWon(setting.hourlyRate)}`;
 }
 
+function formatPayrollSettingSummary(setting?: PayrollSetting) {
+  if (!setting) {
+    return "급여 설정 확인 필요";
+  }
+
+  const payLabel =
+    setting.payrollType === "monthly"
+      ? `월급 ${formatWon(setting.monthlySalary)}`
+      : `시급 ${formatWon(setting.hourlyRate)}`;
+  const taxLabel =
+    setting.taxRatePercent == null ? "세율 미설정" : `세율 ${setting.taxRatePercent}%`;
+
+  return `${getPayrollTypeLabel(setting.payrollType)} · ${payLabel} · ${taxLabel}`;
+}
+
+function formatCalculationRules(rules: PayrollCalculationRules) {
+  return `근무시간 ${rules.workTimeRoundingUnitMinutes}분 단위 · 급여 ${formatPayRounding(
+    rules.payrollRoundingUnitWon,
+  )}`;
+}
+
+function formatPayRounding(unit: number) {
+  if (unit === 100) {
+    return "백의 자리 올림";
+  }
+
+  if (unit === 10) {
+    return "십의 자리 올림";
+  }
+
+  return "원 단위";
+}
+
+function formatRegularPaymentDay(day: number | null) {
+  return day == null ? "미설정" : `매월 ${day}일`;
+}
+
 function getPayrollTypeLabel(type: string | null | undefined) {
   return type === "monthly" ? "월급제" : "시급제";
 }
@@ -2478,6 +2892,13 @@ function formatDateKeyDot(value: string) {
   }
 
   return `${year}.${month}.${day}`;
+}
+
+function formatDateKey(value: Date) {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(
+    2,
+    "0",
+  )}-${String(value.getDate()).padStart(2, "0")}`;
 }
 
 function formatShortDate(value: Date | string | null | undefined) {
@@ -2548,6 +2969,45 @@ function readNumber(value: unknown, fallback: number) {
 
 function readNullableNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function readBoundedInteger(
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number,
+) {
+  if (
+    typeof value !== "number" ||
+    !Number.isInteger(value) ||
+    value < min ||
+    value > max
+  ) {
+    return fallback;
+  }
+
+  return value;
+}
+
+function readNullableBoundedInteger(
+  value: unknown,
+  min: number,
+  max: number,
+) {
+  if (
+    typeof value !== "number" ||
+    !Number.isInteger(value) ||
+    value < min ||
+    value > max
+  ) {
+    return null;
+  }
+
+  return value;
+}
+
+function readPayrollRoundingUnit(value: unknown) {
+  return value === 10 || value === 100 ? value : 1;
 }
 
 function readStringArray(value: unknown) {
