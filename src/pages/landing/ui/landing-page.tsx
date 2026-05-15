@@ -338,13 +338,15 @@ function ProblemSection() {
         <div className="mt-8 grid gap-6 lg:grid-cols-3 lg:gap-5">
           {problemCards.map((card) => (
             <article key={card.title} className="overflow-hidden rounded-[10px] border-2 border-[#bdf3d3] bg-white/80 shadow-[0_20px_54px_rgba(24,205,115,0.16)] backdrop-blur">
-              <Image
-                src={card.image}
-                alt=""
-                width={448}
-                height={295}
-                className="h-[240px] w-full object-cover sm:h-[295px]"
-              />
+              <div className="relative h-[240px] w-full sm:h-[295px]">
+                <Image
+                  src={card.image}
+                  alt=""
+                  fill
+                  sizes="(min-width: 1024px) 448px, calc(100vw - 44px)"
+                  className="object-cover"
+                />
+              </div>
               <div className="flex min-h-[217px] flex-col justify-center px-9 py-8">
                 <h3 className="text-[28px] font-semibold leading-[1.35] tracking-normal text-green-500">{card.title}</h3>
                 <p className="mt-5 text-[18px] font-normal leading-[1.65] tracking-normal text-gray-700">{card.description}</p>
@@ -473,6 +475,7 @@ function FeatureScreenshot({ src, alt }: { src: string; alt: string }) {
         src={src}
         alt={alt}
         fill
+        loading={src === "/landing/admin-dashboard.png" ? "eager" : "lazy"}
         sizes="(min-width: 1024px) 575px, calc(100vw - 104px)"
         className="origin-top scale-150 object-cover object-top"
       />
@@ -507,9 +510,9 @@ function BenefitSection() {
                 <Image
                   src={card.image}
                   alt=""
-                  width={360}
-                  height={360}
-                  className="absolute inset-0 size-full object-cover opacity-40 mix-blend-luminosity"
+                  fill
+                  sizes="360px"
+                  className="object-cover opacity-40 mix-blend-luminosity"
                 />
                 <div className="absolute inset-0 bg-[#18cd73]/76" />
                 <h3 className="relative whitespace-pre-line px-12 text-[27px] font-semibold leading-[1.45] tracking-normal text-white">
