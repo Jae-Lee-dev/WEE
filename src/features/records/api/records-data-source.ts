@@ -47,6 +47,7 @@ import {
   type RecordDetailState,
   type RecordDetailStateId,
   type RecordMainViewModel,
+  type RecordOvertimeCreateCandidate,
   type RecordProcessingAction,
   type RecordsFilterOption,
   type RecordsMetricCard,
@@ -64,6 +65,7 @@ import {
 
 export type RecordsDataSource = {
   applyMainRecordAction: (input: RecordMainActionInput) => Promise<void>;
+  createOvertimeWork: (input: RecordOvertimeCreateInput) => Promise<void>;
   getAnomalyHistory: () => Promise<AnomalyHistoryViewModel>;
   getAttendanceLogs: () => Promise<AttendanceLogViewModel>;
   getCorrections: () => Promise<CorrectionHistoryViewModel>;
@@ -89,6 +91,13 @@ export type RecordMainActionInput = {
   recordId: string;
   resolveAnomaly?: boolean;
   startTime?: string;
+};
+
+export type RecordOvertimeCreateInput = {
+  endTime: string;
+  reason: string;
+  recordId: string;
+  startTime: string;
 };
 
 type FirestoreDocument = {
@@ -240,6 +249,7 @@ export function shouldUseRecordsFixtureDataSource() {
 function createFixtureRecordsDataSource(): RecordsDataSource {
   return {
     async applyMainRecordAction() {},
+    async createOvertimeWork() {},
     async getAnomalyHistory() {
       return anomalyHistoryFixtureViewModel;
     },
@@ -411,6 +421,9 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
 
       await batch.commit();
     },
+    async createOvertimeWork(input) {
+      await createFirestoreOvertimeWork(input);
+    },
     async getAnomalyHistory() {
       return mapAnomalyHistoryView(await loadRecordsCollections());
     },
@@ -479,6 +492,132 @@ async function requireActiveWorkspaceId() {
   return workspaceId;
 }
 
+async function createFirestoreOvertimeWork(input: RecordOvertimeCreateInput) {
+  if (!input.reason.trim()) {
+    throw new Error("추가근무 사유를 입력해 주세요.");
+  }
+
+  const workspaceId = await requireActiveWorkspaceId();
+  const db = getFirebaseDb();
+  const recordRef = doc(
+    db,
+    "workspaces",
+    workspaceId,
+    "workRecords",
+    input.recordId,
+  );
+  const recordSnapshot = await getDoc(recordRef);
+
+  if (!recordSnapshot.exists()) {
+    throw new Error("기준 근무기록을 찾을 수 없습니다.");
+  }
+
+  const recordData = recordSnapshot.data() as Record<string, unknown>;
+  const dateKey = readString(
+    recordData.dateKey,
+    readString(recordData.date, ""),
+  );
+  const workerId = readString(recordData.workerId, "");
+  const workerName = readString(recordData.workerName, "");
+  const attendanceLogId = readNullableString(recordData.attendanceLogId);
+  const { endAt, startAt } = parseOvertimeCreateTimestamps({
+    dateKey,
+    endTime: input.endTime,
+    startTime: input.startTime,
+  });
+  const monthKey = formatDateKey(startAt).slice(0, 7);
+  const collections = await loadRecordsCollections();
+  const payrollContext = getWorkerMonthPayrollContext(collections, {
+    monthKey,
+    workerId,
+  });
+
+  if (payrollContext.paid) {
+    throw new Error("지급 완료된 월에는 추가근무를 등록할 수 없습니다.");
+  }
+
+  if (!workerId) {
+    throw new Error("조교 정보를 확인할 수 없습니다.");
+  }
+
+  if (!attendanceLogId) {
+    throw new Error("연결된 출퇴근 기록이 없어 추가근무를 등록할 수 없습니다.");
+  }
+
+  const attendanceLog = collections.attendanceLogs.find(
+    (item) => item.id === attendanceLogId,
+  );
+
+  if (!attendanceLog) {
+    throw new Error("연결된 출퇴근 기록을 찾을 수 없습니다.");
+  }
+
+  const existingPendingOvertime = collections.overtimeWorks.find(
+    (item) =>
+      readString(item.data.workRecordId, "") === input.recordId &&
+      readString(item.data.status, "submitted") === "submitted",
+  );
+
+  if (existingPendingOvertime) {
+    throw new Error("이미 처리 대기 중인 추가근무가 있습니다.");
+  }
+
+  const batch = writeBatch(db);
+  const overtimeRef = doc(
+    collection(db, "workspaces", workspaceId, "overtimeWorks"),
+  );
+  const extraStartAt = Timestamp.fromDate(startAt);
+  const extraEndAt = Timestamp.fromDate(endAt);
+
+  batch.set(overtimeRef, {
+    amount: null,
+    approvedAt: null,
+    attendanceLogId,
+    createdAt: serverTimestamp(),
+    decidedAt: null,
+    decidedBy: null,
+    extraEndAt,
+    extraStartAt,
+    managerNote: null,
+    monthKey,
+    payrollEffect: "none",
+    payrollPayMode: null,
+    payrollStatus: "none",
+    reason: input.reason.trim(),
+    rejectedReason: null,
+    status: "submitted",
+    submittedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    workRecordId: input.recordId,
+    workerId,
+    workerName,
+    workspaceId,
+  });
+  batch.update(recordRef, {
+    hasPendingOvertime: true,
+    updatedAt: serverTimestamp(),
+  });
+  queueWorkerNotification({
+    batch,
+    db,
+    eventType: "overtime_registered_by_manager",
+    payload: {
+      endTime: input.endTime,
+      managerNote: input.reason.trim(),
+      overtimeWorkId: overtimeRef.id,
+      startTime: input.startTime,
+      targetFocusId: input.recordId,
+      targetScreen: "worker_work_record_detail",
+    },
+    relatedEntityId: overtimeRef.id,
+    relatedEntityType: "overtimeWork",
+    recipientId: workerId,
+    workspaceId,
+  });
+
+  await batch.commit();
+}
+
 async function readWorkspaceCollection(
   workspaceId: string,
   collectionName: keyof RecordsCollections,
@@ -508,6 +647,16 @@ function parseRecordActionTimestamp(
   dateKey: string,
   timeValue: string | undefined,
 ) {
+  const date = parseDateKeyTime(dateKey, timeValue);
+
+  if (!date) {
+    return null;
+  }
+
+  return Timestamp.fromDate(date);
+}
+
+function parseDateKeyTime(dateKey: string, timeValue: string | undefined) {
   if (!dateKey || !timeValue || !timeValue.match(/^\d{2}:\d{2}$/)) {
     return null;
   }
@@ -518,7 +667,34 @@ function parseRecordActionTimestamp(
     return null;
   }
 
-  return Timestamp.fromDate(date);
+  return date;
+}
+
+function parseOvertimeCreateTimestamps({
+  dateKey,
+  endTime,
+  startTime,
+}: {
+  dateKey: string;
+  endTime: string;
+  startTime: string;
+}) {
+  const startAt = parseDateKeyTime(dateKey, startTime);
+  const endAt = parseDateKeyTime(dateKey, endTime);
+
+  if (!startAt || !endAt) {
+    throw new Error("추가근무 시작과 종료 시각을 입력해 주세요.");
+  }
+
+  if (endAt.getTime() === startAt.getTime()) {
+    throw new Error("추가근무 종료 시각은 시작 시각과 달라야 합니다.");
+  }
+
+  if (endAt < startAt) {
+    endAt.setDate(endAt.getDate() + 1);
+  }
+
+  return { endAt, startAt };
 }
 
 function isRecordEditAction(
@@ -1702,6 +1878,10 @@ function mapRecordMainView(
     initialBlockId: selectedRecord?.id ?? null,
     initialWeekStartKey,
     initialDetailStateId,
+    overtimeCreate: createOvertimeCreateView(records, {
+      attendanceById,
+      pendingOvertimeIds,
+    }),
     timeline: {
       ...recordMainFixtureViewModel.timeline,
       weekNavigation,
@@ -1772,6 +1952,102 @@ function mapAnomalyHistoryView(
     metrics: createAnomalyHistoryMetrics(rows),
     rows,
   };
+}
+
+function createOvertimeCreateView(
+  records: readonly WorkRecordModel[],
+  {
+    attendanceById,
+    pendingOvertimeIds,
+  }: {
+    attendanceById: ReadonlyMap<string, AttendanceLogModel>;
+    pendingOvertimeIds: ReadonlySet<string>;
+  },
+) {
+  return {
+    candidates: records.map((record) =>
+      createOvertimeCreateCandidate(record, {
+        attendance: record.attendanceLogId
+          ? (attendanceById.get(record.attendanceLogId) ?? null)
+          : null,
+        hasPendingOvertime:
+          record.hasPendingOvertime || pendingOvertimeIds.has(record.id),
+      }),
+    ),
+    emptyText: "추가근무를 등록할 수 있는 출퇴근 기록이 없습니다.",
+  };
+}
+
+function createOvertimeCreateCandidate(
+  record: WorkRecordModel,
+  {
+    attendance,
+    hasPendingOvertime,
+  }: {
+    attendance: AttendanceLogModel | null;
+    hasPendingOvertime: boolean;
+  },
+): RecordOvertimeCreateCandidate {
+  const recordDate = getRecordDate(record);
+  const recordEndAt = record.effectiveEndAt ?? record.plannedEndAt;
+  const defaultStartAt = recordEndAt ?? attendance?.checkInAt ?? null;
+  const defaultEndAt = attendance?.checkOutAt ?? defaultStartAt;
+  const disabledReason = getOvertimeCreateDisabledReason({
+    attendance,
+    hasPendingOvertime,
+    record,
+  });
+  const dateLabel = recordDate
+    ? `${formatMonthDay(recordDate)} (${weekDayLabels[recordDate.getDay()]})`
+    : formatRecordDate(record.dateKey);
+
+  return {
+    id: record.id,
+    attendanceLabel: `${formatShortDateTime(
+      attendance?.checkInAt ?? parseDateKey(attendance?.date ?? ""),
+    )}~${formatTime(attendance?.checkOutAt)} · ${
+      attendance?.locationName ?? record.locationName
+    }`,
+    attendanceLogId: record.attendanceLogId,
+    checkInTime: formatTime(attendance?.checkInAt),
+    checkOutTime: formatTime(attendance?.checkOutAt),
+    dateLabel,
+    defaultEndTime: formatTimeInputValue(defaultEndAt),
+    defaultStartTime: formatTimeInputValue(defaultStartAt),
+    disabledReason,
+    dutyName: record.dutyName,
+    label: `${dateLabel} ${record.workerName} · ${record.dutyName}`,
+    locationName: record.locationName,
+    workerName: record.workerName,
+  };
+}
+
+function getOvertimeCreateDisabledReason({
+  attendance,
+  hasPendingOvertime,
+  record,
+}: {
+  attendance: AttendanceLogModel | null;
+  hasPendingOvertime: boolean;
+  record: WorkRecordModel;
+}) {
+  if (record.status === "deleted") {
+    return "삭제된 근무기록";
+  }
+
+  if (hasPendingOvertime) {
+    return "처리 대기 추가근무 있음";
+  }
+
+  if (!record.attendanceLogId || !attendance) {
+    return "연결된 출퇴근 기록 없음";
+  }
+
+  if (!attendance.checkOutAt) {
+    return "퇴근 시각 없음";
+  }
+
+  return undefined;
 }
 
 function mapCorrectionHistoryView(
@@ -3766,6 +4042,14 @@ function formatTime(date: Date | null | undefined) {
   }
 
   return `${date.getHours()}:${pad2(date.getMinutes())}`;
+}
+
+function formatTimeInputValue(date: Date | null | undefined) {
+  if (!date) {
+    return "";
+  }
+
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 }
 
 function formatTimeRange(

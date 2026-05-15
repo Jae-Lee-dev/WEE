@@ -7,9 +7,21 @@ import {
   type ComponentProps,
   type CSSProperties,
 } from "react";
+import { Plus } from "lucide-react";
+import { Button } from "@/shared/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/ui/dialog";
 import { FilterChip } from "@/shared/ui/filter-chip";
 import { IconChevronLeft, IconChevronRight } from "@/shared/ui/icons";
+import { Input } from "@/shared/ui/input";
 import { OptionSelect, type SelectOption } from "@/shared/ui/select";
+import { Textarea } from "@/shared/ui/textarea";
 import { useWeeErrorToast, useWeeToast } from "@/shared/ui/wee-toast";
 import {
   getTimelineBlockHeight,
@@ -35,6 +47,7 @@ import {
   recordMainFixtureViewModel,
   type RecordDetailStateId,
   type RecordMainViewModel,
+  type RecordOvertimeCreateCandidate,
   type RecordTimelineBlock,
   type RecordTimelineFixture,
   type RecordsFilterOption,
@@ -130,6 +143,10 @@ export function RecordMainScreen({
   const [selectedTypeFilterId, setSelectedTypeFilterId] =
     useState(initialTypeFilter);
   const [recordActionSaving, setRecordActionSaving] = useState(false);
+  const [overtimeCreateSaving, setOvertimeCreateSaving] = useState(false);
+  const [overtimeCreateRecordId, setOvertimeCreateRecordId] = useState<
+    string | null
+  >(null);
   const [errorMessage, setErrorMessage] = useState("");
   const weeToast = useWeeToast();
   useWeeErrorToast(errorMessage);
@@ -185,6 +202,12 @@ export function RecordMainScreen({
   const selectedState = selectedVisibleBlockId
     ? selectedDetailStates[selectedStateId] ?? selectedDetailStates.empty
     : viewModel.detailStates.empty;
+  const selectedOvertimeCandidate = selectedVisibleBlockId
+    ? viewModel.overtimeCreate.candidates.find(
+        (candidate) =>
+          candidate.id === selectedVisibleBlockId && !candidate.disabledReason,
+      )
+    : undefined;
 
   function syncSelectionForFilters(nextFilters: RecordFilterState) {
     if (!selectedBlockId) {
@@ -313,6 +336,50 @@ export function RecordMainScreen({
     }
   }
 
+  async function handleCreateOvertime(input: {
+    endTime: string;
+    reason: string;
+    recordId: string;
+    startTime: string;
+  }) {
+    setOvertimeCreateSaving(true);
+    setErrorMessage("");
+
+    try {
+      await dataSource.createOvertimeWork(input);
+      const nextViewModel = await dataSource.getMainRecords();
+      const nextBlock =
+        nextViewModel.blocks.find((block) => block.id === input.recordId) ??
+        nextViewModel.blocks.find(
+          (block) => block.id === nextViewModel.initialBlockId,
+        ) ??
+        null;
+
+      setViewModel(nextViewModel);
+      setSelectedBlockId(nextBlock?.id ?? null);
+      setSelectedStateId(resolveBlockStateId(nextBlock));
+      setSelectedWeekStartKey(
+        nextBlock?.dateKey
+          ? getWeekStartKeyFromDateKey(nextBlock.dateKey)
+          : (nextViewModel.initialWeekStartKey ?? null),
+      );
+      setOvertimeCreateRecordId(null);
+      weeToast.compact({ title: "추가근무를 등록했습니다." });
+    } catch (error) {
+      weeToast.error({
+        title: "등록 실패",
+        description:
+          error instanceof Error
+            ? error.message
+            : "추가근무를 등록하지 못했습니다.",
+        testId: "wee-toast",
+      });
+      throw error;
+    } finally {
+      setOvertimeCreateSaving(false);
+    }
+  }
+
   useEffect(() => {
     let active = true;
 
@@ -405,6 +472,11 @@ export function RecordMainScreen({
         onStatusFilterChange={handleStatusFilterChange}
         onTypeFilterChange={handleTypeFilterChange}
         onWorkerFilterChange={handleWorkerFilterChange}
+        onOpenOvertimeCreate={() =>
+          setOvertimeCreateRecordId(
+            selectedOvertimeCandidate?.id ?? getDefaultOvertimeCandidateId(viewModel),
+          )
+        }
         onNavigateWeek={handleNavigateWeek}
         selectedStatusFilterId={selectedStatusFilterId}
         selectedTypeFilterId={selectedTypeFilterId}
@@ -422,18 +494,283 @@ export function RecordMainScreen({
           selectedBlockId={selectedVisibleBlockId}
           timeline={timeline}
         />
-        <RecordActionDetailPanel
-          actionSaving={recordActionSaving}
-          detailStates={selectedDetailStates}
-          onConfirmRecordAction={handleConfirmRecordAction}
-          state={selectedState}
-          onSelectState={(stateId) => {
-            setSelectedStateId(stateId);
-          }}
-        />
+        <div className="flex min-h-0 min-w-0 flex-col gap-3">
+          <RecordActionDetailPanel
+            actionSaving={recordActionSaving}
+            className="flex-1"
+            detailStates={selectedDetailStates}
+            onConfirmRecordAction={handleConfirmRecordAction}
+            state={selectedState}
+            onSelectState={(stateId) => {
+              setSelectedStateId(stateId);
+            }}
+          />
+          {selectedOvertimeCandidate ? (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setOvertimeCreateRecordId(selectedOvertimeCandidate.id)}
+              className="h-11 rounded-[8px] px-4 font-normal tracking-normal"
+            >
+              <Plus className="size-5" strokeWidth={2.2} />
+              이 출퇴근 기록으로 추가근무 등록
+            </Button>
+          ) : null}
+        </div>
       </div>
+      {overtimeCreateRecordId !== null ? (
+        <OvertimeCreateDialog
+          candidates={viewModel.overtimeCreate.candidates}
+          defaultRecordId={overtimeCreateRecordId}
+          emptyText={viewModel.overtimeCreate.emptyText}
+          onClose={() => setOvertimeCreateRecordId(null)}
+          onCreateOvertime={handleCreateOvertime}
+          saving={overtimeCreateSaving}
+        />
+      ) : null}
     </section>
   );
+}
+
+function getDefaultOvertimeCandidateId(viewModel: RecordMainViewModel) {
+  return (
+    viewModel.overtimeCreate.candidates.find(
+      (candidate) => !candidate.disabledReason,
+    )?.id ??
+    viewModel.overtimeCreate.candidates[0]?.id ??
+    ""
+  );
+}
+
+function OvertimeCreateDialog({
+  candidates,
+  defaultRecordId,
+  emptyText,
+  onClose,
+  onCreateOvertime,
+  saving,
+}: {
+  candidates: readonly RecordOvertimeCreateCandidate[];
+  defaultRecordId: string;
+  emptyText: string;
+  onClose: () => void;
+  onCreateOvertime: (input: {
+    endTime: string;
+    reason: string;
+    recordId: string;
+    startTime: string;
+  }) => Promise<void>;
+  saving: boolean;
+}) {
+  const initialCandidate =
+    candidates.find(
+      (candidate) =>
+        candidate.id === defaultRecordId && !candidate.disabledReason,
+    ) ??
+    candidates.find((candidate) => !candidate.disabledReason) ??
+    candidates[0] ??
+    null;
+  const [selectedCandidateId, setSelectedCandidateId] = useState(
+    initialCandidate?.id ?? "",
+  );
+  const selectedCandidate =
+    candidates.find((candidate) => candidate.id === selectedCandidateId) ??
+    initialCandidate;
+  const [startTime, setStartTime] = useState(
+    selectedCandidate?.defaultStartTime ?? "",
+  );
+  const [endTime, setEndTime] = useState(selectedCandidate?.defaultEndTime ?? "");
+  const [reason, setReason] = useState("");
+  const [dialogError, setDialogError] = useState("");
+  const candidateOptions: SelectOption[] = candidates.map((candidate) => ({
+    disabled: Boolean(candidate.disabledReason),
+    label: candidate.disabledReason
+      ? `${candidate.label} · ${candidate.disabledReason}`
+      : candidate.label,
+    value: candidate.id,
+  }));
+
+  function handleCandidateChange(candidateId: string) {
+    const candidate = candidates.find((item) => item.id === candidateId);
+
+    setSelectedCandidateId(candidateId);
+    setStartTime(candidate?.defaultStartTime ?? "");
+    setEndTime(candidate?.defaultEndTime ?? "");
+    setDialogError("");
+  }
+
+  async function handleSubmit() {
+    setDialogError("");
+
+    if (!selectedCandidate || selectedCandidate.disabledReason) {
+      setDialogError(selectedCandidate?.disabledReason ?? emptyText);
+      return;
+    }
+
+    if (!isTimeInputValue(startTime) || !isTimeInputValue(endTime)) {
+      setDialogError("추가근무 시작과 종료 시각을 입력해 주세요.");
+      return;
+    }
+
+    if (startTime === endTime) {
+      setDialogError("추가근무 종료 시각은 시작 시각과 달라야 합니다.");
+      return;
+    }
+
+    if (!reason.trim()) {
+      setDialogError("추가근무 사유를 입력해 주세요.");
+      return;
+    }
+
+    try {
+      await onCreateOvertime({
+        endTime,
+        reason: reason.trim(),
+        recordId: selectedCandidate.id,
+        startTime,
+      });
+    } catch (error) {
+      setDialogError(
+        error instanceof Error
+          ? error.message
+          : "추가근무를 등록하지 못했습니다.",
+      );
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        data-testid="record-overtime-create-dialog"
+        className="w-[calc(100vw-32px)] max-w-[560px] rounded-[8px] bg-white p-8 text-gray-900 shadow-[0px_16px_44px_rgba(17,24,39,0.18)] ring-0"
+      >
+        <DialogHeader className="gap-3">
+          <DialogTitle className="text-h-20 tracking-normal text-gray-900">
+            추가근무 등록
+          </DialogTitle>
+          <DialogDescription className="text-body-16-regular leading-[24px] tracking-normal text-gray-600">
+            조교의 출퇴근 기록에 연결할 추가근무 시간을 입력합니다.
+          </DialogDescription>
+        </DialogHeader>
+
+        {candidates.length > 0 ? (
+          <label className="mt-5 block">
+            <span className="text-h-18-semibold tracking-normal text-gray-900">
+              기준 근무기록
+            </span>
+            <OptionSelect
+              value={selectedCandidateId}
+              onValueChange={handleCandidateChange}
+              options={candidateOptions}
+              triggerAriaLabel="기준 근무기록"
+              triggerClassName="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-white px-3 text-h-18-regular tracking-normal text-gray-800"
+              contentClassName="z-[70]"
+              itemClassName="text-h-16-medium tracking-normal"
+            />
+          </label>
+        ) : (
+          <p className="mt-5 rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3 text-body-16-regular leading-[1.5] tracking-normal text-gray-600">
+            {emptyText}
+          </p>
+        )}
+
+        {selectedCandidate ? (
+          <div className="mt-5 rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-body-14-regular leading-[1.45] tracking-normal">
+              <span className="text-gray-500">조교</span>
+              <span className="text-right text-gray-900">
+                {selectedCandidate.workerName}
+              </span>
+              <span className="text-gray-500">근무일</span>
+              <span className="text-right text-gray-900">
+                {selectedCandidate.dateLabel}
+              </span>
+              <span className="text-gray-500">출퇴근 기록</span>
+              <span className="text-right text-gray-900">
+                {selectedCandidate.attendanceLabel}
+              </span>
+            </div>
+          </div>
+        ) : null}
+
+        <section className="mt-5">
+          <h3 className="text-h-18-semibold tracking-normal text-gray-900">
+            추가근무 시간
+          </h3>
+          <div className="mt-3 grid grid-cols-2 gap-4">
+            <label className="block">
+              <span className="text-body-14-medium tracking-normal text-gray-900">
+                시작
+              </span>
+              <Input
+                type="time"
+                aria-label="추가근무 시작"
+                value={startTime}
+                onChange={(event) => setStartTime(event.target.value)}
+                className="mt-2 flex h-11 w-full items-center rounded-[8px] border-gray-200 bg-white text-h-18-regular tracking-normal text-gray-800"
+              />
+            </label>
+            <label className="block">
+              <span className="text-body-14-medium tracking-normal text-gray-900">
+                종료
+              </span>
+              <Input
+                type="time"
+                aria-label="추가근무 종료"
+                value={endTime}
+                onChange={(event) => setEndTime(event.target.value)}
+                className="mt-2 flex h-11 w-full items-center rounded-[8px] border-gray-200 bg-white text-h-18-regular tracking-normal text-gray-800"
+              />
+            </label>
+          </div>
+        </section>
+
+        <label className="mt-5 block">
+          <span className="text-h-18-semibold tracking-normal text-gray-900">
+            사유
+          </span>
+          <Textarea
+            aria-label="추가근무 사유"
+            className="mt-3 h-[92px] w-full rounded-[8px] border-gray-200 bg-white py-4 text-h-18-regular tracking-normal text-gray-800"
+            placeholder="예) 보강 수업 연장"
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+          />
+        </label>
+
+        {dialogError ? (
+          <p className="mt-4 rounded-[8px] border border-red-100 bg-red-50 px-4 py-3 text-h-16-medium text-red-500">
+            {dialogError}
+          </p>
+        ) : null}
+
+        <DialogFooter className="-mx-0 -mb-0 mt-7 flex-row justify-end gap-3 rounded-none border-0 bg-transparent p-0">
+          <button
+            type="button"
+            disabled={saving}
+            className="h-11 rounded-[8px] border border-gray-200 bg-white px-6 text-h-18-semibold tracking-normal text-gray-800 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-200 disabled:cursor-not-allowed disabled:text-gray-400"
+            onClick={onClose}
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            disabled={saving || candidates.length === 0}
+            className="h-11 rounded-[8px] bg-green-400 px-6 text-h-18-semibold tracking-normal text-white transition-colors hover:bg-green-450 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:bg-gray-300"
+            onClick={() => {
+              void handleSubmit();
+            }}
+          >
+            {saving ? "저장 중" : "등록"}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function isTimeInputValue(value: string | undefined) {
+  return Boolean(value?.match(/^\d{2}:\d{2}$/));
 }
 
 function RecordToolbar({
@@ -442,6 +779,7 @@ function RecordToolbar({
   onStatusFilterChange,
   onTypeFilterChange,
   onWorkerFilterChange,
+  onOpenOvertimeCreate,
   onNavigateWeek,
   selectedStatusFilterId,
   selectedTypeFilterId,
@@ -453,6 +791,7 @@ function RecordToolbar({
   onStatusFilterChange: (filterId: string) => void;
   onTypeFilterChange: (filterId: string) => void;
   onWorkerFilterChange: (filterId: string) => void;
+  onOpenOvertimeCreate: () => void;
   onNavigateWeek: (direction: -1 | 1) => void;
   selectedStatusFilterId: string;
   selectedTypeFilterId: string;
@@ -499,6 +838,15 @@ function RecordToolbar({
           options={filters.type ?? []}
           selectedId={selectedTypeFilterId}
         />
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={onOpenOvertimeCreate}
+          className="ml-1 h-10 rounded-full px-4 font-normal tracking-normal"
+        >
+          <Plus className="size-5" strokeWidth={2.2} />
+          추가근무 등록
+        </Button>
       </div>
     </div>
   );

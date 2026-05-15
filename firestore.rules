@@ -649,10 +649,69 @@ service cloud.firestore {
           ) ||
           (
             changedKeys.hasOnly(['hasPendingOvertime', 'updatedAt'])
-            && data.hasPendingOvertime == false
+            && data.hasPendingOvertime is bool
           )
         )
         && data.updatedAt == request.time;
+    }
+
+    function isOvertimeWorkManagerCreate(workspaceId) {
+      let data = request.resource.data;
+
+      return isWorkspaceScopedManagerWrite(workspaceId)
+        && data.keys().hasOnly([
+          'amount',
+          'approvedAt',
+          'attendanceLogId',
+          'createdAt',
+          'decidedAt',
+          'decidedBy',
+          'extraEndAt',
+          'extraStartAt',
+          'managerNote',
+          'monthKey',
+          'payrollEffect',
+          'payrollPayMode',
+          'payrollStatus',
+          'reason',
+          'rejectedReason',
+          'status',
+          'submittedAt',
+          'updatedAt',
+          'workRecordId',
+          'workerId',
+          'workerName',
+          'workspaceId'
+        ])
+        && data.workspaceId == workspaceId
+        && data.amount == null
+        && data.approvedAt == null
+        && data.attendanceLogId is string
+        && data.attendanceLogId.size() > 0
+        && data.createdAt == request.time
+        && data.decidedAt == null
+        && data.decidedBy == null
+        && data.extraStartAt is timestamp
+        && data.extraEndAt is timestamp
+        && data.extraEndAt > data.extraStartAt
+        && data.managerNote == null
+        && data.monthKey is string
+        && data.monthKey.size() == 7
+        && data.payrollEffect == 'none'
+        && data.payrollPayMode == null
+        && data.payrollStatus == 'none'
+        && data.reason is string
+        && data.reason.size() > 0
+        && data.rejectedReason == null
+        && data.status == 'submitted'
+        && data.submittedAt == request.time
+        && data.updatedAt == request.time
+        && data.workRecordId is string
+        && data.workRecordId.size() > 0
+        && data.workerId is string
+        && data.workerId.size() > 0
+        && data.workerName is string
+        && data.workerName.size() > 0;
     }
 
     function isAnomalyFlagManagerResolution() {
@@ -822,7 +881,8 @@ service cloud.firestore {
       match /overtimeWorks/{overtimeId} {
         allow get, list: if isWorkspaceManager(workspaceId);
         allow update: if isWorkspaceScopedManagerWrite(workspaceId);
-        allow create, delete: if false;
+        allow create: if isOvertimeWorkManagerCreate(workspaceId);
+        allow delete: if false;
       }
 
       match /notifications/{notificationId} {

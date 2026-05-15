@@ -167,6 +167,46 @@ test("REC-01 uses shared selects and edits selected records", async ({
   ).toHaveCount(0);
 });
 
+test("REC-01 registers overtime from a selected attendance log", async ({
+  page,
+}) => {
+  await prepareVisualPage({ page, path: "/records", viewport: desktop });
+
+  await expect(
+    page.getByRole("button", { exact: true, name: "추가근무 등록" }),
+  ).toBeVisible();
+  await page
+    .locator("[data-record-block-id='record-lee-haeun-english-c-mon']")
+    .click();
+  await page
+    .getByRole("button", { name: "이 출퇴근 기록으로 추가근무 등록" })
+    .click();
+
+  const dialog = page.getByTestId("record-overtime-create-dialog");
+  await expect(dialog).toBeVisible();
+  await expect(
+    dialog.getByRole("heading", { name: "추가근무 등록" }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("combobox", { name: "기준 근무기록" }),
+  ).toContainText("05.04 이하은 · 영어 C반");
+  await expect(
+    dialog.getByText("05.04 19:02~21:05 · 대치 A학원"),
+  ).toBeVisible();
+  await expect(dialog.getByLabel("추가근무 시작")).toHaveValue("21:00");
+  await expect(dialog.getByLabel("추가근무 종료")).toHaveValue("21:30");
+
+  await dialog.getByRole("button", { name: "등록" }).click();
+  await expect(dialog.getByText("추가근무 사유를 입력해 주세요.")).toBeVisible();
+  await dialog.getByLabel("추가근무 사유").fill("보강 수업 연장");
+  await dialog.getByRole("button", { name: "등록" }).click();
+
+  await expect(page.getByTestId("wee-toast")).toContainText(
+    "추가근무를 등록했습니다.",
+  );
+  await expect(dialog).toHaveCount(0);
+});
+
 test("REC-01 workerName query applies worker filter", async ({ page }) => {
   await prepareVisualPage({
     page,

@@ -60,6 +60,10 @@ export function createEmptyRecordMainViewModel(
     initialBlockId: null,
     initialWeekStartKey: null,
     initialDetailStateId: "empty",
+    overtimeCreate: {
+      candidates: [],
+      emptyText: "추가근무를 등록할 수 있는 출퇴근 기록이 없습니다.",
+    },
     timeline: {
       ...recordMainFixtureViewModel.timeline,
       emptyDetailText: emptyText,

@@ -87,6 +87,27 @@ export type RecordTimelineFixture = {
   emptyDetailText: readonly string[];
 };
 
+export type RecordOvertimeCreateCandidate = {
+  id: string;
+  attendanceLabel: string;
+  attendanceLogId: string | null;
+  checkInTime: string;
+  checkOutTime: string;
+  dateLabel: string;
+  defaultEndTime: string;
+  defaultStartTime: string;
+  disabledReason?: string;
+  dutyName: string;
+  label: string;
+  locationName: string;
+  workerName: string;
+};
+
+export type RecordOvertimeCreateView = {
+  candidates: readonly RecordOvertimeCreateCandidate[];
+  emptyText: string;
+};
+
 export type RecordDetailStateId =
   | "empty"
   | "normal-selected"
@@ -289,6 +310,7 @@ export type RecordMainViewModel = {
   initialBlockId?: string | null;
   initialWeekStartKey?: string | null;
   initialDetailStateId: RecordDetailStateId;
+  overtimeCreate: RecordOvertimeCreateView;
   timeline: RecordTimelineFixture;
 };
 
@@ -500,6 +522,38 @@ export const recordTimelineBlocks = [
     "grey",
   ),
 ] as const satisfies readonly RecordTimelineBlock[];
+
+export const recordOvertimeCreateCandidates = [
+  {
+    id: "record-lee-haeun-english-c-mon",
+    attendanceLabel: "05.04 19:02~21:05 · 대치 A학원",
+    attendanceLogId: "att-lee-haeun-english-c-mon",
+    checkInTime: "19:02",
+    checkOutTime: "21:05",
+    dateLabel: "05.04 (월)",
+    defaultEndTime: "21:30",
+    defaultStartTime: "21:00",
+    dutyName: "영어 C반",
+    label: "05.04 이하은 · 영어 C반",
+    locationName: "대치 A학원",
+    workerName: "이하은",
+  },
+  {
+    id: "record-kang-taewoo-chemistry-g-mon",
+    attendanceLabel: "05.04 10:00~12:34 · 대치 A학원",
+    attendanceLogId: "att-kang-taewoo-chemistry-g-mon",
+    checkInTime: "10:00",
+    checkOutTime: "12:34",
+    dateLabel: "05.04 (월)",
+    defaultEndTime: "12:30",
+    defaultStartTime: "12:00",
+    disabledReason: "처리 대기 추가근무 있음",
+    dutyName: "화학 G반",
+    label: "05.04 강태우 · 화학 G반",
+    locationName: "대치 A학원",
+    workerName: "강태우",
+  },
+] as const satisfies readonly RecordOvertimeCreateCandidate[];
 
 export const recordDetailStates = {
   empty: {
@@ -738,6 +792,10 @@ export const recordMainFixtureViewModel = {
   initialBlockId: null,
   initialWeekStartKey: null,
   initialDetailStateId: "empty",
+  overtimeCreate: {
+    candidates: recordOvertimeCreateCandidates,
+    emptyText: "추가근무를 등록할 수 있는 출퇴근 기록이 없습니다.",
+  },
   timeline: recordTimelineFixture,
 } as const satisfies RecordMainViewModel;
 
