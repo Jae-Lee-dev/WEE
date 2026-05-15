@@ -423,13 +423,7 @@ function FeaturePreview({
 
     return (
       <PreviewShell className={cn(reversed && "lg:order-1")}>
-        <Image
-          src={image.src}
-          alt={image.alt}
-          width={960}
-          height={540}
-          className="w-full rounded-[12px] border border-gray-200 shadow-[0_18px_44px_rgba(17,24,39,0.12)]"
-        />
+        <FeatureScreenshot src={image.src} alt={image.alt} />
       </PreviewShell>
     );
   }
@@ -468,6 +462,20 @@ function PreviewShell({ children, className }: { children: ReactNode; className?
   return (
     <div className={cn("flex min-h-[430px] items-center justify-center rounded-[10px] bg-gradient-to-br from-[#e9fff0] via-white to-[#f5fbf7] p-7", className)}>
       {children}
+    </div>
+  );
+}
+
+function FeatureScreenshot({ src, alt }: { src: string; alt: string }) {
+  return (
+    <div className="relative aspect-video w-full overflow-hidden rounded-[12px] border border-gray-200 shadow-[0_18px_44px_rgba(17,24,39,0.12)]">
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        sizes="(min-width: 1024px) 575px, calc(100vw - 104px)"
+        className="origin-top scale-150 object-cover object-top"
+      />
     </div>
   );
 }

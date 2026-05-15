@@ -21,6 +21,21 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     ).toBeVisible();
     await expect(page.getByRole("img", { name: "급여 관리 화면" })).toBeVisible();
     await expect(page.getByRole("img", { name: "AI 인수인계 화면" })).toBeVisible();
+    const dashboardPreviewCrop = await page
+      .getByRole("img", { name: "운영 인박스 대시보드 화면" })
+      .evaluate((image) => {
+        const imageRect = image.getBoundingClientRect();
+        const frameRect = image.parentElement?.getBoundingClientRect();
+
+        return {
+          imageLeft: imageRect.left,
+          imageWidth: imageRect.width,
+          frameLeft: frameRect?.left ?? 0,
+          frameWidth: frameRect?.width ?? 0,
+        };
+      });
+    expect(dashboardPreviewCrop.imageLeft).toBeLessThan(dashboardPreviewCrop.frameLeft);
+    expect(dashboardPreviewCrop.imageWidth).toBeGreaterThan(dashboardPreviewCrop.frameWidth * 1.4);
 
     await captureActualScreenshot({
       page,
