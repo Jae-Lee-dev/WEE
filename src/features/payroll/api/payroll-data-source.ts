@@ -127,6 +127,7 @@ type PayrollCollections = {
   payrollSettings: readonly PayrollDocument[];
   payrollWorkerMonthRows: readonly PayrollDocument[];
   workerPayStatements: readonly PayrollDocument[];
+  workers: readonly PayrollDocument[];
   workspace: PayrollDocument;
   workRecords: readonly PayrollDocument[];
 };
@@ -154,6 +155,14 @@ type PayrollSetting = {
   monthlySalary: number | null;
   payrollType: string;
   taxRatePercent: number | null;
+  workerId: string;
+};
+
+type PayrollWorker = {
+  createdAt: Date | null;
+  id: string;
+  name: string;
+  status: string;
   workerId: string;
 };
 
@@ -344,12 +353,38 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
     async decidePayroll(input) {
       const workspaceId = await requireActiveWorkspaceId();
       const collections = await loadPayrollCollections();
-      const projection = collections.payrollWorkerMonthRows
-        .map(mapPayrollWorkerMonthProjection)
-        .find((row) =>
-          row.id === input.focusId ||
-          (row.workerId === input.workerId && row.monthKey === input.monthKey),
-        );
+      const settings = collections.payrollSettings.map(mapPayrollSetting);
+      const bonuses = collections.bonusItems
+        .map(mapBonusItem)
+        .filter((bonus) => bonus.payrollStatus !== "deleted");
+      const statements = collections.payStatements
+        .map(mapPayStatement)
+        .filter(isPayStatement);
+      const records = collections.workRecords.map(mapWorkRecord);
+      const anomalyFlags = collections.anomalyFlags.map(mapAnomalyFlag);
+      const overtimeWorks = collections.overtimeWorks.map(mapOvertimeWork);
+      const correctionRequests = collections.correctionRequests.map(
+        mapCorrectionRequest,
+      );
+      const projections = buildLivePayrollWorkerMonthProjections({
+        anomalyFlags,
+        bonuses,
+        correctionRequests,
+        overtimeWorks,
+        records,
+        settings,
+        statements,
+        storedProjections: collections.payrollWorkerMonthRows.map(
+          mapPayrollWorkerMonthProjection,
+        ),
+        target: input,
+        workers: collections.workers.map(mapPayrollWorker),
+      });
+      const projection = projections.find((row) =>
+        row.id === input.focusId ||
+        row.payStatementId === input.focusId ||
+        (row.workerId === input.workerId && row.monthKey === input.monthKey),
+      );
 
       if (!projection) {
         throw new Error("급여 산정 대상을 찾을 수 없습니다.");
@@ -357,30 +392,26 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
 
       const workerMonthKey = getWorkerMonthKey(projection.workerId, projection.monthKey);
       const calculationRules = mapWorkspaceCalculationRules(collections.workspace);
-      const settings = collections.payrollSettings.map(mapPayrollSetting);
       const resolveSetting = createPayrollSettingResolver(settings);
       const bonusesByWorkerMonth = groupBy(
-        collections.bonusItems.map(mapBonusItem).filter((bonus) => bonus.payrollStatus !== "deleted"),
+        bonuses,
         (bonus) => getWorkerMonthKey(bonus.workerId, bonus.monthKey),
       );
-      const recordsByWorkerMonth = groupBy(collections.workRecords.map(mapWorkRecord), (record) =>
+      const recordsByWorkerMonth = groupBy(records, (record) =>
         getWorkerMonthKey(record.workerId, record.dateKey.slice(0, 7)),
       );
       const overtimeByWorkerMonth = groupBy(
-        collections.overtimeWorks.map(mapOvertimeWork),
+        overtimeWorks,
         (work) => getWorkerMonthKey(work.workerId, work.monthKey),
       );
       const anomaliesByWorkerMonth = groupBy(
-        collections.anomalyFlags.map(mapAnomalyFlag),
+        anomalyFlags,
         (flag) => getWorkerMonthKey(flag.workerId, flag.dateKey.slice(0, 7)),
       );
       const correctionsByWorkerMonth = groupBy(
-        collections.correctionRequests.map(mapCorrectionRequest),
+        correctionRequests,
         (request) => getWorkerMonthKey(request.workerId, request.monthKey),
       );
-      const statements = collections.payStatements
-        .map(mapPayStatement)
-        .filter(isPayStatement);
       const statement =
         statements.find((item) => item.id === input.focusId) ??
         statements.find(
@@ -388,6 +419,9 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
             item.workerId === projection.workerId &&
             item.monthKey === projection.monthKey,
         );
+      const storedProjection = collections.payrollWorkerMonthRows.find(
+        (item) => item.id === projection.id,
+      );
       const setting = resolveSetting(projection.workerId, projection.monthKey);
       const blockingItemCount = getOpenItemCount({
         anomalyFlags: anomaliesByWorkerMonth[workerMonthKey] ?? [],
@@ -432,13 +466,21 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
             },
             { merge: true },
           ),
-          updateDoc(
-            doc(getFirebaseDb(), "workspaces", workspaceId, "payrollWorkerMonthRows", projection.id),
-            {
-              rowStatus: "paid",
-              updatedAt: serverTimestamp(),
-            },
-          ),
+          storedProjection
+            ? updateDoc(
+                doc(
+                  getFirebaseDb(),
+                  "workspaces",
+                  workspaceId,
+                  "payrollWorkerMonthRows",
+                  storedProjection.id,
+                ),
+                {
+                  rowStatus: "paid",
+                  updatedAt: serverTimestamp(),
+                },
+              )
+            : Promise.resolve(),
         ]);
       } else {
         await Promise.all([
@@ -470,18 +512,26 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
             },
             { merge: true },
           ),
-          updateDoc(
-            doc(getFirebaseDb(), "workspaces", workspaceId, "payrollWorkerMonthRows", projection.id),
-            {
-              currentCalculationSummary: {
-                finalAmount: amounts.finalAmount,
-                hasBlockers: false,
-              },
-              payStatementId: statementId,
-              rowStatus: "processing",
-              updatedAt: serverTimestamp(),
-            },
-          ),
+          storedProjection
+            ? updateDoc(
+                doc(
+                  getFirebaseDb(),
+                  "workspaces",
+                  workspaceId,
+                  "payrollWorkerMonthRows",
+                  storedProjection.id,
+                ),
+                {
+                  currentCalculationSummary: {
+                    finalAmount: amounts.finalAmount,
+                    hasBlockers: false,
+                  },
+                  payStatementId: statementId,
+                  rowStatus: "processing",
+                  updatedAt: serverTimestamp(),
+                },
+              )
+            : Promise.resolve(),
         ]);
       }
 
@@ -586,6 +636,7 @@ async function loadPayrollCollections(): Promise<PayrollCollections> {
     overtimeWorks,
     correctionRequests,
     workRecords,
+    workers,
   ] = await Promise.all([
     getDoc(doc(getFirebaseDb(), "workspaces", workspaceId)),
     getPayrollCollection(workspaceId, "anomalyFlags"),
@@ -597,6 +648,7 @@ async function loadPayrollCollections(): Promise<PayrollCollections> {
     getPayrollCollection(workspaceId, "overtimeWorks"),
     getPayrollCollection(workspaceId, "correctionRequests"),
     getPayrollCollection(workspaceId, "workRecords"),
+    getPayrollCollection(workspaceId, "workers"),
   ]);
 
   return {
@@ -608,6 +660,7 @@ async function loadPayrollCollections(): Promise<PayrollCollections> {
     payrollSettings,
     payrollWorkerMonthRows,
     workerPayStatements,
+    workers,
     workspace: {
       data: (workspaceSnapshot.data() as Record<string, unknown> | undefined) ?? {},
       id: workspaceId,
@@ -834,7 +887,7 @@ function buildCalculationViewModel(
   collections: PayrollCollections,
   target: PayrollCalculationTarget = {},
 ): PayrollCalculationFixture {
-  const projections = collections.payrollWorkerMonthRows.map(
+  const storedProjections = collections.payrollWorkerMonthRows.map(
     mapPayrollWorkerMonthProjection,
   );
   const calculationRules = mapWorkspaceCalculationRules(collections.workspace);
@@ -852,6 +905,19 @@ function buildCalculationViewModel(
   const correctionRequests = collections.correctionRequests.map(
     mapCorrectionRequest,
   );
+  const workers = collections.workers.map(mapPayrollWorker);
+  const projections = buildLivePayrollWorkerMonthProjections({
+    anomalyFlags,
+    bonuses,
+    correctionRequests,
+    overtimeWorks,
+    records: workRecords,
+    settings,
+    statements,
+    storedProjections,
+    target,
+    workers,
+  });
   const monthKey = selectCalculationMonthKey(projections, statements, target);
   const resolveSetting = createPayrollSettingResolver(settings);
   const statementById = indexBy(statements, (statement) => statement.id);
@@ -2049,12 +2115,25 @@ function buildStatementViewModel(
     .filter(isPayStatement);
   const statements =
     managerStatements.length > 0 ? managerStatements : workerStatements;
-  const projections = collections.payrollWorkerMonthRows.map(
-    mapPayrollWorkerMonthProjection,
-  );
   const calculationRules = mapWorkspaceCalculationRules(collections.workspace);
   const requiredSettings = mapWorkspaceRequiredSettings(collections.workspace);
   const settings = collections.payrollSettings.map(mapPayrollSetting);
+  const projections = buildLivePayrollWorkerMonthProjections({
+    anomalyFlags: collections.anomalyFlags.map(mapAnomalyFlag),
+    bonuses: collections.bonusItems
+      .map(mapBonusItem)
+      .filter((bonus) => bonus.payrollStatus !== "deleted"),
+    correctionRequests: collections.correctionRequests.map(mapCorrectionRequest),
+    overtimeWorks: collections.overtimeWorks.map(mapOvertimeWork),
+    records: collections.workRecords.map(mapWorkRecord),
+    settings,
+    statements,
+    storedProjections: collections.payrollWorkerMonthRows.map(
+      mapPayrollWorkerMonthProjection,
+    ),
+    target,
+    workers: collections.workers.map(mapPayrollWorker),
+  });
   const monthKey = selectStatementMonthKey(statements, projections, target);
   const projectionByWorkerMonth = indexBy(projections, (row) =>
     getWorkerMonthKey(row.workerId, row.monthKey),
@@ -2370,6 +2449,234 @@ function buildWorkerSummary({
   };
 }
 
+function buildLivePayrollWorkerMonthProjections({
+  anomalyFlags,
+  bonuses,
+  correctionRequests,
+  overtimeWorks,
+  records,
+  settings,
+  statements,
+  storedProjections,
+  target,
+  workers,
+}: {
+  anomalyFlags: readonly AnomalyFlag[];
+  bonuses: readonly BonusItem[];
+  correctionRequests: readonly CorrectionRequest[];
+  overtimeWorks: readonly OvertimeWork[];
+  records: readonly WorkRecord[];
+  settings: readonly PayrollSetting[];
+  statements: readonly PayStatement[];
+  storedProjections: readonly PayrollWorkerMonthProjection[];
+  target: PayrollCalculationTarget;
+  workers: readonly PayrollWorker[];
+}) {
+  const projectionByWorkerMonth = new Map<
+    string,
+    PayrollWorkerMonthProjection
+  >();
+  const storedProjectionKeys = new Set(
+    storedProjections.map((projection) =>
+      getWorkerMonthKey(projection.workerId, projection.monthKey),
+    ),
+  );
+  const workerById = indexWorkersById(workers);
+  const resolveSetting = createPayrollSettingResolver(settings);
+  const sourceMonthKeys = new Set<string>();
+  const registerSourceMonth = (monthKey: string | null) => {
+    if (monthKey) {
+      sourceMonthKeys.add(monthKey);
+    }
+  };
+
+  const upsertProjection = ({
+    monthKey,
+    statement,
+    workerId,
+    workerName,
+  }: {
+    monthKey: string | null;
+    statement?: PayStatement;
+    workerId: string;
+    workerName?: string;
+  }) => {
+    if (!workerId || !monthKey) {
+      return;
+    }
+
+    const workerMonthKey = getWorkerMonthKey(workerId, monthKey);
+    const existing = projectionByWorkerMonth.get(workerMonthKey);
+
+    if (existing && storedProjectionKeys.has(workerMonthKey)) {
+      return;
+    }
+
+    projectionByWorkerMonth.set(workerMonthKey, {
+      finalAmount:
+        existing?.finalAmount ??
+        statement?.currentFinalAmount ??
+        statement?.finalAmount ??
+        null,
+      hasBlockers: existing?.hasBlockers ?? false,
+      id: existing?.id ?? getSyntheticProjectionId(workerId, monthKey),
+      monthKey,
+      payStatementId: existing?.payStatementId ?? statement?.id ?? null,
+      rowStatus:
+        existing?.rowStatus ??
+        (statement ? getStatementProjectionStatus(statement) : "unconfirmed"),
+      workerId,
+      workerName: getPayrollWorkerName({
+        fallbackName: workerName,
+        worker: workerById.get(workerId),
+        workerId,
+      }),
+    });
+  };
+
+  for (const projection of storedProjections) {
+    registerSourceMonth(projection.monthKey);
+    projectionByWorkerMonth.set(
+      getWorkerMonthKey(projection.workerId, projection.monthKey),
+      projection,
+    );
+  }
+
+  for (const statement of statements) {
+    registerSourceMonth(statement.monthKey);
+    upsertProjection({
+      monthKey: statement.monthKey,
+      statement,
+      workerId: statement.workerId,
+      workerName: statement.workerName,
+    });
+  }
+
+  for (const record of records) {
+    const monthKey = getMonthKeyFromDateKey(record.dateKey);
+
+    registerSourceMonth(monthKey);
+    upsertProjection({
+      monthKey,
+      workerId: record.workerId,
+      workerName: record.workerName,
+    });
+  }
+
+  for (const flag of anomalyFlags) {
+    const monthKey = getMonthKeyFromDateKey(flag.dateKey);
+
+    registerSourceMonth(monthKey);
+    upsertProjection({
+      monthKey,
+      workerId: flag.workerId,
+      workerName: flag.workerName,
+    });
+  }
+
+  for (const work of overtimeWorks) {
+    registerSourceMonth(work.monthKey);
+    upsertProjection({
+      monthKey: work.monthKey,
+      workerId: work.workerId,
+      workerName: work.workerName,
+    });
+  }
+
+  for (const request of correctionRequests) {
+    registerSourceMonth(request.monthKey);
+    upsertProjection({
+      monthKey: request.monthKey,
+      workerId: request.workerId,
+      workerName: request.workerName,
+    });
+  }
+
+  for (const bonus of bonuses) {
+    registerSourceMonth(bonus.monthKey);
+    upsertProjection({
+      monthKey: bonus.monthKey,
+      workerId: bonus.workerId,
+    });
+  }
+
+  const activeWorkerMonthKeys = new Set([
+    getCurrentMonthKey(),
+    target.monthKey,
+    ...sourceMonthKeys,
+  ]);
+
+  for (const worker of workers.filter(isActivePayrollWorker)) {
+    for (const monthKey of activeWorkerMonthKeys) {
+      if (!monthKey || !resolveSetting(worker.workerId, monthKey)) {
+        continue;
+      }
+
+      upsertProjection({
+        monthKey,
+        workerId: worker.workerId,
+        workerName: worker.name,
+      });
+    }
+  }
+
+  return [...projectionByWorkerMonth.values()];
+}
+
+function getStatementProjectionStatus(
+  statement: PayStatement,
+): PayrollRowStatus {
+  return readBoolean(statement.managerOnly.needsReconfirmation, false)
+    ? "needs_reconfirmation"
+    : statement.status;
+}
+
+function getSyntheticProjectionId(workerId: string, monthKey: string) {
+  return `pwm_${monthKey.replace("-", "")}_${workerId.replace(/\//g, "_")}`;
+}
+
+function getPayrollWorkerName({
+  fallbackName,
+  worker,
+  workerId,
+}: {
+  fallbackName?: string;
+  worker?: PayrollWorker;
+  workerId: string;
+}) {
+  return worker?.name || fallbackName || workerId || "이름 없는 조교";
+}
+
+function indexWorkersById(workers: readonly PayrollWorker[]) {
+  const workerById = new Map<string, PayrollWorker>();
+
+  for (const worker of workers) {
+    workerById.set(worker.id, worker);
+    workerById.set(worker.workerId, worker);
+  }
+
+  return workerById;
+}
+
+function isActivePayrollWorker(worker: PayrollWorker) {
+  return worker.status === "active" || worker.status === "approved";
+}
+
+function getMonthKeyFromDateKey(dateKey: string) {
+  const monthKey = dateKey.slice(0, 7);
+
+  return /^\d{4}-\d{2}$/.test(monthKey) ? monthKey : null;
+}
+
+function getCurrentMonthKey() {
+  const date = new Date();
+
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+    2,
+    "0",
+  )}`;
+}
+
 function mapPayrollWorkerMonthProjection(
   document: PayrollDocument,
 ): PayrollWorkerMonthProjection {
@@ -2402,6 +2709,21 @@ function mapPayrollSetting(document: PayrollDocument): PayrollSetting {
     payrollType: readString(data.payrollType, "hourly"),
     taxRatePercent: readNullableNumber(data.taxRatePercent),
     workerId: readString(data.workerId, ""),
+  };
+}
+
+function mapPayrollWorker(document: PayrollDocument): PayrollWorker {
+  const data = document.data;
+
+  return {
+    createdAt: readTimestamp(data.createdAt ?? data.approvedAt),
+    id: document.id,
+    name: readString(
+      data.name,
+      readString(data.displayName, readString(data.workerName, document.id)),
+    ),
+    status: readString(data.status ?? data.membershipStatus, "active"),
+    workerId: readString(data.workerId, document.id),
   };
 }
 
@@ -2782,15 +3104,8 @@ function selectCalculationMonthKey(
     target.monthKey && monthKeys.includes(target.monthKey)
       ? target.monthKey
       : focusMonth;
-  const readyMonth = monthKeys.find((monthKey) =>
-    projections.some(
-      (row) =>
-        row.monthKey === monthKey &&
-        (row.finalAmount != null || row.payStatementId != null),
-    ),
-  );
 
-  return requestedMonth ?? readyMonth ?? monthKeys[0] ?? "2026-04";
+  return requestedMonth ?? monthKeys[0] ?? "2026-04";
 }
 
 function selectStatementMonthKey(
