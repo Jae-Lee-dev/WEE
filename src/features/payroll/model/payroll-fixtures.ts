@@ -656,7 +656,7 @@ export const payrollStatementFixture = {
   route: "/payroll/statements",
   activeTabId: "statements",
   tabs: payrollTabs,
-  selectedMonthLabel: "2026년 4월",
+  selectedMonthLabel: "2026.04",
   summaryCards: [
     {
       id: "total",

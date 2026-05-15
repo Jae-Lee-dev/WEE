@@ -1840,7 +1840,7 @@ function buildStatementViewModel(
       detailsByRowId[selectedRowId] ??
       detailsByRowId[rows[0]?.id ?? ""] ??
       payrollStatementFixture.selectedDetail,
-    selectedMonthLabel: formatMonthKorean(monthKey),
+    selectedMonthLabel: formatMonthDot(monthKey),
     selectedRowId,
     summaryCards: buildStatementMetrics(rowsForMonth),
   };

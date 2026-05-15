@@ -18,7 +18,9 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
 
     const screen = page.getByTestId("payroll-statements-screen");
     await expect(screen).toBeVisible();
-    await expect(screen).toContainText("2026년 4월");
+    await expect(page.getByTestId("payroll-statements-month-select")).toHaveText(
+      "2026.04",
+    );
     await expect(screen).toContainText("전체 명세");
     await expect(screen).toContainText("처리 중");
     await expect(screen).toContainText("지급 완료");
