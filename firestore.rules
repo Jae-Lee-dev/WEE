@@ -30,6 +30,23 @@ service cloud.firestore {
         && getAfter(workspacePath(workspaceId)).data.managerUid == request.auth.uid;
     }
 
+    // ─────── Worker (조교) helpers ───────
+    // 멤버십 docId 컨벤션: {uid}_{workspaceId} (WEE_app joinByCode 기준).
+
+    function membershipPath(workspaceId) {
+      return /databases/$(database)/documents/workspaces/$(workspaceId)/memberships/$(request.auth.uid + '_' + workspaceId);
+    }
+
+    function isApprovedWorker(workspaceId) {
+      return signedIn()
+        && exists(membershipPath(workspaceId))
+        && get(membershipPath(workspaceId)).data.status == 'approved';
+    }
+
+    function isReadingOwnRecord() {
+      return signedIn() && resource.data.workerId == request.auth.uid;
+    }
+
     function isLocationCoordinate(value) {
       return value is map
         && value.keys().hasOnly(['lat', 'lng'])
@@ -725,6 +742,68 @@ service cloud.firestore {
         && data.updatedAt == request.time;
     }
 
+    // ─────── Worker mutation validators ───────
+
+    function isWorkerMembershipJoin(workspaceId, membershipId) {
+      let data = request.resource.data;
+      return signedIn()
+        && membershipId == request.auth.uid + '_' + workspaceId
+        && data.workerId == request.auth.uid
+        && data.workspaceId == workspaceId
+        && data.status == 'pending'
+        && data.workerName is string;
+    }
+
+    function isAttendanceLogCheckIn(workspaceId) {
+      let data = request.resource.data;
+      return data.workerId == request.auth.uid
+        && data.workspaceId == workspaceId
+        && data.locationId is string
+        && data.locationId.size() > 0
+        && !data.keys().hasAny(['checkOutAt']);
+    }
+
+    function isAttendanceLogCheckOut() {
+      let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
+      return resource.data.workerId == request.auth.uid
+        && resource.data.checkOutAt == null
+        && changedKeys.hasOnly(['checkOutAt', 'checkOutLocation']);
+    }
+
+    function isWorkerScheduleRequestCreate(workspaceId) {
+      let data = request.resource.data;
+      return data.workerId == request.auth.uid
+        && data.workspaceId == workspaceId
+        && data.status == 'pending'
+        && data.slots is list;
+    }
+
+    function isWorkerStatusWithdraw() {
+      let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
+      return resource.data.workerId == request.auth.uid
+        && changedKeys.hasOnly(['status'])
+        && request.resource.data.status == 'withdrawn';
+    }
+
+    function isWorkerCorrectionRequestCreate(workspaceId) {
+      let data = request.resource.data;
+      return data.workerId == request.auth.uid
+        && data.workspaceId == workspaceId
+        && data.status == 'submitted'
+        && data.source == 'worker'
+        && data.workRecordId is string
+        && data.workRecordId.size() > 0;
+    }
+
+    function isWorkerOvertimeWorkCreate(workspaceId) {
+      let data = request.resource.data;
+      return data.workerId == request.auth.uid
+        && data.workspaceId == workspaceId
+        && data.status == 'submitted'
+        && data.attendanceLogId is string
+        && data.attendanceLogId.size() > 0;
+    }
+
     function isAnomalyResolutionCreate(workspaceId) {
       let data = request.resource.data;
 
@@ -758,7 +837,11 @@ service cloud.firestore {
     }
 
     match /workspaces/{workspaceId} {
-      allow get, list: if isWorkspaceManager(workspaceId);
+      // get은 미가입 사용자도 허용 (사업장 코드 입력 후 미리보기).
+      // workspaceId는 자동 생성된 opaque docId라 enumeration 어려움.
+      // list는 매니저만 (전체 enumeration 차단 유지).
+      allow get: if signedIn();
+      allow list: if isWorkspaceManager(workspaceId);
       allow create: if signedIn()
         && request.resource.data.managerUid == request.auth.uid;
       allow update: if isWorkspaceManager(workspaceId)
@@ -766,7 +849,7 @@ service cloud.firestore {
       allow delete: if false;
 
       match /locations/{locationId} {
-        allow get, list: if isWorkspaceManager(workspaceId);
+        allow get, list: if isWorkspaceManager(workspaceId) || isApprovedWorker(workspaceId);
         allow create: if isWorkspaceManagerAfter(workspaceId)
           && isLocationCreate(workspaceId);
         allow update: if isWorkspaceManagerAfter(workspaceId)
@@ -779,7 +862,7 @@ service cloud.firestore {
       }
 
       match /duties/{dutyId} {
-        allow get, list: if isWorkspaceManager(workspaceId);
+        allow get, list: if isWorkspaceManager(workspaceId) || isApprovedWorker(workspaceId);
         allow create: if isWorkspaceManagerAfter(workspaceId)
           && isDutyCreate(workspaceId);
         allow update: if isWorkspaceManagerAfter(workspaceId)
@@ -828,9 +911,16 @@ service cloud.firestore {
       }
 
       match /memberships/{membershipId} {
-        allow get, list: if isWorkspaceManager(workspaceId);
-        allow create, update: if isWorkspaceScopedManagerWrite(workspaceId);
-        allow delete: if false;
+        // get/delete: docId 컨벤션({uid}_{wsId}) 기반 — 본인 doc은 존재 여부와 무관하게 접근.
+        // (isReadingOwnRecord는 doc이 없을 때 resource.data가 null이라 동작 안 함)
+        allow get: if isWorkspaceManager(workspaceId)
+          || (signedIn() && membershipId == request.auth.uid + '_' + workspaceId);
+        allow list: if isWorkspaceManager(workspaceId);
+        allow create: if isWorkspaceScopedManagerWrite(workspaceId)
+          || isWorkerMembershipJoin(workspaceId, membershipId);
+        allow update: if isWorkspaceScopedManagerWrite(workspaceId);
+        allow delete: if signedIn()
+          && membershipId == request.auth.uid + '_' + workspaceId;
       }
 
       match /payrollSettings/{settingId} {
@@ -843,19 +933,22 @@ service cloud.firestore {
       }
 
       match /scheduleRequests/{requestId} {
-        allow get, list: if isWorkspaceManager(workspaceId);
-        allow update: if isWorkspaceScopedManagerWrite(workspaceId);
-        allow create, delete: if false;
+        allow get, list: if isWorkspaceManager(workspaceId) || isApprovedWorker(workspaceId);
+        allow create: if isApprovedWorker(workspaceId)
+          && isWorkerScheduleRequestCreate(workspaceId);
+        allow update: if isWorkspaceScopedManagerWrite(workspaceId)
+          || (isApprovedWorker(workspaceId) && isWorkerStatusWithdraw());
+        allow delete: if false;
       }
 
       match /scheduleVersions/{versionId} {
-        allow get, list: if isWorkspaceManager(workspaceId);
+        allow get, list: if isWorkspaceManager(workspaceId) || isApprovedWorker(workspaceId);
         allow create, update: if isWorkspaceScopedManagerWrite(workspaceId);
         allow delete: if false;
       }
 
       match /handoverDocuments/{documentId} {
-        allow get, list: if isWorkspaceManager(workspaceId);
+        allow get, list: if isWorkspaceManager(workspaceId) || isApprovedWorker(workspaceId);
         allow create, update: if isWorkspaceScopedManagerWrite(workspaceId);
         allow delete: if false;
       }
@@ -873,22 +966,35 @@ service cloud.firestore {
       }
 
       match /correctionRequests/{requestId} {
-        allow get, list: if isWorkspaceManager(workspaceId);
-        allow update: if isWorkspaceScopedManagerWrite(workspaceId);
-        allow create, delete: if false;
+        allow get, list: if isWorkspaceManager(workspaceId) || isApprovedWorker(workspaceId);
+        allow create: if isApprovedWorker(workspaceId)
+          && isWorkerCorrectionRequestCreate(workspaceId);
+        allow update: if isWorkspaceScopedManagerWrite(workspaceId)
+          || (isApprovedWorker(workspaceId) && isWorkerStatusWithdraw());
+        allow delete: if false;
       }
 
       match /overtimeWorks/{overtimeId} {
-        allow get, list: if isWorkspaceManager(workspaceId);
-        allow update: if isWorkspaceScopedManagerWrite(workspaceId);
-        allow create: if isOvertimeWorkManagerCreate(workspaceId);
+        allow get, list: if isWorkspaceManager(workspaceId) || isApprovedWorker(workspaceId);
+        allow create: if isOvertimeWorkManagerCreate(workspaceId)
+          || (
+            isApprovedWorker(workspaceId)
+            && isWorkerOvertimeWorkCreate(workspaceId)
+          );
+        allow update: if isWorkspaceScopedManagerWrite(workspaceId)
+          || (isApprovedWorker(workspaceId) && isWorkerStatusWithdraw());
         allow delete: if false;
       }
 
       match /notifications/{notificationId} {
-        allow get, list: if isWorkspaceManager(workspaceId);
+        allow get, list: if isWorkspaceManager(workspaceId)
+          || (isApprovedWorker(workspaceId)
+              && resource.data.recipientId == request.auth.uid);
         allow create: if isWorkspaceScopedManagerWrite(workspaceId);
-        allow update, delete: if false;
+        allow update: if isApprovedWorker(workspaceId)
+          && resource.data.recipientId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt']);
+        allow delete: if false;
       }
 
       match /payStatements/{statementId} {
@@ -904,7 +1010,7 @@ service cloud.firestore {
       }
 
       match /workRecords/{recordId} {
-        allow get, list: if isWorkspaceManager(workspaceId);
+        allow get, list: if isWorkspaceManager(workspaceId) || isApprovedWorker(workspaceId);
         allow update: if isWorkspaceManagerAfter(workspaceId)
           && isWorkRecordManagerAction();
         allow create, delete: if false;
@@ -924,6 +1030,20 @@ service cloud.firestore {
         allow update, delete: if false;
       }
 
+      match /attendanceLogs/{logId} {
+        allow get, list: if isWorkspaceManager(workspaceId) || isApprovedWorker(workspaceId);
+        allow create: if isApprovedWorker(workspaceId)
+          && isAttendanceLogCheckIn(workspaceId);
+        allow update: if isApprovedWorker(workspaceId)
+          && isAttendanceLogCheckOut();
+        allow delete: if false;
+      }
+
+      match /workerPayStatements/{statementId} {
+        allow get, list: if isWorkspaceManager(workspaceId) || isApprovedWorker(workspaceId);
+        allow create, update, delete: if false;
+      }
+
       match /notificationSettings/{settingsId} {
         allow get, list: if isWorkspaceManager(workspaceId);
         allow create: if isWorkspaceManagerAfter(workspaceId)
@@ -939,6 +1059,11 @@ service cloud.firestore {
         allow get, list: if isWorkspaceManager(workspaceId);
         allow create, update, delete: if false;
       }
+    }
+
+    // 조교가 자기 멤버십을 collectionGroup으로 조회 (myMemberships$).
+    match /{path=**}/memberships/{membershipId} {
+      allow read: if signedIn() && resource.data.workerId == request.auth.uid;
     }
 
     match /workspaceCodes/{code} {
