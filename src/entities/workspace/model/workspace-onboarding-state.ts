@@ -9,7 +9,6 @@ export const workspaceOnboardingStorageKeyPrefix =
   "wee.admin.workspaceStatus.v1";
 
 const anonymousWorkspaceUserId = "anonymous";
-const setupAllowedAdminPaths = ["/settings/locations", "/schedule/duties"];
 
 export function setActiveWorkspaceUser(userId: string) {
   getBrowserStorage()?.setItem(activeWorkspaceUserStorageKey, userId);
@@ -87,32 +86,16 @@ export function getPostLoginRedirectPath(
     return "/onboarding/workspace";
   }
 
-  if (status === "workspace-created") {
-    return "/onboarding/setup";
-  }
-
   return "/dashboard";
 }
 
 export function getAdminWorkspaceRedirectPath({
-  pathname,
   status,
 }: {
-  pathname: string;
   status: WorkspaceOnboardingStatus;
 }) {
   if (status === "missing") {
     return "/onboarding/workspace";
-  }
-
-  if (
-    status === "workspace-created" &&
-    !setupAllowedAdminPaths.some(
-      (allowedPath) =>
-        pathname === allowedPath || pathname.startsWith(`${allowedPath}/`),
-    )
-  ) {
-    return "/onboarding/setup";
   }
 
   return null;

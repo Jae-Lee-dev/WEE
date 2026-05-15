@@ -1,21 +1,20 @@
 "use client";
 
 import { useEffect, useSyncExternalStore, type ReactNode } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   getAdminWorkspaceRedirectPath,
   readWorkspaceOnboardingStatus,
 } from "@/entities/workspace";
 
 export function AdminWorkspaceGate({ children }: { children: ReactNode }) {
-  const pathname = usePathname() ?? "/";
   const router = useRouter();
   const status = useSyncExternalStore(
     subscribeWorkspaceStatus,
     readWorkspaceOnboardingStatus,
     getServerWorkspaceStatus,
   );
-  const redirectPath = getAdminWorkspaceRedirectPath({ pathname, status });
+  const redirectPath = getAdminWorkspaceRedirectPath({ status });
 
   useEffect(() => {
     if (redirectPath) {
