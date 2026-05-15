@@ -7,8 +7,18 @@ import { cn } from "@/shared/lib/utils";
 
 type Option<T extends string> = { value: T; label: string };
 
+type FilterTabTone = "green" | "orange" | "pink" | "blue" | "grey";
+
+const indicatorToneClassNames: Record<FilterTabTone, string> = {
+  green: "bg-green-400",
+  orange: "bg-orange-400",
+  pink: "bg-red-500",
+  blue: "bg-blue-500",
+  grey: "bg-gray-500",
+};
+
 type FilterTabsProps<T extends string> = {
-  options: Option<T>[];
+  options: (Option<T> & { tone?: FilterTabTone })[];
   value: T;
   onChange: (value: T) => void;
   className?: string;
@@ -22,6 +32,8 @@ function FilterTabs<T extends string>({
 }: FilterTabsProps<T>) {
   const { indicatorStyle, itemStyles, listRef, slidingTabValueAttribute } =
     useSlidingTabIndicator({ options, value });
+  const selectedTone =
+    options.find((option) => option.value === value)?.tone ?? "green";
 
   return (
     <Tabs value={value} onValueChange={(next) => onChange(next as T)}>
@@ -36,7 +48,8 @@ function FilterTabs<T extends string>({
         <span
           aria-hidden="true"
           className={cn(
-            "pointer-events-none absolute left-0 top-1 bottom-1 z-0 rounded-full bg-green-400 shadow-sm transition-opacity duration-150 ease-out",
+            "pointer-events-none absolute left-0 top-1 bottom-1 z-0 rounded-full shadow-sm transition-colors duration-150 ease-out",
+            indicatorToneClassNames[selectedTone],
             indicatorStyle ? "opacity-100" : "opacity-0",
           )}
           style={{
@@ -66,4 +79,4 @@ function FilterTabs<T extends string>({
   );
 }
 
-export { FilterTabs };
+export { FilterTabs, type FilterTabTone };
