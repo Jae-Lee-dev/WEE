@@ -282,6 +282,31 @@ test(`DUT-01 edit-basic-dialog ${desktop}`, async ({ page }) => {
   });
 });
 
+test("DUT-01 edits duty tags with tag picker", async ({ page }) => {
+  await prepareVisualPage({ page, path: routePath, viewport: desktop });
+  await page.evaluate(() => document.fonts.ready);
+  await page.getByRole("button", { name: /화학 G반/ }).first().click();
+  await page.getByRole("button", { name: "기본 정보 수정" }).click();
+
+  const dialog = page.getByTestId("duty-list-edit-basic-dialog");
+  const tagInput = dialog.getByRole("combobox", {
+    name: "근무 태그 (복수 가능)",
+  });
+
+  await expect(tagInput).toBeVisible();
+  await dialog.getByRole("button", { name: "논술 태그 제거" }).click();
+  await tagInput.fill("질문");
+  await page.getByRole("option", { name: "질문" }).click();
+  await expect(
+    dialog.getByRole("button", { name: "질문 태그 제거" }),
+  ).toBeVisible();
+
+  await dialog.getByRole("button", { name: "변경사항 저장" }).click();
+
+  await expect(dialog).toBeHidden();
+  await expect(page.getByTestId("duty-detail-panel")).toContainText("질문");
+});
+
 test(`DUT-01 edit-time-dialog ${desktop}`, async ({ page }) => {
   await prepareVisualPage({ page, path: routePath, viewport: desktop });
   await page.evaluate(() => document.fonts.ready);

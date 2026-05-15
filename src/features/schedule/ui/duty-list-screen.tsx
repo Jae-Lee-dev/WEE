@@ -363,6 +363,7 @@ export function DutyListScreen({
           locations={locations}
           selectedDuty={selectedDuty}
           saving={saving}
+          tagOptions={dutyTagPickerOptions}
           onClose={() => {
             if (!saving) {
               setDialog(null);
@@ -1167,20 +1168,27 @@ function EditBasicDialog({
   onUpdateDuty,
   saving,
   selectedDuty,
+  tagOptions,
 }: {
   locations: readonly DutyLocationOption[];
   onClose: () => void;
   onUpdateDuty: (input: UpdateDutyInput) => Promise<void>;
   saving: boolean;
   selectedDuty?: DutyListRow;
+  tagOptions: readonly TagSearchPickerOption[];
 }) {
   const fixture = dutyEditBasicDialog;
   const effectiveLocations = getLocationsForDuty(locations, selectedDuty);
   const [form, setForm] = useState<DutyFormState>(() =>
     createDutyFormFromRow(selectedDuty, effectiveLocations),
   );
+  const [tagInputValue, setTagInputValue] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const errors = getDutyFormErrors(form, effectiveLocations);
+  const selectedTagValues = useMemo(
+    () => parseDutyTagValues(form.tagText),
+    [form.tagText],
+  );
 
   if (!selectedDuty) {
     return null;
@@ -1190,12 +1198,20 @@ function EditBasicDialog({
     event.preventDefault();
     setSubmitted(true);
 
-    if (hasDutyFormErrors(errors)) {
+    const submitForm = commitPendingDutyTagInput(form, tagInputValue);
+    const submitErrors = getDutyFormErrors(submitForm, effectiveLocations);
+
+    if (submitForm.tagText !== form.tagText) {
+      setForm(submitForm);
+      setTagInputValue("");
+    }
+
+    if (hasDutyFormErrors(submitErrors)) {
       return;
     }
 
     void onUpdateDuty({
-      ...toCreateDutyInput(form, effectiveLocations),
+      ...toCreateDutyInput(submitForm, effectiveLocations),
       applyToSchedules: true,
       id: selectedDuty.id,
     });
@@ -1227,14 +1243,19 @@ function EditBasicDialog({
             }
             value={form.name}
           />
-          <CreateDutyTextField
+          <CreateDutyTagField
             disabled={saving}
             field={dutyCreateDialog.tagSearchField}
-            name="tagText"
-            onChange={(event) =>
-              setForm((current) => ({ ...current, tagText: event.target.value }))
+            inputValue={tagInputValue}
+            onInputValueChange={setTagInputValue}
+            onValueChange={(value) =>
+              setForm((current) => ({
+                ...current,
+                tagText: formatDutyTagValues(value),
+              }))
             }
-            value={form.tagText}
+            options={tagOptions}
+            value={selectedTagValues}
           />
           <WeekdayPicker
             error={submitted ? errors.weekday : undefined}
