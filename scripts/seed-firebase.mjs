@@ -1853,12 +1853,12 @@ function createOvertimeWorks(workspaceId, managerUid, workRecords, attendanceLog
     },
     {
       id: "ot_jung_20260429_held",
-      amount: 12000,
+      amount: null,
       attendanceLogId: "att_ot_jung_20260429_night_questions",
       extraEndIso: "2026-04-29T22:45:00+09:00",
       extraStartIso: "2026-04-29T22:00:00+09:00",
       payrollEffect: "hold",
-      payrollPayMode: "fixed",
+      payrollPayMode: null,
       payrollStatus: "held",
       reason: "야간 질의응답 연장",
       status: "approved",
@@ -1867,12 +1867,12 @@ function createOvertimeWorks(workspaceId, managerUid, workRecords, attendanceLog
     },
     {
       id: "ot_lee_20260429_held",
-      amount: 7000,
+      amount: null,
       attendanceLogId: "att_ot_lee_20260429_admin_late",
       extraEndIso: "2026-04-29T18:35:00+09:00",
       extraStartIso: "2026-04-29T18:00:00+09:00",
       payrollEffect: "hold",
-      payrollPayMode: "fixed",
+      payrollPayMode: null,
       payrollStatus: "held",
       reason: "월말 출결 자료 보정",
       status: "approved",
@@ -1881,12 +1881,12 @@ function createOvertimeWorks(workspaceId, managerUid, workRecords, attendanceLog
     },
     {
       id: "ot_park_20260430_held",
-      amount: 9000,
+      amount: null,
       attendanceLogId: "att_ot_park_20260430_parent_brief",
       extraEndIso: "2026-04-30T18:40:00+09:00",
       extraStartIso: "2026-04-30T18:00:00+09:00",
       payrollEffect: "hold",
-      payrollPayMode: "fixed",
+      payrollPayMode: null,
       payrollStatus: "held",
       reason: "학부모 상담 내용 정리",
       status: "approved",
@@ -3143,6 +3143,15 @@ function validateSeedPlan(writes) {
 
     if (!work.extraStartAt || !work.extraEndAt || millis(work.extraEndAt) <= millis(work.extraStartAt)) {
       throw new Error(`overtimeWork ${work.id} has an invalid extra time range.`);
+    }
+
+    if (
+      work.payrollStatus === "held" &&
+      (work.amount != null || work.fixedAmount != null || work.payrollPayMode != null)
+    ) {
+      throw new Error(
+        `held overtimeWork ${work.id} must not specify amount, fixedAmount, or payrollPayMode.`,
+      );
     }
   }
 
