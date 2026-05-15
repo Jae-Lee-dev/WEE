@@ -32,6 +32,10 @@ import {
 } from "@/shared/ui/dialog";
 import { Input } from "@/shared/ui/input";
 import { OptionSelect, type SelectOption } from "@/shared/ui/select";
+import {
+  TagSearchPicker,
+  type TagSearchPickerOption,
+} from "@/shared/ui/tag-search-picker";
 import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
@@ -185,6 +189,10 @@ export function DutyListScreen({
   useWeeErrorToast(errorMessage, { title: "요청 실패" });
   const selectedDuty = duties.find((duty) => duty.id === selectedDutyId);
   const filterOptions = useMemo(() => createDutyFilterOptions(duties), [duties]);
+  const dutyTagPickerOptions = useMemo(
+    () => createDutyTagPickerOptions(duties),
+    [duties],
+  );
   const filteredDuties = useMemo(
     () => filterDuties(duties, filterOptions, selectedFilters),
     [duties, filterOptions, selectedFilters],
@@ -347,6 +355,7 @@ export function DutyListScreen({
           }}
           onCreateDuty={handleCreateDuty}
           saving={saving}
+          tagOptions={dutyTagPickerOptions}
         />
       ) : null}
       {dialog === "edit-basic" ? (
@@ -995,16 +1004,23 @@ function CreateDutyDialog({
   onClose,
   onCreateDuty,
   saving,
+  tagOptions,
 }: {
   locations: readonly DutyLocationOption[];
   onClose: () => void;
   onCreateDuty: (input: CreateDutyInput) => Promise<void>;
   saving: boolean;
+  tagOptions: readonly TagSearchPickerOption[];
 }) {
   const fixture = dutyCreateDialog;
   const [form, setForm] = useState<DutyFormState>(initialDutyForm);
+  const [tagInputValue, setTagInputValue] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const errors = getDutyFormErrors(form, locations);
+  const selectedTagValues = useMemo(
+    () => parseDutyTagValues(form.tagText),
+    [form.tagText],
+  );
 
   const setDutyFormValue = (field: DutyFormField, value: string) => {
     setForm((current) => {
@@ -1039,11 +1055,19 @@ function CreateDutyDialog({
     event.preventDefault();
     setSubmitted(true);
 
-    if (hasDutyFormErrors(errors)) {
+    const submitForm = commitPendingDutyTagInput(form, tagInputValue);
+    const submitErrors = getDutyFormErrors(submitForm, locations);
+
+    if (submitForm.tagText !== form.tagText) {
+      setForm(submitForm);
+      setTagInputValue("");
+    }
+
+    if (hasDutyFormErrors(submitErrors)) {
       return;
     }
 
-    void onCreateDuty(toCreateDutyInput(form, locations));
+    void onCreateDuty(toCreateDutyInput(submitForm, locations));
   };
 
   return (
@@ -1085,12 +1109,16 @@ function CreateDutyDialog({
                 value={form.name}
                 disabled={saving}
               />
-              <CreateDutyTextField
-                field={fixture.tagSearchField}
-                name="tagText"
-                onChange={handleFieldChange("tagText")}
-                value={form.tagText}
+              <CreateDutyTagField
                 disabled={saving}
+                field={fixture.tagSearchField}
+                inputValue={tagInputValue}
+                onInputValueChange={setTagInputValue}
+                onValueChange={(value) =>
+                  setDutyFormValue("tagText", formatDutyTagValues(value))
+                }
+                options={tagOptions}
+                value={selectedTagValues}
               />
               <CreateDutyLocationField
                 error={submitted ? errors.locationId : undefined}
@@ -1412,6 +1440,62 @@ function CreateDutyTextField({
         </p>
       ) : null}
     </label>
+  );
+}
+
+function CreateDutyTagField({
+  disabled,
+  field,
+  inputValue,
+  onInputValueChange,
+  onValueChange,
+  options,
+  value,
+}: {
+  disabled: boolean;
+  field: DutyDialogField;
+  inputValue: string;
+  onInputValueChange: (value: string) => void;
+  onValueChange: (value: readonly string[]) => void;
+  options: readonly TagSearchPickerOption[];
+  value: readonly string[];
+}) {
+  const inputId = "duty-create-tagText";
+
+  return (
+    <div>
+      <label
+        htmlFor={inputId}
+        className="text-h-18-semibold tracking-normal text-gray-900"
+      >
+        {field.label}
+      </label>
+      <TagSearchPicker
+        allowCreate
+        closeOnSelect
+        className="mt-3"
+        createLabel={(query) => (
+          <>
+            새 태그 <span className="font-semibold text-gray-900">{query}</span>
+            <span> 선택</span>
+          </>
+        )}
+        data-testid="duty-create-tag-picker"
+        disabled={disabled}
+        emptyMessage="일치하는 근무 태그가 없습니다."
+        inputAriaLabel={field.label}
+        inputId={inputId}
+        inputValue={inputValue}
+        listboxClassName="z-[70]"
+        onCreateOption={(label) => createDutyTagPickerOption(label)}
+        onInputValueChange={onInputValueChange}
+        onValueChange={(nextValue) => onValueChange(nextValue)}
+        options={options}
+        placeholder={field.placeholder}
+        triggerClassName="min-h-11 rounded-[8px] border-gray-200 bg-gray-50 px-4"
+        value={value}
+      />
+    </div>
   );
 }
 
@@ -1845,6 +1929,76 @@ function parseDutyWeekday(value: string): DutyWeekday | "" {
     first === "일"
     ? first
     : "";
+}
+
+function createDutyTagPickerOptions(
+  duties: readonly DutyListRow[],
+): readonly TagSearchPickerOption[] {
+  const optionMap = new Map<string, TagSearchPickerOption>();
+
+  duties.forEach((duty) => {
+    duty.tags.forEach((tag) => {
+      const option = createDutyTagPickerOption(tag.label);
+
+      if (!optionMap.has(option.value)) {
+        optionMap.set(option.value, option);
+      }
+    });
+  });
+
+  return Array.from(optionMap.values()).sort((left, right) =>
+    left.label.localeCompare(right.label, "ko-KR"),
+  );
+}
+
+function commitPendingDutyTagInput(
+  form: DutyFormState,
+  inputValue: string,
+): DutyFormState {
+  const tags = mergeDutyTagValues([
+    ...parseDutyTagValues(form.tagText),
+    inputValue,
+  ]);
+
+  return {
+    ...form,
+    tagText: formatDutyTagValues(tags),
+  };
+}
+
+function parseDutyTagValues(value: string): readonly string[] {
+  return mergeDutyTagValues(value.split(","));
+}
+
+function formatDutyTagValues(values: readonly string[]) {
+  return mergeDutyTagValues(values).join(", ");
+}
+
+function mergeDutyTagValues(values: readonly string[]): readonly string[] {
+  const tagMap = new Map<string, string>();
+
+  values.forEach((value) => {
+    const label = normalizeDutyTagLabel(value);
+
+    if (label) {
+      tagMap.set(label.toLocaleLowerCase("ko-KR"), label);
+    }
+  });
+
+  return Array.from(tagMap.values()).slice(0, 4);
+}
+
+function createDutyTagPickerOption(label: string): TagSearchPickerOption {
+  const normalizedLabel = normalizeDutyTagLabel(label);
+
+  return {
+    label: normalizedLabel,
+    value: normalizedLabel,
+  };
+}
+
+function normalizeDutyTagLabel(value: string) {
+  return value.trim().replace(/\s+/g, " ");
 }
 
 function getDutyTimelineToneClassName(tone: DutyTone) {
