@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
+import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
   WorkerDetailSubsection,
@@ -73,6 +74,7 @@ export function WorkerDetailScheduleScreen({
   );
   const [loading, setLoading] = useState(!dataSource.initialData);
   const [errorMessage, setErrorMessage] = useState("");
+  useWeeErrorToast(errorMessage);
 
   useEffect(() => {
     if (dataSource.initialData) {
@@ -109,22 +111,19 @@ export function WorkerDetailScheduleScreen({
 
   return (
     <>
-      {errorMessage ? (
-        <div
-          className="rounded-[8px] border border-red-100 bg-red-50 px-4 py-2.5 text-body-14-medium tracking-normal text-red-500"
-          role="alert"
-        >
-          {errorMessage}
-        </div>
-      ) : null}
       <div
         className="grid grid-cols-[minmax(0,1fr)_360px] gap-4"
         data-testid="worker-detail-schedule-screen"
       >
         <ScheduleGrid blocks={viewModel.blocks} />
-        <ScheduleHistoryPanel history={viewModel.history} loading={loading} />
+        <ScheduleHistoryPanel
+          errorMessage={errorMessage}
+          history={viewModel.history}
+          loading={loading}
+        />
       </div>
       <RecentWorkRecords
+        errorMessage={errorMessage}
         loading={loading}
         profileName={viewModel.profile.name}
         records={viewModel.recentRecords}
@@ -236,9 +235,11 @@ function ScheduleBlock({ block }: { block: WorkerDetailScheduleBlock }) {
 }
 
 function ScheduleHistoryPanel({
+  errorMessage,
   history,
   loading,
 }: {
+  errorMessage: string;
   history: readonly WorkerDetailScheduleHistory[];
   loading: boolean;
 }) {
@@ -253,6 +254,8 @@ function ScheduleHistoryPanel({
       <div className="flex flex-col gap-3">
         {loading ? (
           <PanelState>시간표 이력을 불러오는 중입니다.</PanelState>
+        ) : errorMessage ? (
+          <PanelState>시간표 이력을 표시할 수 없습니다.</PanelState>
         ) : history.length > 0 ? (
           history.map((item) => (
             <ScheduleHistoryCard item={item} key={item.id} />
@@ -318,11 +321,13 @@ function ScheduleHistoryCard({
 }
 
 function RecentWorkRecords({
+  errorMessage,
   loading,
   profileName,
   records,
   workerId,
 }: {
+  errorMessage: string;
   loading: boolean;
   profileName: string;
   records: readonly WorkerDetailWorkRecord[];
@@ -372,6 +377,8 @@ function RecentWorkRecords({
       <div role="rowgroup">
         {loading ? (
           <PanelState>최근 근무 기록을 불러오는 중입니다.</PanelState>
+        ) : errorMessage ? (
+          <PanelState>최근 근무 기록을 표시할 수 없습니다.</PanelState>
         ) : records.length > 0 ? (
           records.map((record) => (
             <RecentWorkRecordRow key={record.id} record={record} />

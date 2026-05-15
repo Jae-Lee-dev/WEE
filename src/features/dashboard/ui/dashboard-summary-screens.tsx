@@ -6,6 +6,7 @@ import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { TrendChartCard } from "@/shared/ui/trend-chart";
 import { SearchField } from "@/shared/ui/search-field";
+import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
   createDashboardAiMonitoringDataSource,
@@ -66,6 +67,7 @@ export function DashboardLocationsScreen() {
   );
   const [loading, setLoading] = useState(dataSource.mode !== "fixture");
   const [errorMessage, setErrorMessage] = useState("");
+  useWeeErrorToast(errorMessage);
   const summary =
     viewModel.summaries[locationId]?.[periodId] ?? emptyLocationSummary;
   const rows = viewModel.rowsByLocationPeriod[locationId]?.[periodId] ?? [];
@@ -195,7 +197,7 @@ export function DashboardLocationsScreen() {
       {loading ? (
         <DashboardSectionState label="근무지별 대시보드를 불러오는 중입니다." />
       ) : errorMessage ? (
-        <DashboardSectionState label={errorMessage} role="alert" />
+        <DashboardSectionState label="근무지별 대시보드를 표시할 수 없습니다." />
       ) : (
         <>
           <OperationalMetricGrid metrics={metrics} />
@@ -219,6 +221,7 @@ export function DashboardWorkersScreen() {
   );
   const [loading, setLoading] = useState(dataSource.mode !== "fixture");
   const [errorMessage, setErrorMessage] = useState("");
+  useWeeErrorToast(errorMessage);
 
   useEffect(() => {
     let active = true;
@@ -323,7 +326,7 @@ export function DashboardWorkersScreen() {
       {loading ? (
         <DashboardSectionState label="근무자별 대시보드를 불러오는 중입니다." />
       ) : errorMessage ? (
-        <DashboardSectionState label={errorMessage} role="alert" />
+        <DashboardSectionState label="근무자별 대시보드를 표시할 수 없습니다." />
       ) : (
         <div className="grid min-h-0 flex-1 grid-cols-[232px_minmax(0,1fr)] gap-4 overflow-hidden">
           <WorkerSelectorPanel
@@ -365,6 +368,7 @@ export function DashboardAiMonitoringScreen({
     );
   const [loading, setLoading] = useState(dataSource.mode !== "fixture");
   const [errorMessage, setErrorMessage] = useState("");
+  useWeeErrorToast(errorMessage);
 
   useEffect(() => {
     let active = true;
@@ -406,7 +410,7 @@ export function DashboardAiMonitoringScreen({
       {loading ? (
         <DashboardSectionState label="AI 모니터링 데이터를 불러오는 중입니다." />
       ) : errorMessage ? (
-        <DashboardSectionState label={errorMessage} role="alert" />
+        <DashboardSectionState label="AI 모니터링 데이터를 표시할 수 없습니다." />
       ) : (
         <OperationalMetricGrid metrics={viewModel.metrics} />
       )}

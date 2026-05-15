@@ -32,6 +32,7 @@ import {
 } from "@/shared/ui/dialog";
 import { Input } from "@/shared/ui/input";
 import { SearchField } from "@/shared/ui/search-field";
+import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import {
   createSettingsLocationsDataSource,
   type SettingsLocationsDataSource,
@@ -103,6 +104,7 @@ export function SettingsLocationsScreen({
   const [deleting, setDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+  useWeeErrorToast(errorMessage, { title: "요청 실패" });
 
   useEffect(() => {
     let active = true;
@@ -200,13 +202,6 @@ export function SettingsLocationsScreen({
             role="status"
           >
             {statusMessage}
-          </div>
-        ) : errorMessage ? (
-          <div
-            className="min-h-9 rounded-[8px] border border-red-100 bg-red-50 px-4 py-2.5 text-body-14-medium tracking-normal text-red-500"
-            role="alert"
-          >
-            {errorMessage}
           </div>
         ) : null}
         <Button

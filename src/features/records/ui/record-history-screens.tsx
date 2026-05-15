@@ -9,6 +9,7 @@ import {
 } from "react";
 import { Badge } from "@/shared/ui/badge";
 import { OptionSelect } from "@/shared/ui/select";
+import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
   createRecordsDataSource,
@@ -330,6 +331,8 @@ function HistoryScreenShell({
   left: ReactNode;
   right: ReactNode;
 }) {
+  useWeeErrorToast(errorMessage);
+
   return (
     <section
       aria-label="근무 기록 이력"
@@ -343,29 +346,32 @@ function HistoryScreenShell({
       />
 
       {loading || errorMessage ? (
-        <div
-          className={cn(
-            "flex min-h-9 items-center rounded-[8px] border px-4 py-2.5 text-body-14-medium tracking-normal",
-            errorMessage
-              ? "border-red-100 bg-red-50 text-red-500"
-              : "border-green-100 bg-green-50 text-green-500",
-          )}
-          role={errorMessage ? "alert" : "status"}
-        >
-          {errorMessage || loadingMessage}
+        <HistoryContentState
+          label={loading ? loadingMessage : "이력을 표시할 수 없습니다."}
+        />
+      ) : (
+        <div className="grid min-h-[680px] grid-cols-[minmax(0,1fr)_320px] gap-4">
+          <section className="min-w-0 overflow-hidden rounded-[8px] bg-white px-4 py-4">
+            <MetricCards metrics={metrics} />
+            <div className="mt-7">{left}</div>
+          </section>
+          <aside className="overflow-hidden rounded-[8px] border border-gray-300 bg-white">
+            {right}
+          </aside>
         </div>
-      ) : null}
-
-      <div className="grid min-h-[680px] grid-cols-[minmax(0,1fr)_320px] gap-4">
-        <section className="min-w-0 overflow-hidden rounded-[8px] bg-white px-4 py-4">
-          <MetricCards metrics={metrics} />
-          <div className="mt-7">{left}</div>
-        </section>
-        <aside className="overflow-hidden rounded-[8px] border border-gray-300 bg-white">
-          {right}
-        </aside>
-      </div>
+      )}
     </section>
+  );
+}
+
+function HistoryContentState({ label }: { label: string }) {
+  return (
+    <div
+      className="flex min-h-[680px] items-center justify-center rounded-[8px] bg-white px-4 text-center text-h-18-regular tracking-normal text-gray-500"
+      role="status"
+    >
+      {label}
+    </div>
   );
 }
 

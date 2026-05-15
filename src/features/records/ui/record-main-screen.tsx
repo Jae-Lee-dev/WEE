@@ -20,7 +20,7 @@ import {
 import { Input } from "@/shared/ui/input";
 import { Segment } from "@/shared/ui/segment";
 import { OptionSelect, type SelectOption } from "@/shared/ui/select";
-import { useWeeToast } from "@/shared/ui/wee-toast";
+import { useWeeErrorToast, useWeeToast } from "@/shared/ui/wee-toast";
 import {
   getTimelineBlockHeight,
   getTimelineLaneTop,
@@ -158,6 +158,7 @@ export function RecordMainScreen({
   const [recordActionSaving, setRecordActionSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const weeToast = useWeeToast();
+  useWeeErrorToast(errorMessage);
   const activeWeekStartKey =
     selectedWeekStartKey ??
     viewModel.initialWeekStartKey ??
@@ -416,15 +417,6 @@ export function RecordMainScreen({
       data-record-main-state={selectedState.id}
       data-testid="record-main-screen"
     >
-      {errorMessage ? (
-        <div
-          className="mb-3 flex min-h-9 items-center rounded-[8px] border border-red-100 bg-red-50 px-4 py-2.5 text-body-14-medium tracking-normal text-red-500"
-          role="alert"
-        >
-          {errorMessage}
-        </div>
-      ) : null}
-
       <RecordToolbar
         canGoNext={
           viewModel.timeline.weekNavigation && activeWeekStartKey

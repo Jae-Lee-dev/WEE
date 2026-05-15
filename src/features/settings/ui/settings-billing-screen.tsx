@@ -4,6 +4,7 @@ import { Check, UserPlus, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Button } from "@/shared/ui/button";
+import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import { createSettingsSupportDataSource } from "../api/settings-support-data-source";
 import {
@@ -19,8 +20,11 @@ export function SettingsBillingScreen() {
     useState<SettingsBillingFixture>(settingsBillingFixture);
   const [loading, setLoading] = useState(dataSource.mode !== "fixture");
   const [saving, setSaving] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [loadErrorMessage, setLoadErrorMessage] = useState("");
+  const [actionErrorMessage, setActionErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+  useWeeErrorToast(loadErrorMessage);
+  useWeeErrorToast(actionErrorMessage, { title: "처리 실패" });
 
   useEffect(() => {
     let cancelled = false;
@@ -30,13 +34,13 @@ export function SettingsBillingScreen() {
       .then((nextFixture) => {
         if (!cancelled) {
           setFixture(nextFixture);
-          setErrorMessage("");
+          setLoadErrorMessage("");
           setLoading(false);
         }
       })
       .catch((error: unknown) => {
         if (!cancelled) {
-          setErrorMessage(
+          setLoadErrorMessage(
             error instanceof Error
               ? error.message
               : "요금제 정보를 불러오지 못했습니다.",
@@ -56,24 +60,22 @@ export function SettingsBillingScreen() {
       className="mx-auto flex w-full max-w-[1480px] flex-col gap-4 tracking-normal"
       data-testid="settings-billing-screen"
     >
-      {loading || errorMessage ? (
+      {loading || loadErrorMessage ? (
         <SettingsBillingState
-          label={errorMessage || "요금제 정보를 불러오는 중입니다."}
-          role={errorMessage ? "alert" : "status"}
+          label={
+            loading
+              ? "요금제 정보를 불러오는 중입니다."
+              : "요금제 정보를 표시할 수 없습니다."
+          }
         />
       ) : (
         <>
-          {statusMessage || errorMessage ? (
+          {statusMessage ? (
             <div
-              className={cn(
-                "rounded-[8px] border px-4 py-2.5 text-body-14-medium",
-                statusMessage
-                  ? "border-green-100 bg-green-50 text-green-500"
-                  : "border-red-100 bg-red-50 text-red-500",
-              )}
-              role={statusMessage ? "status" : "alert"}
+              className="rounded-[8px] border border-green-100 bg-green-50 px-4 py-2.5 text-body-14-medium text-green-500"
+              role="status"
             >
-              {statusMessage || errorMessage}
+              {statusMessage}
             </div>
           ) : null}
           <div className="grid grid-cols-2 gap-4">
@@ -84,7 +86,7 @@ export function SettingsBillingScreen() {
                 saving={saving}
                 onSelectPlan={(planId) => {
                   setSaving(true);
-                  setErrorMessage("");
+                  setActionErrorMessage("");
                   setStatusMessage("");
 
                   void dataSource
@@ -94,7 +96,7 @@ export function SettingsBillingScreen() {
                       setStatusMessage("요금제를 변경했습니다.");
                     })
                     .catch(() => {
-                      setErrorMessage("요금제를 변경하지 못했습니다.");
+                      setActionErrorMessage("요금제를 변경하지 못했습니다.");
                     })
                     .finally(() => setSaving(false));
                 }}
@@ -107,7 +109,7 @@ export function SettingsBillingScreen() {
               disabled={saving}
               onClick={() => {
                 setSaving(true);
-                setErrorMessage("");
+                setActionErrorMessage("");
                 setStatusMessage("");
 
                 void dataSource
@@ -117,7 +119,7 @@ export function SettingsBillingScreen() {
                     setStatusMessage("구독을 취소하고 Starter로 전환했습니다.");
                   })
                   .catch(() => {
-                    setErrorMessage("구독을 취소하지 못했습니다.");
+                    setActionErrorMessage("구독을 취소하지 못했습니다.");
                   })
                   .finally(() => setSaving(false));
               }}
@@ -134,15 +136,13 @@ export function SettingsBillingScreen() {
 
 function SettingsBillingState({
   label,
-  role,
 }: {
   label: string;
-  role: "alert" | "status";
 }) {
   return (
     <div
       className="flex min-h-[420px] items-center justify-center rounded-[8px] bg-white px-4 text-center text-h-18-regular text-gray-500"
-      role={role}
+      role="status"
     >
       {label}
     </div>

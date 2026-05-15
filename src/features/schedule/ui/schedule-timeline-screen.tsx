@@ -10,6 +10,7 @@ import {
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { IconCheck, IconChevronDown } from "@/shared/ui/icons";
+import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
   createScheduleTimelineDataSource,
@@ -114,6 +115,7 @@ export function ScheduleTimelineScreen({
   );
   const [loading, setLoading] = useState(!dataSource.initialData);
   const [errorMessage, setErrorMessage] = useState("");
+  useWeeErrorToast(errorMessage);
   const filteredViewModel = useMemo(
     () => filterScheduleTimelineViewModel(viewModel, selectedFilters),
     [selectedFilters, viewModel],
@@ -171,20 +173,6 @@ export function ScheduleTimelineScreen({
         selectedWorkerContext ? "worker-selected" : "default"
       }
     >
-      {loading || errorMessage ? (
-        <div
-          className={cn(
-            "mb-3 flex min-h-9 items-center rounded-[8px] border px-4 py-2.5 text-body-14-medium tracking-normal",
-            errorMessage
-              ? "border-red-100 bg-red-50 text-red-500"
-              : "border-gray-200 bg-white text-gray-600",
-          )}
-          role="status"
-        >
-          {errorMessage || "시간표를 불러오는 중입니다."}
-        </div>
-      ) : null}
-
       <Toolbar
         filters={viewModel.filters}
         openFilter={openFilter}
@@ -203,19 +191,40 @@ export function ScheduleTimelineScreen({
         }}
       />
 
-      <div className="mt-4 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_320px] gap-4">
-        <TimelineGrid
-          blocks={timelineBlocks}
-          selectedBlockIds={selectedBlockIds}
-          workerContexts={filteredViewModel.workerContexts}
-          onWorkerSelect={(workerId) => {
-            setSelectedWorkerId(workerId);
-            setOpenFilter(null);
-          }}
+      {loading || errorMessage ? (
+        <TimelineContentState
+          label={
+            loading
+              ? "시간표를 불러오는 중입니다."
+              : "시간표를 표시할 수 없습니다."
+          }
         />
-        <WorkerDetailPanel selectedContext={selectedWorkerContext} />
-      </div>
+      ) : (
+        <div className="mt-4 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_320px] gap-4">
+          <TimelineGrid
+            blocks={timelineBlocks}
+            selectedBlockIds={selectedBlockIds}
+            workerContexts={filteredViewModel.workerContexts}
+            onWorkerSelect={(workerId) => {
+              setSelectedWorkerId(workerId);
+              setOpenFilter(null);
+            }}
+          />
+          <WorkerDetailPanel selectedContext={selectedWorkerContext} />
+        </div>
+      )}
     </section>
+  );
+}
+
+function TimelineContentState({ label }: { label: string }) {
+  return (
+    <div
+      className="mt-4 flex min-h-0 flex-1 items-center justify-center rounded-[8px] bg-white px-4 text-center text-h-18-regular tracking-normal text-gray-500"
+      role="status"
+    >
+      {label}
+    </div>
   );
 }
 

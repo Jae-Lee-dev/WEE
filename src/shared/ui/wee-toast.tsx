@@ -1,6 +1,11 @@
 "use client";
 
-import { useMemo, type ComponentPropsWithoutRef, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  type ComponentPropsWithoutRef,
+  type ReactNode,
+} from "react";
 import { toast, type ExternalToast } from "sonner";
 import { cn } from "@/shared/lib/utils";
 
@@ -30,6 +35,10 @@ type WeeToastOptions = WeeToastMessageOptions & {
 
 type WeeCompactToastOptions = {
   title: ReactNode;
+} & Pick<WeeToastBaseOptions, "duration" | "id" | "position" | "testId">;
+
+type WeeErrorToastOptions = {
+  title?: ReactNode;
 } & Pick<WeeToastBaseOptions, "duration" | "id" | "position" | "testId">;
 
 const WEE_COMPACT_TOAST_ID = "wee-compact-toast";
@@ -123,9 +132,44 @@ function useWeeToast() {
   );
 }
 
-export { showWeeCompactToast, showWeeToast, useWeeToast, WeeToastSurface };
+function useWeeErrorToast(
+  message: ReactNode | null | undefined,
+  {
+    duration,
+    id,
+    position,
+    title = "불러오기 실패",
+    testId = "wee-toast",
+  }: WeeErrorToastOptions = {},
+) {
+  const weeToast = useWeeToast();
+
+  useEffect(() => {
+    if (!message) {
+      return;
+    }
+
+    weeToast.error({
+      title,
+      description: message,
+      duration,
+      id,
+      position,
+      testId,
+    });
+  }, [duration, id, message, position, testId, title, weeToast]);
+}
+
+export {
+  showWeeCompactToast,
+  showWeeToast,
+  useWeeErrorToast,
+  useWeeToast,
+  WeeToastSurface,
+};
 export type {
   WeeCompactToastOptions,
+  WeeErrorToastOptions,
   WeeToastMessageOptions,
   WeeToastOptions,
   WeeToastTone,

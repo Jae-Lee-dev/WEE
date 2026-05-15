@@ -13,6 +13,7 @@ import { Input } from "@/shared/ui/input";
 import { OptionSelect, type SelectOption } from "@/shared/ui/select";
 import { IconCheck } from "@/shared/ui/icons";
 import { SearchField } from "@/shared/ui/search-field";
+import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
   createWorkerTagsDataSource,
@@ -83,6 +84,7 @@ export function WorkerTagsScreen({
   const [deleting, setDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+  useWeeErrorToast(errorMessage, { title: "요청 실패" });
   const [editingTag, setEditingTag] = useState<WorkerTagRow | "create" | null>(
     null,
   );
@@ -195,25 +197,18 @@ export function WorkerTagsScreen({
         </Button>
       </div>
 
-      {statusMessage || errorMessage ? (
+      {statusMessage ? (
         <div
-          className={cn(
-            "mt-4 min-h-9 rounded-[8px] border px-4 py-2.5 text-body-14-medium tracking-normal",
-            statusMessage
-              ? "border-green-100 bg-green-50 text-green-500"
-              : "border-red-100 bg-red-50 text-red-500",
-          )}
-          role={statusMessage ? "status" : "alert"}
+          className="mt-4 min-h-9 rounded-[8px] border border-green-100 bg-green-50 px-4 py-2.5 text-body-14-medium tracking-normal text-green-500"
+          role="status"
         >
-          {statusMessage || errorMessage}
+          {statusMessage}
         </div>
       ) : null}
 
       <div className="mt-5 flex flex-col gap-4">
         {loading ? (
           <WorkerTagState label="근무자 태그를 불러오는 중입니다." />
-        ) : errorMessage ? (
-          <WorkerTagState label={errorMessage} role="alert" />
         ) : rows.length > 0 ? (
           rows.map((tag, index) => (
             <WorkerTagCard
@@ -373,6 +368,7 @@ function WorkerTagEditDialog({
   const [debouncedSearchText, setDebouncedSearchText] = useState("");
   const [assignmentLoading, setAssignmentLoading] = useState(true);
   const [assignmentError, setAssignmentError] = useState("");
+  useWeeErrorToast(assignmentError);
   const normalizedSearchText = debouncedSearchText
     .trim()
     .toLocaleLowerCase("ko-KR");
@@ -526,7 +522,7 @@ function WorkerTagEditDialog({
           {assignmentLoading ? (
             <WorkerTagAssignmentState label="조교 목록을 불러오는 중입니다." />
           ) : assignmentError ? (
-            <WorkerTagAssignmentState label={assignmentError} role="alert" />
+            <WorkerTagAssignmentState label="조교 목록을 표시할 수 없습니다." />
           ) : visibleWorkers.length > 0 ? (
             visibleWorkers.map((worker) => {
               const checked = selectedWorkerIds.includes(worker.id);

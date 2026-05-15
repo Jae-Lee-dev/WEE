@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/shared/ui/badge";
+import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
   createRecordsDataSource,
@@ -46,6 +47,7 @@ export function RecordAttendanceScreen({
   );
   const [loading, setLoading] = useState(!fixtureMode);
   const [errorMessage, setErrorMessage] = useState("");
+  useWeeErrorToast(errorMessage);
 
   useEffect(() => {
     let active = true;
@@ -82,21 +84,9 @@ export function RecordAttendanceScreen({
       data-testid="record-attendance-screen"
     >
       <AttendanceFilters filters={viewModel.filters} />
-      {loading || errorMessage ? (
-        <div
-          className={cn(
-            "mt-3 flex min-h-9 items-center rounded-[8px] border px-4 py-2.5 text-body-14-medium tracking-normal",
-            errorMessage
-              ? "border-red-100 bg-red-50 text-red-500"
-              : "border-green-100 bg-green-50 text-green-500",
-          )}
-          role={errorMessage ? "alert" : "status"}
-        >
-          {errorMessage || "출퇴근 이력을 불러오는 중입니다."}
-        </div>
-      ) : null}
       <AttendanceTable
         columns={viewModel.columns}
+        errorMessage={errorMessage}
         loading={loading}
         rows={viewModel.rows}
       />
@@ -148,10 +138,12 @@ function AttendanceFilterButton({
 
 function AttendanceTable({
   columns,
+  errorMessage,
   loading,
   rows,
 }: {
   columns: AttendanceLogViewModel["columns"];
+  errorMessage: string;
   loading: boolean;
   rows: readonly AttendanceLogRow[];
 }) {
@@ -178,7 +170,11 @@ function AttendanceTable({
           rows.map((row) => <AttendanceTableRow key={row.id} row={row} />)
         ) : (
           <div className="flex h-40 items-center justify-center text-h-18-regular tracking-normal text-gray-400">
-            {loading ? "출퇴근 이력을 불러오는 중입니다." : "표시할 출퇴근 이력이 없습니다."}
+            {loading
+              ? "출퇴근 이력을 불러오는 중입니다."
+              : errorMessage
+                ? "출퇴근 이력을 표시할 수 없습니다."
+                : "표시할 출퇴근 이력이 없습니다."}
           </div>
         )}
       </div>

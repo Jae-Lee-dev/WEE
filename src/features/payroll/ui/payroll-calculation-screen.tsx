@@ -17,6 +17,7 @@ import {
 import { IconNotice } from "@/shared/ui/icons";
 import { Input } from "@/shared/ui/input";
 import { Segment } from "@/shared/ui/segment";
+import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
   createPayrollDataSource,
@@ -119,6 +120,7 @@ export function PayrollCalculationScreen({
     null,
   );
   const [savingAction, setSavingAction] = useState(false);
+  useWeeErrorToast(errorMessage);
 
   useEffect(() => {
     if (fixtureMode) {
@@ -292,19 +294,12 @@ export function PayrollCalculationScreen({
       data-testid="payroll-calculation-screen"
       data-payroll-calculation-state="default"
     >
-      {errorMessage ? (
-        <div
-          className="min-h-9 rounded-[8px] border border-red-100 bg-red-50 px-4 py-2.5 text-body-14-medium tracking-normal text-red-500"
-          role="alert"
-        >
-          {errorMessage}
-        </div>
-      ) : null}
       <PayrollListToolbar
         viewModel={viewModel}
         onExport={() => exportPayrollRows(viewModel)}
       />
       <PayrollListTable
+        errorMessage={errorMessage}
         loading={loading}
         onShowDetail={(rowId) => {
           setSelectedRowId(rowId);
@@ -378,12 +373,14 @@ function PayrollListToolbar({
 }
 
 function PayrollListTable({
+  errorMessage,
   loading,
   rows,
   selectedRowId,
   onShowDetail,
   viewModel,
 }: {
+  errorMessage: string;
   loading: boolean;
   rows: readonly PayrollCalculationRow[];
   selectedRowId: string;
@@ -411,6 +408,8 @@ function PayrollListTable({
 
       {loading ? (
         <PayrollTableState>급여 산정 목록을 불러오는 중입니다.</PayrollTableState>
+      ) : errorMessage ? (
+        <PayrollTableState>급여 산정 목록을 표시할 수 없습니다.</PayrollTableState>
       ) : rows.length > 0 ? (
         <div>
           {rows.map((row) => (
@@ -505,6 +504,10 @@ function PayrollDetailScreen({
   onShowBonusForm: () => void;
   onShowNoOpenItems: () => void;
 }) {
+  const actionErrorMessage =
+    status?.kind === "error" ? status.message : "";
+  useWeeErrorToast(actionErrorMessage, { title: "처리 실패" });
+
   return (
     <section
       aria-label={detail.headerTitle}
@@ -546,7 +549,9 @@ function PayrollDetailScreen({
         className="flex flex-1 flex-col gap-4 px-4 py-7"
         data-testid={`payroll-calculation-state-${detail.id}`}
       >
-        {status ? <PayrollActionStatusBanner status={status} /> : null}
+        {status?.kind === "success" ? (
+          <PayrollActionStatusBanner status={status} />
+        ) : null}
         <WorkerSummaryCard detail={detail} />
 
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(540px,1fr)_minmax(520px,1fr)]">
@@ -592,7 +597,7 @@ function PayrollActionStatusBanner({
           ? "border-green-100 bg-green-50 text-green-500"
           : "border-red-100 bg-red-50 text-red-500",
       )}
-      role="alert"
+      role="status"
     >
       {status.message}
     </div>

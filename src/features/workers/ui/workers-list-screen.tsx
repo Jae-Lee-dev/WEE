@@ -13,6 +13,7 @@ import { IconCheck, IconChevronDown, IconChevronUp } from "@/shared/ui/icons";
 import { FilterTabs } from "@/shared/ui/filter-tabs";
 import { Pagination } from "@/shared/ui/pagination";
 import { SearchField } from "@/shared/ui/search-field";
+import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
   createWorkerListDataSource,
@@ -71,6 +72,7 @@ export function WorkersListScreen({
   const [loading, setLoading] = useState(!dataSource.initialData);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  useWeeErrorToast(errorMessage);
   const rows = filterWorkerRows(listData.rowsByStatus[status], {
     searchQuery,
     selectedTagLabel,
@@ -182,7 +184,6 @@ export function WorkersListScreen({
       </div>
 
       <WorkerListTable
-        errorMessage={errorMessage}
         loading={loading}
         rows={pagedRows}
         currentPage={safeCurrentPage}
@@ -339,7 +340,6 @@ function filterWorkerRows(
 
 function WorkerListTable({
   currentPage,
-  errorMessage,
   lastUpdatedAt,
   loading,
   onPageChange,
@@ -353,7 +353,6 @@ function WorkerListTable({
   totalPages,
 }: {
   currentPage: number;
-  errorMessage: string;
   lastUpdatedAt: string;
   loading: boolean;
   onPageChange: (page: number) => void;
@@ -404,8 +403,6 @@ function WorkerListTable({
       >
         {loading ? (
           <WorkerListTableState label="조교 목록을 불러오는 중입니다." />
-        ) : errorMessage ? (
-          <WorkerListTableState label={errorMessage} role="alert" />
         ) : rows.length > 0 ? (
           rows.map((row) => <WorkerListRowItem key={row.id} row={row} />)
         ) : (

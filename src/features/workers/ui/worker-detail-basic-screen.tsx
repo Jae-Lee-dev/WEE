@@ -22,7 +22,7 @@ import {
   TagSearchPicker,
   type TagSearchPickerOption,
 } from "@/shared/ui/tag-search-picker";
-import { useWeeToast } from "@/shared/ui/wee-toast";
+import { useWeeErrorToast, useWeeToast } from "@/shared/ui/wee-toast";
 import type { ControlSize } from "@/shared/ui/control-size";
 import { cn } from "@/shared/lib/utils";
 import {
@@ -112,6 +112,7 @@ export function WorkerDetailBasicScreen({
   const [saving, setSaving] = useState(false);
   const [saveErrorMessage, setSaveErrorMessage] = useState("");
   const weeToast = useWeeToast();
+  useWeeErrorToast(loadError);
 
   useEffect(() => {
     let ignore = false;
@@ -174,14 +175,6 @@ export function WorkerDetailBasicScreen({
   return (
     <>
       <div data-testid="worker-detail-basic-screen">
-        {loadError ? (
-          <div
-            className="rounded-[8px] border border-red-100 bg-red-50 px-4 py-3 text-h-18-semibold text-red-500"
-            role="status"
-          >
-            {loadError}
-          </div>
-        ) : null}
         <div className="grid grid-cols-2 gap-4">
           <PersonalAccountCard
             bankbookDownloadUrl={detailData.bankbookDownloadUrl}

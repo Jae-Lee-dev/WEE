@@ -18,6 +18,7 @@ import {
   type TagSearchPickerOption,
 } from "@/shared/ui/tag-search-picker";
 import { Textarea } from "@/shared/ui/textarea";
+import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
   countWorkerApplicationRows,
@@ -62,6 +63,7 @@ export function WorkerApplicationsScreen({
   const [savingDecision, setSavingDecision] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+  useWeeErrorToast(errorMessage, { title: "요청 실패" });
 
   const selectedApplication = applicationData.rows.find(
     (row) => row.id === selectedApplicationId,
@@ -164,7 +166,6 @@ export function WorkerApplicationsScreen({
         </div>
       ) : null}
       <ApplicationList
-        errorMessage={errorMessage}
         loading={loading}
         rows={applicationData.rows}
         selectedApplicationId={selectedApplicationId}
@@ -172,7 +173,6 @@ export function WorkerApplicationsScreen({
       />
       <ApplicationDecisionPanel
         key={selectedApplication?.id ?? "empty"}
-        errorMessage={errorMessage}
         onApprove={(input) => {
           void handleApprove(input);
         }}
@@ -191,13 +191,11 @@ export function WorkerApplicationsScreen({
 }
 
 function ApplicationList({
-  errorMessage,
   loading,
   rows,
   selectedApplicationId,
   onSelect,
 }: {
-  errorMessage: string;
   loading: boolean;
   rows: readonly WorkerApplicationRow[];
   selectedApplicationId?: string;
@@ -225,8 +223,6 @@ function ApplicationList({
       <div>
         {loading ? (
           <ApplicationListState label="소속 신청 목록을 불러오는 중입니다." />
-        ) : errorMessage ? (
-          <ApplicationListState label={errorMessage} role="alert" />
         ) : rows.length > 0 ? (
           rows.map((row, index) => {
             const selected = row.id === selectedApplicationId;
@@ -288,7 +284,6 @@ function publishApplicationCount(rows: readonly WorkerApplicationRow[]) {
 }
 
 function ApplicationDecisionPanel({
-  errorMessage,
   onApprove,
   onReject,
   selectedApplication,
@@ -298,7 +293,6 @@ function ApplicationDecisionPanel({
   payKind,
   onSelectPayKind,
 }: {
-  errorMessage: string;
   onApprove: (input: ApproveWorkerApplicationInput) => void;
   onReject: (input: RejectWorkerApplicationInput) => void;
   selectedApplication: WorkerApplicationRow | undefined;
@@ -393,15 +387,12 @@ function ApplicationDecisionPanel({
             onSelectPayKind={onSelectPayKind}
             onSelectTaxKind={setTaxKind}
           />
-          {statusMessage || errorMessage ? (
+          {statusMessage ? (
             <p
-              className={cn(
-                "text-h-16-medium",
-                statusMessage ? "text-green-500" : "text-red-500",
-              )}
-              role={statusMessage ? "status" : "alert"}
+              className="text-h-16-medium text-green-500"
+              role="status"
             >
-              {statusMessage || errorMessage}
+              {statusMessage}
             </p>
           ) : null}
         </div>

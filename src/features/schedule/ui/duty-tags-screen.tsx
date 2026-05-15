@@ -13,6 +13,7 @@ import { Input } from "@/shared/ui/input";
 import { OptionSelect, type SelectOption } from "@/shared/ui/select";
 import { IconCheck } from "@/shared/ui/icons";
 import { SearchField } from "@/shared/ui/search-field";
+import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
   createDutyTagsDataSource,
@@ -82,6 +83,7 @@ export function DutyTagsScreen({
   const [deleting, setDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+  useWeeErrorToast(errorMessage, { title: "요청 실패" });
   const [editingTag, setEditingTag] = useState<DutyTagRow | "create" | null>(
     null,
   );
@@ -180,25 +182,18 @@ export function DutyTagsScreen({
         </Button>
       </div>
 
-      {statusMessage || errorMessage ? (
+      {statusMessage ? (
         <div
-          className={cn(
-            "mt-4 min-h-9 rounded-[8px] border px-4 py-2.5 text-body-14-medium tracking-normal",
-            statusMessage
-              ? "border-green-100 bg-green-50 text-green-500"
-              : "border-red-100 bg-red-50 text-red-500",
-          )}
-          role={statusMessage ? "status" : "alert"}
+          className="mt-4 min-h-9 rounded-[8px] border border-green-100 bg-green-50 px-4 py-2.5 text-body-14-medium tracking-normal text-green-500"
+          role="status"
         >
-          {statusMessage || errorMessage}
+          {statusMessage}
         </div>
       ) : null}
 
       <div className="mt-5 flex flex-col gap-4">
         {loading ? (
           <DutyTagState label="근무 태그를 불러오는 중입니다." />
-        ) : errorMessage ? (
-          <DutyTagState label={errorMessage} role="alert" />
         ) : tags.length > 0 ? (
           tags.map((tag, index) => (
             <DutyTagCard

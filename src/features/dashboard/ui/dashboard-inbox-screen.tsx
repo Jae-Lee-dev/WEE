@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/shared/ui/badge";
 import { IconCheck, IconChevronDown, IconChevronUp } from "@/shared/ui/icons";
 import { SearchField } from "@/shared/ui/search-field";
+import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import { createDashboardInboxDataSource } from "../api/dashboard-data-source";
 import {
@@ -55,6 +56,7 @@ export function DashboardScreen() {
   const [rowsByFilter, setRowsByFilter] = useState(dataSource.initialRows);
   const [loading, setLoading] = useState(dataSource.mode !== "fixture");
   const [errorMessage, setErrorMessage] = useState("");
+  useWeeErrorToast(errorMessage);
 
   useEffect(() => {
     let active = true;
@@ -136,7 +138,6 @@ export function DashboardScreen() {
 
       <InboxTable
         countLabel={countLabel}
-        errorMessage={errorMessage}
         loading={loading}
         rows={rows}
       />
@@ -245,12 +246,10 @@ function SearchBox({
 
 function InboxTable({
   countLabel,
-  errorMessage,
   loading,
   rows,
 }: {
   countLabel: string;
-  errorMessage: string;
   loading: boolean;
   rows: readonly DashboardInboxRow[];
 }) {
@@ -281,8 +280,6 @@ function InboxTable({
           </div>
           {loading ? (
             <DashboardTableState label="운영 인박스를 불러오는 중입니다." />
-          ) : errorMessage ? (
-            <DashboardTableState label={errorMessage} role="alert" />
           ) : rows.length > 0 ? (
             rows.map((row) =>
               row.href ? (

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Badge } from "@/shared/ui/badge";
 import { DetailStateHeader } from "@/shared/ui/detail-state-header";
 import { IconChevronDown, IconNotice } from "@/shared/ui/icons";
+import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
   createPayrollDataSource,
@@ -81,6 +82,7 @@ export function PayrollStatementsScreen({
   const [selectedRowId, setSelectedRowId] = useState(initialDetailTarget.rowId);
   const [loading, setLoading] = useState(!fixtureMode);
   const [errorMessage, setErrorMessage] = useState("");
+  useWeeErrorToast(errorMessage);
 
   useEffect(() => {
     if (fixtureMode) {
@@ -145,17 +147,10 @@ export function PayrollStatementsScreen({
       className="mx-auto flex w-full max-w-[1480px] flex-col gap-4 tracking-normal"
       data-testid="payroll-statements-screen"
     >
-      {errorMessage ? (
-        <div
-          className="min-h-9 rounded-[8px] border border-red-100 bg-red-50 px-4 py-2.5 text-body-14-medium tracking-normal text-red-500"
-          role="alert"
-        >
-          {errorMessage}
-        </div>
-      ) : null}
       <MonthSelect viewModel={viewModel} />
       <StatementSummaryCards metrics={viewModel.summaryCards} />
       <StatementTable
+        errorMessage={errorMessage}
         loading={loading}
         onOpenDetail={(rowId) => {
           setSelectedRowId(rowId);
@@ -246,11 +241,13 @@ function StatementSummaryCards({
 }
 
 function StatementTable({
+  errorMessage,
   loading,
   rows,
   onOpenDetail,
   viewModel,
 }: {
+  errorMessage: string;
   loading: boolean;
   rows: readonly PayrollStatementRow[];
   onOpenDetail: (rowId: string) => void;
@@ -288,6 +285,8 @@ function StatementTable({
 
       {loading ? (
         <StatementTableState>급여 명세 목록을 불러오는 중입니다.</StatementTableState>
+      ) : errorMessage ? (
+        <StatementTableState>급여 명세 목록을 표시할 수 없습니다.</StatementTableState>
       ) : rows.length > 0 ? (
         <div role="rowgroup">
           {rows.map((row) => (

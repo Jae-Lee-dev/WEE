@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/shared/ui/dialog";
 import { Textarea } from "@/shared/ui/textarea";
+import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
   createHandoverDataSource,
@@ -101,6 +102,7 @@ export function HandoverScreen() {
   const [publishing, setPublishing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+  useWeeErrorToast(errorMessage, { title: "요청 실패" });
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [pendingNavigation, setPendingNavigation] =
     useState<PendingNavigationTarget | null>(null);
@@ -294,8 +296,11 @@ export function HandoverScreen() {
     >
       {loading || (errorMessage && !currentContent) ? (
         <HandoverState
-          label={errorMessage || "게시된 인수인계 문서를 불러오는 중입니다."}
-          role={errorMessage ? "alert" : "status"}
+          label={
+            loading
+              ? "게시된 인수인계 문서를 불러오는 중입니다."
+              : "게시된 인수인계 문서를 표시할 수 없습니다."
+          }
         />
       ) : (
         <>
@@ -312,9 +317,8 @@ export function HandoverScreen() {
               onInsertDivider={insertDividerAfterActiveBlock}
               onPublish={() => setPublishDialogOpen(true)}
             />
-            {statusMessage || errorMessage || pendingProposal ? (
+            {statusMessage || pendingProposal ? (
               <HandoverInlineNotice
-                errorMessage={errorMessage}
                 pendingProposal={pendingProposal}
                 statusMessage={statusMessage}
               />
@@ -472,15 +476,13 @@ function useHandoverUnsavedNavigationGuard({
 
 function HandoverState({
   label,
-  role,
 }: {
   label: string;
-  role: "alert" | "status";
 }) {
   return (
     <div
       className="col-span-2 flex min-h-[360px] items-center justify-center rounded-[8px] bg-white px-4 text-center text-h-18-regular tracking-normal text-gray-500"
-      role={role}
+      role="status"
     >
       {label}
     </div>
@@ -488,29 +490,21 @@ function HandoverState({
 }
 
 function HandoverInlineNotice({
-  errorMessage,
   pendingProposal,
   statusMessage,
 }: {
-  errorMessage: string;
   pendingProposal: boolean;
   statusMessage: string;
 }) {
   const label =
-    errorMessage ||
-    (pendingProposal
+    pendingProposal
       ? "AI 수정안을 검토한 뒤 취소 또는 반영을 선택해 주세요."
-      : statusMessage);
+      : statusMessage;
 
   return (
     <div
-      className={cn(
-        "rounded-[8px] border px-4 py-2.5 text-body-14-medium",
-        errorMessage
-          ? "border-red-100 bg-red-50 text-red-500"
-          : "border-green-100 bg-green-50 text-green-500",
-      )}
-      role={errorMessage ? "alert" : "status"}
+      className="rounded-[8px] border border-green-100 bg-green-50 px-4 py-2.5 text-body-14-medium text-green-500"
+      role="status"
     >
       {label}
     </div>

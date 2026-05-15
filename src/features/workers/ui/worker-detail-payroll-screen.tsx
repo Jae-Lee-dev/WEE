@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/shared/ui/badge";
+import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import {
   WorkerDetailSubsection,
   WorkerDetailSubsectionHeader,
@@ -79,6 +80,7 @@ export function WorkerDetailPayrollScreen({
   );
   const [loading, setLoading] = useState(!dataSource.initialData);
   const [errorMessage, setErrorMessage] = useState("");
+  useWeeErrorToast(errorMessage);
 
   useEffect(() => {
     if (dataSource.initialData) {
@@ -115,14 +117,6 @@ export function WorkerDetailPayrollScreen({
 
   return (
     <>
-      {errorMessage ? (
-        <div
-          className="rounded-[8px] border border-red-100 bg-red-50 px-4 py-2.5 text-body-14-medium tracking-normal text-red-500"
-          role="alert"
-        >
-          {errorMessage}
-        </div>
-      ) : null}
       <div
         className="grid min-h-[600px] grid-cols-[minmax(0,1fr)_minmax(480px,1fr)] items-stretch gap-5 2xl:min-h-[734px]"
         data-testid="worker-detail-payroll-screen"
@@ -134,12 +128,14 @@ export function WorkerDetailPayrollScreen({
             workerId={workerId}
           />
           <RecentStatementsCard
+            errorMessage={errorMessage}
             loading={loading}
             statements={viewModel.statements}
           />
         </div>
         <PendingIssuesCard
           currentMonthKey={viewModel.currentMonthKey}
+          errorMessage={errorMessage}
           issues={viewModel.issues}
           loading={loading}
           workerId={workerId}
@@ -224,9 +220,11 @@ function PayrollMetricCard({ metric }: { metric: WorkerDetailPayrollMetric }) {
 }
 
 function RecentStatementsCard({
+  errorMessage,
   loading,
   statements,
 }: {
+  errorMessage: string;
   loading: boolean;
   statements: readonly WorkerDetailPayrollStatement[];
 }) {
@@ -251,6 +249,8 @@ function RecentStatementsCard({
       <div role="rowgroup">
         {loading ? (
           <PanelState>최근 급여명세를 불러오는 중입니다.</PanelState>
+        ) : errorMessage ? (
+          <PanelState>최근 급여명세를 표시할 수 없습니다.</PanelState>
         ) : statements.length > 0 ? (
           statements.map((statement) => (
             <RecentStatementRow key={statement.id} statement={statement} />
@@ -285,11 +285,13 @@ function RecentStatementRow({
 
 function PendingIssuesCard({
   currentMonthKey,
+  errorMessage,
   issues,
   loading,
   workerId,
 }: {
   currentMonthKey?: string;
+  errorMessage: string;
   issues: readonly WorkerDetailPayrollIssue[];
   loading: boolean;
   workerId: string;
@@ -309,6 +311,8 @@ function PendingIssuesCard({
       <div className="flex flex-col gap-3">
         {loading ? (
           <PanelState>처리 대기 건을 불러오는 중입니다.</PanelState>
+        ) : errorMessage ? (
+          <PanelState>처리 대기 건을 표시할 수 없습니다.</PanelState>
         ) : issues.length > 0 ? (
           issues.map((issue) => (
             <PendingIssueRow

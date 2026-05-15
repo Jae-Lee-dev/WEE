@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/shared/ui/dialog";
 import { Input } from "@/shared/ui/input";
+import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import {
   createSettingsWorkspaceDataSource,
   type SettingsWorkspace,
@@ -58,6 +59,7 @@ export function SettingsWorkspaceScreen({
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+  useWeeErrorToast(errorMessage, { title: "요청 실패" });
 
   useEffect(() => {
     let active = true;
@@ -121,16 +123,12 @@ export function SettingsWorkspaceScreen({
           ))}
         </div>
 
-        {errorMessage || statusMessage ? (
+        {statusMessage ? (
           <p
-            className={
-              errorMessage
-                ? "mr-auto text-label-14-medium text-red-500"
-                : "mr-auto text-label-14-medium text-green-500"
-            }
-            role={errorMessage ? "alert" : "status"}
+            className="mr-auto text-label-14-medium text-green-500"
+            role="status"
           >
-            {errorMessage || statusMessage}
+            {statusMessage}
           </p>
         ) : null}
 

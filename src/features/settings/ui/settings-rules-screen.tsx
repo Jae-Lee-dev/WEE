@@ -11,6 +11,7 @@ import {
 } from "@/shared/ui/dialog";
 import { Input } from "@/shared/ui/input";
 import { OptionSelect } from "@/shared/ui/select";
+import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import {
   createSettingsSupportDataSource,
   type SettingsRulesInput,
@@ -31,6 +32,8 @@ export function SettingsRulesScreen() {
   const [actionErrorMessage, setActionErrorMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+  useWeeErrorToast(errorMessage);
+  useWeeErrorToast(actionErrorMessage, { title: "저장 실패" });
 
   useEffect(() => {
     let cancelled = false;
@@ -76,8 +79,11 @@ export function SettingsRulesScreen() {
       ) : null}
       {loading || errorMessage ? (
         <SettingsRulesState
-          label={errorMessage || "운영 설정을 불러오는 중입니다."}
-          role={errorMessage ? "alert" : "status"}
+          label={
+            loading
+              ? "운영 설정을 불러오는 중입니다."
+              : "운영 설정을 표시할 수 없습니다."
+          }
         />
       ) : (
         <div className="flex w-full flex-col gap-3">
@@ -134,29 +140,19 @@ export function SettingsRulesScreen() {
           }}
         />
       ) : null}
-      {actionErrorMessage ? (
-        <div
-          className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-[8px] border border-red-100 bg-red-50 px-4 py-3 text-body-14-regular text-red-500 shadow-[0_12px_32px_rgba(17,24,39,0.12)]"
-          role="alert"
-        >
-          {actionErrorMessage}
-        </div>
-      ) : null}
     </section>
   );
 }
 
 function SettingsRulesState({
   label,
-  role,
 }: {
   label: string;
-  role: "alert" | "status";
 }) {
   return (
     <div
       className="flex min-h-[300px] w-full items-center justify-center rounded-[8px] border border-gray-100 px-4 text-center text-h-18-regular text-gray-500"
-      role={role}
+      role="status"
     >
       {label}
     </div>

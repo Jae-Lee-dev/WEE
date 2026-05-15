@@ -32,6 +32,7 @@ import {
 } from "@/shared/ui/dialog";
 import { Input } from "@/shared/ui/input";
 import { OptionSelect, type SelectOption } from "@/shared/ui/select";
+import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
   createDutyDataSource,
@@ -181,6 +182,7 @@ export function DutyListScreen({
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+  useWeeErrorToast(errorMessage, { title: "요청 실패" });
   const selectedDuty = duties.find((duty) => duty.id === selectedDutyId);
   const filterOptions = useMemo(() => createDutyFilterOptions(duties), [duties]);
   const filteredDuties = useMemo(
@@ -282,17 +284,12 @@ export function DutyListScreen({
       data-duty-list-state={selectedDuty ? "selected" : "default"}
       data-testid="duty-list-screen"
     >
-      {statusMessage || errorMessage ? (
+      {statusMessage ? (
         <div
-          className={cn(
-            "flex min-h-9 items-center rounded-[8px] border px-4 py-2.5 text-body-14-medium tracking-normal",
-            statusMessage
-              ? "border-green-100 bg-green-50 text-green-500"
-              : "border-red-100 bg-red-50 text-red-500",
-          )}
-          role={statusMessage ? "status" : "alert"}
+          className="flex min-h-9 items-center rounded-[8px] border border-green-100 bg-green-50 px-4 py-2.5 text-body-14-medium tracking-normal text-green-500"
+          role="status"
         >
-          {statusMessage || errorMessage}
+          {statusMessage}
         </div>
       ) : null}
 
@@ -315,26 +312,30 @@ export function DutyListScreen({
         viewMode={viewMode}
       />
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_320px] gap-4">
-        {viewMode === "timeline" ? (
-          <DutyTimelineGrid
-            onSelectDuty={(duty) => setSelectedDutyId(duty.id)}
-            rows={dutyTimelineRows}
-            selectedDutyId={selectedDutyId}
+      {loading ? (
+        <DutyContentState label="근무 목록을 불러오는 중입니다." />
+      ) : (
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_320px] gap-4">
+          {viewMode === "timeline" ? (
+            <DutyTimelineGrid
+              onSelectDuty={(duty) => setSelectedDutyId(duty.id)}
+              rows={dutyTimelineRows}
+              selectedDutyId={selectedDutyId}
+            />
+          ) : (
+            <DutyListTable
+              onSelectDuty={(duty) => setSelectedDutyId(duty.id)}
+              rows={filteredDuties}
+              selectedDutyId={selectedDutyId}
+            />
+          )}
+          <DutyDetailPanel
+            selectedDuty={selectedDuty}
+            onEditBasic={() => setDialog("edit-basic")}
+            onEditTime={() => setDialog("edit-time")}
           />
-        ) : (
-          <DutyListTable
-            onSelectDuty={(duty) => setSelectedDutyId(duty.id)}
-            rows={filteredDuties}
-            selectedDutyId={selectedDutyId}
-          />
-        )}
-        <DutyDetailPanel
-          selectedDuty={selectedDuty}
-          onEditBasic={() => setDialog("edit-basic")}
-          onEditTime={() => setDialog("edit-time")}
-        />
-      </div>
+        </div>
+      )}
 
       {dialog === "create" ? (
         <CreateDutyDialog
@@ -375,6 +376,17 @@ export function DutyListScreen({
         />
       ) : null}
     </section>
+  );
+}
+
+function DutyContentState({ label }: { label: string }) {
+  return (
+    <div
+      className="flex min-h-0 flex-1 items-center justify-center rounded-[8px] bg-white px-4 text-center text-h-18-regular tracking-normal text-gray-500"
+      role="status"
+    >
+      {label}
+    </div>
   );
 }
 

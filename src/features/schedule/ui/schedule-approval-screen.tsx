@@ -14,6 +14,7 @@ import {
 import { IconNotice } from "@/shared/ui/icons";
 import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
+import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
   createScheduleApprovalDataSource,
@@ -69,6 +70,7 @@ export function ScheduleApprovalScreen({
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+  useWeeErrorToast(errorMessage, { title: "요청 실패" });
   const selectedRequest = viewModel.rows.find(
     (request) => request.id === selectedRequestId,
   );
@@ -106,7 +108,6 @@ export function ScheduleApprovalScreen({
       <SelectedApprovalState
         key={selectedRequest.id}
         approveLabel={viewModel.approveLabel}
-        errorMessage={errorMessage}
         request={selectedRequest}
         rejectDialogOpen={rejectDialogOpen}
         rejectLabel={viewModel.rejectLabel}
@@ -165,7 +166,6 @@ export function ScheduleApprovalScreen({
 
   return (
     <ApprovalWaitingList
-      errorMessage={errorMessage}
       loading={loading}
       rows={viewModel.rows}
       summary={viewModel}
@@ -175,13 +175,11 @@ export function ScheduleApprovalScreen({
 }
 
 function ApprovalWaitingList({
-  errorMessage,
   loading,
   rows,
   summary,
   onSelectRequest,
 }: {
-  errorMessage: string;
   loading: boolean;
   rows: readonly ScheduleApprovalRequestRow[];
   summary: ScheduleApprovalViewModel;
@@ -213,8 +211,6 @@ function ApprovalWaitingList({
       <div>
         {loading ? (
           <ApprovalWaitingState label="시간표 승인 대기를 불러오는 중입니다." />
-        ) : errorMessage ? (
-          <ApprovalWaitingState label={errorMessage} role="alert" />
         ) : rows.length > 0 ? (
           rows.map((row, index) => (
             <ApprovalWaitingRow
@@ -297,7 +293,6 @@ function RequestKindBadge({ row }: { row: ScheduleApprovalRequestRow }) {
 
 function SelectedApprovalState({
   approveLabel,
-  errorMessage,
   onApprove,
   request,
   rejectDialogOpen,
@@ -310,7 +305,6 @@ function SelectedApprovalState({
   onReject,
 }: {
   approveLabel: string;
-  errorMessage: string;
   onApprove: (input: ApproveScheduleRequestInput) => void;
   request: ScheduleApprovalRequestRow;
   rejectDialogOpen: boolean;
@@ -409,17 +403,12 @@ function SelectedApprovalState({
             onOpenRejectDialog={onOpenRejectDialog}
           />
 
-          {statusMessage || errorMessage ? (
+          {statusMessage ? (
             <div
-              className={cn(
-                "rounded-[8px] border px-4 py-2.5 text-body-14-medium",
-                statusMessage
-                  ? "border-green-100 bg-green-50 text-green-500"
-                  : "border-red-100 bg-red-50 text-red-500",
-              )}
-              role={statusMessage ? "status" : "alert"}
+              className="rounded-[8px] border border-green-100 bg-green-50 px-4 py-2.5 text-body-14-medium text-green-500"
+              role="status"
             >
-              {statusMessage || errorMessage}
+              {statusMessage}
             </div>
           ) : null}
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Checkbox } from "@/shared/ui/checkbox";
+import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import { createSettingsSupportDataSource } from "../api/settings-support-data-source";
 import {
@@ -20,6 +21,8 @@ export function SettingsNotificationsScreen() {
   const [actionErrorMessage, setActionErrorMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+  useWeeErrorToast(errorMessage);
+  useWeeErrorToast(actionErrorMessage, { title: "저장 실패" });
 
   useEffect(() => {
     let cancelled = false;
@@ -102,18 +105,13 @@ export function SettingsNotificationsScreen() {
           {statusMessage}
         </div>
       ) : null}
-      {actionErrorMessage ? (
-        <div
-          className="mx-4 mb-3 rounded-[8px] border border-red-100 bg-red-50 px-4 py-3 text-body-14-regular text-red-500"
-          role="alert"
-        >
-          {actionErrorMessage}
-        </div>
-      ) : null}
       {loading || errorMessage ? (
         <SettingsNotificationsState
-          label={errorMessage || "알림 설정을 불러오는 중입니다."}
-          role={errorMessage ? "alert" : "status"}
+          label={
+            loading
+              ? "알림 설정을 불러오는 중입니다."
+              : "알림 설정을 표시할 수 없습니다."
+          }
         />
       ) : (
         <>
@@ -147,15 +145,13 @@ export function SettingsNotificationsScreen() {
 
 function SettingsNotificationsState({
   label,
-  role,
 }: {
   label: string;
-  role: "alert" | "status";
 }) {
   return (
     <div
       className="flex min-h-[300px] items-center justify-center px-4 text-center text-h-18-regular text-gray-500"
-      role={role}
+      role="status"
     >
       {label}
     </div>
