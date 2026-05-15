@@ -1329,12 +1329,7 @@ function OpenItemCard({
           <p className="text-body-16-medium tracking-normal text-gray-900">
             {card.dateLabel}
           </p>
-          <h3
-            className={cn(
-              "mt-2 text-h-18-semibold tracking-normal text-gray-900",
-              card.state === "resolved" && "line-through decoration-gray-900",
-            )}
-          >
+          <h3 className="mt-2 text-h-18-semibold tracking-normal text-gray-900">
             {card.title}
           </h3>
           <div className="mt-3 flex items-center gap-3 text-h-18-regular tracking-normal text-gray-700">

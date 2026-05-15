@@ -303,6 +303,10 @@ test(`PAY-01 no-open-items ${desktop}`, async ({ page }) => {
     page.getByTestId("payroll-calculation-state-no-open-items"),
   ).toBeVisible();
   await expect(page.getByText("퇴근시간 변경")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "연구실 행정" })).toHaveCSS(
+    "text-decoration-line",
+    "none",
+  );
   await expect(page.getByRole("button", { name: "급여 확정" })).toBeEnabled();
   await expectPayrollDetailPanelsToShareHeight(page);
 
