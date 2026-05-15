@@ -398,7 +398,10 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
         (bonus) => getWorkerMonthKey(bonus.workerId, bonus.monthKey),
       );
       const recordsByWorkerMonth = groupBy(records, (record) =>
-        getWorkerMonthKey(record.workerId, record.dateKey.slice(0, 7)),
+        getWorkerMonthKey(
+          record.workerId,
+          getMonthKeyFromDateKey(record.dateKey) ?? "",
+        ),
       );
       const overtimeByWorkerMonth = groupBy(
         overtimeWorks,
@@ -406,7 +409,11 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
       );
       const anomaliesByWorkerMonth = groupBy(
         anomalyFlags,
-        (flag) => getWorkerMonthKey(flag.workerId, flag.dateKey.slice(0, 7)),
+        (flag) =>
+          getWorkerMonthKey(
+            flag.workerId,
+            getMonthKeyFromDateKey(flag.dateKey) ?? "",
+          ),
       );
       const correctionsByWorkerMonth = groupBy(
         correctionRequests,
@@ -928,10 +935,16 @@ function buildCalculationViewModel(
     getWorkerMonthKey(bonus.workerId, bonus.monthKey),
   );
   const recordsByWorkerMonth = groupBy(workRecords, (record) =>
-    getWorkerMonthKey(record.workerId, record.dateKey.slice(0, 7)),
+    getWorkerMonthKey(
+      record.workerId,
+      getMonthKeyFromDateKey(record.dateKey) ?? "",
+    ),
   );
   const anomaliesByWorkerMonth = groupBy(anomalyFlags, (flag) =>
-    getWorkerMonthKey(flag.workerId, flag.dateKey.slice(0, 7)),
+    getWorkerMonthKey(
+      flag.workerId,
+      getMonthKeyFromDateKey(flag.dateKey) ?? "",
+    ),
   );
   const overtimeByWorkerMonth = groupBy(overtimeWorks, (work) =>
     getWorkerMonthKey(work.workerId, work.monthKey),
@@ -1742,23 +1755,15 @@ function buildWorkRecordSectionCards(
     openCards.filter((card) => card.workRecordId),
     (card) => card.workRecordId ?? "",
   );
-  const consumedOpenCardIds = new Set<string>();
-  const recordCards = [...records].sort(compareWorkRecords).map((record) => {
+  return [...records].sort(compareWorkRecords).map((record) => {
     const openRecordCard = openCardsByWorkRecordId[record.id]?.[0];
 
     if (!openRecordCard) {
       return buildResolvedWorkRecordCard(record, calculationRules);
     }
 
-    consumedOpenCardIds.add(openRecordCard.id);
-
     return openRecordCard;
   });
-  const remainingOpenCards = openCards.filter(
-    (card) => !consumedOpenCardIds.has(card.id),
-  );
-
-  return [...recordCards, ...remainingOpenCards];
 }
 
 function buildResolvedWorkRecordCard(
@@ -2081,6 +2086,10 @@ function getWorkRecordStatusLabel(value: string) {
 }
 
 function formatDateKeyDisplay(value: string) {
+  if (/^\d{8}$/.test(value)) {
+    return `${value.slice(4, 6)}.${value.slice(6, 8)}`;
+  }
+
   const [, month, day] = value.split("-");
 
   if (!month || !day) {
@@ -2650,6 +2659,10 @@ function isActivePayrollWorker(worker: PayrollWorker) {
 }
 
 function getMonthKeyFromDateKey(dateKey: string) {
+  if (/^\d{8}$/.test(dateKey)) {
+    return `${dateKey.slice(0, 4)}-${dateKey.slice(4, 6)}`;
+  }
+
   const monthKey = dateKey.slice(0, 7);
 
   return /^\d{4}-\d{2}$/.test(monthKey) ? monthKey : null;
@@ -3397,6 +3410,10 @@ function readPayStatementStatus(value: unknown) {
 
 function readMonthKey(value: unknown) {
   const monthKey = readString(value, "2026-04");
+
+  if (/^\d{6}$/.test(monthKey)) {
+    return `${monthKey.slice(0, 4)}-${monthKey.slice(4, 6)}`;
+  }
 
   return /^\d{4}-\d{2}$/.test(monthKey) ? monthKey : "2026-04";
 }
