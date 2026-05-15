@@ -1187,6 +1187,7 @@ function buildCalculationDetail({
   const blockingOpenItemCount = openCards.filter(isBlockingOpenItemCard).length;
   const workRecordCards = buildWorkRecordSectionCards(
     records,
+    overtimeWorks,
     openCards,
     calculationRules,
   );
@@ -1227,7 +1228,7 @@ function buildCalculationDetail({
           ? `미처리 ${blockingOpenItemCount.toLocaleString("ko-KR")}건`
           : undefined,
       title: "월 근무기록",
-      totalCount: `${records.length.toLocaleString("ko-KR")}건`,
+      totalCount: `${workRecordCards.length.toLocaleString("ko-KR")}건`,
     },
   };
 }
@@ -1748,22 +1749,47 @@ function isBlockingOpenItemCard(card: PayrollOpenItemCard) {
 
 function buildWorkRecordSectionCards(
   records: readonly WorkRecord[],
+  overtimeWorks: readonly OvertimeWork[],
   openCards: readonly PayrollOpenItemCard[],
   calculationRules: PayrollCalculationRules,
 ): readonly PayrollOpenItemCard[] {
   const openCardsByWorkRecordId = groupBy(
-    openCards.filter((card) => card.workRecordId),
+    openCards.filter(
+      (card) => card.workRecordId && card.statusLabel !== "추가근무",
+    ),
     (card) => card.workRecordId ?? "",
   );
-  return [...records].sort(compareWorkRecords).map((record) => {
-    const openRecordCard = openCardsByWorkRecordId[record.id]?.[0];
+  const recordById = new Map(records.map((record) => [record.id, record]));
+  const entries = [
+    ...records.map((record) => {
+      const openRecordCard = openCardsByWorkRecordId[record.id]?.[0];
+      const card = openRecordCard ?? buildResolvedWorkRecordCard(
+        record,
+        calculationRules,
+      );
 
-    if (!openRecordCard) {
-      return buildResolvedWorkRecordCard(record, calculationRules);
-    }
+      return {
+        card,
+        dateSortKey: getWorkRecordDateSortKey(record),
+        sortTime: getWorkRecordSortTime(record),
+      };
+    }),
+    ...overtimeWorks
+      .filter(isVisiblePayrollOvertimeWork)
+      .map((work) => {
+        const record = work.workRecordId
+          ? recordById.get(work.workRecordId)
+          : undefined;
 
-    return openRecordCard;
-  });
+        return {
+          card: buildOvertimeWorkRecordCard(work, record),
+          dateSortKey: getOvertimeDateSortKey(work, record),
+          sortTime: getOvertimeSortTime(work),
+        };
+      }),
+  ];
+
+  return entries.sort(compareWorkRecordSectionEntries).map((entry) => entry.card);
 }
 
 function buildResolvedWorkRecordCard(
@@ -1796,14 +1822,97 @@ function buildResolvedWorkRecordCard(
   };
 }
 
-function compareWorkRecords(left: WorkRecord, right: WorkRecord) {
-  const dateCompare = left.dateKey.localeCompare(right.dateKey);
+function buildOvertimeWorkRecordCard(
+  work: OvertimeWork,
+  record: WorkRecord | undefined,
+): PayrollOpenItemCard {
+  const durationMinutes = getOvertimeMinutes(work);
+
+  return {
+    actions: createOvertimeWorkRecordActions(work),
+    dateLabel: formatOvertimeDateLabel(work, record),
+    id: work.id,
+    workRecordId: work.workRecordId ?? undefined,
+    lines: [
+      { id: "reason", label: "사유", value: work.reason },
+      {
+        id: "duration",
+        label: "추가 시간",
+        value: formatHours(durationMinutes),
+      },
+      {
+        id: "payroll",
+        label: "급여 처리",
+        tone: work.payrollStatus === "held" ? "negative" : "default",
+        value: getPayrollStatusLabel(work.payrollStatus),
+      },
+    ],
+    locationName: record?.locationName ?? "추가근무",
+    state: isOpenOvertimeWork(work) ? "open" : "resolved",
+    statusLabel: "추가근무",
+    statusTone: "orange",
+    timeLabel: formatOvertimeTime(work),
+    title: record?.dutyName ?? "추가근무",
+  };
+}
+
+function formatOvertimeDateLabel(
+  work: OvertimeWork,
+  record: WorkRecord | undefined,
+) {
+  return (
+    formatShortDate(work.extraStartAt) ??
+    (record ? formatDateKeyDisplay(record.dateKey) : formatMonthKorean(work.monthKey))
+  );
+}
+
+function createOvertimeWorkRecordActions(
+  work: OvertimeWork,
+): readonly PayrollOpenItemAction[] {
+  if (work.status === "submitted") {
+    return [createRecordsOpenItemAction(work.workRecordId)];
+  }
+
+  if (work.payrollStatus === "held") {
+    return createPayrollResolutionActions("overtime", work.id);
+  }
+
+  return [];
+}
+
+function isOpenOvertimeWork(work: OvertimeWork) {
+  return work.status === "submitted" || work.payrollStatus === "held";
+}
+
+function isVisiblePayrollOvertimeWork(work: OvertimeWork) {
+  return work.status !== "rejected" && work.status !== "withdrawn";
+}
+
+function compareWorkRecordSectionEntries(
+  left: {
+    card: PayrollOpenItemCard;
+    dateSortKey: string;
+    sortTime: number;
+  },
+  right: {
+    card: PayrollOpenItemCard;
+    dateSortKey: string;
+    sortTime: number;
+  },
+) {
+  const dateCompare = left.dateSortKey.localeCompare(right.dateSortKey);
 
   if (dateCompare !== 0) {
     return dateCompare;
   }
 
-  return getWorkRecordSortTime(left) - getWorkRecordSortTime(right);
+  const timeCompare = left.sortTime - right.sortTime;
+
+  if (Number.isFinite(timeCompare) && timeCompare !== 0) {
+    return timeCompare;
+  }
+
+  return left.card.id.localeCompare(right.card.id);
 }
 
 function getWorkRecordSortTime(record: WorkRecord) {
@@ -1812,6 +1921,45 @@ function getWorkRecordSortTime(record: WorkRecord) {
     record.plannedStartAt?.getTime() ??
     Number.POSITIVE_INFINITY
   );
+}
+
+function getWorkRecordDateSortKey(record: WorkRecord) {
+  return normalizeDateSortKey(record.dateKey);
+}
+
+function getOvertimeDateSortKey(
+  work: OvertimeWork,
+  record: WorkRecord | undefined,
+) {
+  if (work.extraStartAt) {
+    return formatDateKey(work.extraStartAt);
+  }
+
+  if (record) {
+    return getWorkRecordDateSortKey(record);
+  }
+
+  return `${work.monthKey}-99`;
+}
+
+function getOvertimeSortTime(work: OvertimeWork) {
+  return work.extraStartAt?.getTime() ?? Number.POSITIVE_INFINITY;
+}
+
+function formatOvertimeTime(work: OvertimeWork) {
+  return `${formatTime(work.extraStartAt)}~${formatTime(work.extraEndAt)}`;
+}
+
+function normalizeDateSortKey(dateKey: string) {
+  if (/^\d{8}$/.test(dateKey)) {
+    return `${dateKey.slice(0, 4)}-${dateKey.slice(4, 6)}-${dateKey.slice(6, 8)}`;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+    return dateKey;
+  }
+
+  return `${getMonthKeyFromDateKey(dateKey) ?? "9999-99"}-99`;
 }
 
 function buildCalculationFooter({
