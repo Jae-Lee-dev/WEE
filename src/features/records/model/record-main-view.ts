@@ -380,7 +380,9 @@ function matchesBlockStatusFilter(block: RecordTimelineBlock, filterId: string) 
     return true;
   }
 
-  const hasOpenSignal = block.signalKinds.some((kind) => kind !== "normal");
+  const hasOpenSignal = (
+    block.pendingSignalKinds ?? block.signalKinds
+  ).some((kind) => kind !== "normal");
 
   if (filterId === "pending") {
     return hasOpenSignal;

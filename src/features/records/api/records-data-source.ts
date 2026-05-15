@@ -550,6 +550,10 @@ function findSubmittedOvertimeForAction(
   );
 }
 
+function isVisibleTimelineOvertime(work: OvertimeWorkModel) {
+  return work.status !== "rejected";
+}
+
 async function loadRecordsCollections(): Promise<RecordsCollections> {
   const workspaceId = await requireActiveWorkspaceId();
   const [
@@ -1913,6 +1917,7 @@ function mapRecordMainView(
   const submittedOvertimeWorks = overtimeWorks.filter(
     (work) => work.status === "submitted",
   );
+  const visibleOvertimeWorks = overtimeWorks.filter(isVisibleTimelineOvertime);
   const payrollSettings = collections.payrollSettings.map(mapPayrollSetting);
   const getPayrollSetting = (record: WorkRecordModel) =>
     findPayrollSettingForMonth(
@@ -1927,12 +1932,15 @@ function mapRecordMainView(
   const correctionIdsByRecordId = groupIdsByWorkRecordId(
     correctionRequests.filter((request) => request.status === "submitted"),
   );
-  const overtimeIdsByRecordId = groupIdsByWorkRecordId(submittedOvertimeWorks);
+  const visibleOvertimeIdsByRecordId =
+    groupIdsByWorkRecordId(visibleOvertimeWorks);
+  const submittedOvertimeIdsByRecordId =
+    groupIdsByWorkRecordId(submittedOvertimeWorks);
   const pendingCorrectionByRecordId = toMap(
     correctionRequests.filter((request) => request.status === "submitted"),
     (request) => request.workRecordId,
   );
-  const pendingOvertimeByRecordId = toMap(submittedOvertimeWorks, (work) =>
+  const visibleOvertimeByRecordId = toMap(visibleOvertimeWorks, (work) =>
     work.workRecordId,
   );
   const getAttendanceForRecord = (record: WorkRecordModel | null) =>
@@ -1943,7 +1951,7 @@ function mapRecordMainView(
     overtime?.attendanceLogId
       ? (attendanceById.get(overtime.attendanceLogId) ?? null)
       : null;
-  const standaloneSubmittedOvertimeWorks = submittedOvertimeWorks.filter(
+  const standaloneVisibleOvertimeWorks = visibleOvertimeWorks.filter(
     (work) => !work.workRecordId || !recordsById.has(work.workRecordId),
   );
   const getPayrollSettingForOvertime = (overtime: OvertimeWorkModel) => {
@@ -1957,7 +1965,8 @@ function mapRecordMainView(
       : undefined;
   };
   const pendingCorrectionIds = new Set(correctionIdsByRecordId.keys());
-  const pendingOvertimeIds = new Set(overtimeIdsByRecordId.keys());
+  const pendingOvertimeIds = new Set(submittedOvertimeIdsByRecordId.keys());
+  const visibleOvertimeIds = new Set(visibleOvertimeIdsByRecordId.keys());
   const pendingOvertimeAttendanceIds = new Set(
     submittedOvertimeWorks
       .map((work) => work.attendanceLogId)
@@ -1965,7 +1974,7 @@ function mapRecordMainView(
   );
   const weekNavigation = createWeekNavigation(
     records,
-    standaloneSubmittedOvertimeWorks.map((work) =>
+    standaloneVisibleOvertimeWorks.map((work) =>
       getOvertimeDate(work, getAttendanceForOvertime(work)),
     ),
   );
@@ -1978,12 +1987,13 @@ function mapRecordMainView(
     mapTimelineBlock(record, {
       correctionIdsByRecordId,
       flag: flagsByRecordId.get(record.id),
-      overtimeIdsByRecordId,
+      overtimeIdsByRecordId: visibleOvertimeIdsByRecordId,
       pendingCorrectionIds,
       pendingOvertimeIds,
+      visibleOvertimeIds,
     }),
   );
-  const standaloneOvertimeBlocks = standaloneSubmittedOvertimeWorks.map((work) =>
+  const standaloneOvertimeBlocks = standaloneVisibleOvertimeWorks.map((work) =>
     mapStandaloneOvertimeTimelineBlock(work, getAttendanceForOvertime(work)),
   );
   const blocks = [...recordBlocks, ...standaloneOvertimeBlocks];
@@ -1998,12 +2008,12 @@ function mapRecordMainView(
     ...createDetailStatesByBlockId(records, {
       attendanceById,
       pendingCorrectionByRecordId,
-      pendingOvertimeByRecordId,
+      overtimeByRecordId: visibleOvertimeByRecordId,
       flagsByRecordId,
       getPayrollSetting,
     }),
     ...createStandaloneOvertimeDetailStatesByBlockId(
-      standaloneSubmittedOvertimeWorks,
+      standaloneVisibleOvertimeWorks,
       {
         attendanceById,
         getPayrollSetting: getPayrollSettingForOvertime,
@@ -2011,11 +2021,11 @@ function mapRecordMainView(
     ),
   };
   const selectedOvertime = selectedBlock
-    ? (pendingOvertimeByRecordId.get(selectedBlock.id) ??
-      submittedOvertimeWorks.find((work) => work.id === selectedBlock.id) ??
+    ? (visibleOvertimeByRecordId.get(selectedBlock.id) ??
+      visibleOvertimeWorks.find((work) => work.id === selectedBlock.id) ??
       null)
     : selectedRecord
-      ? (pendingOvertimeByRecordId.get(selectedRecord.id) ?? null)
+      ? (visibleOvertimeByRecordId.get(selectedRecord.id) ?? null)
       : null;
 
   return {
@@ -2050,7 +2060,7 @@ function mapRecordMainView(
       filters: createMainFilters(
         records,
         activeWorkers,
-        standaloneSubmittedOvertimeWorks,
+        standaloneVisibleOvertimeWorks,
       ),
       weekLabel: initialWeekStartKey
         ? formatWeekLabelFromStartKey(initialWeekStartKey)
@@ -2548,6 +2558,7 @@ function mapTimelineBlock(
     overtimeIdsByRecordId: ReadonlyMap<string, readonly string[]>;
     pendingCorrectionIds: ReadonlySet<string>;
     pendingOvertimeIds: ReadonlySet<string>;
+    visibleOvertimeIds: ReadonlySet<string>;
   },
 ): RecordTimelineBlock {
   const hasUnresolvedFlag = isUnresolvedAnomaly(
@@ -2558,14 +2569,21 @@ function mapTimelineBlock(
     record.hasPendingCorrection || options.pendingCorrectionIds.has(record.id);
   const hasPendingOvertime =
     record.hasPendingOvertime || options.pendingOvertimeIds.has(record.id);
+  const hasVisibleOvertime =
+    hasPendingOvertime || options.visibleOvertimeIds.has(record.id);
   const kind = getTimelineBlockKind({
     hasPendingCorrection,
-    hasPendingOvertime,
+    hasPendingOvertime: hasVisibleOvertime,
     hasUnresolvedFlag,
   });
   const workStartAt = getRecordWorkStartAt(record);
   const workEndAt = getRecordWorkEndAt(record);
   const signalKinds = getTimelineBlockSignalKinds({
+    hasPendingCorrection,
+    hasPendingOvertime: hasVisibleOvertime,
+    hasUnresolvedFlag,
+  });
+  const pendingSignalKinds = getTimelineBlockSignalKinds({
     hasPendingCorrection,
     hasPendingOvertime,
     hasUnresolvedFlag,
@@ -2588,6 +2606,7 @@ function mapTimelineBlock(
     ].filter((id): id is string => Boolean(id)),
     kind,
     locationName: record.locationName,
+    pendingSignalKinds,
     selectedStateId:
       kind === "location-anomaly" ? "anomaly-step-1" : "normal-selected",
     signalKinds,
@@ -2621,6 +2640,8 @@ function mapStandaloneOvertimeTimelineBlock(
     ),
     kind: "overtime",
     locationName: attendance?.locationName ?? "근무지 미지정",
+    pendingSignalKinds:
+      overtime.status === "submitted" ? ["overtime"] : ["normal"],
     selectedStateId: "normal-selected",
     signalKinds: ["overtime"],
     startHour,
@@ -2691,8 +2712,8 @@ function createDetailStatesByBlockId(
     getPayrollSetting: (
       record: WorkRecordModel,
     ) => PayrollSettingModel | undefined;
+    overtimeByRecordId: ReadonlyMap<string, OvertimeWorkModel>;
     pendingCorrectionByRecordId: ReadonlyMap<string, CorrectionRequestModel>;
-    pendingOvertimeByRecordId: ReadonlyMap<string, OvertimeWorkModel>;
   },
 ) {
   const detailStatesByBlockId: Record<
@@ -2701,7 +2722,7 @@ function createDetailStatesByBlockId(
   > = {};
 
   for (const record of records) {
-    const overtime = options.pendingOvertimeByRecordId.get(record.id) ?? null;
+    const overtime = options.overtimeByRecordId.get(record.id) ?? null;
 
     detailStatesByBlockId[record.id] = createDetailStates({
       attendance: record.attendanceLogId
@@ -3104,15 +3125,27 @@ function createOvertimeDetailStates(
   payrollSetting: PayrollSettingModel | null,
   empty: RecordDetailState,
 ): Record<RecordDetailStateId, RecordDetailState> {
+  const submitted = overtime.status === "submitted";
   const base: RecordDetailState = {
-    actions: createRecordActionButtons(false),
+    actions: [],
     alertText: getOvertimeAttendanceAlertText(attendance),
     id: "normal-selected",
     lineSections: createOvertimeDetailLineSections(attendance, overtime),
-    statusLabel: "추가근무 신청",
+    statusLabel: getOvertimeTimelineStatusLabel(overtime),
     statusTone: "blue" as const,
     title: `${overtime.workerName || record?.workerName || "이름 없는 조교"} · 추가근무 신청`,
   };
+
+  if (!submitted) {
+    return {
+      empty,
+      "normal-selected": base,
+      "anomaly-step-1": base,
+      "anomaly-step-2": base,
+      "anomaly-step-3": base,
+      "anomaly-step-4": base,
+    };
+  }
 
   return {
     empty,
@@ -3161,6 +3194,22 @@ function createOvertimeDetailStates(
       submitAction: "reject-overtime",
     },
   };
+}
+
+function getOvertimeTimelineStatusLabel(overtime: OvertimeWorkModel) {
+  if (overtime.status === "approved" && overtime.payrollStatus === "held") {
+    return "추가근무 승인 · 급여 보류";
+  }
+
+  if (overtime.status === "approved") {
+    return "추가근무 승인";
+  }
+
+  if (overtime.status === "withdrawn") {
+    return "추가근무 철회";
+  }
+
+  return "추가근무 신청";
 }
 
 function getRegularCorrectionApprovalDescription(

@@ -54,6 +54,7 @@ export type RecordTimelineBlock = {
   dateKey?: string;
   dayId: RecordTimelineDayId;
   focusIds?: readonly string[];
+  pendingSignalKinds?: readonly RecordTimelineBlockKind[];
   workerId?: string;
   workerName: string;
   dutyName: string;
@@ -493,6 +494,21 @@ export const recordTimelineBlocks = [
     "blue",
     "normal-selected",
   ),
+  {
+    ...timelineBlock(
+      "overtime-kim-seoyeon-held-mon",
+      "mon",
+      "김서연",
+      "추가근무 신청",
+      "대치 A학원",
+      "21:30",
+      "22:00",
+      "overtime",
+      "blue",
+      "normal-selected",
+    ),
+    pendingSignalKinds: ["normal"],
+  },
   timelineBlock(
     "record-lee-haeun-korean-e-wed",
     "wed",
@@ -819,10 +835,39 @@ const standaloneOvertimeRecordDetailStates = {
   },
 } as const satisfies Record<RecordDetailStateId, RecordDetailState>;
 
+const heldOvertimeDetailState = {
+  ...standaloneOvertimeRecordDetailStates["normal-selected"],
+  actions: [],
+  statusLabel: "추가근무 승인 · 급여 보류",
+  title: "김서연 · 추가근무 신청",
+} as const satisfies RecordDetailState;
+
+const heldOvertimeRecordDetailStates = {
+  ...standaloneOvertimeRecordDetailStates,
+  "normal-selected": heldOvertimeDetailState,
+  "anomaly-step-1": {
+    ...heldOvertimeDetailState,
+    id: "anomaly-step-1",
+  },
+  "anomaly-step-2": {
+    ...heldOvertimeDetailState,
+    id: "anomaly-step-2",
+  },
+  "anomaly-step-3": {
+    ...heldOvertimeDetailState,
+    id: "anomaly-step-3",
+  },
+  "anomaly-step-4": {
+    ...heldOvertimeDetailState,
+    id: "anomaly-step-4",
+  },
+} as const satisfies Record<RecordDetailStateId, RecordDetailState>;
+
 export const recordMainFixtureViewModel = {
   blocks: recordTimelineBlocks,
   detailStates: recordDetailStates,
   detailStatesByBlockId: {
+    "overtime-kim-seoyeon-held-mon": heldOvertimeRecordDetailStates,
     "overtime-kim-seoyeon-standalone-mon": standaloneOvertimeRecordDetailStates,
     "record-kang-taewoo-chemistry-g-mon": overtimeRecordDetailStates,
     "record-lee-haeun-english-c-mon": normalRecordDetailStates,
@@ -1245,6 +1290,8 @@ function getRecordTimelineFixtureWorkerId(workerName: string) {
       return "worker-jung-suhyun";
     case "이하은":
       return "worker-lee-haeun";
+    case "김서연":
+      return "worker-kim-seoyeon";
     case "박지민":
       return "worker-park-jimin";
     default:

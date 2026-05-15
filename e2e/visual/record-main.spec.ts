@@ -404,6 +404,36 @@ test("REC-01 shows standalone overtime applications", async ({ page }) => {
   ).toHaveCount(0);
 });
 
+test("REC-01 keeps held approved overtime visible", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/records?focus=overtime-kim-seoyeon-held-mon",
+    viewport: desktop,
+  });
+
+  const heldOvertimeBlock = page.locator(
+    "[data-record-block-id='overtime-kim-seoyeon-held-mon']",
+  );
+  await expect(heldOvertimeBlock).toBeVisible();
+  await expect(heldOvertimeBlock).toHaveAttribute(
+    "data-record-signal-kinds",
+    "overtime",
+  );
+  await expect(heldOvertimeBlock).toContainText(
+    /김서연\s*추가근무 신청\s*21:30~22:00/,
+  );
+
+  const detail = page.getByTestId("record-detail-panel");
+  await expect(detail.getByText("김서연 · 추가근무 신청")).toBeVisible();
+  await expect(detail.getByText("추가근무 승인 · 급여 보류")).toBeVisible();
+  await expect(
+    page.getByTestId("record-detail-action-approve-overtime"),
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId("record-detail-action-reject-overtime"),
+  ).toHaveCount(0);
+});
+
 test(`REC-01 anomaly-step-1 ${desktop}`, async ({ page }) => {
   await prepareVisualPage({ page, path: "/records", viewport: desktop });
   await page.evaluate(() => document.fonts.ready);
