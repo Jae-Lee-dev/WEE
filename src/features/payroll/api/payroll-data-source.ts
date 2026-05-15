@@ -1105,11 +1105,18 @@ function buildCalculationDetail({
     records,
     statement,
   });
+  const openWorkRecordIds = collectOpenWorkRecordIds({
+    anomalyFlags,
+    correctionRequests,
+    overtimeWorks,
+    records,
+  });
   const blockingOpenItemCount = openCards.filter(isBlockingOpenItemCard).length;
-  const resolvedCards =
-    openCards.length > 0
-      ? openCards
-      : buildResolvedWorkRecordCards(records.slice(0, 8), calculationRules);
+  const monthlyRecordCards = buildResolvedWorkRecordCards(
+    records.filter((record) => !openWorkRecordIds.has(record.id)),
+    calculationRules,
+  );
+  const workRecordCards = [...openCards, ...monthlyRecordCards];
   const footer = buildCalculationFooter({
     calculationRules,
     openItemCount: blockingOpenItemCount,
@@ -1141,13 +1148,13 @@ function buildCalculationDetail({
       totalWorkMinutes: amounts.totalWorkMinutes,
     }),
     workRecordSection: {
-      cards: resolvedCards,
+      cards: workRecordCards,
       openCount:
         blockingOpenItemCount > 0
           ? `미처리 ${blockingOpenItemCount.toLocaleString("ko-KR")}건`
           : undefined,
-      title: "월 근무기록 · 미처리 항목",
-      totalCount: `${Math.max(records.length, resolvedCards.length).toLocaleString("ko-KR")}건`,
+      title: "월 근무기록",
+      totalCount: `${records.length.toLocaleString("ko-KR")}건`,
     },
   };
 }
@@ -1427,8 +1434,8 @@ function buildOpenItemCards({
           },
           {
             id: "record",
-            label: "근무기록",
-            value: flag.workRecordId ?? "-",
+            label: "연결 기록",
+            value: formatWorkRecordReference(record),
           },
         ],
         locationName: record?.locationName ?? "근무지 확인 필요",
@@ -1592,6 +1599,74 @@ function buildOpenItemCards({
     ...bonusCards,
     ...reconfirmationCards,
   ];
+}
+
+function collectOpenWorkRecordIds({
+  anomalyFlags,
+  correctionRequests,
+  overtimeWorks,
+  records,
+}: {
+  anomalyFlags: readonly AnomalyFlag[];
+  correctionRequests: readonly CorrectionRequest[];
+  overtimeWorks: readonly OvertimeWork[];
+  records: readonly WorkRecord[];
+}) {
+  const openWorkRecordIds = new Set<string>();
+  const heldCorrectionRecordIds = new Set(
+    correctionRequests
+      .filter((request) => request.payrollStatus === "held")
+      .map((request) => request.workRecordId)
+      .filter((id): id is string => Boolean(id)),
+  );
+
+  records
+    .filter(
+      (record) =>
+        record.payrollApplication === "hold" &&
+        !heldCorrectionRecordIds.has(record.id),
+    )
+    .forEach((record) => openWorkRecordIds.add(record.id));
+
+  anomalyFlags
+    .filter((item) => item.status === "unresolved")
+    .forEach((flag) => {
+      if (flag.workRecordId) {
+        openWorkRecordIds.add(flag.workRecordId);
+      }
+    });
+
+  overtimeWorks
+    .filter(
+      (item) => item.status === "submitted" || item.payrollStatus === "held",
+    )
+    .forEach((work) => {
+      if (work.workRecordId) {
+        openWorkRecordIds.add(work.workRecordId);
+      }
+    });
+
+  correctionRequests
+    .filter(
+      (item) => item.status === "submitted" || item.payrollStatus === "held",
+    )
+    .forEach((request) => {
+      if (request.workRecordId) {
+        openWorkRecordIds.add(request.workRecordId);
+      }
+    });
+
+  return openWorkRecordIds;
+}
+
+function formatWorkRecordReference(record: WorkRecord | undefined) {
+  if (!record) {
+    return "연결 근무기록 없음";
+  }
+
+  const timeLabel = formatRecordTime(record);
+
+  return timeLabel === "-" ? record.dutyName : `${record.dutyName} · ${timeLabel}`;
 }
 
 function createRecordsOpenItemAction(

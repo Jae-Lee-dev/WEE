@@ -1188,7 +1188,10 @@ function OpenItemsPanel({
   onResolveOpenItem: (input: ResolveOpenItemPayload) => Promise<void>;
 }) {
   const section = detail.workRecordSection;
-  const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
+  const [recordActionModal, setRecordActionModal] = useState<{
+    action: PayrollOpenItemCard["actions"][number];
+    card: PayrollOpenItemCard;
+  } | null>(null);
 
   return (
     <section
@@ -1216,48 +1219,40 @@ function OpenItemsPanel({
           <OpenItemCard
             key={card.id}
             card={card}
-            expanded={expandedCardId === card.id}
-            recordActionErrorMessage={recordActionErrorMessage}
-            recordActionViewModel={recordActionViewModel}
             saving={saving}
-            onConfirmOpenRecordAction={onConfirmOpenRecordAction}
             onResolveOpenItem={onResolveOpenItem}
-            onToggleRecordAction={() =>
-              setExpandedCardId((currentId) =>
-                currentId === card.id ? null : card.id,
-              )
+            onOpenRecordAction={(action) =>
+              setRecordActionModal({ action, card })
             }
           />
         ))}
       </div>
+
+      <OpenItemRecordActionModal
+        action={recordActionModal?.action ?? null}
+        card={recordActionModal?.card ?? null}
+        errorMessage={recordActionErrorMessage}
+        recordActionViewModel={recordActionViewModel}
+        saving={saving}
+        onClose={() => setRecordActionModal(null)}
+        onConfirmOpenRecordAction={onConfirmOpenRecordAction}
+      />
     </section>
   );
 }
 
 function OpenItemCard({
   card,
-  expanded,
-  recordActionErrorMessage,
-  recordActionViewModel,
   saving,
-  onConfirmOpenRecordAction,
+  onOpenRecordAction,
   onResolveOpenItem,
-  onToggleRecordAction,
 }: {
   card: PayrollOpenItemCard;
-  expanded: boolean;
-  recordActionErrorMessage: string;
-  recordActionViewModel: PayrollRecordActionViewModel | null;
   saving: boolean;
-  onConfirmOpenRecordAction: (
-    recordId: string,
-    input: RecordActionPanelInput,
-  ) => Promise<void>;
+  onOpenRecordAction: (action: PayrollOpenItemCard["actions"][number]) => void;
   onResolveOpenItem: (input: ResolveOpenItemPayload) => Promise<void>;
-  onToggleRecordAction: () => void;
 }) {
   const unresolved = card.state === "open";
-  const recordAction = card.actions.find((action) => action.workRecordId);
 
   return (
     <article
@@ -1299,23 +1294,13 @@ function OpenItemCard({
           {card.actions.map((action) => (
             <OpenItemActionControl
               action={action}
-              expanded={expanded && action.workRecordId === recordAction?.workRecordId}
               key={action.id}
               saving={saving}
+              onOpenRecordAction={onOpenRecordAction}
               onResolveOpenItem={onResolveOpenItem}
-              onToggleRecordAction={onToggleRecordAction}
             />
           ))}
         </div>
-      ) : null}
-      {expanded && recordAction?.workRecordId ? (
-        <OpenItemRecordActionPanel
-          action={recordAction}
-          errorMessage={recordActionErrorMessage}
-          recordActionViewModel={recordActionViewModel}
-          saving={saving}
-          onConfirmOpenRecordAction={onConfirmOpenRecordAction}
-        />
       ) : null}
     </article>
   );
@@ -1323,16 +1308,14 @@ function OpenItemCard({
 
 function OpenItemActionControl({
   action,
-  expanded,
   saving,
+  onOpenRecordAction,
   onResolveOpenItem,
-  onToggleRecordAction,
 }: {
   action: PayrollOpenItemCard["actions"][number];
-  expanded: boolean;
   saving: boolean;
+  onOpenRecordAction: (action: PayrollOpenItemCard["actions"][number]) => void;
   onResolveOpenItem: (input: ResolveOpenItemPayload) => Promise<void>;
-  onToggleRecordAction: () => void;
 }) {
   const className =
     "flex h-10 items-center justify-center rounded-full border px-4 text-h-16-medium tracking-normal transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200";
@@ -1355,16 +1338,13 @@ function OpenItemActionControl({
     return (
       <button
         type="button"
-        aria-expanded={expanded}
         className={cn(
           className,
-          expanded
-            ? "border-green-400 bg-green-400 text-white"
-            : "border-gray-200 bg-white text-gray-800 hover:border-gray-300 hover:bg-gray-50",
+          "border-gray-200 bg-white text-gray-800 hover:border-gray-300 hover:bg-gray-50",
         )}
-        onClick={onToggleRecordAction}
+        onClick={() => onOpenRecordAction(action)}
       >
-        {expanded ? "접기" : action.label}
+        {action.label}
       </button>
     );
   }
@@ -1412,15 +1392,23 @@ function resolveRecordActionStateId(
 
 function OpenItemRecordActionPanel({
   action,
+  className,
   errorMessage,
+  panelClassName,
   recordActionViewModel,
   saving,
+  variant = "embedded",
+  onActionComplete,
   onConfirmOpenRecordAction,
 }: {
   action: PayrollOpenItemCard["actions"][number];
+  className?: string;
   errorMessage: string;
+  panelClassName?: string;
   recordActionViewModel: PayrollRecordActionViewModel | null;
   saving: boolean;
+  variant?: "panel" | "embedded";
+  onActionComplete?: () => void;
   onConfirmOpenRecordAction: (
     recordId: string,
     input: RecordActionPanelInput,
@@ -1441,7 +1429,12 @@ function OpenItemRecordActionPanel({
 
   if (errorMessage) {
     return (
-      <p className="mt-4 rounded-[8px] border border-red-100 bg-red-50 px-4 py-3 text-h-16-medium tracking-normal text-red-500">
+      <p
+        className={cn(
+          "rounded-[8px] border border-red-100 bg-red-50 px-4 py-3 text-h-16-medium tracking-normal text-red-500",
+          className,
+        )}
+      >
         {errorMessage}
       </p>
     );
@@ -1449,7 +1442,12 @@ function OpenItemRecordActionPanel({
 
   if (!recordActionViewModel) {
     return (
-      <p className="mt-4 rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3 text-h-16-medium tracking-normal text-gray-500">
+      <p
+        className={cn(
+          "rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3 text-h-16-medium tracking-normal text-gray-500",
+          className,
+        )}
+      >
         근무기록 처리 정보를 불러오는 중입니다.
       </p>
     );
@@ -1457,7 +1455,12 @@ function OpenItemRecordActionPanel({
 
   if (!workRecordId || !block) {
     return (
-      <p className="mt-4 rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3 text-h-16-medium tracking-normal text-gray-500">
+      <p
+        className={cn(
+          "rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3 text-h-16-medium tracking-normal text-gray-500",
+          className,
+        )}
+      >
         처리할 근무기록을 찾을 수 없습니다.
       </p>
     );
@@ -1475,15 +1478,72 @@ function OpenItemRecordActionPanel({
   return (
     <RecordActionDetailPanel
       actionSaving={saving}
-      className="mt-4 min-h-[520px]"
+      className={cn("min-h-[520px]", className, panelClassName)}
       detailStates={detailStates}
       state={state}
-      variant="embedded"
-      onConfirmRecordAction={(input) =>
-        onConfirmOpenRecordAction(block.id, input)
-      }
+      variant={variant}
+      onConfirmRecordAction={async (input) => {
+        await onConfirmOpenRecordAction(block.id, input);
+        onActionComplete?.();
+      }}
       onSelectState={setSelectedStateId}
     />
+  );
+}
+
+function OpenItemRecordActionModal({
+  action,
+  card,
+  errorMessage,
+  recordActionViewModel,
+  saving,
+  onClose,
+  onConfirmOpenRecordAction,
+}: {
+  action: PayrollOpenItemCard["actions"][number] | null;
+  card: PayrollOpenItemCard | null;
+  errorMessage: string;
+  recordActionViewModel: PayrollRecordActionViewModel | null;
+  saving: boolean;
+  onClose: () => void;
+  onConfirmOpenRecordAction: (
+    recordId: string,
+    input: RecordActionPanelInput,
+  ) => Promise<void>;
+}) {
+  return (
+    <Dialog open={Boolean(action)} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        data-testid="payroll-record-action-modal"
+        className="max-h-[calc(100vh-40px)] w-[calc(100vw-32px)] max-w-[820px] overflow-hidden rounded-[12px] bg-white p-0 text-gray-900 shadow-[0px_24px_60px_rgba(15,23,42,0.24)] ring-0"
+      >
+        <DialogHeader className="border-b border-gray-200 px-6 py-5 pr-14">
+          <DialogTitle className="text-h-20 tracking-normal text-gray-900">
+            근무기록 처리
+          </DialogTitle>
+          <DialogDescription className="text-body-16-regular leading-[24px] tracking-normal text-gray-600">
+            {card
+              ? `${card.dateLabel} · ${card.title} · ${card.timeLabel}`
+              : "급여 산정 화면에서 근무기록을 처리합니다."}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[calc(100vh-170px)] overflow-y-auto px-6 py-6">
+          {action ? (
+            <OpenItemRecordActionPanel
+              action={action}
+              errorMessage={errorMessage}
+              key={action.workRecordId ?? action.id}
+              panelClassName="border-gray-200"
+              recordActionViewModel={recordActionViewModel}
+              saving={saving}
+              variant="panel"
+              onActionComplete={onClose}
+              onConfirmOpenRecordAction={onConfirmOpenRecordAction}
+            />
+          ) : null}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

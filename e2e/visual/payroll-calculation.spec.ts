@@ -94,6 +94,11 @@ test(`PAY-01 detail ${desktop}`, async ({ page }) => {
   await expect(page.getByText("세후 보너스/차감")).toBeVisible();
   await expect(page.getByText("신입 교육 지원")).toBeVisible();
   await expect(page.getByText("지각 차감")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "월 근무기록" })).toBeVisible();
+  await expect(page.getByText("모의고사 채점")).toBeVisible();
+  await expect(
+    page.getByText("wr_worker_jung_20260424_duty_grading_fri"),
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "신입 교육 지원 삭제" }),
   ).toBeVisible();
@@ -145,13 +150,14 @@ test("PAY-01 keeps list and detail scrolling inside payroll content", async ({
     .toBeGreaterThan(0);
 });
 
-test("PAY-01 opens monthly work-record item actions inline", async ({ page }) => {
+test("PAY-01 opens monthly work-record item actions in a modal", async ({ page }) => {
   await prepareVisualPage({ page, path: "/payroll", viewport: desktop });
   await page.evaluate(() => document.fonts.ready);
   await page.getByTestId("payroll-calculation-first-detail").click();
   await expect(page.getByText("REC-01에서 처리")).toHaveCount(0);
 
   await page.getByRole("button", { name: "처리하기" }).first().click();
+  await expect(page.getByTestId("payroll-record-action-modal")).toBeVisible();
   await expect(page.getByTestId("record-detail-panel")).toBeVisible();
   await expect(page.getByRole("button", { name: "정상 처리" })).toBeVisible();
 
