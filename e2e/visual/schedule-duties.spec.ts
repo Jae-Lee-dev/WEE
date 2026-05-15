@@ -49,6 +49,65 @@ test(`DUT-01 list-view ${desktop}`, async ({ page }) => {
   });
 });
 
+test("DUT-01 list-view selected row uses focused tag-list treatment", async ({
+  page,
+}) => {
+  await prepareVisualPage({ page, path: routePath, viewport: laptop });
+  await page.evaluate(() => document.fonts.ready);
+  await page.getByRole("button", { name: "목록 보기" }).click();
+
+  const row = page.getByTestId("duty-list-select-first");
+  await row.click();
+
+  await expect(row).toHaveAttribute("data-selected", "true");
+  await expect(row).toHaveAttribute("aria-selected", "true");
+  await expect(row).toHaveClass(/ring-green-400/);
+
+  await captureActualScreenshot({
+    page,
+    screenId: "DUT-01",
+    state: "list-view-selected",
+    viewport: laptop,
+  });
+});
+
+test("DUT-01 list-view rows own vertical scroll below the table header", async ({
+  page,
+}) => {
+  await prepareVisualPage({ page, path: routePath, viewport: laptop });
+  await page.evaluate(() => document.fonts.ready);
+  await page.getByRole("button", { name: "목록 보기" }).click();
+
+  const metrics = await page.evaluate(() => {
+    const rowgroup = document.querySelector<HTMLElement>(
+      "[data-testid='duty-list-rowgroup']",
+    );
+    const columnHeader = document
+      .querySelector<HTMLElement>("[data-testid='duty-list-table']")
+      ?.querySelector<HTMLElement>("[role='row']");
+
+    if (!rowgroup || !columnHeader) {
+      throw new Error("DUT-01 list scroll measurement target not found");
+    }
+
+    const beforeHeaderTop = columnHeader.getBoundingClientRect().top;
+    rowgroup.scrollTop = 80;
+    const afterHeaderTop = columnHeader.getBoundingClientRect().top;
+
+    return {
+      afterHeaderTop,
+      beforeHeaderTop,
+      clientHeight: rowgroup.clientHeight,
+      scrollHeight: rowgroup.scrollHeight,
+      scrollTop: rowgroup.scrollTop,
+    };
+  });
+
+  expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight);
+  expect(metrics.scrollTop).toBeGreaterThan(0);
+  expect(metrics.afterHeaderTop).toBe(metrics.beforeHeaderTop);
+});
+
 test("DUT-01 toolbar controls stay inside the screen frame", async ({ page }) => {
   await prepareVisualPage({ page, path: routePath, viewport: laptop });
   await page.evaluate(() => document.fonts.ready);

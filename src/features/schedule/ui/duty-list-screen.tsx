@@ -711,11 +711,11 @@ function DutyListTable({
   return (
     <section
       aria-label="Duty list"
-      className="min-h-0 overflow-hidden rounded-[8px] border border-gray-200 bg-white"
+      className="flex h-full min-h-0 flex-col overflow-hidden rounded-[8px] border border-gray-200 bg-white"
       data-testid="duty-list-table"
       role="table"
     >
-      <div className="flex h-[56px] items-center gap-3 px-4">
+      <div className="flex h-[56px] shrink-0 items-center gap-3 px-4">
         <h2 className="text-h-20 tracking-normal text-gray-900">근무 목록</h2>
         <span className="rounded-[4px] bg-gray-100 px-1.5 py-0.5 text-detail-16-regular tracking-normal text-gray-600">
           {rows.length}건
@@ -723,7 +723,7 @@ function DutyListTable({
       </div>
 
       <div
-        className="grid h-9 grid-cols-[1.45fr_1fr_1.1fr_1.25fr_0.8fr_0.75fr] items-center border-b border-gray-300 px-4 text-h-18-regular tracking-normal text-gray-500"
+        className="grid h-9 shrink-0 grid-cols-[1.45fr_1fr_1.1fr_1.25fr_0.8fr_0.75fr] items-center border-b border-gray-300 px-4 text-h-18-regular tracking-normal text-gray-500"
         role="row"
       >
         <div role="columnheader">근무</div>
@@ -734,7 +734,11 @@ function DutyListTable({
         <div role="columnheader">상태</div>
       </div>
 
-      <div role="rowgroup">
+      <div
+        className="min-h-0 flex-1 overflow-y-auto"
+        data-testid="duty-list-rowgroup"
+        role="rowgroup"
+      >
         {rows.map((row) => (
           <DutyListTableRow
             key={row.id}
@@ -761,9 +765,11 @@ function DutyListTableRow({
     <button
       type="button"
       aria-selected={selected}
+      data-selected={selected ? "true" : undefined}
       className={cn(
         "grid min-h-16 w-full grid-cols-[1.45fr_1fr_1.1fr_1.25fr_0.8fr_0.75fr] items-center border-b border-gray-100 px-4 text-left text-h-18-regular tracking-normal text-gray-900 transition-colors duration-150 ease-out last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200",
-        selected && "bg-green-50 hover:bg-green-50",
+        selected &&
+          "bg-green-50 ring-2 ring-inset ring-green-400 hover:bg-green-50",
       )}
       data-testid={
         row.id === selectedFixtureDutyId ? "duty-list-select-first" : undefined
