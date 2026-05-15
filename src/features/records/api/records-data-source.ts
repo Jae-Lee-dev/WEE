@@ -614,6 +614,12 @@ async function createFirestoreOvertimeWork(input: RecordOvertimeCreateInput) {
 
   const workspaceId = await requireActiveWorkspaceId();
   const db = getFirebaseDb();
+  const managerUid = getFirebaseAuth().currentUser?.uid ?? null;
+
+  if (!managerUid) {
+    throw new Error("관리자 세션을 확인할 수 없습니다.");
+  }
+
   const recordRef = doc(
     db,
     "workspaces",
@@ -646,6 +652,13 @@ async function createFirestoreOvertimeWork(input: RecordOvertimeCreateInput) {
     monthKey,
     workerId,
   });
+  const payrollSetting =
+    findPayrollSettingForMonth(
+      collections.payrollSettings.map(mapPayrollSetting),
+      workerId,
+      monthKey,
+    ) ?? null;
+  const payrollPayMode = getManagerCreatedOvertimePayMode(payrollSetting);
 
   if (payrollContext.paid) {
     throw new Error("지급 완료된 월에는 추가근무를 등록할 수 없습니다.");
@@ -667,15 +680,17 @@ async function createFirestoreOvertimeWork(input: RecordOvertimeCreateInput) {
     throw new Error("연결된 출퇴근 기록을 찾을 수 없습니다.");
   }
 
-  const existingPendingOvertime = collections.overtimeWorks.find(
-    (item) =>
-      readString(item.data.status, "submitted") === "submitted" &&
-      (readString(item.data.workRecordId, "") === input.recordId ||
-        readString(item.data.attendanceLogId, "") === attendanceLogId),
-  );
+  const existingActiveOvertime = collections.overtimeWorks.find((item) => {
+    const status = readString(item.data.status, "submitted");
+    const sameRecord =
+      readString(item.data.workRecordId, "") === input.recordId ||
+      readString(item.data.attendanceLogId, "") === attendanceLogId;
 
-  if (existingPendingOvertime) {
-    throw new Error("이미 처리 대기 중인 추가근무가 있습니다.");
+    return sameRecord && status !== "rejected" && status !== "withdrawn";
+  });
+
+  if (existingActiveOvertime) {
+    throw new Error("이미 등록된 추가근무가 있습니다.");
   }
 
   const batch = writeBatch(db);
@@ -687,22 +702,22 @@ async function createFirestoreOvertimeWork(input: RecordOvertimeCreateInput) {
 
   batch.set(overtimeRef, {
     amount: null,
-    approvedAt: null,
+    approvedAt: serverTimestamp(),
     attendanceLogId,
     createdAt: serverTimestamp(),
-    decidedAt: null,
-    decidedBy: null,
+    decidedAt: serverTimestamp(),
+    decidedBy: managerUid,
     extraEndAt,
     extraStartAt,
     managerNote: null,
     monthKey,
-    payrollEffect: "none",
-    payrollPayMode: null,
-    payrollStatus: "none",
+    payrollEffect: "immediate",
+    payrollPayMode,
+    payrollStatus: "confirmed",
     reason: input.reason.trim(),
     rejectedReason: null,
-    status: "submitted",
-    submittedAt: serverTimestamp(),
+    status: "approved",
+    submittedAt: null,
     updatedAt: serverTimestamp(),
     workRecordId: input.recordId,
     workerId,
@@ -710,7 +725,7 @@ async function createFirestoreOvertimeWork(input: RecordOvertimeCreateInput) {
     workspaceId,
   });
   batch.update(recordRef, {
-    hasPendingOvertime: true,
+    hasPendingOvertime: false,
     updatedAt: serverTimestamp(),
   });
   queueWorkerNotification({
@@ -729,6 +744,13 @@ async function createFirestoreOvertimeWork(input: RecordOvertimeCreateInput) {
     relatedEntityType: "overtimeWork",
     recipientId: workerId,
     workspaceId,
+  });
+  queueReconfirmationAlert({
+    batch,
+    db,
+    reason: "관리자 추가근무 확정 등록",
+    workspaceId,
+    ...payrollContext,
   });
 
   await batch.commit();
@@ -1486,6 +1508,15 @@ function getOvertimePayrollStatus(effect: PayrollEffect) {
   }
 
   return "confirmed";
+}
+
+function getManagerCreatedOvertimePayMode(
+  payrollSetting: PayrollSettingModel | null,
+): OvertimePayMode | null {
+  return payrollSetting?.payrollType === "hourly" &&
+    payrollSetting.hourlyRate != null
+    ? "hourly"
+    : null;
 }
 
 function getConfirmedOvertimePayMode(input: RecordMainActionInput) {

@@ -698,26 +698,26 @@ service cloud.firestore {
         ])
         && data.workspaceId == workspaceId
         && data.amount == null
-        && data.approvedAt == null
+        && data.approvedAt == request.time
         && data.attendanceLogId is string
         && data.attendanceLogId.size() > 0
         && data.createdAt == request.time
-        && data.decidedAt == null
-        && data.decidedBy == null
+        && data.decidedAt == request.time
+        && data.decidedBy == request.auth.uid
         && data.extraStartAt is timestamp
         && data.extraEndAt is timestamp
         && data.extraEndAt > data.extraStartAt
         && data.managerNote == null
         && data.monthKey is string
         && data.monthKey.size() == 7
-        && data.payrollEffect == 'none'
-        && data.payrollPayMode == null
-        && data.payrollStatus == 'none'
+        && data.payrollEffect == 'immediate'
+        && (data.payrollPayMode == 'hourly' || data.payrollPayMode == null)
+        && data.payrollStatus == 'confirmed'
         && data.reason is string
         && data.reason.size() > 0
         && data.rejectedReason == null
-        && data.status == 'submitted'
-        && data.submittedAt == request.time
+        && data.status == 'approved'
+        && data.submittedAt == null
         && data.updatedAt == request.time
         && data.workRecordId is string
         && data.workRecordId.size() > 0
