@@ -1143,13 +1143,13 @@ function buildCalculationDetail({
       ? payrollCalculationFixture.details["bonus-add"].adjustmentForm
       : undefined,
     adjustmentItems: buildAdjustmentItems(bonuses),
-    adjustmentsTitle: "수기 보너스 차감",
+    adjustmentsTitle: "보너스/차감 항목",
+    calculationRuleLabel: formatCalculationRules(calculationRules),
     calculationRows: buildCalculationLines({
       amounts,
-      calculationRules,
       setting,
     }),
-    calculationTitle: "현재 급여 계산",
+    calculationTitle: "급여 산정 내역",
     expectedPay: formatWon(amounts.finalAmount),
     expectedPayLabel: "지급 예상액",
     footer,
@@ -1295,23 +1295,16 @@ function hasStatementCalculationMismatch(
 
 function buildCalculationLines({
   amounts,
-  calculationRules,
   setting,
 }: {
   amounts: CalculationAmounts;
-  calculationRules: PayrollCalculationRules;
   setting?: PayrollSetting;
 }): readonly PayrollCalculationLine[] {
-  const payBasis =
-    setting?.payrollType === "monthly"
-      ? formatWon(setting.monthlySalary)
-      : `${formatHours(amounts.totalWorkMinutes)} × ${formatWon(setting?.hourlyRate)}`;
-
   return [
     {
-      id: "base-hours",
-      label: "기준 근무 시간",
-      value: `${formatHours(amounts.totalWorkMinutes)} (${payBasis})`,
+      id: "total-work-time",
+      label: "총 근무 시간",
+      value: formatTotalWorkTimeValue(amounts, setting),
     },
     {
       id: "base-pay",
@@ -1320,7 +1313,7 @@ function buildCalculationLines({
     },
     {
       id: "overtime",
-      label: "추가근무 반영",
+      label: "추가근무 수당",
       tone: amounts.overtimePay > 0 ? "positive" : "muted",
       value: formatWon(amounts.overtimePay),
     },
@@ -1342,12 +1335,20 @@ function buildCalculationLines({
       tone: getAmountTone(amounts.postTaxAdjustment),
       value: formatSignedWon(amounts.postTaxAdjustment),
     },
-    {
-      id: "rounding",
-      label: "올림 기준",
-      value: formatCalculationRules(calculationRules),
-    },
   ];
+}
+
+function formatTotalWorkTimeValue(
+  amounts: CalculationAmounts,
+  setting?: PayrollSetting,
+) {
+  const totalWorkTime = formatHours(amounts.totalWorkMinutes);
+
+  if (setting?.payrollType !== "monthly" && setting?.hourlyRate != null) {
+    return `${totalWorkTime} · 시급 ${formatWon(setting.hourlyRate)}`;
+  }
+
+  return totalWorkTime;
 }
 
 function buildAdjustmentItems(
@@ -1356,18 +1357,15 @@ function buildAdjustmentItems(
   return bonuses.length > 0
     ? bonuses.map((bonus) => ({
         amount: formatSignedWon(bonus.amount),
-        deleteLabel: bonus.payrollStatus === "held" ? "보류" : "삭제",
+        actionLabel: bonus.payrollStatus === "held" ? undefined : "삭제",
         id: bonus.id,
-        label:
-          bonus.payrollStatus === "held"
-            ? `${bonus.label} (보류)`
-            : bonus.label,
+        label: bonus.label,
+        statusLabel: bonus.payrollStatus === "held" ? "보류" : undefined,
         tone: getAmountTone(bonus.amount),
       }))
     : [
         {
           amount: "-",
-          deleteLabel: "없음",
           id: "empty",
           label: "등록된 보너스/차감 항목이 없습니다.",
           tone: "muted",

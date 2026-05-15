@@ -91,7 +91,8 @@ export type PayrollAdjustmentItem = {
   label: string;
   amount: string;
   tone: PayrollAmountTone;
-  deleteLabel: string;
+  actionLabel?: string;
+  statusLabel?: string;
 };
 
 export type PayrollAdjustmentForm = {
@@ -165,6 +166,7 @@ export type PayrollCalculationDetail = {
   headerTitle: string;
   worker: PayrollWorkerSummary;
   calculationTitle: string;
+  calculationRuleLabel: string;
   calculationRows: readonly PayrollCalculationLine[];
   expectedPayLabel: string;
   expectedPay: string;
@@ -322,9 +324,9 @@ const kimSeoyeonPayrollSummary = {
 
 const payrollCalculationLines = [
   {
-    id: "base-hours",
-    label: "기준 근무 시간",
-    value: "36시간 (시급 \u20a910,000)",
+    id: "total-work-time",
+    label: "총 근무 시간",
+    value: "36시간 · 시급 \u20a910,000",
   },
   {
     id: "base-pay",
@@ -333,37 +335,26 @@ const payrollCalculationLines = [
   },
   {
     id: "overtime",
-    label: "추가근무 반영",
+    label: "추가근무 수당",
     value: "\u20a910,000",
   },
   {
-    id: "record-adjustment",
-    label: "근무기록 조정",
-    value: "-",
-    tone: "muted",
-  },
-  {
     id: "pre-pay-adjustment",
-    label: "지급 전 가감",
-    value: "+\u20a935,000",
+    label: "세전 보너스/차감",
+    value: "+ \u20a935,000",
     tone: "positive",
   },
   {
     id: "tax",
     label: "공제",
-    value: "-\u20a911,385",
+    value: "- \u20a911,385",
     tone: "negative",
   },
   {
     id: "post-pay-adjustment",
-    label: "지급 후 가감",
-    value: "+\u20a920,000",
+    label: "세후 보너스/차감",
+    value: "+ \u20a920,000",
     tone: "positive",
-  },
-  {
-    id: "rounding",
-    label: "올림 기준",
-    value: "근무시간 6분 단위 · 급여 원 단위",
   },
 ] as const satisfies readonly PayrollCalculationLine[];
 
@@ -373,19 +364,19 @@ const payrollAdjustmentItems = [
     label: "교통비 지원",
     amount: "+\u20a920,000",
     tone: "positive",
-    deleteLabel: "삭제",
+    actionLabel: "삭제",
   },
   {
     id: "hospital-deduction",
     label: "병원 차감",
     amount: "-\u20a915,000",
     tone: "negative",
-    deleteLabel: "삭제",
+    actionLabel: "삭제",
   },
 ] as const satisfies readonly PayrollAdjustmentItem[];
 
 const payrollAdjustmentForm = {
-  title: "수기 보너스 차감",
+  title: "보너스/차감 항목",
   itemLabel: "항목명",
   itemPlaceholder: "예) 야근수당",
   operatorLabel: "연산",
@@ -644,11 +635,12 @@ export const payrollCalculationFixture = {
       id: "detail",
       headerTitle: "급여 산정 목록",
       worker: kimSeoyeonPayrollSummary,
-      calculationTitle: "현재 급여 계산",
+      calculationTitle: "급여 산정 내역",
+      calculationRuleLabel: "근무시간 6분 단위 · 급여 원 단위",
       calculationRows: payrollCalculationLines,
       expectedPayLabel: "지급 예상액",
       expectedPay: "\u20a9353,615",
-      adjustmentsTitle: "수기 보너스 차감",
+      adjustmentsTitle: "보너스/차감 항목",
       addButtonLabel: "항목 추가",
       adjustmentItems: payrollAdjustmentItems,
       workRecordSection: {
@@ -668,11 +660,12 @@ export const payrollCalculationFixture = {
       id: "bonus-add",
       headerTitle: "급여 산정 목록",
       worker: kimSeoyeonPayrollSummary,
-      calculationTitle: "현재 급여 계산",
+      calculationTitle: "급여 산정 내역",
+      calculationRuleLabel: "근무시간 6분 단위 · 급여 원 단위",
       calculationRows: payrollCalculationLines,
       expectedPayLabel: "지급 예상액",
       expectedPay: "\u20a9353,615",
-      adjustmentsTitle: "수기 보너스 차감",
+      adjustmentsTitle: "보너스/차감 항목",
       addButtonLabel: "항목 추가",
       adjustmentForm: payrollAdjustmentForm,
       adjustmentItems: payrollAdjustmentItems,
@@ -693,11 +686,12 @@ export const payrollCalculationFixture = {
       id: "no-open-items",
       headerTitle: "급여 산정 목록",
       worker: kimSeoyeonPayrollSummary,
-      calculationTitle: "현재 급여 계산",
+      calculationTitle: "급여 산정 내역",
+      calculationRuleLabel: "근무시간 6분 단위 · 급여 원 단위",
       calculationRows: payrollCalculationLines,
       expectedPayLabel: "지급 예상액",
       expectedPay: "\u20a9353,615",
-      adjustmentsTitle: "수기 보너스 차감",
+      adjustmentsTitle: "보너스/차감 항목",
       addButtonLabel: "항목 추가",
       adjustmentItems: payrollAdjustmentItems,
       workRecordSection: {

@@ -36,6 +36,7 @@ import {
 import {
   payrollCalculationFixture,
   type PayrollAdjustmentItem,
+  type PayrollAdjustmentForm,
   type PayrollAmountTone,
   type PayrollCalculationDetail,
   type PayrollCalculationFixture,
@@ -466,7 +467,6 @@ export function PayrollCalculationScreen({
           onDeleteAdjustment={handleDeleteAdjustment}
           onDecidePayroll={handleDecidePayroll}
           onResolveOpenItem={handleResolveOpenItem}
-          onShowBonusForm={() => setDetailState("bonus-add")}
           onShowNoOpenItems={() => setDetailState("no-open-items")}
         />
         {requiredSettingsDialog}
@@ -685,7 +685,6 @@ function PayrollDetailScreen({
   onDeleteAdjustment,
   onDecidePayroll,
   onResolveOpenItem,
-  onShowBonusForm,
   onShowNoOpenItems,
 }: {
   detail: PayrollCalculationDetail;
@@ -703,9 +702,13 @@ function PayrollDetailScreen({
   onDeleteAdjustment: (adjustmentId: string) => Promise<void>;
   onDecidePayroll: (input: DecidePayrollPayload) => Promise<void>;
   onResolveOpenItem: (input: ResolveOpenItemPayload) => Promise<void>;
-  onShowBonusForm: () => void;
   onShowNoOpenItems: () => void;
 }) {
+  const detailKey = `${detail.id}:${detail.worker.id}`;
+  const [adjustmentFormTargetKey, setAdjustmentFormTargetKey] = useState<
+    string | null
+  >(null);
+  const adjustmentFormOpen = adjustmentFormTargetKey === detailKey;
   const actionErrorMessage =
     status?.kind === "error" ? status.message : "";
   const actionSuccessMessage =
@@ -724,7 +727,7 @@ function PayrollDetailScreen({
     >
       <DetailStateHeader
         backLabel="급여 산정"
-        title={getPayrollCalculationDetailTitle(detail)}
+        title="급여 산정 상세"
         onBack={onBack}
         actions={
           <>
@@ -759,11 +762,13 @@ function PayrollDetailScreen({
 
           <div className="grid items-start gap-4 xl:grid-cols-[minmax(540px,1fr)_minmax(520px,1fr)]">
             <PayrollCalculationCard
+              adjustmentFormOpen={adjustmentFormOpen}
               detail={detail}
               saving={saving}
               onCreateAdjustment={onCreateAdjustment}
               onDeleteAdjustment={onDeleteAdjustment}
-              onShowBonusForm={onShowBonusForm}
+              onHideAdjustmentForm={() => setAdjustmentFormTargetKey(null)}
+              onShowBonusForm={() => setAdjustmentFormTargetKey(detailKey)}
             />
             <OpenItemsPanel
               detail={detail}
@@ -785,14 +790,6 @@ function PayrollDetailScreen({
       />
     </section>
   );
-}
-
-function getPayrollCalculationDetailTitle(detail: PayrollCalculationDetail) {
-  if (detail.id === "bonus-add") {
-    return "보너스/차감 추가";
-  }
-
-  return "급여 산정 상세";
 }
 
 function WorkerSummaryCard({ detail }: { detail: PayrollCalculationDetail }) {
@@ -829,25 +826,37 @@ function WorkerSummaryCard({ detail }: { detail: PayrollCalculationDetail }) {
 }
 
 function PayrollCalculationCard({
+  adjustmentFormOpen,
   detail,
   saving,
   onCreateAdjustment,
   onDeleteAdjustment,
+  onHideAdjustmentForm,
   onShowBonusForm,
 }: {
+  adjustmentFormOpen: boolean;
   detail: PayrollCalculationDetail;
   saving: boolean;
   onCreateAdjustment: (input: CreateAdjustmentPayload) => Promise<void>;
   onDeleteAdjustment: (adjustmentId: string) => Promise<void>;
+  onHideAdjustmentForm: () => void;
   onShowBonusForm: () => void;
 }) {
   return (
     <section className="rounded-[8px] bg-white px-4 pb-4 pt-4">
-      <h2 className="text-h-20 tracking-normal text-gray-900">
-        {detail.calculationTitle}
-      </h2>
+      <div className="flex min-h-7 items-center justify-between gap-4">
+        <h2 className="text-h-20 tracking-normal text-gray-900">
+          {detail.calculationTitle}
+        </h2>
+        <span
+          className="shrink-0 rounded-full bg-gray-100 px-3 py-1 text-label-12-medium tracking-normal text-gray-600"
+          data-testid="payroll-calculation-rounding-rule"
+        >
+          {detail.calculationRuleLabel}
+        </span>
+      </div>
 
-      <div className="mt-7">
+      <div className="mt-5">
         {detail.calculationRows.map((row) => (
           <CalculationLine key={row.id} row={row} />
         ))}
@@ -861,10 +870,12 @@ function PayrollCalculationCard({
       </div>
 
       <AdjustmentsBox
+        adjustmentFormOpen={adjustmentFormOpen}
         detail={detail}
         saving={saving}
         onCreateAdjustment={onCreateAdjustment}
         onDeleteAdjustment={onDeleteAdjustment}
+        onHideAdjustmentForm={onHideAdjustmentForm}
         onShowBonusForm={onShowBonusForm}
       />
     </section>
@@ -888,18 +899,26 @@ function CalculationLine({ row }: { row: PayrollCalculationLine }) {
 }
 
 function AdjustmentsBox({
+  adjustmentFormOpen,
   detail,
   saving,
   onCreateAdjustment,
   onDeleteAdjustment,
+  onHideAdjustmentForm,
   onShowBonusForm,
 }: {
+  adjustmentFormOpen: boolean;
   detail: PayrollCalculationDetail;
   saving: boolean;
   onCreateAdjustment: (input: CreateAdjustmentPayload) => Promise<void>;
   onDeleteAdjustment: (adjustmentId: string) => Promise<void>;
+  onHideAdjustmentForm: () => void;
   onShowBonusForm: () => void;
 }) {
+  const adjustmentForm = adjustmentFormOpen
+    ? payrollCalculationFixture.details["bonus-add"].adjustmentForm
+    : undefined;
+
   return (
     <section className="mt-6 rounded-[8px] border border-gray-100 px-4 py-4">
       <div className="flex items-center justify-between gap-4">
@@ -909,6 +928,7 @@ function AdjustmentsBox({
         <button
           type="button"
           data-testid="payroll-calculation-add-adjustment"
+          aria-expanded={adjustmentFormOpen}
           onClick={onShowBonusForm}
           className="flex h-9 items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-h-16-medium tracking-normal text-gray-800 transition-colors duration-150 ease-out hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200"
         >
@@ -916,18 +936,19 @@ function AdjustmentsBox({
         </button>
       </div>
 
-      {detail.adjustmentForm ? (
+      {adjustmentForm ? (
         <AdjustmentForm
-          detail={detail}
+          form={adjustmentForm}
           saving={saving}
           onCreateAdjustment={onCreateAdjustment}
+          onSubmitted={onHideAdjustmentForm}
         />
       ) : null}
 
       <div
         className={cn(
           "mt-8",
-          detail.adjustmentForm && "mt-10 border-t border-gray-600 pt-6",
+          adjustmentForm && "mt-10 border-t border-gray-600 pt-6",
         )}
       >
         {detail.adjustmentItems.map((item) => (
@@ -944,24 +965,21 @@ function AdjustmentsBox({
 }
 
 function AdjustmentForm({
-  detail,
+  form,
+  onSubmitted,
   saving,
   onCreateAdjustment,
 }: {
-  detail: PayrollCalculationDetail;
+  form: PayrollAdjustmentForm;
+  onSubmitted: () => void;
   saving: boolean;
   onCreateAdjustment: (input: CreateAdjustmentPayload) => Promise<void>;
 }) {
-  const form = detail.adjustmentForm;
   const [label, setLabel] = useState("");
   const [operatorId, setOperatorId] = useState("plus");
   const [amountText, setAmountText] = useState("");
   const [taxScope, setTaxScope] =
     useState<PayrollAdjustmentInput["taxScope"]>("pre_tax");
-
-  if (!form) {
-    return null;
-  }
 
   const parsedAmount = parseMoneyInput(amountText);
   const signedAmount =
@@ -990,6 +1008,7 @@ function AdjustmentForm({
     setAmountText("");
     setOperatorId("plus");
     setTaxScope("pre_tax");
+    onSubmitted();
   };
 
   return (
@@ -1061,7 +1080,8 @@ function AdjustmentRow({
   saving: boolean;
   onDeleteAdjustment: (adjustmentId: string) => Promise<void>;
 }) {
-  const canDelete = item.id !== "empty" && item.deleteLabel === "삭제";
+  const canDelete = item.id !== "empty" && item.actionLabel === "삭제";
+  const held = item.statusLabel === "보류";
 
   return (
     <div className="flex min-h-[48px] items-center gap-4 border-b border-gray-100 text-h-18-regular tracking-normal last:border-b-0">
@@ -1074,18 +1094,22 @@ function AdjustmentRow({
       >
         {item.amount}
       </span>
-      <button
-        type="button"
-        disabled={!canDelete || saving}
-        onClick={() => {
-          if (canDelete) {
+      {canDelete ? (
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => {
             void onDeleteAdjustment(item.id);
-          }
-        }}
-        className="flex h-[28px] items-center justify-center rounded-[4px] border border-gray-300 bg-white px-1.5 text-detail-16-semibold tracking-normal text-gray-800 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
-      >
-        {item.deleteLabel}
-      </button>
+          }}
+          className="flex h-[28px] items-center justify-center rounded-[4px] border border-gray-300 bg-white px-1.5 text-detail-16-semibold tracking-normal text-gray-800 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
+        >
+          {item.actionLabel}
+        </button>
+      ) : held ? (
+        <Badge variant="orange" size="M">
+          보류
+        </Badge>
+      ) : null}
     </div>
   );
 }
