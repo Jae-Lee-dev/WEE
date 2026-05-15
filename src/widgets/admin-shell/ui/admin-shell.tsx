@@ -859,7 +859,7 @@ function createHeaderBreadcrumbs(
 function createDetailBreadcrumbs(pathname: string): HeaderBreadcrumb[] {
   const workerDetailMatch = /^\/workers\/([^/]+)(?:\/([^/]+))?$/.exec(pathname);
 
-  if (workerDetailMatch) {
+  if (workerDetailMatch && isWorkerDetailPath(pathname)) {
     const [, workerId, segment] = workerDetailMatch;
     const workerDetailHref = `/workers/${workerId}`;
     const workerDetailTab = getWorkerDetailTabBreadcrumb(
