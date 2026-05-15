@@ -482,6 +482,18 @@ export const recordTimelineBlocks = [
     "normal-selected",
   ),
   timelineBlock(
+    "overtime-kim-seoyeon-standalone-mon",
+    "mon",
+    "김서연",
+    "추가근무 신청",
+    "대치 A학원",
+    "21:00",
+    "21:30",
+    "overtime",
+    "blue",
+    "normal-selected",
+  ),
+  timelineBlock(
     "record-lee-haeun-korean-e-wed",
     "wed",
     "이하은",
@@ -791,10 +803,27 @@ const overtimeRecordDetailStates = {
   },
 } as const satisfies Record<RecordDetailStateId, RecordDetailState>;
 
+const standaloneOvertimeRecordDetailStates = {
+  ...overtimeRecordDetailStates,
+  "normal-selected": {
+    ...overtimeRecordDetailStates["normal-selected"],
+    title: "김서연 · 추가근무 신청",
+  },
+  "anomaly-step-3": {
+    ...overtimeRecordDetailStates["anomaly-step-3"],
+    title: "김서연 · 추가근무 신청",
+  },
+  "anomaly-step-4": {
+    ...overtimeRecordDetailStates["anomaly-step-4"],
+    title: "김서연 · 추가근무 신청",
+  },
+} as const satisfies Record<RecordDetailStateId, RecordDetailState>;
+
 export const recordMainFixtureViewModel = {
   blocks: recordTimelineBlocks,
   detailStates: recordDetailStates,
   detailStatesByBlockId: {
+    "overtime-kim-seoyeon-standalone-mon": standaloneOvertimeRecordDetailStates,
     "record-kang-taewoo-chemistry-g-mon": overtimeRecordDetailStates,
     "record-lee-haeun-english-c-mon": normalRecordDetailStates,
     "record-song-hyunwoo-physics-f-mon": recordDetailStates,

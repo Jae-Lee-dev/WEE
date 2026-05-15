@@ -285,7 +285,10 @@ test("REC-01 record type filters use signal chip variants", async ({ page }) => 
   await prepareVisualPage({ page, path: "/records", viewport: desktop });
 
   const anomalyChip = page.getByRole("button", { name: "이상 플래그" });
-  const overtimeChip = page.getByRole("button", { name: "추가근무 신청" });
+  const overtimeChip = page.getByRole("button", {
+    exact: true,
+    name: "추가근무 신청",
+  });
   const correctionChip = page.getByRole("button", { name: "이의 신청" });
 
   await expect(anomalyChip).toHaveAttribute("data-slot", "filter-chip");
@@ -367,6 +370,38 @@ test("REC-01 overtime approval asks payroll handling in confirmation modal", asy
   await expect(dialog.getByLabel("고정 지급액")).toBeVisible();
   await dialog.getByRole("tab", { name: "급여 제외" }).click();
   await expect(dialog.getByLabel("고정 지급액")).toHaveCount(0);
+});
+
+test("REC-01 shows standalone overtime applications", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/records?focus=overtime-kim-seoyeon-standalone-mon",
+    viewport: desktop,
+  });
+
+  const standaloneOvertimeBlock = page.locator(
+    "[data-record-block-id='overtime-kim-seoyeon-standalone-mon']",
+  );
+  await expect(standaloneOvertimeBlock).toBeVisible();
+  await expect(standaloneOvertimeBlock).toHaveAttribute(
+    "data-record-signal-kinds",
+    "overtime",
+  );
+  await expect(standaloneOvertimeBlock).toContainText(
+    /김서연\s*추가근무 신청\s*21:00~21:30/,
+  );
+
+  const detail = page.getByTestId("record-detail-panel");
+  await expect(detail.getByText("김서연 · 추가근무 신청")).toBeVisible();
+  await expect(
+    detail.getByRole("heading", { exact: true, name: "추가근무 신청" }),
+  ).toBeVisible();
+  await expect(
+    detail.getByRole("heading", { name: "연결 출퇴근 기록" }),
+  ).toBeVisible();
+  await expect(
+    detail.getByRole("heading", { name: "근무기록" }),
+  ).toHaveCount(0);
 });
 
 test(`REC-01 anomaly-step-1 ${desktop}`, async ({ page }) => {

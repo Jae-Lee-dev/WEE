@@ -282,6 +282,17 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
       const workspaceId = await requireActiveWorkspaceId();
       const db = getFirebaseDb();
       const managerUid = getFirebaseAuth().currentUser?.uid ?? null;
+
+      if (isOvertimeAction(input.action)) {
+        await applyOvertimeMainRecordAction({
+          db,
+          input,
+          managerUid,
+          workspaceId,
+        });
+        return;
+      }
+
       const recordRef = doc(
         db,
         "workspaces",
@@ -413,18 +424,7 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
           workspaceId,
         });
       } else {
-        queueOvertimeAction({
-          batch,
-          collections,
-          db,
-          input,
-          managerUid,
-          payrollEffect: input.payrollEffect,
-          payrollContext,
-          recordData,
-          recordRef,
-          workspaceId,
-        });
+        throw new Error("지원하지 않는 근무기록 처리입니다.");
       }
 
       await batch.commit();
@@ -448,6 +448,106 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
       return mapOvertimeHistoryView(await loadRecordsCollections());
     },
   };
+}
+
+async function applyOvertimeMainRecordAction({
+  db,
+  input,
+  managerUid,
+  workspaceId,
+}: {
+  db: ReturnType<typeof getFirebaseDb>;
+  input: RecordMainActionInput;
+  managerUid: string | null;
+  workspaceId: string;
+}) {
+  const collections = await loadRecordsCollections();
+  const overtime = findSubmittedOvertimeForAction(collections, input.recordId);
+
+  if (!overtime) {
+    throw new Error("처리할 추가근무 신청을 찾을 수 없습니다.");
+  }
+
+  const overtimeModel = mapOvertimeWork(overtime);
+  const attendance = overtimeModel.attendanceLogId
+    ? collections.attendanceLogs.find(
+        (item) => item.id === overtimeModel.attendanceLogId,
+      ) ?? null
+    : null;
+  const attendanceModel = attendance ? mapAttendanceLog(attendance) : null;
+  const linkedRecordId = overtimeModel.workRecordId;
+  const linkedRecordRef = linkedRecordId
+    ? doc(db, "workspaces", workspaceId, "workRecords", linkedRecordId)
+    : null;
+  const linkedRecordSnapshot = linkedRecordRef
+    ? await getDoc(linkedRecordRef)
+    : null;
+  const recordRef =
+    linkedRecordRef && linkedRecordSnapshot?.exists() ? linkedRecordRef : null;
+  const recordData = linkedRecordSnapshot?.exists()
+    ? (linkedRecordSnapshot.data() as Record<string, unknown>)
+    : null;
+  const workerId = overtimeModel.workerId || readString(recordData?.workerId, "");
+  const monthKey = getOvertimeMonthKey(overtimeModel, attendanceModel);
+
+  if (!workerId) {
+    throw new Error("조교 정보를 확인할 수 없습니다.");
+  }
+
+  if (!monthKey) {
+    throw new Error("추가근무 정산 월을 확인할 수 없습니다.");
+  }
+
+  const payrollContext = getWorkerMonthPayrollContext(collections, {
+    monthKey,
+    workerId,
+  });
+
+  if (payrollContext.paid) {
+    throw new Error("지급 완료된 월의 추가근무는 수정할 수 없습니다.");
+  }
+
+  const batch = writeBatch(db);
+
+  queueOvertimeAction({
+    batch,
+    db,
+    input,
+    managerUid,
+    overtime,
+    payrollContext,
+    payrollEffect: input.payrollEffect,
+    recordData,
+    recordRef,
+    workspaceId,
+  });
+
+  await batch.commit();
+}
+
+function isOvertimeAction(
+  action: RecordMainActionInput["action"],
+): action is "approve-overtime" | "reject-overtime" {
+  return action === "approve-overtime" || action === "reject-overtime";
+}
+
+function findSubmittedOvertimeForAction(
+  collections: RecordsCollections,
+  targetId: string,
+) {
+  return (
+    collections.overtimeWorks.find(
+      (item) =>
+        item.id === targetId &&
+        readString(item.data.status, "submitted") === "submitted",
+    ) ??
+    collections.overtimeWorks.find(
+      (item) =>
+        readString(item.data.workRecordId, "") === targetId &&
+        readString(item.data.status, "submitted") === "submitted",
+    ) ??
+    null
+  );
 }
 
 async function loadRecordsCollections(): Promise<RecordsCollections> {
@@ -1246,10 +1346,10 @@ function queueCorrectionAction({
 
 function queueOvertimeAction({
   batch,
-  collections,
   db,
   input,
   managerUid,
+  overtime,
   payrollEffect,
   payrollContext,
   recordData,
@@ -1257,26 +1357,16 @@ function queueOvertimeAction({
   workspaceId,
 }: {
   batch: WriteBatch;
-  collections: RecordsCollections;
   db: ReturnType<typeof getFirebaseDb>;
   input: RecordMainActionInput;
   managerUid: string | null;
+  overtime: FirestoreDocument;
   payrollEffect: PayrollEffect;
   payrollContext: WorkerMonthPayrollContext;
-  recordData: Record<string, unknown>;
-  recordRef: DocumentReference;
+  recordData: Record<string, unknown> | null;
+  recordRef: DocumentReference | null;
   workspaceId: string;
 }) {
-  const overtime = collections.overtimeWorks.find(
-    (item) =>
-      readString(item.data.workRecordId, "") === input.recordId &&
-      readString(item.data.status, "submitted") === "submitted",
-  );
-
-  if (!overtime) {
-    throw new Error("처리할 추가근무 신청을 찾을 수 없습니다.");
-  }
-
   const overtimeRef = doc(
     db,
     "workspaces",
@@ -1286,7 +1376,11 @@ function queueOvertimeAction({
   );
   const workerId = readString(
     overtime.data.workerId,
-    readString(recordData.workerId, ""),
+    readString(recordData?.workerId, ""),
+  );
+  const targetFocusId = readString(
+    overtime.data.workRecordId,
+    overtime.id,
   );
 
   if (input.action === "reject-overtime") {
@@ -1299,10 +1393,14 @@ function queueOvertimeAction({
       status: "rejected",
       updatedAt: serverTimestamp(),
     });
-    batch.update(recordRef, {
-      hasPendingOvertime: false,
-      updatedAt: serverTimestamp(),
-    });
+
+    if (recordRef) {
+      batch.update(recordRef, {
+        hasPendingOvertime: false,
+        updatedAt: serverTimestamp(),
+      });
+    }
+
     queueWorkerNotification({
       batch,
       db,
@@ -1310,7 +1408,7 @@ function queueOvertimeAction({
       payload: {
         overtimeWorkId: overtime.id,
         reason: input.reason,
-        targetFocusId: input.recordId,
+        targetFocusId,
         targetScreen: "worker_work_record_detail",
       },
       relatedEntityId: overtime.id,
@@ -1338,10 +1436,14 @@ function queueOvertimeAction({
     status: "approved",
     updatedAt: serverTimestamp(),
   });
-  batch.update(recordRef, {
-    hasPendingOvertime: false,
-    updatedAt: serverTimestamp(),
-  });
+
+  if (recordRef) {
+    batch.update(recordRef, {
+      hasPendingOvertime: false,
+      updatedAt: serverTimestamp(),
+    });
+  }
+
   queueWorkerNotification({
     batch,
     db,
@@ -1351,7 +1453,7 @@ function queueOvertimeAction({
       overtimePayMode: payMode,
       overtimeWorkId: overtime.id,
       payrollEffect,
-      targetFocusId: input.recordId,
+      targetFocusId,
       targetScreen: "worker_work_record_detail",
     },
     relatedEntityId: overtime.id,
@@ -1795,6 +1897,7 @@ function mapRecordMainView(
   const records = collections.workRecords
     .map(mapWorkRecord)
     .sort(compareRecords);
+  const recordsById = toMap(records, (record) => record.id);
   const activeWorkers = collections.workers
     .map(mapWorker)
     .filter(isActiveWorker)
@@ -1840,6 +1943,19 @@ function mapRecordMainView(
     overtime?.attendanceLogId
       ? (attendanceById.get(overtime.attendanceLogId) ?? null)
       : null;
+  const standaloneSubmittedOvertimeWorks = submittedOvertimeWorks.filter(
+    (work) => !work.workRecordId || !recordsById.has(work.workRecordId),
+  );
+  const getPayrollSettingForOvertime = (overtime: OvertimeWorkModel) => {
+    const monthKey = getOvertimeMonthKey(
+      overtime,
+      getAttendanceForOvertime(overtime),
+    );
+
+    return monthKey
+      ? findPayrollSettingForMonth(payrollSettings, overtime.workerId, monthKey)
+      : undefined;
+  };
   const pendingCorrectionIds = new Set(correctionIdsByRecordId.keys());
   const pendingOvertimeIds = new Set(overtimeIdsByRecordId.keys());
   const pendingOvertimeAttendanceIds = new Set(
@@ -1847,18 +1963,18 @@ function mapRecordMainView(
       .map((work) => work.attendanceLogId)
       .filter((id): id is string => Boolean(id)),
   );
-  const weekNavigation = createWeekNavigation(records);
+  const weekNavigation = createWeekNavigation(
+    records,
+    standaloneSubmittedOvertimeWorks.map((work) =>
+      getOvertimeDate(work, getAttendanceForOvertime(work)),
+    ),
+  );
   const initialWeekStartKey = weekNavigation.initialWeekStartKey;
-  const selectedRecord = selectInitialRecord(records, {
+  const initialRecord = selectInitialRecord(records, {
     flagsByRecordId,
     weekStartKey: initialWeekStartKey,
   });
-  const initialDetailStateId = selectedRecord
-    ? isUnresolvedAnomaly(selectedRecord, flagsByRecordId)
-      ? "anomaly-step-1"
-      : "normal-selected"
-    : "empty";
-  const blocks = records.map((record) =>
+  const recordBlocks = records.map((record) =>
     mapTimelineBlock(record, {
       correctionIdsByRecordId,
       flag: flagsByRecordId.get(record.id),
@@ -1867,16 +1983,40 @@ function mapRecordMainView(
       pendingOvertimeIds,
     }),
   );
-  const detailStatesByBlockId = createDetailStatesByBlockId(records, {
-    attendanceById,
-    pendingCorrectionByRecordId,
-    pendingOvertimeByRecordId,
-    flagsByRecordId,
-    getPayrollSetting,
-  });
-  const selectedOvertime = selectedRecord
-    ? (pendingOvertimeByRecordId.get(selectedRecord.id) ?? null)
-    : null;
+  const standaloneOvertimeBlocks = standaloneSubmittedOvertimeWorks.map((work) =>
+    mapStandaloneOvertimeTimelineBlock(work, getAttendanceForOvertime(work)),
+  );
+  const blocks = [...recordBlocks, ...standaloneOvertimeBlocks];
+  const selectedBlock = selectInitialTimelineBlock(blocks, initialWeekStartKey);
+  const selectedRecord = selectedBlock
+    ? (recordsById.get(selectedBlock.id) ?? null)
+    : initialRecord;
+  const initialDetailStateId = selectedBlock
+    ? (selectedBlock.selectedStateId ?? "normal-selected")
+    : getInitialDetailStateId(initialRecord, flagsByRecordId);
+  const detailStatesByBlockId = {
+    ...createDetailStatesByBlockId(records, {
+      attendanceById,
+      pendingCorrectionByRecordId,
+      pendingOvertimeByRecordId,
+      flagsByRecordId,
+      getPayrollSetting,
+    }),
+    ...createStandaloneOvertimeDetailStatesByBlockId(
+      standaloneSubmittedOvertimeWorks,
+      {
+        attendanceById,
+        getPayrollSetting: getPayrollSettingForOvertime,
+      },
+    ),
+  };
+  const selectedOvertime = selectedBlock
+    ? (pendingOvertimeByRecordId.get(selectedBlock.id) ??
+      submittedOvertimeWorks.find((work) => work.id === selectedBlock.id) ??
+      null)
+    : selectedRecord
+      ? (pendingOvertimeByRecordId.get(selectedRecord.id) ?? null)
+      : null;
 
   return {
     blocks,
@@ -1896,7 +2036,7 @@ function mapRecordMainView(
       record: selectedRecord,
     }),
     detailStatesByBlockId,
-    initialBlockId: selectedRecord?.id ?? null,
+    initialBlockId: selectedBlock?.id ?? null,
     initialWeekStartKey,
     initialDetailStateId,
     overtimeCreate: createOvertimeCreateView(records, {
@@ -1907,7 +2047,11 @@ function mapRecordMainView(
     timeline: {
       ...recordMainFixtureViewModel.timeline,
       weekNavigation,
-      filters: createMainFilters(records, activeWorkers),
+      filters: createMainFilters(
+        records,
+        activeWorkers,
+        standaloneSubmittedOvertimeWorks,
+      ),
       weekLabel: initialWeekStartKey
         ? formatWeekLabelFromStartKey(initialWeekStartKey)
         : createWeekLabel(records),
@@ -2456,6 +2600,38 @@ function mapTimelineBlock(
   };
 }
 
+function mapStandaloneOvertimeTimelineBlock(
+  overtime: OvertimeWorkModel,
+  attendance: AttendanceLogModel | null,
+): RecordTimelineBlock {
+  const overtimeStartAt = getOvertimeStartAt(overtime, attendance);
+  const overtimeEndAt = getOvertimeEndAt(overtime, attendance);
+  const startHour = overtimeStartAt?.getHours() ?? 8;
+
+  return {
+    id: overtime.id,
+    dateKey: getOvertimeDateKey(overtime, attendance) || undefined,
+    dayId: getOvertimeDayId(overtime, attendance),
+    dutyName: "추가근무 신청",
+    endHour: overtimeEndAt?.getHours() ?? Math.min(startHour + 1, 24),
+    endMinute: overtimeEndAt?.getMinutes() ?? 0,
+    endTime: formatTime(overtimeEndAt),
+    focusIds: [overtime.id, overtime.attendanceLogId].filter(
+      (id): id is string => Boolean(id),
+    ),
+    kind: "overtime",
+    locationName: attendance?.locationName ?? "근무지 미지정",
+    selectedStateId: "normal-selected",
+    signalKinds: ["overtime"],
+    startHour,
+    startMinute: overtimeStartAt?.getMinutes() ?? 0,
+    startTime: formatTime(overtimeStartAt),
+    tone: "blue",
+    workerId: overtime.workerId,
+    workerName: overtime.workerName || attendance?.workerName || "이름 없는 조교",
+  };
+}
+
 function groupIdsByWorkRecordId<
   T extends { id: string; workRecordId: string | null },
 >(items: readonly T[]) {
@@ -2473,6 +2649,38 @@ function groupIdsByWorkRecordId<
   }
 
   return idsByRecordId;
+}
+
+function selectInitialTimelineBlock(
+  blocks: readonly RecordTimelineBlock[],
+  weekStartKey: string | null,
+) {
+  const scopedBlocks = weekStartKey
+    ? blocks.filter((block) => isTimelineBlockInWeek(block, weekStartKey))
+    : blocks;
+
+  return (
+    scopedBlocks.find((block) => block.selectedStateId === "anomaly-step-1") ??
+    scopedBlocks.find((block) => block.selectedStateId) ??
+    scopedBlocks[0] ??
+    null
+  );
+}
+
+function isTimelineBlockInWeek(
+  block: RecordTimelineBlock,
+  weekStartKey: string,
+) {
+  const date = block.dateKey ? parseDateKey(block.dateKey) : null;
+  const weekStart = parseDateKey(weekStartKey);
+
+  if (!date || !weekStart) {
+    return false;
+  }
+
+  const nextWeekStart = addDays(weekStart, 7);
+
+  return date >= weekStart && date < nextWeekStart;
 }
 
 function createDetailStatesByBlockId(
@@ -2513,14 +2721,52 @@ function createDetailStatesByBlockId(
   return detailStatesByBlockId;
 }
 
-function createWeekNavigation(records: readonly WorkRecordModel[]) {
+function createStandaloneOvertimeDetailStatesByBlockId(
+  overtimeWorks: readonly OvertimeWorkModel[],
+  options: {
+    attendanceById: ReadonlyMap<string, AttendanceLogModel>;
+    getPayrollSetting: (
+      overtime: OvertimeWorkModel,
+    ) => PayrollSettingModel | undefined;
+  },
+) {
+  const detailStatesByBlockId: Record<
+    string,
+    Record<RecordDetailStateId, RecordDetailState>
+  > = {};
+  const empty = createEmptyDetailState(["왼쪽 리스트에서", "근무 기록을 선택하세요."]);
+
+  for (const overtime of overtimeWorks) {
+    const attendance = overtime.attendanceLogId
+      ? (options.attendanceById.get(overtime.attendanceLogId) ?? null)
+      : null;
+
+    detailStatesByBlockId[overtime.id] = createOvertimeDetailStates(
+      null,
+      attendance,
+      overtime,
+      options.getPayrollSetting(overtime) ?? null,
+      empty,
+    );
+  }
+
+  return detailStatesByBlockId;
+}
+
+function createWeekNavigation(
+  records: readonly WorkRecordModel[],
+  extraDates: readonly (Date | null)[] = [],
+) {
   const currentWeekStartKey = formatDateKey(startOfWeekSunday(new Date()));
   const recordWeekStartKeys = records
     .map(getRecordDate)
     .filter((date): date is Date => Boolean(date))
     .map((date) => formatDateKey(startOfWeekSunday(date)));
+  const extraWeekStartKeys = extraDates
+    .filter((date): date is Date => Boolean(date))
+    .map((date) => formatDateKey(startOfWeekSunday(date)));
   const weekStartKeys = [
-    ...new Set([currentWeekStartKey, ...recordWeekStartKeys]),
+    ...new Set([currentWeekStartKey, ...recordWeekStartKeys, ...extraWeekStartKeys]),
   ].sort();
 
   return {
@@ -2549,6 +2795,19 @@ function selectInitialRecord(
     scopedRecords[0] ??
     null
   );
+}
+
+function getInitialDetailStateId(
+  record: WorkRecordModel | null,
+  flagsByRecordId: ReadonlyMap<string, AnomalyFlagModel | undefined>,
+) {
+  if (!record) {
+    return "empty";
+  }
+
+  return isUnresolvedAnomaly(record, flagsByRecordId)
+    ? "anomaly-step-1"
+    : "normal-selected";
 }
 
 function createDetailStates({
@@ -2839,7 +3098,7 @@ function createCorrectionRequestLineSection({
 }
 
 function createOvertimeDetailStates(
-  record: WorkRecordModel,
+  record: WorkRecordModel | null,
   attendance: AttendanceLogModel | null,
   overtime: OvertimeWorkModel,
   payrollSetting: PayrollSettingModel | null,
@@ -2852,7 +3111,7 @@ function createOvertimeDetailStates(
     lineSections: createOvertimeDetailLineSections(attendance, overtime),
     statusLabel: "추가근무 신청",
     statusTone: "blue" as const,
-    title: `${overtime.workerName || record.workerName} · 추가근무 신청`,
+    title: `${overtime.workerName || record?.workerName || "이름 없는 조교"} · 추가근무 신청`,
   };
 
   return {
@@ -3390,9 +3649,14 @@ function mapAttendanceLogRow(log: AttendanceLogModel): AttendanceLogRow {
 function createMainFilters(
   records: readonly WorkRecordModel[],
   activeWorkers: readonly WorkerModel[],
+  overtimeWorks: readonly OvertimeWorkModel[] = [],
 ): Record<string, readonly RecordsFilterOption[]> {
   return {
-    location: createMainWorkerFilterOptions(records, activeWorkers),
+    location: createMainWorkerFilterOptions(
+      records,
+      activeWorkers,
+      overtimeWorks,
+    ),
     status: recordMainFixtureViewModel.timeline.filters.status,
     type: recordMainFixtureViewModel.timeline.filters.type,
   };
@@ -3455,6 +3719,7 @@ function createWorkerFilterOptions(names: readonly string[]) {
 function createMainWorkerFilterOptions(
   records: readonly WorkRecordModel[],
   activeWorkers: readonly WorkerModel[],
+  overtimeWorks: readonly OvertimeWorkModel[] = [],
 ) {
   const optionsById = new Map<string, RecordsFilterOption>();
 
@@ -3479,6 +3744,19 @@ function createMainWorkerFilterOptions(
     optionsById.set(id, {
       id,
       label: record.workerName,
+    });
+  }
+
+  for (const overtime of overtimeWorks) {
+    const id = overtime.workerId || createStableId(overtime.workerName);
+
+    if (!id || optionsById.has(id)) {
+      continue;
+    }
+
+    optionsById.set(id, {
+      id,
+      label: overtime.workerName,
     });
   }
 
@@ -4095,6 +4373,67 @@ function getRecordDateKey(record: WorkRecordModel) {
   const date = getRecordDate(record);
 
   return date ? formatDateKey(date) : "";
+}
+
+function getOvertimeStartAt(
+  overtime: OvertimeWorkModel,
+  attendance: AttendanceLogModel | null,
+) {
+  return overtime.extraStartAt ?? attendance?.checkOutAt ?? attendance?.checkInAt;
+}
+
+function getOvertimeEndAt(
+  overtime: OvertimeWorkModel,
+  attendance: AttendanceLogModel | null,
+) {
+  return overtime.extraEndAt ?? getOvertimeStartAt(overtime, attendance);
+}
+
+function getOvertimeDate(
+  overtime: OvertimeWorkModel,
+  attendance: AttendanceLogModel | null,
+) {
+  return (
+    getOvertimeStartAt(overtime, attendance) ??
+    parseDateKey(attendance?.date ?? "") ??
+    overtime.submittedAt ??
+    overtime.createdAt
+  );
+}
+
+function getOvertimeDateKey(
+  overtime: OvertimeWorkModel,
+  attendance: AttendanceLogModel | null,
+) {
+  if (parseDateKey(attendance?.date ?? "")) {
+    return attendance?.date ?? "";
+  }
+
+  const date = getOvertimeDate(overtime, attendance);
+
+  return date ? formatDateKey(date) : "";
+}
+
+function getOvertimeDayId(
+  overtime: OvertimeWorkModel,
+  attendance: AttendanceLogModel | null,
+): RecordTimelineDayId {
+  const date = getOvertimeDate(overtime, attendance);
+
+  return date ? dayIdByDateIndex[date.getDay()] : "mon";
+}
+
+function getOvertimeMonthKey(
+  overtime: OvertimeWorkModel,
+  attendance: AttendanceLogModel | null,
+) {
+  if (overtime.monthKey) {
+    return overtime.monthKey;
+  }
+
+  const dateKey = getOvertimeDateKey(overtime, attendance);
+
+  return dateKey ? dateKey.slice(0, 7) : "";
 }
 
 function formatDateKey(date: Date) {
