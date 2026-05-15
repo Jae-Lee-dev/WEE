@@ -336,6 +336,7 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
         input.action === "mark-normal" ? "unchanged" : "applied";
 
       if (isRecordEditAction(input.action)) {
+        const createsAnomalyResolution = isUnresolvedFlagDocument(flag);
         const change = queueRecordEditAction({
           batch,
           dateKey,
@@ -346,22 +347,24 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
           payrollEffect: workRecordPayrollEffect,
           recordData,
           recordRef,
-          resolutionId: resolutionRef.id,
+          resolutionId: createsAnomalyResolution ? resolutionRef.id : null,
           workspaceId,
         });
 
-        batch.set(resolutionRef, {
-          anomalyFlagId: flag?.id ?? null,
-          createdAt: serverTimestamp(),
-          decidedBy: managerUid,
-          decision: getRecordActionDecision(input.action),
-          managerNote: input.reason,
-          payrollEffect: workRecordPayrollEffect,
-          status: "completed",
-          workRecordId: input.recordId,
-          workerId,
-          workspaceId,
-        });
+        if (createsAnomalyResolution) {
+          batch.set(resolutionRef, {
+            anomalyFlagId: flag.id,
+            createdAt: serverTimestamp(),
+            decidedBy: managerUid,
+            decision: getRecordActionDecision(input.action),
+            managerNote: input.reason,
+            payrollEffect: workRecordPayrollEffect,
+            status: "completed",
+            workRecordId: input.recordId,
+            workerId,
+            workspaceId,
+          });
+        }
 
         if (change.notifyWorker) {
           queueWorkerNotification({
@@ -865,7 +868,7 @@ function queueRecordEditAction({
   payrollEffect: AnomalyResolutionPayrollEffect;
   recordData: Record<string, unknown>;
   recordRef: DocumentReference;
-  resolutionId: string;
+  resolutionId: string | null;
   workspaceId: string;
 }) {
   if (input.action === "edit" && !input.reason.trim()) {
@@ -876,13 +879,16 @@ function queueRecordEditAction({
     changeType: "before",
   });
   const recordUpdate: Record<string, unknown> = {
-    "managerOnly.anomalyResolutionId": resolutionId,
     "managerOnly.payrollApplication": payrollEffect,
     "managerOnly.reviewedBy": managerUid,
     hasUnresolvedAnomaly: false,
     status: input.action === "delete" ? "deleted" : "resolved",
     updatedAt: serverTimestamp(),
   };
+
+  if (resolutionId) {
+    recordUpdate["managerOnly.anomalyResolutionId"] = resolutionId;
+  }
   let newStartAt = getRecordStartDate(recordData);
   let newEndAt = getRecordEndDate(recordData);
 
