@@ -5,11 +5,13 @@ import { expect, type Page } from "playwright/test";
 export type VisualViewportName =
   | "desktop-1920"
   | "desktop-1920-tall"
+  | "desktop-1400"
   | "laptop-1366";
 
 export const visualViewports = {
   "desktop-1920": { width: 1920, height: 1080 },
   "desktop-1920-tall": { width: 1920, height: 1813 },
+  "desktop-1400": { width: 1400, height: 900 },
   "laptop-1366": { width: 1366, height: 768 },
 } as const satisfies Record<VisualViewportName, { width: number; height: number }>;
 
