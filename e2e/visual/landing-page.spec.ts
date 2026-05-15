@@ -16,6 +16,11 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await expect(
       page.getByRole("link", { name: "무료로 시작하기" }).first(),
     ).toBeVisible();
+    await expect(
+      page.getByRole("img", { name: "운영 인박스 대시보드 화면" }),
+    ).toBeVisible();
+    await expect(page.getByRole("img", { name: "급여 관리 화면" })).toBeVisible();
+    await expect(page.getByRole("img", { name: "AI 인수인계 화면" })).toBeVisible();
 
     await captureActualScreenshot({
       page,

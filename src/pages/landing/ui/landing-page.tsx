@@ -76,15 +76,15 @@ const featureRows = [
 const benefitCards = [
   {
     title: "자유롭게 입력한 내용을\n항목별로 자동 정리",
-    image: "/landing/problem-variables.png",
+    image: "/landing/handover-screen.png",
   },
   {
     title: "근무지, 업무 유형,\n수업 기준으로 검색 가능",
-    image: "/landing/payroll-screen.png",
+    image: "/landing/admin-dashboard.png",
   },
   {
     title: "반복 설명 없이\n신규 인력 온보딩 지원",
-    image: "/landing/problem-handover.png",
+    image: "/landing/problem-variables.png",
   },
 ] as const;
 
@@ -181,6 +181,21 @@ const faqs = [
   ["무료로도 충분한가요?", "Starter 플랜으로 소규모 운영의 기본 흐름을 먼저 검증할 수 있습니다."],
   ["조교마다 급여가 달라도 되나요?", "시급, 월급, 보너스와 차감 항목을 조교별로 다르게 관리할 수 있습니다."],
 ] as const;
+
+const featurePreviewImages = {
+  attendance: {
+    src: "/landing/admin-dashboard.png",
+    alt: "운영 인박스 대시보드 화면",
+  },
+  payroll: {
+    src: "/landing/payroll-screen.png",
+    alt: "급여 관리 화면",
+  },
+  handover: {
+    src: "/landing/handover-screen.png",
+    alt: "AI 인수인계 화면",
+  },
+} as const;
 
 export function LandingPage() {
   return (
@@ -403,46 +418,27 @@ function FeaturePreview({
   type: (typeof featureRows)[number]["preview"];
   reversed: boolean;
 }) {
-  if (type === "payroll") {
+  if (type in featurePreviewImages) {
+    const image = featurePreviewImages[type as keyof typeof featurePreviewImages];
+
     return (
       <PreviewShell className={cn(reversed && "lg:order-1")}>
         <Image
-          src="/landing/payroll-screen.png"
-          alt=""
-          width={620}
-          height={392}
+          src={image.src}
+          alt={image.alt}
+          width={960}
+          height={540}
           className="w-full rounded-[12px] border border-gray-200 shadow-[0_18px_44px_rgba(17,24,39,0.12)]"
         />
       </PreviewShell>
     );
   }
 
-  if (type === "handover") {
-    return (
-      <PreviewShell className={cn(reversed && "lg:order-1")}>
-        <Image
-          src="/landing/handover-screen.png"
-          alt=""
-          width={620}
-          height={392}
-          className="w-full rounded-[12px] border border-gray-200 shadow-[0_18px_44px_rgba(17,24,39,0.12)]"
-        />
-      </PreviewShell>
-    );
-  }
-
-  const rows =
-    type === "attendance"
-      ? [
-          ["소속 신청", "승인 대기", "4건"],
-          ["시간표 승인", "검토 필요", "4건"],
-          ["급여 재확정", "신청 확인", "4건"],
-        ]
-      : [
-          ["잠실 본원", "사업장 코드", "WEE-014"],
-          ["조교 소속", "승인 대기", "7명"],
-          ["근무지", "활성", "5곳"],
-        ];
+  const rows = [
+    ["잠실 본원", "사업장 코드", "WEE-014"],
+    ["조교 소속", "승인 대기", "7명"],
+    ["근무지", "활성", "5곳"],
+  ];
 
   return (
     <PreviewShell className={cn(reversed && "lg:order-1")}>
