@@ -67,6 +67,33 @@ test(`DUT-03 edit-tag-panel ${desktop}`, async ({ page }) => {
     "overflow-y",
     "auto",
   );
+  const assignmentColumnWidths = await page.evaluate(() => {
+    const row = document.querySelector(
+      '[data-testid="duty-tags-assignment-list"] > button',
+    );
+
+    if (!(row instanceof HTMLElement)) {
+      throw new Error("duty tag assignment row not found");
+    }
+
+    const [nameColumn, , weekdayColumn] = Array.from(row.children);
+
+    if (
+      !(nameColumn instanceof HTMLElement) ||
+      !(weekdayColumn instanceof HTMLElement)
+    ) {
+      throw new Error("duty tag assignment columns not found");
+    }
+
+    return {
+      name: nameColumn.getBoundingClientRect().width,
+      weekdays: weekdayColumn.getBoundingClientRect().width,
+    };
+  });
+  expect(assignmentColumnWidths.weekdays).toBeLessThanOrEqual(104);
+  expect(assignmentColumnWidths.name).toBeGreaterThan(
+    assignmentColumnWidths.weekdays,
+  );
 
   await captureActualScreenshot({
     page,

@@ -1063,7 +1063,7 @@ function DutyTagAssignmentRow({
 
   if (!editable) {
     return (
-      <div className="grid h-11 w-full grid-cols-[72px_88px_1fr] items-center border-b border-gray-100 px-4 last:border-b-0">
+      <div className="grid h-11 w-full grid-cols-[minmax(0,1fr)_112px_96px] items-center border-b border-gray-100 px-4 last:border-b-0">
         {content}
       </div>
     );
@@ -1075,7 +1075,7 @@ function DutyTagAssignmentRow({
       aria-pressed={checked}
       disabled={duty.disabled || saving}
       onClick={onToggle}
-      className="grid h-11 w-full grid-cols-[72px_88px_1fr_20px] items-center border-b border-gray-100 px-4 text-left last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:bg-gray-50"
+      className="grid h-11 w-full grid-cols-[minmax(0,1fr)_112px_96px_20px] items-center border-b border-gray-100 px-4 text-left last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:bg-gray-50"
     >
       {content}
     </button>
