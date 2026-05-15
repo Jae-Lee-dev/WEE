@@ -24,16 +24,15 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     });
 
     await page.getByTestId("landing-footer").scrollIntoViewIfNeeded();
-    await expect(
-      page.getByRole("img", { name: "EduU Learning" }),
-    ).toBeVisible();
-    await expect(page.getByText("(주)에듀유러닝")).toBeVisible();
-    await expect(
-      page.getByText("서울시 성북구 안암로 145, 파이빌99"),
-    ).toBeVisible();
-    await expect(page.getByText("이재준")).toBeVisible();
-    await expect(page.getByText("jc@eduulearning.com")).toBeVisible();
-    await expect(page.getByText("02-546-5561")).toBeVisible();
+    await expect(page.getByRole("img", { name: "EduU Learning" })).toHaveCount(0);
+    await expect(page.getByText("(주)에듀유러닝")).toHaveCount(0);
+    await expect(page.getByText("서울시 성북구 안암로 145, 파이빌99")).toHaveCount(0);
+    await expect(page.getByText("이재준")).toHaveCount(0);
+    await expect(page.getByText("jc@eduulearning.com")).toHaveCount(0);
+    await expect(page.getByText("02-546-5561")).toHaveCount(0);
+    await expect(page.getByText("Wee는 조교 운영과 근태·정산 흐름")).toBeVisible();
+    await expect(page.getByRole("link", { name: "이용약관" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "개인정보처리방침" })).toBeVisible();
 
     await captureActualScreenshot({
       page,
