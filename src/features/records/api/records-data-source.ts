@@ -324,7 +324,9 @@ function createFirestoreRecordsDataSource(): RecordsDataSource {
       }
 
       const flag = collections.anomalyFlags.find(
-        (item) => readString(item.data.workRecordId, "") === input.recordId,
+        (item) =>
+          readString(item.data.workRecordId, "") === input.recordId &&
+          isUnresolvedFlagDocument(item),
       );
       const resolutionRef = doc(
         collection(db, "workspaces", workspaceId, "anomalyResolutions"),
@@ -910,7 +912,7 @@ function queueRecordEditAction({
 
   batch.update(recordRef, recordUpdate);
 
-  if (flag) {
+  if (isUnresolvedFlagDocument(flag)) {
     batch.update(doc(db, "workspaces", workspaceId, "anomalyFlags", flag.id), {
       resolvedAt: serverTimestamp(),
       status: "resolved",
