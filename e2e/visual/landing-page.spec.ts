@@ -33,6 +33,11 @@ for (const viewport of ["desktop-1920", "laptop-1366"] as const) {
     await expect(page.getByText("Wee는 조교 운영과 근태·정산 흐름")).toBeVisible();
     await expect(page.getByRole("link", { name: "이용약관" })).toBeVisible();
     await expect(page.getByRole("link", { name: "개인정보처리방침" })).toBeVisible();
+    const footerBox = await page.getByTestId("landing-footer").boundingBox();
+    const footerContentBox = await page.getByTestId("landing-footer-content").boundingBox();
+    expect(footerBox).not.toBeNull();
+    expect(footerContentBox).not.toBeNull();
+    expect(footerContentBox!.width).toBeLessThan(footerBox!.width - 160);
 
     await captureActualScreenshot({
       page,

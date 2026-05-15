@@ -706,11 +706,14 @@ function LandingFooter() {
       className="border-t border-gray-200 bg-gray-50 px-5 py-8 md:px-8 lg:mt-4"
       data-testid="landing-footer"
     >
-      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4 text-body-14-regular tracking-normal text-gray-500 sm:flex-row sm:items-center sm:justify-between">
+      <div
+        className="mx-auto flex w-fit max-w-full flex-col items-center justify-center gap-4 text-center text-body-14-regular tracking-normal text-gray-500 sm:flex-row sm:flex-wrap sm:gap-x-8 sm:gap-y-3 sm:text-left"
+        data-testid="landing-footer-content"
+      >
         <p className="max-w-[560px] leading-[1.7]">
           Wee는 조교 운영과 근태·정산 흐름을 더 정확하게 관리할 수 있도록 돕는 운영 SaaS입니다.
         </p>
-        <div className="flex gap-6 text-gray-600">
+        <div className="flex shrink-0 gap-6 text-gray-600">
           <a href="#" className="transition-colors hover:text-green-500">
             이용약관
           </a>
