@@ -2771,7 +2771,6 @@ function mapAnomalyHistoryRow(
 ): AnomalyHistoryRow {
   return {
     anomalyType: getAnomalyTypeLabel(flag.anomalyType),
-    detailButtonLabel: "상세보기",
     dutyName: record?.dutyName ?? flag.dutyName,
     id: flag.id,
     payrollResult: getPayrollEffectLabel(resolution?.payrollEffect ?? "none"),

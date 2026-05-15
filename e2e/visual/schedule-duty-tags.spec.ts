@@ -117,6 +117,28 @@ test("DUT-03 detail panel uses clicked tag", async ({ page }) => {
   await expect(panel.getByText("2건")).toBeVisible();
 });
 
+test("DUT-03 clicking focused tag clears detail focus", async ({ page }) => {
+  await prepareVisualPage({
+    page,
+    path: "/schedule/duty-tags",
+    viewport: desktop,
+  });
+
+  const row = page.getByRole("button", { name: "행정 근무 태그 조회" });
+
+  await row.click();
+  await expect(row).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.getByTestId("duty-tags-detail-panel").getByLabel("태그명"),
+  ).toHaveValue("행정");
+
+  await row.click();
+  await expect(row).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByTestId("duty-tags-detail-panel")).toContainText(
+    "태그를 선택하면 상세와 사용 중인 근무가 표시됩니다.",
+  );
+});
+
 test("DUT-03 local-only checked assignment keeps server order until save", async ({
   page,
 }) => {

@@ -186,7 +186,6 @@ export type AnomalyHistoryRow = {
   anomalyType: string;
   result: string;
   payrollResult: string;
-  detailButtonLabel: string;
 };
 
 export type AnomalyHistoryDetail = {
@@ -780,7 +779,6 @@ export const anomalyHistoryColumns = [
   { id: "anomalyType", label: "이상 유형" },
   { id: "result", label: "처리 결과" },
   { id: "payrollResult", label: "급여" },
-  { id: "actions", label: "기타" },
 ] as const satisfies readonly RecordsTableColumn[];
 
 export const anomalyHistoryRows = [
@@ -1196,7 +1194,6 @@ function anomalyHistoryRow(
     anomalyType: "위치이상",
     result: "변경 없음",
     payrollResult: "변경 없음",
-    detailButtonLabel: "상세보기",
   };
 }
 

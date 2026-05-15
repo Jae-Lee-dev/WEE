@@ -95,8 +95,7 @@ export function DutyTagsScreen({
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   useWeeErrorToast(errorMessage, { title: "요청 실패" });
-  const selectedTag =
-    tags.find((row) => row.id === selectedTagId) ?? tags[0] ?? null;
+  const selectedTag = tags.find((row) => row.id === selectedTagId) ?? null;
 
   useEffect(() => {
     let active = true;
@@ -139,7 +138,7 @@ export function DutyTagsScreen({
       return;
     }
 
-    setSelectedTagId(tag.id);
+    setSelectedTagId((currentId) => (currentId === tag.id ? null : tag.id));
     setPanelMode("view");
     setStatusMessage("");
     setErrorMessage("");
@@ -689,7 +688,10 @@ function DutyTagDetailPanel({
 
   if (loading) {
     return (
-      <aside className="flex min-w-0 items-center justify-center rounded-[8px] bg-white px-6 text-center">
+      <aside
+        className="flex min-w-0 items-center justify-center rounded-[8px] bg-white px-6 text-center"
+        data-testid="duty-tags-detail-panel"
+      >
         <p className="text-h-18-regular text-gray-400">
           태그 정보를 불러오는 중입니다.
         </p>
@@ -699,7 +701,10 @@ function DutyTagDetailPanel({
 
   if (!tag) {
     return (
-      <aside className="flex min-w-0 items-center justify-center rounded-[8px] bg-white px-6 text-center">
+      <aside
+        className="flex min-w-0 items-center justify-center rounded-[8px] bg-white px-6 text-center"
+        data-testid="duty-tags-detail-panel"
+      >
         <p className="text-h-18-regular text-gray-400">
           태그를 선택하면 상세와 사용 중인 근무가 표시됩니다.
         </p>

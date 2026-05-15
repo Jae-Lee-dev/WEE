@@ -118,6 +118,24 @@ test("WKR-06 detail panel uses clicked tag", async ({ page }) => {
   await expect(panel.getByText("3명")).toBeVisible();
 });
 
+test("WKR-06 clicking focused tag clears detail focus", async ({ page }) => {
+  await prepareVisualPage({ page, path: "/workers/tags", viewport: desktop });
+
+  const row = page.getByRole("button", { name: "신입 근무자 태그 조회" });
+
+  await row.click();
+  await expect(row).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.getByTestId("worker-tags-detail-panel").getByLabel("태그명"),
+  ).toHaveValue("신입");
+
+  await row.click();
+  await expect(row).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByTestId("worker-tags-detail-panel")).toContainText(
+    "태그를 선택하면 상세와 적용 조교가 표시됩니다.",
+  );
+});
+
 test("WKR-06 local-only checked assignment keeps server order until save", async ({
   page,
 }) => {

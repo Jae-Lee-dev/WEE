@@ -97,8 +97,7 @@ export function WorkerTagsScreen({
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   useWeeErrorToast(errorMessage, { title: "요청 실패" });
-  const selectedTag =
-    rows.find((row) => row.id === selectedTagId) ?? rows[0] ?? null;
+  const selectedTag = rows.find((row) => row.id === selectedTagId) ?? null;
 
   useEffect(() => {
     let active = true;
@@ -141,7 +140,7 @@ export function WorkerTagsScreen({
       return;
     }
 
-    setSelectedTagId(tag.id);
+    setSelectedTagId((currentId) => (currentId === tag.id ? null : tag.id));
     setPanelMode("view");
     setStatusMessage("");
     setErrorMessage("");
@@ -749,7 +748,10 @@ function WorkerTagDetailPanel({
 
   if (loading) {
     return (
-      <aside className="flex min-w-0 items-center justify-center rounded-[8px] bg-white px-6 text-center">
+      <aside
+        className="flex min-w-0 items-center justify-center rounded-[8px] bg-white px-6 text-center"
+        data-testid="worker-tags-detail-panel"
+      >
         <p className="text-h-18-regular text-gray-400">
           태그 정보를 불러오는 중입니다.
         </p>
@@ -759,7 +761,10 @@ function WorkerTagDetailPanel({
 
   if (!tag) {
     return (
-      <aside className="flex min-w-0 items-center justify-center rounded-[8px] bg-white px-6 text-center">
+      <aside
+        className="flex min-w-0 items-center justify-center rounded-[8px] bg-white px-6 text-center"
+        data-testid="worker-tags-detail-panel"
+      >
         <p className="text-h-18-regular text-gray-400">
           태그를 선택하면 상세와 적용 조교가 표시됩니다.
         </p>

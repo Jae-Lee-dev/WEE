@@ -454,7 +454,7 @@ function AnomalyHistoryTable({
     <HistoryTableFrame
       columns={anomalyHistoryColumns}
       empty={rows.length === 0}
-      headerGrid="grid-cols-[13%_13%_13%_13%_13%_13%_13%_1fr]"
+      headerGrid="grid-cols-[13%_13%_13%_15%_15%_15%_1fr]"
     >
       {rows.map((row, index) => (
         <AnomalyHistoryTableRow
@@ -481,10 +481,16 @@ function AnomalyHistoryTableRow({
   testId?: string;
 }) {
   return (
-    <div
+    <button
+      type="button"
+      aria-pressed={selected}
+      aria-label={`${row.workerName} ${row.dutyName} 이상감지처리 이력 조회`}
+      data-testid={testId}
+      onClick={onToggleSelected}
       className={cn(
-        "grid min-h-11 grid-cols-[13%_13%_13%_13%_13%_13%_13%_1fr] items-center border-b border-gray-100 px-4 text-h-18-regular tracking-normal text-gray-900 last:border-b-0",
-        selected && "bg-green-50",
+        "grid min-h-11 w-full grid-cols-[13%_13%_13%_15%_15%_15%_1fr] items-center border-b border-gray-100 px-4 text-left text-h-18-regular tracking-normal text-gray-900 transition-colors duration-150 ease-out last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200",
+        selected &&
+          "bg-green-50 ring-2 ring-inset ring-green-400 hover:bg-green-50",
       )}
     >
       <div>
@@ -501,15 +507,7 @@ function AnomalyHistoryTableRow({
       </div>
       <TableCell>{row.result}</TableCell>
       <TableCell>{row.payrollResult}</TableCell>
-      <div className="flex justify-end">
-        <DetailToggleButton
-          selected={selected}
-          testId={testId}
-          onClick={onToggleSelected}
-          label={row.detailButtonLabel}
-        />
-      </div>
-    </div>
+    </button>
   );
 }
 

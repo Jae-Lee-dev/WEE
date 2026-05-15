@@ -33,13 +33,14 @@ test(`REC-02 selected-history ${desktop}`, async ({ page }) => {
     viewport: desktop,
   });
   await page.evaluate(() => document.fonts.ready);
-  await page.getByTestId("record-anomaly-history-first-detail").click();
+  const firstRow = page.getByTestId("record-anomaly-history-first-detail");
+
+  await expect(page.getByText("상세보기")).toHaveCount(0);
+  await firstRow.click();
   await expect(
     page.getByTestId("record-anomaly-history-selected-detail"),
   ).toBeVisible();
-  await expect(
-    page.getByTestId("record-anomaly-history-first-detail"),
-  ).toHaveCSS("background-color", "rgb(35, 168, 102)");
+  await expect(firstRow).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("heading", { name: "처리 전" })).toBeVisible();
 
   await captureActualScreenshot({
@@ -48,4 +49,26 @@ test(`REC-02 selected-history ${desktop}`, async ({ page }) => {
     state: "selected-history",
     viewport: desktop,
   });
+});
+
+test("REC-02 clicking focused history row clears detail focus", async ({
+  page,
+}) => {
+  await prepareVisualPage({
+    page,
+    path: "/records/anomaly-history",
+    viewport: desktop,
+  });
+
+  const firstRow = page.getByTestId("record-anomaly-history-first-detail");
+
+  await firstRow.click();
+  await expect(firstRow).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.getByTestId("record-anomaly-history-selected-detail"),
+  ).toBeVisible();
+
+  await firstRow.click();
+  await expect(firstRow).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByTestId("record-history-empty-detail")).toBeVisible();
 });
