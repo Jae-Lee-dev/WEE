@@ -539,6 +539,12 @@ function createSeedPlan(options) {
     attendance.workRecords,
     overtime,
   );
+  reconcileWorkRecordProcessingState({
+    anomalies,
+    corrections,
+    overtime,
+    workRecords: attendance.workRecords,
+  });
   const bonusItems = createBonusItems(workspaceId, managerUid);
   const payroll = createPayrollDocuments(
     workspaceId,
@@ -719,7 +725,7 @@ function createSeedPlan(options) {
     "needsReconfirmation=true is manager-only; no worker reconfirmation notification is generated.",
     "workerPayStatements omit needsReconfirmation and manager-only calculation diffs.",
     "CorrectionRequest snapshots and record-change notification payloads use worker-safe WorkRecord snapshots.",
-    "Seed includes at least three examples for each REC flow case: pure anomaly, correction, correction+anomaly, overtime, overtime+anomaly, and overtime correction.",
+    "Seed includes REC flow examples for pure anomaly, correction, open anomaly+correction, closed anomaly+correction, overtime, overtime+anomaly, and overtime correction.",
     "Seed includes at least five cross-worker same-day overlapping WorkRecords for timeline layout testing.",
     "Seed has no same-worker same-day overlapping WorkRecords.",
     "Unconfirmed worker-months have payrollWorkerMonthRows but no PayStatement document.",
@@ -1580,7 +1586,7 @@ function resolveRecordScenario(workerId, date, dutyId) {
       checkoutMissing: false,
       endOffsetMinutes: 0,
       startOffsetMinutes: 17,
-      status: "anomaly_unresolved",
+      status: "resolved",
       type: "time_mismatch",
     },
     "worker_park|2026-05-06|duty_grading_wed": {
@@ -1690,21 +1696,61 @@ function createAnomalies(workspaceId, managerUid, workRecords) {
     workspaceId,
   }));
   const resolvedFlags = flags.filter((flag) => flag.status === "resolved");
-  const resolutions = resolvedFlags.map((flag, index) => ({
-    id: `resolution_${flag.workRecordId}`,
-    anomalyFlagId: flag.id,
-    createdAt: shiftTimestamp(flag.createdAt, (index + 1) * 60 * 60 * 1000),
-    decidedBy: managerUid,
-    decision: index % 2 === 0 ? "modify_record" : "mark_normal",
-    managerNote: index % 2 === 0 ? "실제 출근 확인 후 시간 보정" : "GPS 실패로 정상 처리",
-    payrollEffect: index % 2 === 0 ? "immediate" : "none",
-    status: "completed",
-    workRecordId: flag.workRecordId,
-    workerId: flag.workerId,
-    workspaceId,
-  }));
+  const resolutions = resolvedFlags.map((flag) => {
+    const config = getResolvedAnomalyResolutionConfig(flag);
+
+    return {
+      id: `resolution_${flag.workRecordId}`,
+      anomalyFlagId: flag.id,
+      createdAt: shiftTimestamp(flag.createdAt, config.offsetMinutes * 60 * 1000),
+      decidedBy: managerUid,
+      decision: config.decision,
+      managerNote: config.managerNote,
+      payrollEffect: config.payrollEffect,
+      status: "completed",
+      workRecordId: flag.workRecordId,
+      workerId: flag.workerId,
+      workspaceId,
+    };
+  });
 
   return { flags, resolutions };
+}
+
+function getResolvedAnomalyResolutionConfig(flag) {
+  const configs = {
+    wr_worker_choi_20260508_duty_exam_fri: {
+      decision: "mark_normal",
+      managerNote: "퇴근 위치 수집 실패로 확인되어 근무기록은 유지",
+      offsetMinutes: 90,
+      payrollEffect: "unchanged",
+    },
+    wr_worker_lee_20260420_duty_self_mon: {
+      decision: "modify_record",
+      managerNote: "정시 도착 확인 후 시작 시간을 보정",
+      offsetMinutes: 60,
+      payrollEffect: "applied",
+    },
+    wr_worker_lee_20260427_duty_self_mon: {
+      decision: "mark_normal",
+      managerNote: "앱 체크인 지연으로 확인되어 근무기록은 유지",
+      offsetMinutes: 75,
+      payrollEffect: "unchanged",
+    },
+    wr_worker_lee_20260511_duty_self_mon: {
+      decision: "mark_normal",
+      managerNote: "앱 체크인 기록 기준으로 지각 확정 후 플래그 종료",
+      offsetMinutes: 45,
+      payrollEffect: "unchanged",
+    },
+  };
+
+  return configs[flag.workRecordId] ?? {
+    decision: "mark_normal",
+    managerNote: "관리자 확인 후 이상 플래그 종료",
+    offsetMinutes: 60,
+    payrollEffect: "unchanged",
+  };
 }
 
 function createOvertimeWorks(workspaceId, managerUid, workRecords, attendanceLogs) {
@@ -2024,15 +2070,18 @@ function createCorrectionRequests(workspaceId, managerUid, recordChanges, workRe
     afterSnapshot,
     beforeSnapshot,
     id,
+    managerNote,
     overtimeWorkId = null,
     payrollEffect = null,
     payrollStatus = "none",
     reason = "실제 근무 시간과 다르게 반영된 것 같습니다.",
     record,
+    rejectedReason,
     source = "calendar",
     sourceNotificationId = null,
     status,
     submittedIso,
+    withdrawnReason,
   }) => {
     const submittedAt = ts(submittedIso);
     const decided = status === "approved" || status === "rejected";
@@ -2044,16 +2093,23 @@ function createCorrectionRequests(workspaceId, managerUid, recordChanges, workRe
       createdAt: submittedAt,
       decidedAt: decided ? shiftTimestamp(submittedAt, 24 * 60 * 60 * 1000) : null,
       decidedBy: decided ? managerUid : null,
-      managerNote: status === "approved" ? "조교 설명 확인 후 승인" : status === "rejected" ? "출퇴근 원장과 불일치" : null,
+      managerNote: managerNote ?? (status === "approved" ? "조교 설명 확인 후 승인" : status === "rejected" ? "출퇴근 원장과 불일치" : null),
       monthKey: record.monthKey,
       ...(overtimeWorkId ? { overtimeWorkId } : {}),
       payrollEffect,
       payrollStatus,
       reason,
+      ...(rejectedReason ? { rejectedReason } : {}),
       source,
       sourceNotificationId,
       status,
       submittedAt,
+      ...(withdrawnReason
+        ? {
+            withdrawnAt: shiftTimestamp(submittedAt, 2 * 60 * 60 * 1000),
+            withdrawnReason,
+          }
+        : {}),
       workRecordId: record.id,
       workerId: record.workerId,
       workerName: record.workerName,
@@ -2063,6 +2119,8 @@ function createCorrectionRequests(workspaceId, managerUid, recordChanges, workRe
   const addChangeRequest = ({
     changeId,
     id,
+    reason,
+    requestedAfterSnapshot,
     payrollEffect = null,
     payrollStatus = "none",
     status,
@@ -2070,14 +2128,23 @@ function createCorrectionRequests(workspaceId, managerUid, recordChanges, workRe
   }) => {
     const change = changeById[changeId];
     const record = byRecord[change.workRecordId];
+    const correctionReason = reason ?? "관리자 변경 내용과 실제 근무 시간이 다릅니다.";
+    const beforeSnapshot = change.afterSnapshot;
+    const afterSnapshot = requestedAfterSnapshot
+      ? requestedAfterSnapshot(change, record, correctionReason)
+      : {
+          ...change.afterSnapshot,
+          changeReason: correctionReason,
+        };
 
     addRequest({
-      afterSnapshot: change.afterSnapshot,
-      beforeSnapshot: change.beforeSnapshot,
+      afterSnapshot,
+      beforeSnapshot,
       id,
       payrollEffect,
       payrollStatus,
       record,
+      reason: correctionReason,
       source: "record_change_notification",
       sourceNotificationId: change.notification.id,
       status,
@@ -2087,12 +2154,16 @@ function createCorrectionRequests(workspaceId, managerUid, recordChanges, workRe
   const addRegularRequest = ({
     endDeltaMinutes = 10,
     id,
+    managerNote,
     payrollEffect = null,
     payrollStatus = "none",
     reason,
+    rejectedReason,
     recordId,
+    startDeltaMinutes = 0,
     status,
     submittedIso,
+    withdrawnReason,
   }) => {
     const record = byRecord[recordId];
     const beforeSnapshot = workerSafeSnapshotFromRecord(record);
@@ -2100,6 +2171,7 @@ function createCorrectionRequests(workspaceId, managerUid, recordChanges, workRe
       ...beforeSnapshot,
       changeReason: reason,
       changeType: "modified",
+      effectiveStartAt: shiftTimestamp(record.effectiveStartAt, startDeltaMinutes * 60 * 1000),
       effectiveEndAt: shiftTimestamp(record.effectiveEndAt, endDeltaMinutes * 60 * 1000),
     };
 
@@ -2107,12 +2179,15 @@ function createCorrectionRequests(workspaceId, managerUid, recordChanges, workRe
       afterSnapshot,
       beforeSnapshot,
       id,
+      managerNote,
       payrollEffect,
       payrollStatus,
       reason,
       record,
+      rejectedReason,
       status,
       submittedIso,
+      withdrawnReason,
     });
   };
   const addOvertimeCorrectionRequest = ({
@@ -2154,6 +2229,13 @@ function createCorrectionRequests(workspaceId, managerUid, recordChanges, workRe
   addChangeRequest({
     changeId: "change_kim_20260504",
     id: "cr_kim_20260504_submitted",
+    reason: "보강 후 정리 시간이 실제보다 짧게 반영되었습니다.",
+    requestedAfterSnapshot: (change, _record, reason) => ({
+      ...change.afterSnapshot,
+      changeReason: reason,
+      changeType: "modified",
+      effectiveEndAt: shiftTimestamp(change.afterSnapshot.effectiveEndAt, 10 * 60 * 1000),
+    }),
     status: "submitted",
     submittedIso: "2026-05-06T18:00:00+09:00",
   });
@@ -2162,28 +2244,40 @@ function createCorrectionRequests(workspaceId, managerUid, recordChanges, workRe
     id: "cr_park_20260423_approved",
     payrollEffect: "applied",
     payrollStatus: "applied",
+    reason: "질문 응대 종료 시간이 누락되어 정정 요청합니다.",
     status: "approved",
     submittedIso: "2026-04-24T11:20:00+09:00",
   });
   addChangeRequest({
     changeId: "change_jung_20260424",
     id: "cr_jung_20260424_submitted",
+    reason: "삭제된 근무는 실제로 진행했고 예정 종료 시간까지 근무했습니다.",
+    requestedAfterSnapshot: (change, record, reason) => ({
+      ...change.beforeSnapshot,
+      changeReason: reason,
+      changeType: "modified",
+      effectiveEndAt: record.plannedEndAt,
+      effectiveStartAt: record.plannedStartAt,
+    }),
     status: "submitted",
     submittedIso: "2026-04-25T08:30:00+09:00",
   });
   addRegularRequest({
     id: "cr_lee_20260506_rejected",
-    reason: "관리자 확인 시간과 조교 신청 시간이 다릅니다.",
+    managerNote: "출퇴근 원장과 CCTV 확인 시간이 달라 반려",
+    reason: "행정 마감 정리 시간이 10분 누락되었습니다.",
+    rejectedReason: "출퇴근 기록상 추가 근무가 확인되지 않았습니다.",
     recordId: "wr_worker_lee_20260506_duty_admin_wed",
     status: "rejected",
     submittedIso: "2026-05-07T09:00:00+09:00",
   });
   addRegularRequest({
     id: "cr_choi_20260508_withdrawn",
-    reason: "조교가 신청 내용을 철회했습니다.",
+    reason: "시험대비 정리 시간이 10분 더 있었습니다.",
     recordId: "wr_worker_choi_20260508_duty_exam_fri",
     status: "withdrawn",
     submittedIso: "2026-05-09T10:10:00+09:00",
+    withdrawnReason: "조교가 위치 이상 처리 내역 확인 후 신청을 철회했습니다.",
   });
   addRegularRequest({
     id: "cr_lee_20260504_submitted",
@@ -2208,10 +2302,12 @@ function createCorrectionRequests(workspaceId, managerUid, recordChanges, workRe
   });
   addRegularRequest({
     id: "cr_lee_20260511_anomaly_submitted",
+    endDeltaMinutes: 0,
     reason: "출근 시간이 늦게 기록되었지만 정시에 도착했습니다.",
     recordId: "wr_worker_lee_20260511_duty_self_mon",
+    startDeltaMinutes: -17,
     status: "submitted",
-    submittedIso: "2026-05-12T09:10:00+09:00",
+    submittedIso: "2026-05-12T08:50:00+09:00",
   });
   addRegularRequest({
     id: "cr_lee_20260421_approved",
@@ -2233,31 +2329,37 @@ function createCorrectionRequests(workspaceId, managerUid, recordChanges, workRe
   });
   addRegularRequest({
     id: "cr_lee_20260428_rejected",
-    reason: "출퇴근 기록상 추가 시간이 확인되지 않았습니다.",
+    managerNote: "출퇴근 로그와 강의실 확인 결과 추가 시간이 확인되지 않음",
+    reason: "질문 응대 종료 시간이 10분 누락되었습니다.",
+    rejectedReason: "출퇴근 기록상 추가 시간이 확인되지 않았습니다.",
     recordId: "wr_worker_lee_20260428_duty_overlap_tue_questions",
     status: "rejected",
     submittedIso: "2026-04-29T09:15:00+09:00",
   });
   addRegularRequest({
     id: "cr_jung_20260507_rejected",
-    reason: "CCTV 확인 결과 예정 시간과 동일합니다.",
+    managerNote: "CCTV 확인 결과 예정 시간과 동일",
+    reason: "야간 자습 마감 정리 시간이 10분 더 있었습니다.",
+    rejectedReason: "CCTV 확인 결과 예정 시간과 동일합니다.",
     recordId: "wr_worker_jung_20260507_duty_night_thu",
     status: "rejected",
     submittedIso: "2026-05-08T09:35:00+09:00",
   });
   addRegularRequest({
     id: "cr_park_20260430_withdrawn",
-    reason: "조교가 정정 신청을 취소했습니다.",
+    reason: "질문 응대 종료 시간이 10분 누락되었습니다.",
     recordId: "wr_worker_park_20260430_duty_question_thu",
     status: "withdrawn",
     submittedIso: "2026-05-01T10:00:00+09:00",
+    withdrawnReason: "조교가 정정 신청을 취소했습니다.",
   });
   addRegularRequest({
     id: "cr_jung_20260508_withdrawn",
-    reason: "신청 사유 재확인 후 철회했습니다.",
+    reason: "채점 마무리 시간이 10분 더 있었습니다.",
     recordId: "wr_worker_jung_20260508_duty_grading_fri",
     status: "withdrawn",
     submittedIso: "2026-05-09T10:00:00+09:00",
+    withdrawnReason: "신청 사유 재확인 후 철회했습니다.",
   });
   addOvertimeCorrectionRequest({
     id: "cr_ot_lee_20260422_submitted",
@@ -2277,6 +2379,116 @@ function createCorrectionRequests(workspaceId, managerUid, recordChanges, workRe
   });
 
   return requests;
+}
+
+function reconcileWorkRecordProcessingState({
+  anomalies,
+  corrections,
+  overtime,
+  workRecords,
+}) {
+  const recordsById = Object.fromEntries(workRecords.map((record) => [record.id, record]));
+  const submittedCorrectionRecordIds = new Set(
+    corrections
+      .filter((request) => request.status === "submitted")
+      .map((request) => request.workRecordId),
+  );
+  const submittedOvertimeRecordIds = new Set(
+    overtime
+      .filter((work) => work.status === "submitted" && work.workRecordId)
+      .map((work) => work.workRecordId),
+  );
+
+  for (const record of workRecords) {
+    record.hasPendingCorrection = submittedCorrectionRecordIds.has(record.id);
+    record.hasPendingOvertime = submittedOvertimeRecordIds.has(record.id);
+  }
+
+  for (const resolution of anomalies.resolutions) {
+    const record = recordsById[resolution.workRecordId];
+
+    if (!record) {
+      continue;
+    }
+
+    if (resolution.decision === "modify_record") {
+      applyResolvedAnomalyRecordPatch(record, resolution);
+    }
+
+    record.hasUnresolvedAnomaly = false;
+    record.managerOnly = {
+      ...record.managerOnly,
+      anomalyResolutionId: resolution.id,
+      payrollApplication: resolution.payrollEffect,
+      reviewedBy: resolution.decidedBy,
+    };
+    record.status = "resolved";
+    record.updatedAt = resolution.createdAt;
+    syncWorkerSafeSnapshotFromRecord(record, {
+      changeReason: resolution.managerNote,
+      changeType: resolution.decision === "modify_record" ? "modified" : null,
+    });
+  }
+
+  for (const request of corrections) {
+    if (request.status !== "approved" || isOvertimeCorrectionRequest(request)) {
+      continue;
+    }
+
+    const record = recordsById[request.workRecordId];
+
+    if (!record) {
+      continue;
+    }
+
+    if (request.afterSnapshot.effectiveStartAt) {
+      record.effectiveStartAt = request.afterSnapshot.effectiveStartAt;
+    }
+
+    if (request.afterSnapshot.effectiveEndAt) {
+      record.effectiveEndAt = request.afterSnapshot.effectiveEndAt;
+    }
+
+    record.hasPendingCorrection = false;
+    record.managerOnly = {
+      ...record.managerOnly,
+      correctionRequestId: request.id,
+      payrollApplication: request.payrollEffect || request.payrollStatus,
+      reviewedBy: request.decidedBy,
+    };
+    record.status = "resolved";
+    record.updatedAt = request.decidedAt ?? request.submittedAt;
+    syncWorkerSafeSnapshotFromRecord(record, {
+      changeReason: request.reason,
+      changeType: "modified",
+    });
+  }
+}
+
+function applyResolvedAnomalyRecordPatch(record) {
+  if (record.anomalyType !== "time_mismatch") {
+    return;
+  }
+
+  if (record.plannedStartAt) {
+    record.effectiveStartAt = record.plannedStartAt;
+  }
+
+  if (record.plannedEndAt && !record.effectiveEndAt) {
+    record.effectiveEndAt = record.plannedEndAt;
+  }
+}
+
+function syncWorkerSafeSnapshotFromRecord(record, options = {}) {
+  record.workerSafeSnapshot = {
+    ...record.workerSafeSnapshot,
+    changeReason:
+      options.changeReason ?? record.workerSafeSnapshot?.changeReason ?? null,
+    changeType:
+      options.changeType ?? record.workerSafeSnapshot?.changeType ?? null,
+    effectiveEndAt: record.effectiveEndAt,
+    effectiveStartAt: record.effectiveStartAt,
+  };
 }
 
 function createBonusItems(workspaceId, managerUid) {
@@ -2583,21 +2795,21 @@ function createNotifications(context) {
 
   for (const work of overtime) {
     if (work.status === "submitted") {
-      add(`ntf_manager_overtime_${work.id}`, "manager", managerUid, "web", "overtime_submitted", isoPlus(work.submittedAt, 60), "overtimeWork", work.id, { targetScreen: "REC-01", targetFocusId: work.workRecordId ?? work.id });
+      add(`ntf_manager_overtime_${work.id}`, "manager", managerUid, "web", "overtime_submitted", isoPlus(work.submittedAt, 60 * 1000), "overtimeWork", work.id, { targetScreen: "REC-01", targetFocusId: work.workRecordId ?? work.id });
     }
 
     if (work.status === "approved" || work.status === "rejected") {
-      add(`ntf_worker_overtime_${work.id}`, "worker", work.workerId, "fcm", work.status === "approved" ? "overtime_approved" : "overtime_rejected", "2026-05-06T19:00:00+09:00", "overtimeWork", work.id, { payrollEffect: work.payrollEffect, targetFocusId: work.workRecordId ?? work.id });
+      add(`ntf_worker_overtime_${work.id}`, "worker", work.workerId, "fcm", work.status === "approved" ? "overtime_approved" : "overtime_rejected", isoPlus(work.updatedAt, 60 * 1000), "overtimeWork", work.id, { payrollEffect: work.payrollEffect, targetFocusId: work.workRecordId ?? work.id });
     }
   }
 
   for (const request of corrections) {
     if (request.status === "submitted") {
-      add(`ntf_manager_correction_${request.id}`, "manager", managerUid, "web", "correction_submitted", isoPlus(request.submittedAt, 60), "correctionRequest", request.id, { targetScreen: "REC-01", targetFocusId: request.workRecordId });
+      add(`ntf_manager_correction_${request.id}`, "manager", managerUid, "web", "correction_submitted", isoPlus(request.submittedAt, 60 * 1000), "correctionRequest", request.id, { targetScreen: "REC-01", targetFocusId: request.workRecordId });
     }
 
     if (request.status === "approved" || request.status === "rejected") {
-      add(`ntf_worker_correction_${request.id}`, "worker", request.workerId, "fcm", request.status === "approved" ? "correction_approved" : "correction_rejected", "2026-04-25T11:00:00+09:00", "correctionRequest", request.id, { targetScreen: "worker_work_record_detail" });
+      add(`ntf_worker_correction_${request.id}`, "worker", request.workerId, "fcm", request.status === "approved" ? "correction_approved" : "correction_rejected", isoPlus(request.decidedAt, 60 * 1000), "correctionRequest", request.id, { targetScreen: "worker_work_record_detail" });
     }
   }
 
@@ -2623,6 +2835,16 @@ function createNotifications(context) {
 function createProjections(context) {
   const { anomalies, corrections, overtime, payroll, recordChanges, workers, workspaceId } = context;
   const workerById = Object.fromEntries(workers.active.map((worker) => [worker.id, worker]));
+  const submittedCorrectionRecordIds = new Set(
+    corrections
+      .filter((request) => request.status === "submitted")
+      .map((request) => request.workRecordId),
+  );
+  const submittedOvertimeRecordIds = new Set(
+    overtime
+      .filter((work) => work.status === "submitted" && work.workRecordId)
+      .map((work) => work.workRecordId),
+  );
   const pendingMembershipInboxItems = workers.pending.map((worker) => {
     const membershipId = membershipDocumentId(worker);
 
@@ -2675,7 +2897,12 @@ function createProjections(context) {
         ),
       ),
     ...anomalies.flags
-      .filter((flag) => flag.status === "unresolved")
+      .filter(
+        (flag) =>
+          flag.status === "unresolved" &&
+          !submittedCorrectionRecordIds.has(flag.workRecordId) &&
+          !submittedOvertimeRecordIds.has(flag.workRecordId),
+      )
       .map((flag) =>
         inbox(
           `inbox_anomaly_unresolved_${flag.id.replace(/^flag_/, "")}`,
@@ -2823,6 +3050,8 @@ function validateSeedPlan(writes) {
   const workerStatements = docs.filter((doc) => doc.collectionName === "workerPayStatements");
   const notifications = docs.filter((doc) => doc.collectionName === "notifications");
   const anomalyFlags = docs.filter((doc) => doc.collectionName === "anomalyFlags");
+  const anomalyResolutions = docs.filter((doc) => doc.collectionName === "anomalyResolutions");
+  const operationalInboxItems = docs.filter((doc) => doc.collectionName === "operationalInboxItems");
   const overtimeWorks = docs.filter((doc) => doc.collectionName === "overtimeWorks");
   const payrollRows = docs.filter((doc) => doc.collectionName === "payrollWorkerMonthRows");
   const correctionRequests = docs.filter((doc) => doc.collectionName === "correctionRequests");
@@ -2876,6 +3105,14 @@ function validateSeedPlan(writes) {
     correctionRequests,
     overtimeWorks,
   });
+  assertRecordProcessingContext({
+    anomalyFlags,
+    anomalyResolutions,
+    correctionRequests,
+    operationalInboxItems,
+    overtimeWorks,
+    workRecords,
+  });
 
   const sameWorkerOverlapPairs = findSameWorkerOverlappingWorkRecordPairs(workRecords);
 
@@ -2908,6 +3145,13 @@ function validateSeedPlan(writes) {
   if (notifications.some((item) => item.eventType === "pay_reconfirmed")) {
     throw new Error("pay_reconfirmed worker notification must not exist without a real reconfirm action.");
   }
+
+  assertActivityTimestampsNotFuture(docs);
+  assertNotificationChronology({
+    correctionRequests,
+    notifications,
+    overtimeWorks,
+  });
 }
 
 function assertRecordFlowCoverage({ anomalyFlags, correctionRequests, overtimeWorks }) {
@@ -2916,6 +3160,15 @@ function assertRecordFlowCoverage({ anomalyFlags, correctionRequests, overtimeWo
       .filter((flag) => flag.status === "unresolved" && flag.workRecordId)
       .map((flag) => flag.workRecordId),
   );
+  const resolvedAnomalyRecordIds = new Set(
+    anomalyFlags
+      .filter((flag) => flag.status === "resolved" && flag.workRecordId)
+      .map((flag) => flag.workRecordId),
+  );
+  const anomalyRecordIds = new Set([
+    ...unresolvedAnomalyRecordIds,
+    ...resolvedAnomalyRecordIds,
+  ]);
   const submittedCorrectionRequests = correctionRequests.filter(
     (request) => request.status === "submitted",
   );
@@ -2938,13 +3191,22 @@ function assertRecordFlowCoverage({ anomalyFlags, correctionRequests, overtimeWo
   const submittedRegularCorrections = submittedCorrectionRequests.filter(
     (request) =>
       !isOvertimeCorrectionRequest(request) &&
-      !unresolvedAnomalyRecordIds.has(request.workRecordId),
+      !anomalyRecordIds.has(request.workRecordId),
   );
-  const submittedAnomalyCorrections = submittedCorrectionRequests.filter(
+  const submittedOpenAnomalyCorrections = submittedCorrectionRequests.filter(
     (request) =>
       !isOvertimeCorrectionRequest(request) &&
       unresolvedAnomalyRecordIds.has(request.workRecordId),
   );
+  const submittedClosedAnomalyCorrections = submittedCorrectionRequests.filter(
+    (request) =>
+      !isOvertimeCorrectionRequest(request) &&
+      resolvedAnomalyRecordIds.has(request.workRecordId),
+  );
+  const submittedAnomalyCorrections = [
+    ...submittedOpenAnomalyCorrections,
+    ...submittedClosedAnomalyCorrections,
+  ];
   const submittedOvertimeCorrections = submittedCorrectionRequests.filter(
     isOvertimeCorrectionRequest,
   );
@@ -2961,7 +3223,17 @@ function assertRecordFlowCoverage({ anomalyFlags, correctionRequests, overtimeWo
   assertAtLeast(
     submittedAnomalyCorrections.length,
     3,
-    "submitted correction+anomaly records",
+    "submitted correction records with anomaly context",
+  );
+  assertAtLeast(
+    submittedOpenAnomalyCorrections.length,
+    2,
+    "submitted correction records with open anomaly context",
+  );
+  assertAtLeast(
+    submittedClosedAnomalyCorrections.length,
+    1,
+    "submitted correction records with closed anomaly context",
   );
   assertAtLeast(
     submittedOvertimeWorks.length,
@@ -3006,6 +3278,250 @@ function assertRecordFlowCoverage({ anomalyFlags, correctionRequests, overtimeWo
       `${status} correction requests`,
     );
   }
+}
+
+function assertRecordProcessingContext({
+  anomalyFlags,
+  anomalyResolutions,
+  correctionRequests,
+  operationalInboxItems,
+  overtimeWorks,
+  workRecords,
+}) {
+  const recordsById = Object.fromEntries(workRecords.map((record) => [record.id, record]));
+  const submittedCorrectionRecordIds = new Set(
+    correctionRequests
+      .filter((request) => request.status === "submitted")
+      .map((request) => request.workRecordId),
+  );
+  const submittedOvertimeRecordIds = new Set(
+    overtimeWorks
+      .filter((work) => work.status === "submitted" && work.workRecordId)
+      .map((work) => work.workRecordId),
+  );
+  const resolutionByFlagId = new Map(
+    anomalyResolutions.map((resolution) => [resolution.anomalyFlagId, resolution]),
+  );
+
+  for (const recordId of submittedCorrectionRecordIds) {
+    const record = recordsById[recordId];
+
+    if (!record?.hasPendingCorrection) {
+      throw new Error(`workRecord ${recordId} must mark hasPendingCorrection=true.`);
+    }
+  }
+
+  for (const recordId of submittedOvertimeRecordIds) {
+    const record = recordsById[recordId];
+
+    if (!record?.hasPendingOvertime) {
+      throw new Error(`workRecord ${recordId} must mark hasPendingOvertime=true.`);
+    }
+  }
+
+  for (const flag of anomalyFlags) {
+    const record = recordsById[flag.workRecordId];
+
+    if (!record) {
+      throw new Error(`anomalyFlag ${flag.id} references missing workRecord ${flag.workRecordId}.`);
+    }
+
+    if (flag.status === "resolved") {
+      const resolution = resolutionByFlagId.get(flag.id);
+
+      if (!resolution) {
+        throw new Error(`resolved anomalyFlag ${flag.id} is missing a resolution.`);
+      }
+
+      if (record.hasUnresolvedAnomaly) {
+        throw new Error(`workRecord ${record.id} has a resolved flag but still marks hasUnresolvedAnomaly=true.`);
+      }
+
+      if (record.managerOnly?.anomalyResolutionId !== resolution.id) {
+        throw new Error(`workRecord ${record.id} does not link resolved anomaly ${resolution.id}.`);
+      }
+    }
+
+    if (flag.status === "unresolved" && !record.hasUnresolvedAnomaly) {
+      throw new Error(`workRecord ${record.id} must keep hasUnresolvedAnomaly=true for unresolved anomaly ${flag.id}.`);
+    }
+  }
+
+  for (const request of correctionRequests) {
+    const record = recordsById[request.workRecordId];
+
+    if (!record) {
+      throw new Error(`correctionRequest ${request.id} references missing workRecord ${request.workRecordId}.`);
+    }
+
+    if (
+      request.status === "submitted" &&
+      !isOvertimeCorrectionRequest(request) &&
+      correctionRequestHasSameRequestedRegularTime(request)
+    ) {
+      throw new Error(`submitted correctionRequest ${request.id} must request a changed regular work time.`);
+    }
+
+    if (request.status === "approved" && !isOvertimeCorrectionRequest(request)) {
+      if (
+        request.afterSnapshot.effectiveStartAt &&
+        !sameTimestamp(record.effectiveStartAt, request.afterSnapshot.effectiveStartAt)
+      ) {
+        throw new Error(`approved correctionRequest ${request.id} start time is not applied to workRecord ${record.id}.`);
+      }
+
+      if (
+        request.afterSnapshot.effectiveEndAt &&
+        !sameTimestamp(record.effectiveEndAt, request.afterSnapshot.effectiveEndAt)
+      ) {
+        throw new Error(`approved correctionRequest ${request.id} end time is not applied to workRecord ${record.id}.`);
+      }
+
+      if (record.managerOnly?.correctionRequestId !== request.id) {
+        throw new Error(`approved correctionRequest ${request.id} is not linked from workRecord ${record.id}.`);
+      }
+    }
+  }
+
+  assertRepresentativeRecordInboxItems({
+    anomalyFlags,
+    operationalInboxItems,
+    submittedCorrectionRecordIds,
+    submittedOvertimeRecordIds,
+  });
+}
+
+function correctionRequestHasSameRequestedRegularTime(request) {
+  return (
+    sameTimestamp(
+      request.beforeSnapshot?.effectiveStartAt,
+      request.afterSnapshot?.effectiveStartAt,
+    ) &&
+    sameTimestamp(
+      request.beforeSnapshot?.effectiveEndAt,
+      request.afterSnapshot?.effectiveEndAt,
+    )
+  );
+}
+
+function assertRepresentativeRecordInboxItems({
+  anomalyFlags,
+  operationalInboxItems,
+  submittedCorrectionRecordIds,
+  submittedOvertimeRecordIds,
+}) {
+  const recordInboxItems = operationalInboxItems.filter(
+    (item) => item.targetScreen === "REC-01" && item.targetFocusId,
+  );
+  const inboxItemsByFocusId = new Map();
+
+  for (const item of recordInboxItems) {
+    inboxItemsByFocusId.set(item.targetFocusId, [
+      ...(inboxItemsByFocusId.get(item.targetFocusId) ?? []),
+      item,
+    ]);
+  }
+
+  for (const [focusId, items] of inboxItemsByFocusId) {
+    if (items.length > 1) {
+      throw new Error(
+        `REC inbox must have one representative item per work record: ${focusId} has ${items
+          .map((item) => `${item.itemType}/${item.sourceId}`)
+          .join(", ")}`,
+      );
+    }
+  }
+
+  for (const flag of anomalyFlags.filter((item) => item.status === "unresolved")) {
+    const hasHigherPriorityAction =
+      submittedCorrectionRecordIds.has(flag.workRecordId) ||
+      submittedOvertimeRecordIds.has(flag.workRecordId);
+    const hasAnomalyInbox = recordInboxItems.some(
+      (item) => item.itemType === "anomaly_unresolved" && item.sourceId === flag.id,
+    );
+
+    if (hasHigherPriorityAction && hasAnomalyInbox) {
+      throw new Error(`anomalyFlag ${flag.id} must not create a duplicate inbox item when a higher-priority action exists.`);
+    }
+
+    if (!hasHigherPriorityAction && !hasAnomalyInbox) {
+      throw new Error(`unresolved anomalyFlag ${flag.id} must create an anomaly inbox item.`);
+    }
+  }
+}
+
+function assertActivityTimestampsNotFuture(docs) {
+  const activityFields = [
+    "approvedAt",
+    "changedAt",
+    "createdAt",
+    "decidedAt",
+    "sortAt",
+    "submittedAt",
+    "updatedAt",
+    "withdrawnAt",
+  ];
+
+  for (const doc of docs) {
+    for (const field of activityFields) {
+      if (doc[field] && millis(doc[field]) > millis(seedGeneratedAt)) {
+        throw new Error(`${doc.collectionName}/${doc.id} has future ${field}.`);
+      }
+    }
+  }
+}
+
+function assertNotificationChronology({
+  correctionRequests,
+  notifications,
+  overtimeWorks,
+}) {
+  const correctionsById = Object.fromEntries(
+    correctionRequests.map((request) => [request.id, request]),
+  );
+  const overtimeById = Object.fromEntries(
+    overtimeWorks.map((work) => [work.id, work]),
+  );
+
+  for (const notification of notifications) {
+    if (notification.relatedEntityType === "correctionRequest") {
+      const request = correctionsById[notification.relatedEntityId];
+      const baseAt = notification.eventType === "correction_submitted"
+        ? request?.submittedAt
+        : request?.decidedAt;
+
+      assertNotificationNotBeforeBase(notification, baseAt);
+    }
+
+    if (notification.relatedEntityType === "overtimeWork") {
+      const work = overtimeById[notification.relatedEntityId];
+      const baseAt = notification.eventType === "overtime_submitted"
+        ? work?.submittedAt
+        : work?.updatedAt;
+
+      assertNotificationNotBeforeBase(notification, baseAt);
+    }
+  }
+}
+
+function assertNotificationNotBeforeBase(notification, baseAt) {
+  if (baseAt && millis(notification.createdAt) < millis(baseAt)) {
+    throw new Error(
+      `notification ${notification.id} is earlier than its related event.`,
+    );
+  }
+}
+
+function sameTimestamp(left, right) {
+  if (!left && !right) {
+    return true;
+  }
+
+  if (!left || !right) {
+    return false;
+  }
+
+  return millis(left) === millis(right);
 }
 
 function isOvertimeCorrectionRequest(request) {
