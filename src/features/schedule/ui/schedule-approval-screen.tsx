@@ -324,25 +324,53 @@ function SelectedApprovalState({
     selectedBlock,
     detail,
   );
-  const [adjustmentStartTime, setAdjustmentStartTime] = useState(
+  const [confirmedStartTime, setConfirmedStartTime] = useState(
     selectedStartTime,
   );
-  const [adjustmentEndTime, setAdjustmentEndTime] = useState(
-    selectedEndTime,
-  );
+  const [confirmedEndTime, setConfirmedEndTime] = useState(selectedEndTime);
+  const [draftStartTime, setDraftStartTime] = useState(selectedStartTime);
+  const [draftEndTime, setDraftEndTime] = useState(selectedEndTime);
 
   const slotEdit =
     selectedBlock?.sourceSlotIndex == null
       ? undefined
       : {
-          endTime: adjustmentEndTime,
+          endTime: confirmedEndTime,
           sourceSlotIndex: selectedBlock.sourceSlotIndex,
-          startTime: adjustmentStartTime,
+          startTime: confirmedStartTime,
         };
-  const timeInvalid =
-    !adjustmentStartTime ||
-    !adjustmentEndTime ||
-    adjustmentStartTime >= adjustmentEndTime;
+  const draftTimeInvalid =
+    !draftStartTime || !draftEndTime || draftStartTime >= draftEndTime;
+  const confirmedTimeInvalid =
+    !confirmedStartTime ||
+    !confirmedEndTime ||
+    confirmedStartTime >= confirmedEndTime;
+  const hasPendingTimeEdit =
+    draftStartTime !== confirmedStartTime || draftEndTime !== confirmedEndTime;
+  const approvalDisabled = confirmedTimeInvalid || hasPendingTimeEdit;
+
+  const confirmDraftTime = () => {
+    if (draftTimeInvalid) {
+      return;
+    }
+
+    setConfirmedStartTime(draftStartTime);
+    setConfirmedEndTime(draftEndTime);
+  };
+  const resetDraftTime = () => {
+    setDraftStartTime(confirmedStartTime);
+    setDraftEndTime(confirmedEndTime);
+  };
+
+  const updateSelectedTimeState = (
+    nextStartTime: string,
+    nextEndTime: string,
+  ) => {
+    setConfirmedStartTime(nextStartTime);
+    setConfirmedEndTime(nextEndTime);
+    setDraftStartTime(nextStartTime);
+    setDraftEndTime(nextEndTime);
+  };
 
   const handleSelectBlock = (blockId: string) => {
     const nextBlock = detail.timelineBlocks.find((block) => block.id === blockId);
@@ -352,8 +380,7 @@ function SelectedApprovalState({
     );
 
     setSelectedBlockId(blockId);
-    setAdjustmentStartTime(nextStartTime);
-    setAdjustmentEndTime(nextEndTime);
+    updateSelectedTimeState(nextStartTime, nextEndTime);
   };
 
   return (
@@ -387,9 +414,9 @@ function SelectedApprovalState({
             request={request}
             rejectLabel={rejectLabel}
             saving={saving}
-            timeInvalid={timeInvalid}
+            approvalDisabled={approvalDisabled}
             onApprove={() => {
-              if (timeInvalid) {
+              if (approvalDisabled) {
                 return;
               }
 
@@ -413,26 +440,14 @@ function SelectedApprovalState({
 
             <TimeAdjustmentPanel
               detail={detail}
-              endTime={adjustmentEndTime}
+              endTime={draftEndTime}
               saving={saving}
-              startTime={adjustmentStartTime}
-              timeInvalid={timeInvalid}
-              onReset={() => {
-                setAdjustmentStartTime(selectedStartTime);
-                setAdjustmentEndTime(selectedEndTime);
-              }}
-              onConfirm={() => {
-                if (timeInvalid) {
-                  return;
-                }
-
-                onApprove({
-                  requestId: request.id,
-                  slotEdits: slotEdit ? [slotEdit] : [],
-                });
-              }}
-              onUpdateEndTime={setAdjustmentEndTime}
-              onUpdateStartTime={setAdjustmentStartTime}
+              startTime={draftStartTime}
+              timeInvalid={draftTimeInvalid}
+              onReset={resetDraftTime}
+              onConfirm={confirmDraftTime}
+              onUpdateEndTime={setDraftEndTime}
+              onUpdateStartTime={setDraftStartTime}
               selectedBlock={selectedBlock}
             />
           </div>
@@ -453,19 +468,19 @@ function SelectedApprovalState({
 
 function SelectedRequestHeader({
   approveLabel,
+  approvalDisabled,
   onApprove,
   request,
   rejectLabel,
   saving,
-  timeInvalid,
   onOpenRejectDialog,
 }: {
   approveLabel: string;
+  approvalDisabled: boolean;
   onApprove: () => void;
   request: ScheduleApprovalRequestRow;
   rejectLabel: string;
   saving: boolean;
-  timeInvalid: boolean;
   onOpenRejectDialog: () => void;
 }) {
   const detail = request.selectedDetail;
@@ -510,7 +525,7 @@ function SelectedRequestHeader({
         <Button
           type="button"
           variant="secondary"
-          disabled={saving || timeInvalid}
+          disabled={saving || approvalDisabled}
           onClick={onApprove}
           className="h-9 rounded-full px-4 tracking-normal"
         >
@@ -783,6 +798,7 @@ function TimeAdjustmentPanel({
         <Button
           type="button"
           variant="secondary"
+          data-testid="schedule-approval-time-cancel"
           disabled={saving}
           onClick={onReset}
           className="h-11 rounded-[8px] px-6 tracking-normal"
@@ -791,11 +807,12 @@ function TimeAdjustmentPanel({
         </Button>
         <Button
           type="button"
+          data-testid="schedule-approval-time-confirm"
           disabled={saving || timeInvalid}
           onClick={onConfirm}
           className="h-11 rounded-[8px] px-6 tracking-normal"
         >
-          {saving ? "처리 중" : "시간 반영 승인"}
+          확인
         </Button>
       </div>
     </aside>

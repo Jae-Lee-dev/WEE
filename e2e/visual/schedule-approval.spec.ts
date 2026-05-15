@@ -42,6 +42,10 @@ test(`SCH-01 selected-request ${desktop}`, async ({ page }) => {
   await expect(
     page.getByTestId("schedule-approval-selected-timeline-block"),
   ).toContainText("19:00~21:00");
+  await expect(page.getByText("시간 반영 승인")).toHaveCount(0);
+  await expect(page.getByTestId("schedule-approval-time-confirm")).toHaveText(
+    "확인",
+  );
 
   await captureActualScreenshot({
     page,
@@ -99,6 +103,42 @@ test(`SCH-01 selected-request focus changes by snapshot block ${desktop}`, async
   ).toContainText("16:00~18:00");
   await expect(page.locator('input[type="time"]').first()).toHaveValue("16:00");
   await expect(page.locator('input[type="time"]').nth(1)).toHaveValue("18:00");
+});
+
+test(`SCH-01 time adjustment confirm does not approve request ${desktop}`, async ({
+  page,
+}) => {
+  await prepareVisualPage({ page, path: "/schedule", viewport: desktop });
+  await page.evaluate(() => document.fonts.ready);
+  await page.getByTestId("schedule-approval-first-detail").click();
+
+  const selectedState = page.getByTestId("schedule-approval-selected-state");
+  const startInput = selectedState.locator('input[type="time"]').first();
+  const approveButton = selectedState.getByRole("button", {
+    exact: true,
+    name: "승인",
+  });
+
+  await expect(approveButton).toBeEnabled();
+  await startInput.fill("18:30");
+  await expect(approveButton).toBeDisabled();
+
+  await page.getByTestId("schedule-approval-time-cancel").click();
+  await expect(startInput).toHaveValue("19:00");
+  await expect(approveButton).toBeEnabled();
+
+  await startInput.fill("18:30");
+  await expect(approveButton).toBeDisabled();
+  await page.getByTestId("schedule-approval-time-confirm").click();
+  await expect(selectedState).toBeVisible();
+  await expect(startInput).toHaveValue("18:30");
+  await expect(approveButton).toBeEnabled();
+
+  await approveButton.click();
+  await expect(
+    page.getByRole("heading", { name: "승인 대기 목록" }),
+  ).toBeVisible();
+  await expect(page.getByText("16건").first()).toBeVisible();
 });
 
 test(`SCH-01 reject-dialog ${desktop}`, async ({ page }) => {
