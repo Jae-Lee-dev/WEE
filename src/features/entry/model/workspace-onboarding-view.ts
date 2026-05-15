@@ -1,10 +1,4 @@
-export type WorkspaceOnboardingStepId =
-  | "workspace-info"
-  | "plan"
-  | "billing"
-  | "code";
-
-export type WorkspacePlanId = "starter" | "standard";
+export type WorkspaceOnboardingStepId = "workspace-info" | "code";
 
 export type WorkspaceFormState = {
   workspaceName: string;
@@ -13,22 +7,9 @@ export type WorkspaceFormState = {
   contact: string;
 };
 
-export type BillingFormState = {
-  cardNumber: string;
-  expiry: string;
-  cvc: string;
-  holderName: string;
-};
-
 export type WorkspaceFormField = keyof WorkspaceFormState;
-export type BillingFormField = keyof BillingFormState;
 export type WorkspaceFormErrors = Partial<Record<WorkspaceFormField, string>>;
-export type BillingFormErrors = Partial<Record<BillingFormField, string>>;
-export type WorkspaceStepStatusTone =
-  | "active"
-  | "complete"
-  | "pending"
-  | "skipped";
+export type WorkspaceStepStatusTone = "active" | "complete" | "pending";
 export type WorkspaceStepStatus = {
   badgeVariant: "blue" | "green" | "grey" | "outline";
   label: string;
@@ -46,16 +27,6 @@ export const workspaceCreationSteps: {
     description: "관리자와 조교에게 표시되는 기본 정보",
   },
   {
-    id: "plan",
-    title: "요금제 선택",
-    description: "초기 운영 범위에 맞는 플랜",
-  },
-  {
-    id: "billing",
-    title: "결제 정보",
-    description: "Standard 선택 시 필요한 카드 정보",
-  },
-  {
     id: "code",
     title: "코드 발급",
     description: "조교 소속 신청에 사용할 코드",
@@ -68,36 +39,6 @@ export const initialWorkspaceForm: WorkspaceFormState = {
   ownerName: "",
   contact: "",
 };
-
-export const initialBillingForm: BillingFormState = {
-  cardNumber: "",
-  expiry: "",
-  cvc: "",
-  holderName: "",
-};
-
-export const planOptions: {
-  id: WorkspacePlanId;
-  title: string;
-  price: string;
-  description: string;
-  details: readonly string[];
-}[] = [
-  {
-    id: "starter",
-    title: "Starter",
-    price: "월 0원",
-    description: "소규모 운영을 바로 시작하는 무료 플랜",
-    details: ["근무지 기본 관리", "조교 소속 승인", "근무 기록 확인"],
-  },
-  {
-    id: "standard",
-    title: "Standard",
-    price: "월 49,000원",
-    description: "인수인계와 정산까지 함께 관리하는 플랜",
-    details: ["인수인계 AI", "급여 명세 관리", "운영 알림 확장"],
-  },
-];
 
 export function getWorkspaceFormErrors(
   form: WorkspaceFormState,
@@ -123,33 +64,7 @@ export function getWorkspaceFormErrors(
   return errors;
 }
 
-export function getBillingFormErrors(
-  form: BillingFormState,
-): BillingFormErrors {
-  const errors: BillingFormErrors = {};
-
-  if (normalizeDigits(form.cardNumber).length !== 16) {
-    errors.cardNumber = "카드번호 16자리를 입력해 주세요.";
-  }
-
-  if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(form.expiry)) {
-    errors.expiry = "유효기간을 MM/YY 형식으로 입력해 주세요.";
-  }
-
-  if (!/^\d{3}$/.test(form.cvc)) {
-    errors.cvc = "CVC 3자리를 입력해 주세요.";
-  }
-
-  if (!form.holderName.trim()) {
-    errors.holderName = "카드 소유자명을 입력해 주세요.";
-  }
-
-  return errors;
-}
-
-export function hasFormErrors(
-  errors: WorkspaceFormErrors | BillingFormErrors,
-) {
+export function hasFormErrors(errors: WorkspaceFormErrors) {
   return Object.keys(errors).length > 0;
 }
 
@@ -159,16 +74,6 @@ export function normalizeDigits(value: string) {
 
 export function normalizeBusinessNumberInput(value: string) {
   return normalizeDigits(value).slice(0, 10);
-}
-
-export function normalizeExpiryInput(value: string) {
-  const digits = normalizeDigits(value).slice(0, 4);
-
-  if (digits.length <= 2) {
-    return digits;
-  }
-
-  return `${digits.slice(0, 2)}/${digits.slice(2)}`;
 }
 
 export function formatBusinessNumber(value: string) {
@@ -185,46 +90,19 @@ export function formatBusinessNumber(value: string) {
   return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
 }
 
-export function formatCardNumber(value: string) {
-  return normalizeDigits(value)
-    .slice(0, 16)
-    .replace(/(\d{4})(?=\d)/g, "$1 ");
-}
-
-export function getPlanLabel(planId: WorkspacePlanId) {
-  return planId === "starter" ? "Starter" : "Standard";
-}
-
 export function getWorkspaceStepStatus({
   activeStepIndex,
-  billingComplete = false,
   index,
-  selectedPlan,
   stepId,
   workspaceCode,
 }: {
   activeStepIndex: number;
-  billingComplete?: boolean;
   index: number;
-  selectedPlan: WorkspacePlanId;
   stepId: WorkspaceOnboardingStepId;
   workspaceCode: string;
 }): WorkspaceStepStatus {
-  const billingSkipped =
-    stepId === "billing" &&
-    selectedPlan === "starter" &&
-    activeStepIndex === 3;
-
-  if (billingSkipped) {
-    return { badgeVariant: "grey", label: "건너뜀", tone: "skipped" };
-  }
-
   if (stepId === "code" && workspaceCode) {
     return { badgeVariant: "green", label: "발급 완료", tone: "complete" };
-  }
-
-  if (stepId === "billing" && billingComplete) {
-    return { badgeVariant: "blue", label: "등록 완료", tone: "complete" };
   }
 
   if (activeStepIndex === index) {

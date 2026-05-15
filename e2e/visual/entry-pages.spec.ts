@@ -578,9 +578,15 @@ test("ONB screens use user-facing progress", async ({ page }) => {
   });
   await expect(creationProgress).toBeVisible();
   await expect(creationProgress.getByText("사업장 정보")).toBeVisible();
-  await expect(creationProgress.getByText("요금제 선택")).toBeVisible();
-  await expect(creationProgress.getByText("결제 정보")).toBeVisible();
   await expect(creationProgress.getByText("코드 발급")).toBeVisible();
+  await expect(creationProgress.getByText("요금제 선택")).toHaveCount(0);
+  await expect(creationProgress.getByText("결제 정보")).toHaveCount(0);
+  const summary = page.getByTestId("workspace-creation-summary");
+  await expect(summary).toBeVisible();
+  await expect(summary.getByText("소속 요약")).toBeVisible();
+  await expect(summary.getByText("진행 상태", { exact: true })).toHaveCount(0);
+  await expect(summary.getByText("요금제", { exact: true })).toHaveCount(0);
+  await expect(summary.getByText("결제 정보", { exact: true })).toHaveCount(0);
   await expect(
     page.getByTestId("workspace-onboarding-step-workspace-info"),
   ).toBeVisible();
@@ -611,7 +617,7 @@ test("ONB-01 validates required workspace information", async ({ page }) => {
   await page.evaluate(() => document.fonts.ready);
 
   await page
-    .getByRole("button", { name: "요금제 선택으로 이동" })
+    .getByRole("button", { name: "소속 코드 발급" })
     .click();
 
   await expect(page.getByText("소속 이름을 입력해 주세요.")).toBeVisible();
@@ -625,7 +631,9 @@ test("ONB-01 validates required workspace information", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("ONB-01 completes Starter flow without billing", async ({ page }) => {
+test("ONB-01 issues code directly after workspace information", async ({
+  page,
+}) => {
   await prepareVisualPage({
     page,
     path: "/onboarding/workspace",
@@ -634,22 +642,13 @@ test("ONB-01 completes Starter flow without billing", async ({ page }) => {
   await page.evaluate(() => document.fonts.ready);
 
   await fillWorkspaceInformation(page);
-  await page
-    .getByRole("button", { name: "요금제 선택으로 이동" })
-    .click();
-
-  await expect(page.getByTestId("workspace-onboarding-step-plan")).toBeVisible();
-  await expect(page.getByRole("radio", { name: /Starter/ })).toHaveAttribute(
-    "aria-checked",
-    "true",
-  );
-
   await page.getByRole("button", { name: "소속 코드 발급" }).click();
 
   await expect(page.getByTestId("workspace-onboarding-step-code")).toBeVisible();
+  await expect(page.getByTestId("workspace-onboarding-step-plan")).toHaveCount(0);
   await expect(
-    page.getByTestId("workspace-creation-progress").getByText("건너뜀"),
-  ).toBeVisible();
+    page.getByTestId("workspace-onboarding-step-billing"),
+  ).toHaveCount(0);
   await expect(page.getByText(/^WEE-\d{6}$/).first()).toBeVisible();
   await expect(
     page.getByRole("link", { name: "관리자 설정으로 이동" }),
@@ -659,7 +658,7 @@ test("ONB-01 completes Starter flow without billing", async ({ page }) => {
   await expect(page.getByTestId("setup-guide-screen")).toBeVisible();
 });
 
-test("ONB-01 requires billing details for Standard flow", async ({ page }) => {
+test("ONB-01 omits plan and billing controls", async ({ page }) => {
   await prepareVisualPage({
     page,
     path: "/onboarding/workspace",
@@ -667,37 +666,14 @@ test("ONB-01 requires billing details for Standard flow", async ({ page }) => {
   });
   await page.evaluate(() => document.fonts.ready);
 
-  await fillWorkspaceInformation(page);
-  await page
-    .getByRole("button", { name: "요금제 선택으로 이동" })
-    .click();
-  await page.getByRole("radio", { name: /Standard/ }).click();
-  await expect(page.getByRole("radio", { name: /Standard/ })).toHaveAttribute(
-    "aria-checked",
-    "true",
-  );
-  await page.getByRole("button", { name: "결제 정보 등록" }).click();
-
+  await expect(page.getByRole("radio", { name: /Starter/ })).toHaveCount(0);
+  await expect(page.getByRole("radio", { name: /Standard/ })).toHaveCount(0);
+  await expect(page.getByText("요금제 선택", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("결제 정보", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("카드번호")).toHaveCount(0);
   await expect(
-    page.getByTestId("workspace-onboarding-step-billing"),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "결제 정보 저장" }).click();
-  await expect(page.getByText("카드번호 16자리를 입력해 주세요.")).toBeVisible();
-  await expect(
-    page.getByText("유효기간을 MM/YY 형식으로 입력해 주세요."),
-  ).toBeVisible();
-  await expect(page.getByText("CVC 3자리를 입력해 주세요.")).toBeVisible();
-  await expect(page.getByText("카드 소유자명을 입력해 주세요.")).toBeVisible();
-
-  await page.getByLabel("카드번호").fill("4111111111111111");
-  await page.getByLabel("유효기간").fill("1229");
-  await page.getByLabel("CVC").fill("123");
-  await page.getByLabel("카드 소유자명").fill("김민채");
-  await page.getByRole("button", { name: "결제 정보 저장" }).click();
-
-  await expect(page.getByTestId("workspace-onboarding-step-code")).toBeVisible();
-  await expect(page.getByText("등록 완료")).toBeVisible();
-  await expect(page.getByText(/^WEE-\d{6}$/).first()).toBeVisible();
+    page.getByRole("button", { name: "결제 정보 저장" }),
+  ).toHaveCount(0);
 });
 
 test("ONB-02 sends setup tasks to admin interfaces", async ({ page }) => {

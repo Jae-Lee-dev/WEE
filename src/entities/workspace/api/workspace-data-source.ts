@@ -194,7 +194,7 @@ export async function createManagerWorkspace(
     throw new Error("로그인된 관리자 계정을 확인할 수 없습니다.");
   }
 
-  if (isMockFirebaseProject()) {
+  if (isMockFirebaseProject() || readActiveWorkspaceId() === "workspace_visual") {
     const workspaceCode = createWorkspaceCodeCandidate();
 
     return {

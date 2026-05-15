@@ -13,10 +13,8 @@ import {
   ArrowRight,
   Building2,
   Check,
-  CircleCheck,
   Clock3,
   Copy,
-  CreditCard,
   KeyRound,
   Mail,
   MapPin,
@@ -33,7 +31,6 @@ import {
   AuthShell,
   EntryField,
   EntryShell,
-  PlanOption,
   SectionHeading,
 } from "./entry-shell";
 import { LoginForm } from "./login-form";
@@ -50,29 +47,17 @@ import {
 } from "@/entities/workspace";
 import {
   formatBusinessNumber,
-  formatCardNumber,
-  getBillingFormErrors,
-  getPlanLabel,
   getWorkspaceCreationErrorMessage,
   getWorkspaceFormErrors,
   getWorkspaceStepStatus,
   hasFormErrors,
-  initialBillingForm,
   initialWorkspaceForm,
   normalizeBusinessNumberInput,
-  normalizeDigits,
-  normalizeExpiryInput,
-  planOptions,
   workspaceCreationSteps,
-  type BillingFormErrors,
-  type BillingFormField,
-  type BillingFormState,
   type WorkspaceFormErrors,
   type WorkspaceFormField,
   type WorkspaceFormState,
   type WorkspaceOnboardingStepId,
-  type WorkspacePlanId,
-  type WorkspaceStepStatus,
 } from "../model/workspace-onboarding-view";
 
 type SetupProgressStepState = "active" | "complete" | "pending";
@@ -230,10 +215,6 @@ export function WorkspaceOnboardingScreen() {
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [workspaceForm, setWorkspaceForm] =
     useState<WorkspaceFormState>(initialWorkspaceForm);
-  const [billingForm, setBillingForm] =
-    useState<BillingFormState>(initialBillingForm);
-  const [selectedPlan, setSelectedPlan] =
-    useState<WorkspacePlanId>("starter");
   const [submittedSteps, setSubmittedSteps] = useState<
     Partial<Record<WorkspaceOnboardingStepId, boolean>>
   >({});
@@ -246,9 +227,7 @@ export function WorkspaceOnboardingScreen() {
 
   const activeStep = workspaceCreationSteps[activeStepIndex];
   const workspaceErrors = getWorkspaceFormErrors(workspaceForm);
-  const billingErrors = getBillingFormErrors(billingForm);
   const hasWorkspaceErrors = hasFormErrors(workspaceErrors);
-  const hasBillingErrors = hasFormErrors(billingErrors);
 
   const handleWorkspaceFieldChange =
     (field: WorkspaceFormField) => (event: ChangeEvent<HTMLInputElement>) => {
@@ -261,53 +240,19 @@ export function WorkspaceOnboardingScreen() {
       }));
     };
 
-  const handleBillingFieldChange =
-    (field: BillingFormField) => (event: ChangeEvent<HTMLInputElement>) => {
-      setBillingForm((current) => ({
-        ...current,
-        [field]:
-          field === "cardNumber" || field === "cvc"
-            ? normalizeDigits(event.target.value)
-            : field === "expiry"
-              ? normalizeExpiryInput(event.target.value)
-              : event.target.value,
-      }));
-    };
-
-  const handleWorkspaceContinue = () => {
+  const handleWorkspaceContinue = async () => {
     setSubmittedSteps((current) => ({ ...current, "workspace-info": true }));
 
     if (hasWorkspaceErrors) {
       return;
     }
 
-    setActiveStepIndex(1);
+    await issueWorkspaceCode();
   };
 
-  const handlePlanContinue = async () => {
-    setSubmittedSteps((current) => ({ ...current, plan: true }));
-
-    if (selectedPlan === "starter") {
-      await issueWorkspaceCode("starter");
-      return;
-    }
-
-    setActiveStepIndex(2);
-  };
-
-  const handleBillingContinue = async () => {
-    setSubmittedSteps((current) => ({ ...current, billing: true }));
-
-    if (hasBillingErrors) {
-      return;
-    }
-
-    await issueWorkspaceCode(selectedPlan);
-  };
-
-  const issueWorkspaceCode = async (planId: WorkspacePlanId) => {
+  const issueWorkspaceCode = async () => {
     if (workspaceCode) {
-      setActiveStepIndex(3);
+      setActiveStepIndex(1);
       return;
     }
 
@@ -319,7 +264,7 @@ export function WorkspaceOnboardingScreen() {
         businessNumber: workspaceForm.businessNumber,
         contact: workspaceForm.contact,
         ownerName: workspaceForm.ownerName,
-        planId,
+        planId: "starter",
         workspaceName: workspaceForm.workspaceName,
       });
 
@@ -330,7 +275,7 @@ export function WorkspaceOnboardingScreen() {
       });
       setWorkspaceCode(workspaceState.workspaceCode ?? "");
       setCodeCopied(false);
-      setActiveStepIndex(3);
+      setActiveStepIndex(1);
     } catch (error) {
       setWorkspaceCreationError(getWorkspaceCreationErrorMessage(error));
     } finally {
@@ -339,18 +284,7 @@ export function WorkspaceOnboardingScreen() {
   };
 
   const goBack = () => {
-    setActiveStepIndex((current) => {
-      if (current === 3 && selectedPlan === "starter") {
-        return 1;
-      }
-
-      return Math.max(0, current - 1);
-    });
-  };
-
-  const switchToStarter = async () => {
-    setSelectedPlan("starter");
-    await issueWorkspaceCode("starter");
+    setActiveStepIndex(0);
   };
 
   const copyWorkspaceCode = () => {
@@ -370,13 +304,12 @@ export function WorkspaceOnboardingScreen() {
   return (
     <EntryShell
       title="소속 생성"
-      description="사업장 정보, 요금제, 조교 소속 신청 코드를 순서대로 준비합니다."
+      description="사업장 정보를 입력하면 조교 소속 신청 코드가 바로 발급됩니다."
       activeStepIndex={0}
     >
       <div className="w-full" data-testid="workspace-onboarding-screen">
         <WorkspaceCreationProgress
           activeStepIndex={activeStepIndex}
-          selectedPlan={selectedPlan}
           workspaceCode={workspaceCode}
         />
 
@@ -389,32 +322,10 @@ export function WorkspaceOnboardingScreen() {
               <WorkspaceInfoStep
                 errors={workspaceErrors}
                 form={workspaceForm}
+                isSubmitting={isCreatingWorkspace}
                 onChange={handleWorkspaceFieldChange}
                 onContinue={handleWorkspaceContinue}
                 showErrors={Boolean(submittedSteps["workspace-info"])}
-              />
-            ) : null}
-
-            {activeStep.id === "plan" ? (
-              <PlanSelectionStep
-                isSubmitting={isCreatingWorkspace}
-                onBack={goBack}
-                onContinue={handlePlanContinue}
-                onPlanChange={setSelectedPlan}
-                selectedPlan={selectedPlan}
-              />
-            ) : null}
-
-            {activeStep.id === "billing" ? (
-              <BillingStep
-                errors={billingErrors}
-                form={billingForm}
-                isSubmitting={isCreatingWorkspace}
-                onBack={goBack}
-                onChange={handleBillingFieldChange}
-                onContinue={handleBillingContinue}
-                onSwitchToStarter={switchToStarter}
-                showErrors={Boolean(submittedSteps.billing)}
               />
             ) : null}
 
@@ -423,7 +334,6 @@ export function WorkspaceOnboardingScreen() {
                 codeCopied={codeCopied}
                 onBack={goBack}
                 onCopy={copyWorkspaceCode}
-                planId={selectedPlan}
                 workspaceCode={workspaceCode}
                 workspaceName={workspaceForm.workspaceName}
               />
@@ -441,8 +351,6 @@ export function WorkspaceOnboardingScreen() {
 
           <WorkspaceCreationSummary
             activeStepIndex={activeStepIndex}
-            billingComplete={activeStepIndex === 3 && selectedPlan === "standard"}
-            planId={selectedPlan}
             workspaceCode={workspaceCode}
             workspaceForm={workspaceForm}
           />
@@ -455,16 +363,18 @@ export function WorkspaceOnboardingScreen() {
 function WorkspaceInfoStep({
   errors,
   form,
+  isSubmitting,
   onChange,
   onContinue,
   showErrors,
 }: {
   errors: WorkspaceFormErrors;
   form: WorkspaceFormState;
+  isSubmitting: boolean;
   onChange: (
     field: WorkspaceFormField,
   ) => (event: ChangeEvent<HTMLInputElement>) => void;
-  onContinue: () => void;
+  onContinue: () => void | Promise<void>;
   showErrors: boolean;
 }) {
   return (
@@ -517,202 +427,13 @@ function WorkspaceInfoStep({
       <div className="mt-7 flex justify-end">
         <Button
           type="button"
-          onClick={onContinue}
-          className="h-[50px] rounded-[8px] px-7 text-h-18-semibold tracking-normal"
-        >
-          요금제 선택으로 이동
-          <ArrowRight className="size-5" strokeWidth={2.2} />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function PlanSelectionStep({
-  isSubmitting,
-  onBack,
-  onContinue,
-  onPlanChange,
-  selectedPlan,
-}: {
-  isSubmitting: boolean;
-  onBack: () => void;
-  onContinue: () => void | Promise<void>;
-  onPlanChange: (plan: WorkspacePlanId) => void;
-  selectedPlan: WorkspacePlanId;
-}) {
-  const selectedPlanLabel = getPlanLabel(selectedPlan);
-
-  return (
-    <div>
-      <SectionHeading
-        icon={CreditCard}
-        title="요금제 선택"
-        description="Starter는 결제 정보 없이 소속 코드를 발급합니다."
-      />
-
-      <div className="mt-6 grid gap-4 lg:grid-cols-2" role="radiogroup">
-        {planOptions.map((plan) => (
-          <PlanOption
-            key={plan.id}
-            details={plan.details}
-            description={plan.description}
-            onSelect={() => onPlanChange(plan.id)}
-            price={plan.price}
-            selected={selectedPlan === plan.id}
-            title={plan.title}
-          />
-        ))}
-      </div>
-
-      <div className="mt-5 flex items-center gap-2 text-body-14-regular tracking-normal text-gray-600">
-        <CircleCheck
-          className="size-4 shrink-0 text-green-400"
-          strokeWidth={2.2}
-        />
-        <span>
-          선택한 요금제{" "}
-          <span className="font-medium text-gray-900">{selectedPlanLabel}</span>
-        </span>
-      </div>
-
-      <div className="mt-7 flex flex-wrap justify-between gap-3">
-        <Button
-          type="button"
-          variant="secondary"
-          disabled={isSubmitting}
-          onClick={onBack}
-          className="h-[50px] rounded-[8px] px-6 text-h-18-semibold tracking-normal"
-        >
-          <ArrowLeft className="size-5" strokeWidth={2.2} />
-          이전
-        </Button>
-        <Button
-          type="button"
           disabled={isSubmitting}
           onClick={onContinue}
           className="h-[50px] rounded-[8px] px-7 text-h-18-semibold tracking-normal"
         >
-          {isSubmitting
-            ? "소속 생성 중"
-            : selectedPlan === "starter"
-              ? "소속 코드 발급"
-              : "결제 정보 등록"}
+          {isSubmitting ? "소속 생성 중" : "소속 코드 발급"}
           <ArrowRight className="size-5" strokeWidth={2.2} />
         </Button>
-      </div>
-    </div>
-  );
-}
-
-function BillingStep({
-  errors,
-  form,
-  isSubmitting,
-  onBack,
-  onChange,
-  onContinue,
-  onSwitchToStarter,
-  showErrors,
-}: {
-  errors: BillingFormErrors;
-  form: BillingFormState;
-  isSubmitting: boolean;
-  onBack: () => void;
-  onChange: (
-    field: BillingFormField,
-  ) => (event: ChangeEvent<HTMLInputElement>) => void;
-  onContinue: () => void | Promise<void>;
-  onSwitchToStarter: () => void | Promise<void>;
-  showErrors: boolean;
-}) {
-  return (
-    <div>
-      <SectionHeading
-        icon={CreditCard}
-        title="결제 정보 등록"
-        description="Standard 요금제 활성화를 위한 카드 정보를 입력합니다."
-      />
-
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        <WorkspaceTextField
-          className="sm:col-span-2"
-          error={showErrors ? errors.cardNumber : undefined}
-          inputMode="numeric"
-          label="카드번호"
-          maxLength={19}
-          name="cardNumber"
-          onChange={onChange("cardNumber")}
-          placeholder="0000 0000 0000 0000"
-          value={formatCardNumber(form.cardNumber)}
-        />
-        <WorkspaceTextField
-          error={showErrors ? errors.expiry : undefined}
-          inputMode="numeric"
-          label="유효기간"
-          maxLength={5}
-          name="expiry"
-          onChange={onChange("expiry")}
-          placeholder="MM/YY"
-          value={form.expiry}
-        />
-        <WorkspaceTextField
-          error={showErrors ? errors.cvc : undefined}
-          inputMode="numeric"
-          label="CVC"
-          maxLength={3}
-          name="cvc"
-          onChange={onChange("cvc")}
-          placeholder="000"
-          value={form.cvc}
-        />
-        <WorkspaceTextField
-          className="sm:col-span-2"
-          error={showErrors ? errors.holderName : undefined}
-          label="카드 소유자명"
-          name="holderName"
-          onChange={onChange("holderName")}
-          placeholder="김민채"
-          value={form.holderName}
-        />
-      </div>
-
-      <div className="mt-5 rounded-[8px] border border-blue-50 bg-blue-50 px-4 py-3 text-body-14-regular tracking-normal text-gray-600">
-        카드 등록이 완료되면 소속 코드가 발급됩니다. 카드 등록을 원하지 않으면
-        Starter로 시작할 수 있습니다.
-      </div>
-
-      <div className="mt-7 flex flex-wrap justify-between gap-3">
-        <Button
-          type="button"
-          variant="secondary"
-          disabled={isSubmitting}
-          onClick={onBack}
-          className="h-[50px] rounded-[8px] px-6 text-h-18-semibold tracking-normal"
-        >
-          <ArrowLeft className="size-5" strokeWidth={2.2} />
-          이전
-        </Button>
-        <div className="flex flex-wrap justify-end gap-3">
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={isSubmitting}
-            onClick={onSwitchToStarter}
-            className="h-[50px] rounded-[8px] px-6 text-h-18-semibold tracking-normal"
-          >
-            Starter로 변경
-          </Button>
-          <Button
-            type="button"
-            disabled={isSubmitting}
-            onClick={onContinue}
-            className="h-[50px] rounded-[8px] px-7 text-h-18-semibold tracking-normal"
-          >
-            {isSubmitting ? "소속 생성 중" : "결제 정보 저장"}
-            <ArrowRight className="size-5" strokeWidth={2.2} />
-          </Button>
-        </div>
       </div>
     </div>
   );
@@ -722,14 +443,12 @@ function WorkspaceCodeStep({
   codeCopied,
   onBack,
   onCopy,
-  planId,
   workspaceCode,
   workspaceName,
 }: {
   codeCopied: boolean;
   onBack: () => void;
   onCopy: () => void;
-  planId: WorkspacePlanId;
   workspaceCode: string;
   workspaceName: string;
 }) {
@@ -747,11 +466,6 @@ function WorkspaceCodeStep({
         </p>
         <div className="mt-3 text-[34px] font-semibold leading-none tracking-normal text-green-500">
           {workspaceCode}
-        </div>
-        <div className="mt-3 flex justify-center">
-          <Badge variant={planId === "standard" ? "blue" : "green"} size="M">
-            {getPlanLabel(planId)}
-          </Badge>
         </div>
       </div>
 
@@ -793,11 +507,9 @@ function WorkspaceCodeStep({
 
 function WorkspaceCreationProgress({
   activeStepIndex,
-  selectedPlan,
   workspaceCode,
 }: {
   activeStepIndex: number;
-  selectedPlan: WorkspacePlanId;
   workspaceCode: string;
 }) {
   return (
@@ -806,12 +518,11 @@ function WorkspaceCreationProgress({
       className="rounded-[8px] border border-gray-200 bg-white px-3 py-3"
       data-testid="workspace-creation-progress"
     >
-      <ol className="grid gap-2 md:grid-cols-4">
+      <ol className="grid gap-2 md:grid-cols-2">
         {workspaceCreationSteps.map((step, index) => {
           const status = getWorkspaceStepStatus({
             activeStepIndex,
             index,
-            selectedPlan,
             stepId: step.id,
             workspaceCode,
           });
@@ -836,7 +547,7 @@ function WorkspaceCreationProgress({
                   reached ? "bg-green-400 text-white" : "bg-white text-gray-500",
                 )}
               >
-                {status.tone === "complete" || status.tone === "skipped" ? (
+                {status.tone === "complete" ? (
                   <Check className="size-4" strokeWidth={2.4} />
                 ) : (
                   index + 1
@@ -862,124 +573,84 @@ function WorkspaceCreationProgress({
 
 function WorkspaceCreationSummary({
   activeStepIndex,
-  billingComplete,
-  planId,
   workspaceCode,
   workspaceForm,
 }: {
   activeStepIndex: number;
-  billingComplete: boolean;
-  planId: WorkspacePlanId;
   workspaceCode: string;
   workspaceForm: WorkspaceFormState;
 }) {
-  const planLabel = getPlanLabel(planId);
-  const status = activeStepIndex === 3 ? "발급 완료" : "진행 중";
+  const status = activeStepIndex === 1 ? "발급 완료" : "진행 중";
   const activeStep = workspaceCreationSteps[activeStepIndex];
   const nextStep = workspaceCreationSteps[activeStepIndex + 1];
+  const activeStepStatus = getWorkspaceStepStatus({
+    activeStepIndex,
+    index: activeStepIndex,
+    stepId: activeStep.id,
+    workspaceCode,
+  });
 
   return (
-    <aside className="h-fit rounded-[8px] border border-gray-200 bg-white p-5">
+    <aside
+      className="h-fit rounded-[8px] border border-gray-200 bg-white p-5"
+      data-testid="workspace-creation-summary"
+    >
       <div className="flex items-center justify-between gap-3">
         <div className="text-h-16-semibold tracking-normal text-gray-900">
-          진행 상태
+          소속 요약
         </div>
-        <Badge variant={activeStepIndex === 3 ? "green" : "grey"} size="M">
+        <Badge variant={activeStepIndex === 1 ? "green" : "grey"} size="M">
           {status}
         </Badge>
       </div>
 
-      <div className="mt-5 space-y-3">
-        {workspaceCreationSteps.map((step, index) => (
-          <WorkspaceStatusRow
-            key={step.id}
-            description={step.description}
-            status={getWorkspaceStepStatus({
-              activeStepIndex,
-              billingComplete,
-              index,
-              selectedPlan: planId,
-              stepId: step.id,
-              workspaceCode,
-            })}
-            title={step.title}
-          />
-        ))}
-      </div>
-
       <div className="mt-5 rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-4">
-        {activeStepIndex === 0 ? (
-          <>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
             <div className="text-label-12-medium tracking-normal text-gray-500">
-              다음 단계
+              현재 단계
             </div>
             <p className="mt-1 text-body-14-medium tracking-normal text-gray-900">
-              {nextStep?.title ?? activeStep.title}
+              {activeStep.title}
             </p>
-            <p className="mt-1 text-body-14-regular tracking-normal text-gray-500">
-              사업장 정보를 확인한 뒤 요금제를 선택합니다.
-            </p>
-          </>
-        ) : (
-          <dl className="space-y-3 text-body-14-regular tracking-normal">
-            <SummaryInfoPair
-              label="소속 이름"
-              value={workspaceForm.workspaceName.trim() || "-"}
-            />
-            <SummaryInfoPair label="요금제" value={planLabel} />
-            {workspaceCode ? (
-              <SummaryInfoPair label="신청 코드" value={workspaceCode} highlight />
-            ) : null}
-          </dl>
-        )}
-      </div>
-    </aside>
-  );
-}
-
-function WorkspaceStatusRow({
-  description,
-  status,
-  title,
-}: {
-  description: string;
-  status: WorkspaceStepStatus;
-  title: string;
-}) {
-  return (
-    <div className="flex items-start gap-3">
-      <span
-        className={cn(
-          "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border",
-          status.tone === "pending"
-            ? "border-gray-200 bg-white text-gray-400"
-            : "border-green-200 bg-green-100 text-green-400",
-        )}
-      >
-        {status.tone === "pending" || status.tone === "active" ? (
-          <span className="size-2 rounded-full bg-current" />
-        ) : (
-          <Check className="size-3.5" strokeWidth={2.4} />
-        )}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-3">
-          <div className="text-label-14-medium tracking-normal text-gray-900">
-            {title}
           </div>
           <Badge
-            variant={status.badgeVariant}
+            variant={activeStepStatus.badgeVariant}
             size="M"
             className="text-label-12-medium"
           >
-            {status.label}
+            {activeStepStatus.label}
           </Badge>
         </div>
-        <p className="mt-1 text-label-12-regular tracking-normal text-gray-500">
-          {description}
+        <p className="mt-2 text-label-12-regular tracking-normal text-gray-500">
+          {activeStep.description}
         </p>
       </div>
-    </div>
+
+      <dl className="mt-5 space-y-3 text-body-14-regular tracking-normal">
+        <SummaryInfoPair
+          label="소속 이름"
+          value={workspaceForm.workspaceName.trim() || "-"}
+        />
+        {workspaceCode ? (
+          <SummaryInfoPair label="신청 코드" value={workspaceCode} highlight />
+        ) : null}
+      </dl>
+
+      {nextStep ? (
+        <div className="mt-5 rounded-[8px] border border-blue-50 bg-blue-50 px-4 py-3">
+          <div className="text-label-12-medium tracking-normal text-gray-500">
+            다음 단계
+          </div>
+          <p className="mt-1 text-body-14-medium tracking-normal text-gray-900">
+            {nextStep.title}
+          </p>
+          <p className="mt-1 text-label-12-regular tracking-normal text-gray-500">
+            {nextStep.description}
+          </p>
+        </div>
+      ) : null}
+    </aside>
   );
 }
 
