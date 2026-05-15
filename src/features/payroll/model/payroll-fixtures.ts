@@ -105,7 +105,13 @@ export type PayrollOpenItemAction = {
   href?: string;
   id: string;
   label: string;
+  resolution?: {
+    decision: "apply" | "exclude";
+    itemId: string;
+    itemType: "bonus" | "correction" | "overtime" | "workRecord";
+  };
   unavailableLabel?: string;
+  workRecordId?: string;
 };
 
 export type PayrollOpenItemCard = {
@@ -345,9 +351,11 @@ const unresolvedPayrollOpenItemCards = [
       { id: "check-out", label: "퇴근 시각", value: "없음", tone: "negative" },
     ],
     actions: [
-      { id: "mark-normal", label: "정상 처리" },
-      { id: "edit", label: "근무기록 수정" },
-      { id: "delete", label: "근무기록 삭제" },
+      {
+        id: "record",
+        label: "처리하기",
+        workRecordId: "record-song-hyunwoo-physics-f-mon",
+      },
     ],
   },
   {
@@ -364,8 +372,24 @@ const unresolvedPayrollOpenItemCards = [
       { id: "payroll", label: "급여 처리", value: "보류", tone: "negative" },
     ],
     actions: [
-      { id: "apply", label: "반영" },
-      { id: "exclude", label: "반영 제외" },
+      {
+        id: "overtime-apply",
+        label: "급여 반영",
+        resolution: {
+          decision: "apply",
+          itemId: "open-overtime-0418-english-c",
+          itemType: "overtime",
+        },
+      },
+      {
+        id: "overtime-exclude",
+        label: "급여 제외",
+        resolution: {
+          decision: "exclude",
+          itemId: "open-overtime-0418-english-c",
+          itemType: "overtime",
+        },
+      },
     ],
   },
   {
@@ -387,8 +411,24 @@ const unresolvedPayrollOpenItemCards = [
       },
     ],
     actions: [
-      { id: "apply", label: "반영" },
-      { id: "exclude", label: "반영 제외" },
+      {
+        id: "correction-apply",
+        label: "급여 반영",
+        resolution: {
+          decision: "apply",
+          itemId: "open-correction-0420-math-a",
+          itemType: "correction",
+        },
+      },
+      {
+        id: "correction-exclude",
+        label: "급여 제외",
+        resolution: {
+          decision: "exclude",
+          itemId: "open-correction-0420-math-a",
+          itemType: "correction",
+        },
+      },
     ],
   },
   {
@@ -410,8 +450,24 @@ const unresolvedPayrollOpenItemCards = [
       },
     ],
     actions: [
-      { id: "apply", label: "반영" },
-      { id: "exclude", label: "반영 제외" },
+      {
+        id: "correction-repeat-apply",
+        label: "급여 반영",
+        resolution: {
+          decision: "apply",
+          itemId: "open-correction-0420-math-a-repeat",
+          itemType: "correction",
+        },
+      },
+      {
+        id: "correction-repeat-exclude",
+        label: "급여 제외",
+        resolution: {
+          decision: "exclude",
+          itemId: "open-correction-0420-math-a-repeat",
+          itemType: "correction",
+        },
+      },
     ],
   },
 ] as const satisfies readonly PayrollOpenItemCard[];

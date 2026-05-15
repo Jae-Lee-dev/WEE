@@ -66,6 +66,9 @@ export type PayrollDataSource = {
   loadStatements: (
     target?: PayrollStatementTarget,
   ) => Promise<PayrollStatementFixture>;
+  resolveOpenItem: (
+    input: PayrollOpenItemResolutionInput,
+  ) => Promise<PayrollCalculationFixture>;
 };
 
 export type PayrollMutationTarget = {
@@ -88,6 +91,13 @@ export type PayrollDeleteAdjustmentInput = PayrollMutationTarget & {
 export type PayrollDecisionInput = PayrollMutationTarget & {
   action: "confirm" | "reconfirm" | "mark_paid";
   scheduledPaymentDate?: string | null;
+  workerName: string;
+};
+
+export type PayrollOpenItemResolutionInput = PayrollMutationTarget & {
+  decision: "apply" | "exclude";
+  itemId: string;
+  itemType: "bonus" | "correction" | "overtime" | "workRecord";
   workerName: string;
 };
 
@@ -258,6 +268,10 @@ function createFixturePayrollDataSource(): PayrollDataSource {
 
     async loadStatements() {
       return payrollStatementFixture;
+    },
+
+    async resolveOpenItem() {
+      return payrollCalculationFixture;
     },
   };
 }
@@ -471,6 +485,34 @@ function createFirestorePayrollDataSource(): PayrollDataSource {
 
       return buildCalculationViewModel(await loadPayrollCollections(), input);
     },
+    async resolveOpenItem(input) {
+      const workspaceId = await requireActiveWorkspaceId();
+      const collections = await loadPayrollCollections();
+      const payrollContext = getPayrollMutationContext(collections, input);
+
+      if (payrollContext.paid) {
+        throw new Error("지급 완료된 월의 미처리 항목은 수정할 수 없습니다.");
+      }
+
+      const batch = writeBatch(getFirebaseDb());
+
+      queueOpenItemResolution({
+        batch,
+        input,
+        collections,
+        workspaceId,
+      });
+      queuePayrollReconfirmation({
+        batch,
+        reason: getOpenItemResolutionReason(input),
+        workspaceId,
+        ...payrollContext,
+      });
+
+      await batch.commit();
+
+      return buildCalculationViewModel(await loadPayrollCollections(), input);
+    },
     mode: "firestore",
 
     async loadCalculation(target) {
@@ -607,6 +649,94 @@ function queuePayrollReconfirmation({
       { merge: true },
     );
   }
+}
+
+function queueOpenItemResolution({
+  batch,
+  collections,
+  input,
+  workspaceId,
+}: {
+  batch: ReturnType<typeof writeBatch>;
+  collections: PayrollCollections;
+  input: PayrollOpenItemResolutionInput;
+  workspaceId: string;
+}) {
+  const db = getFirebaseDb();
+  const include = input.decision === "apply";
+
+  if (input.itemType === "workRecord") {
+    batch.update(
+      doc(db, "workspaces", workspaceId, "workRecords", input.itemId),
+      {
+        "managerOnly.payrollApplication": include ? "applied" : "excluded",
+        updatedAt: serverTimestamp(),
+      },
+    );
+    return;
+  }
+
+  if (input.itemType === "overtime") {
+    batch.update(
+      doc(db, "workspaces", workspaceId, "overtimeWorks", input.itemId),
+      {
+        payrollEffect: include ? "immediate" : "none",
+        payrollStatus: include ? "confirmed" : "none",
+        updatedAt: serverTimestamp(),
+      },
+    );
+    return;
+  }
+
+  if (input.itemType === "correction") {
+    const request = collections.correctionRequests.find(
+      (item) => item.id === input.itemId,
+    );
+    const workRecordId = readNullableString(request?.data.workRecordId);
+
+    batch.update(
+      doc(db, "workspaces", workspaceId, "correctionRequests", input.itemId),
+      {
+        payrollEffect: include ? "applied" : "none",
+        payrollStatus: include ? "applied" : "none",
+        updatedAt: serverTimestamp(),
+      },
+    );
+
+    if (workRecordId) {
+      batch.update(
+        doc(db, "workspaces", workspaceId, "workRecords", workRecordId),
+        {
+          "managerOnly.payrollApplication": include ? "applied" : "excluded",
+          updatedAt: serverTimestamp(),
+        },
+      );
+    }
+    return;
+  }
+
+  batch.update(
+    doc(db, "workspaces", workspaceId, "bonusItems", input.itemId),
+    {
+      ...(include ? {} : { deletedAt: serverTimestamp() }),
+      payrollStatus: include ? "confirmed" : "deleted",
+      updatedAt: serverTimestamp(),
+    },
+  );
+}
+
+function getOpenItemResolutionReason(input: PayrollOpenItemResolutionInput) {
+  const targetLabel =
+    input.itemType === "workRecord"
+      ? "근무기록"
+      : input.itemType === "overtime"
+        ? "추가근무"
+        : input.itemType === "correction"
+          ? "이의신청"
+          : "보너스/차감";
+  const decisionLabel = input.decision === "apply" ? "급여 반영" : "급여 제외";
+
+  return `${targetLabel} 미처리 항목 ${decisionLabel}`;
 }
 
 function buildCalculationViewModel(
@@ -1110,7 +1240,7 @@ function buildOpenItemCards({
         !heldCorrectionRecordIds.has(record.id),
     )
     .map((record) => ({
-      actions: [createRecordsOpenItemAction(record.id)],
+      actions: createPayrollResolutionActions("workRecord", record.id),
       dateLabel: formatDateKeyDisplay(record.dateKey),
       id: `${record.id}-payroll-hold`,
       lines: [
@@ -1173,10 +1303,13 @@ function buildOpenItemCards({
       const record = work.workRecordId
         ? recordById.get(work.workRecordId)
         : undefined;
-      const action = createRecordsOpenItemAction(work.workRecordId);
+      const actions =
+        work.status === "submitted"
+          ? [createRecordsOpenItemAction(work.workRecordId)]
+          : createPayrollResolutionActions("overtime", work.id);
 
       return {
-        actions: [action],
+        actions,
         dateLabel: formatDateKeyDisplay(record?.dateKey ?? ""),
         id: work.id,
         lines: [
@@ -1204,10 +1337,13 @@ function buildOpenItemCards({
       const record = request.workRecordId
         ? recordById.get(request.workRecordId)
         : undefined;
-      const action = createRecordsOpenItemAction(request.workRecordId);
+      const actions =
+        request.status === "submitted"
+          ? [createRecordsOpenItemAction(request.workRecordId)]
+          : createPayrollResolutionActions("correction", request.id);
 
       return {
-        actions: [action],
+        actions,
         dateLabel: formatDateKeyDisplay(record?.dateKey ?? ""),
         id: request.id,
         lines: [
@@ -1233,11 +1369,7 @@ function buildOpenItemCards({
       (bonus) =>
         ({
           actions: [
-            {
-              id: "payroll",
-              label: "반영 여부 결정",
-              unavailableLabel: "산정 화면에서 확인",
-            },
+            ...createPayrollResolutionActions("bonus", bonus.id),
           ],
           dateLabel: formatShortDate(bonus.createdAt) ?? "-",
           id: bonus.id,
@@ -1324,16 +1456,42 @@ function createRecordsOpenItemAction(
   if (!workRecordId) {
     return {
       id: "record",
-      label: "REC-01에서 처리",
+      label: "처리하기",
       unavailableLabel: "대상 기록 없음",
     };
   }
 
   return {
-    href: `/records?focus=${encodeURIComponent(workRecordId)}`,
     id: "record",
-    label: "REC-01에서 처리",
+    label: "처리하기",
+    workRecordId,
   };
+}
+
+function createPayrollResolutionActions(
+  itemType: NonNullable<PayrollOpenItemAction["resolution"]>["itemType"],
+  itemId: string,
+): readonly PayrollOpenItemAction[] {
+  return [
+    {
+      id: `${itemType}-apply`,
+      label: "급여 반영",
+      resolution: {
+        decision: "apply",
+        itemId,
+        itemType,
+      },
+    },
+    {
+      id: `${itemType}-exclude`,
+      label: "급여 제외",
+      resolution: {
+        decision: "exclude",
+        itemId,
+        itemType,
+      },
+    },
+  ];
 }
 
 function createPayrollStatementHref(statement: PayStatement) {
@@ -1455,7 +1613,11 @@ function getPayrollRecordMinutes(record: WorkRecord) {
 }
 
 function isRecordExcludedFromPayroll(record: WorkRecord) {
-  return record.status === "deleted" || record.payrollApplication === "hold";
+  return (
+    record.status === "deleted" ||
+    record.payrollApplication === "hold" ||
+    record.payrollApplication === "excluded"
+  );
 }
 
 function sumConfirmedOvertimePay(

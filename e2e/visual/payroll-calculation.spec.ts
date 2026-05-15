@@ -101,6 +101,20 @@ test(`PAY-01 detail ${desktop}`, async ({ page }) => {
   });
 });
 
+test("PAY-01 opens monthly work-record item actions inline", async ({ page }) => {
+  await prepareVisualPage({ page, path: "/payroll", viewport: desktop });
+  await page.evaluate(() => document.fonts.ready);
+  await page.getByTestId("payroll-calculation-first-detail").click();
+  await expect(page.getByText("REC-01에서 처리")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "처리하기" }).first().click();
+  await expect(page.getByTestId("record-detail-panel")).toBeVisible();
+  await expect(page.getByRole("button", { name: "정상 처리" })).toBeVisible();
+
+  await page.getByRole("button", { name: "정상 처리" }).click();
+  await expect(page.getByTestId("record-action-confirm-dialog")).toBeVisible();
+});
+
 test(`PAY-01 bonus-add ${desktop}`, async ({ page }) => {
   await prepareVisualPage({ page, path: "/payroll", viewport: desktop });
   await page.evaluate(() => document.fonts.ready);

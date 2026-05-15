@@ -20,10 +20,17 @@ import { Segment } from "@/shared/ui/segment";
 import { useWeeErrorToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
+  RecordActionDetailPanel,
+  type RecordActionPanelInput,
+  type RecordActionPanelState,
+  type RecordActionPanelStateId,
+} from "@/shared/ui/record-action-detail-panel";
+import {
   createPayrollDataSource,
   type PayrollAdjustmentInput,
   type PayrollDataSource,
   type PayrollDecisionInput,
+  type PayrollOpenItemResolutionInput,
 } from "../api/payroll-data-source";
 import {
   payrollCalculationFixture,
@@ -79,6 +86,30 @@ type PayrollCalculationScreenProps = {
   initialFocusId?: string;
   initialMonthKey?: string;
   initialWorkerId?: string;
+  recordActionAdapter?: PayrollRecordActionAdapter;
+};
+
+type PayrollRecordActionBlock = {
+  focusIds?: readonly string[];
+  id: string;
+  selectedStateId?: RecordActionPanelStateId;
+};
+
+type PayrollRecordActionViewModel = {
+  blocks: readonly PayrollRecordActionBlock[];
+  detailStates: Record<RecordActionPanelStateId, RecordActionPanelState>;
+  detailStatesByBlockId: Record<
+    string,
+    Record<RecordActionPanelStateId, RecordActionPanelState>
+  >;
+};
+
+export type PayrollRecordActionAdapter = {
+  apply: (
+    recordId: string,
+    input: RecordActionPanelInput,
+  ) => Promise<{ message: string }>;
+  load: () => Promise<PayrollRecordActionViewModel>;
 };
 
 type PayrollActionStatus = {
@@ -96,11 +127,17 @@ type DecidePayrollPayload = Pick<
   "action" | "scheduledPaymentDate"
 >;
 
+type ResolveOpenItemPayload = Pick<
+  PayrollOpenItemResolutionInput,
+  "decision" | "itemId" | "itemType"
+>;
+
 export function PayrollCalculationScreen({
   dataSource: dataSourceProp,
   initialFocusId,
   initialMonthKey,
   initialWorkerId,
+  recordActionAdapter,
 }: PayrollCalculationScreenProps = {}) {
   const fallbackDataSource = useMemo(() => createPayrollDataSource(), []);
   const dataSource = dataSourceProp ?? fallbackDataSource;
@@ -120,6 +157,9 @@ export function PayrollCalculationScreen({
     null,
   );
   const [savingAction, setSavingAction] = useState(false);
+  const [recordViewModel, setRecordViewModel] =
+    useState<PayrollRecordActionViewModel | null>(null);
+  const [recordViewErrorMessage, setRecordViewErrorMessage] = useState("");
   useWeeErrorToast(errorMessage);
 
   useEffect(() => {
@@ -169,6 +209,37 @@ export function PayrollCalculationScreen({
       active = false;
     };
   }, [dataSource, fixtureMode, initialFocusId, initialMonthKey, initialWorkerId]);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!recordActionAdapter) {
+      return;
+    }
+
+    void recordActionAdapter
+      .load()
+      .then((nextViewModel) => {
+        if (!active) {
+          return;
+        }
+
+        setRecordViewModel(nextViewModel);
+        setRecordViewErrorMessage("");
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setRecordViewModel(null);
+        setRecordViewErrorMessage("근무기록 처리 정보를 불러오지 못했습니다.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [recordActionAdapter]);
 
   const selectedRow =
     viewModel.rows.find((row) => row.id === selectedRowId) ??
@@ -267,6 +338,68 @@ export function PayrollCalculationScreen({
     );
   };
 
+  const handleResolveOpenItem = async (input: ResolveOpenItemPayload) => {
+    const target = createPayrollMutationTarget(selectedRow);
+
+    await runPayrollMutation(
+      () =>
+        dataSource.resolveOpenItem({
+          ...target,
+          ...input,
+          workerName: target.workerName,
+        }),
+      target,
+      getOpenItemResolutionSuccessMessage(input.decision),
+    );
+  };
+
+  const handleConfirmOpenRecordAction = async (
+    recordId: string,
+    input: RecordActionPanelInput,
+  ) => {
+    const target = createPayrollMutationTarget(selectedRow);
+
+    if (!recordActionAdapter) {
+      const error = new Error("근무기록 처리 정보를 불러오지 못했습니다.");
+
+      setActionStatus({
+        kind: "error",
+        message: error.message,
+      });
+      throw error;
+    }
+
+    setSavingAction(true);
+    setActionStatus(null);
+
+    try {
+      const result = await recordActionAdapter.apply(recordId, input);
+      const [nextViewModel, nextRecordViewModel] = await Promise.all([
+        dataSource.loadCalculation(target),
+        recordActionAdapter.load(),
+      ]);
+
+      applyMutatedViewModel(nextViewModel, target);
+      setRecordViewModel(nextRecordViewModel);
+      setRecordViewErrorMessage("");
+      setActionStatus({
+        kind: "success",
+        message: result.message,
+      });
+    } catch (error) {
+      setActionStatus({
+        kind: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "근무기록 처리 내용을 저장하지 못했습니다.",
+      });
+      throw error;
+    } finally {
+      setSavingAction(false);
+    }
+  };
+
   if (detailState) {
     const detailSet =
       viewModel.detailByRowId?.[selectedRowId] ?? viewModel.details;
@@ -274,13 +407,17 @@ export function PayrollCalculationScreen({
     return (
       <PayrollDetailScreen
         detail={detailSet[detailState] ?? detailSet.detail}
+        recordActionErrorMessage={recordViewErrorMessage}
+        recordActionViewModel={recordViewModel}
         status={actionStatus}
         saving={savingAction}
         selectedRow={selectedRow}
         onBack={() => setDetailState(null)}
+        onConfirmOpenRecordAction={handleConfirmOpenRecordAction}
         onCreateAdjustment={handleCreateAdjustment}
         onDeleteAdjustment={handleDeleteAdjustment}
         onDecidePayroll={handleDecidePayroll}
+        onResolveOpenItem={handleResolveOpenItem}
         onShowBonusForm={() => setDetailState("bonus-add")}
         onShowNoOpenItems={() => setDetailState("no-open-items")}
       />
@@ -483,24 +620,35 @@ function PayrollTableState({ children }: { children: string }) {
 
 function PayrollDetailScreen({
   detail,
+  recordActionErrorMessage,
+  recordActionViewModel,
   status,
   saving,
   selectedRow,
   onBack,
+  onConfirmOpenRecordAction,
   onCreateAdjustment,
   onDeleteAdjustment,
   onDecidePayroll,
+  onResolveOpenItem,
   onShowBonusForm,
   onShowNoOpenItems,
 }: {
   detail: PayrollCalculationDetail;
+  recordActionErrorMessage: string;
+  recordActionViewModel: PayrollRecordActionViewModel | null;
   status: PayrollActionStatus | null;
   saving: boolean;
   selectedRow?: PayrollCalculationRow;
   onBack: () => void;
+  onConfirmOpenRecordAction: (
+    recordId: string,
+    input: RecordActionPanelInput,
+  ) => Promise<void>;
   onCreateAdjustment: (input: CreateAdjustmentPayload) => Promise<void>;
   onDeleteAdjustment: (adjustmentId: string) => Promise<void>;
   onDecidePayroll: (input: DecidePayrollPayload) => Promise<void>;
+  onResolveOpenItem: (input: ResolveOpenItemPayload) => Promise<void>;
   onShowBonusForm: () => void;
   onShowNoOpenItems: () => void;
 }) {
@@ -562,7 +710,14 @@ function PayrollDetailScreen({
             onDeleteAdjustment={onDeleteAdjustment}
             onShowBonusForm={onShowBonusForm}
           />
-          <OpenItemsPanel detail={detail} />
+          <OpenItemsPanel
+            detail={detail}
+            recordActionErrorMessage={recordActionErrorMessage}
+            recordActionViewModel={recordActionViewModel}
+            saving={saving}
+            onConfirmOpenRecordAction={onConfirmOpenRecordAction}
+            onResolveOpenItem={onResolveOpenItem}
+          />
         </div>
       </main>
 
@@ -899,13 +1054,31 @@ function AdjustmentRow({
   );
 }
 
-function OpenItemsPanel({ detail }: { detail: PayrollCalculationDetail }) {
+function OpenItemsPanel({
+  detail,
+  recordActionErrorMessage,
+  recordActionViewModel,
+  saving,
+  onConfirmOpenRecordAction,
+  onResolveOpenItem,
+}: {
+  detail: PayrollCalculationDetail;
+  recordActionErrorMessage: string;
+  recordActionViewModel: PayrollRecordActionViewModel | null;
+  saving: boolean;
+  onConfirmOpenRecordAction: (
+    recordId: string,
+    input: RecordActionPanelInput,
+  ) => Promise<void>;
+  onResolveOpenItem: (input: ResolveOpenItemPayload) => Promise<void>;
+}) {
   const section = detail.workRecordSection;
+  const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
 
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-[8px] bg-white px-4 pb-4 pt-4",
+        "overflow-y-auto rounded-[8px] bg-white px-4 pb-4 pt-4",
         openItemsPanelHeight[detail.id],
       )}
     >
@@ -925,15 +1098,51 @@ function OpenItemsPanel({ detail }: { detail: PayrollCalculationDetail }) {
 
       <div className="mt-5 flex flex-col gap-4">
         {section.cards.map((card) => (
-          <OpenItemCard key={card.id} card={card} />
+          <OpenItemCard
+            key={card.id}
+            card={card}
+            expanded={expandedCardId === card.id}
+            recordActionErrorMessage={recordActionErrorMessage}
+            recordActionViewModel={recordActionViewModel}
+            saving={saving}
+            onConfirmOpenRecordAction={onConfirmOpenRecordAction}
+            onResolveOpenItem={onResolveOpenItem}
+            onToggleRecordAction={() =>
+              setExpandedCardId((currentId) =>
+                currentId === card.id ? null : card.id,
+              )
+            }
+          />
         ))}
       </div>
     </section>
   );
 }
 
-function OpenItemCard({ card }: { card: PayrollOpenItemCard }) {
+function OpenItemCard({
+  card,
+  expanded,
+  recordActionErrorMessage,
+  recordActionViewModel,
+  saving,
+  onConfirmOpenRecordAction,
+  onResolveOpenItem,
+  onToggleRecordAction,
+}: {
+  card: PayrollOpenItemCard;
+  expanded: boolean;
+  recordActionErrorMessage: string;
+  recordActionViewModel: PayrollRecordActionViewModel | null;
+  saving: boolean;
+  onConfirmOpenRecordAction: (
+    recordId: string,
+    input: RecordActionPanelInput,
+  ) => Promise<void>;
+  onResolveOpenItem: (input: ResolveOpenItemPayload) => Promise<void>;
+  onToggleRecordAction: () => void;
+}) {
   const unresolved = card.state === "open";
+  const recordAction = card.actions.find((action) => action.workRecordId);
 
   return (
     <article
@@ -973,9 +1182,25 @@ function OpenItemCard({ card }: { card: PayrollOpenItemCard }) {
       {card.actions.length > 0 ? (
         <div className="mt-4 flex flex-wrap gap-3">
           {card.actions.map((action) => (
-            <OpenItemActionControl action={action} key={action.id} />
+            <OpenItemActionControl
+              action={action}
+              expanded={expanded && action.workRecordId === recordAction?.workRecordId}
+              key={action.id}
+              saving={saving}
+              onResolveOpenItem={onResolveOpenItem}
+              onToggleRecordAction={onToggleRecordAction}
+            />
           ))}
         </div>
+      ) : null}
+      {expanded && recordAction?.workRecordId ? (
+        <OpenItemRecordActionPanel
+          action={recordAction}
+          errorMessage={recordActionErrorMessage}
+          recordActionViewModel={recordActionViewModel}
+          saving={saving}
+          onConfirmOpenRecordAction={onConfirmOpenRecordAction}
+        />
       ) : null}
     </article>
   );
@@ -983,8 +1208,16 @@ function OpenItemCard({ card }: { card: PayrollOpenItemCard }) {
 
 function OpenItemActionControl({
   action,
+  expanded,
+  saving,
+  onResolveOpenItem,
+  onToggleRecordAction,
 }: {
   action: PayrollOpenItemCard["actions"][number];
+  expanded: boolean;
+  saving: boolean;
+  onResolveOpenItem: (input: ResolveOpenItemPayload) => Promise<void>;
+  onToggleRecordAction: () => void;
 }) {
   const className =
     "flex h-10 items-center justify-center rounded-full border px-4 text-h-16-medium tracking-normal transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-200";
@@ -1003,6 +1236,44 @@ function OpenItemActionControl({
     );
   }
 
+  if (action.workRecordId) {
+    return (
+      <button
+        type="button"
+        aria-expanded={expanded}
+        className={cn(
+          className,
+          expanded
+            ? "border-green-400 bg-green-400 text-white"
+            : "border-gray-200 bg-white text-gray-800 hover:border-gray-300 hover:bg-gray-50",
+        )}
+        onClick={onToggleRecordAction}
+      >
+        {expanded ? "접기" : action.label}
+      </button>
+    );
+  }
+
+  if (action.resolution) {
+    return (
+      <button
+        type="button"
+        disabled={saving}
+        className={cn(
+          className,
+          "border-gray-200 bg-white text-gray-800 hover:border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400",
+        )}
+        onClick={() => {
+          if (action.resolution) {
+            void onResolveOpenItem(action.resolution);
+          }
+        }}
+      >
+        {saving ? "저장 중" : action.label}
+      </button>
+    );
+  }
+
   return (
     <button
       type="button"
@@ -1015,6 +1286,89 @@ function OpenItemActionControl({
     >
       {action.unavailableLabel ?? `${action.label} 불가`}
     </button>
+  );
+}
+
+function resolveRecordActionStateId(
+  block: PayrollRecordActionBlock | null | undefined,
+): RecordActionPanelStateId {
+  return block ? (block.selectedStateId ?? "normal-selected") : "empty";
+}
+
+function OpenItemRecordActionPanel({
+  action,
+  errorMessage,
+  recordActionViewModel,
+  saving,
+  onConfirmOpenRecordAction,
+}: {
+  action: PayrollOpenItemCard["actions"][number];
+  errorMessage: string;
+  recordActionViewModel: PayrollRecordActionViewModel | null;
+  saving: boolean;
+  onConfirmOpenRecordAction: (
+    recordId: string,
+    input: RecordActionPanelInput,
+  ) => Promise<void>;
+}) {
+  const workRecordId = action.workRecordId;
+  const block =
+    workRecordId && recordActionViewModel
+      ? recordActionViewModel.blocks.find(
+          (candidate) =>
+            candidate.id === workRecordId ||
+            (candidate.focusIds ?? []).includes(workRecordId),
+        )
+      : null;
+  const initialStateId = resolveRecordActionStateId(block);
+  const [selectedStateId, setSelectedStateId] =
+    useState<RecordActionPanelStateId | null>(null);
+
+  if (errorMessage) {
+    return (
+      <p className="mt-4 rounded-[8px] border border-red-100 bg-red-50 px-4 py-3 text-h-16-medium tracking-normal text-red-500">
+        {errorMessage}
+      </p>
+    );
+  }
+
+  if (!recordActionViewModel) {
+    return (
+      <p className="mt-4 rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3 text-h-16-medium tracking-normal text-gray-500">
+        근무기록 처리 정보를 불러오는 중입니다.
+      </p>
+    );
+  }
+
+  if (!workRecordId || !block) {
+    return (
+      <p className="mt-4 rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3 text-h-16-medium tracking-normal text-gray-500">
+        처리할 근무기록을 찾을 수 없습니다.
+      </p>
+    );
+  }
+
+  const detailStates =
+    recordActionViewModel.detailStatesByBlockId[block.id] ??
+    recordActionViewModel.detailStates;
+  const activeStateId = selectedStateId ?? initialStateId;
+  const state =
+    detailStates[activeStateId] ??
+    detailStates[initialStateId] ??
+    detailStates.empty;
+
+  return (
+    <RecordActionDetailPanel
+      actionSaving={saving}
+      className="mt-4 min-h-[520px]"
+      detailStates={detailStates}
+      state={state}
+      variant="embedded"
+      onConfirmRecordAction={(input) =>
+        onConfirmOpenRecordAction(block.id, input)
+      }
+      onSelectState={setSelectedStateId}
+    />
   );
 }
 
@@ -1195,6 +1549,14 @@ function getPayrollDecisionSuccessMessage(
   return action === "reconfirm"
     ? "급여를 재확정했습니다."
     : "급여를 확정했습니다.";
+}
+
+function getOpenItemResolutionSuccessMessage(
+  decision: ResolveOpenItemPayload["decision"],
+) {
+  return decision === "apply"
+    ? "미처리 항목을 급여에 반영했습니다."
+    : "미처리 항목을 급여에서 제외했습니다.";
 }
 
 function resolvePayrollDecisionAction(

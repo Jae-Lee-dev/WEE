@@ -1,7 +1,7 @@
 import {
-  PayrollCalculationScreen,
   PayrollStatementsScreen,
 } from "@/features/payroll";
+import { PayrollCalculationPageScreen } from "./payroll-calculation-page-screen";
 
 export type PayrollPageSearchParams = {
   focus?: string;
@@ -19,7 +19,7 @@ export function PayrollCalculationPage({
   searchParams: PayrollPageSearchParams;
 }) {
   return (
-    <PayrollCalculationScreen
+    <PayrollCalculationPageScreen
       initialFocusId={searchParams.focus}
       initialMonthKey={searchParams.month}
       initialWorkerId={searchParams.workerId}
