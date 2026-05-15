@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { expect, test } from "playwright/test";
+import { expect, test, type Page } from "playwright/test";
 import {
   captureActualScreenshot,
   prepareVisualPage,
@@ -92,6 +92,12 @@ test(`PAY-01 detail ${desktop}`, async ({ page }) => {
   await expect(page.getByText("추가근무 수당")).toBeVisible();
   await expect(page.getByText("세전 보너스/차감")).toBeVisible();
   await expect(page.getByText("세후 보너스/차감")).toBeVisible();
+  await expect(
+    page.getByTestId("payroll-calculation-adjustment-line-pre_tax"),
+  ).not.toContainText("₩");
+  await expect(
+    page.getByTestId("payroll-calculation-adjustment-line-post_tax"),
+  ).not.toContainText("₩");
   await expect(page.getByText("신입 교육 지원")).toBeVisible();
   await expect(page.getByText("지각 차감")).toBeVisible();
   await expect(page.getByRole("heading", { name: "월 근무기록" })).toBeVisible();
@@ -114,6 +120,7 @@ test(`PAY-01 detail ${desktop}`, async ({ page }) => {
   await expect(
     page.getByRole("button", { name: "급여 확정 (미처리 항목 4/4)" }),
   ).toBeDisabled();
+  await expectPayrollDetailPanelsToShareHeight(page);
 
   await captureActualScreenshot({
     page,
@@ -186,6 +193,7 @@ test(`PAY-01 adjustment form ${desktop}`, async ({ page }) => {
   ).toHaveCount(0);
   await expect(page.getByPlaceholder("예) 야근수당")).toBeVisible();
   const form = page.getByTestId("payroll-calculation-bonus-add-form");
+  await expectPayrollDetailPanelsToShareHeight(page);
   await form.getByRole("tab", { name: "-" }).click();
   await expect(form.getByRole("tab", { name: "-" })).toHaveAttribute(
     "aria-selected",
@@ -202,6 +210,67 @@ test(`PAY-01 adjustment form ${desktop}`, async ({ page }) => {
   });
 });
 
+test("PAY-01 adjustment form stays inside calculation card on laptop", async ({
+  page,
+}) => {
+  await prepareVisualPage({ page, path: "/payroll", viewport: "laptop-1366" });
+  await page.evaluate(() => document.fonts.ready);
+  await page.getByTestId("payroll-calculation-first-detail").click();
+  await page
+    .getByTestId("payroll-calculation-add-adjustment-pre_tax")
+    .click();
+
+  await expect(
+    page.getByTestId("payroll-calculation-bonus-add-form"),
+  ).toBeVisible();
+  await expectElementToStayInside(
+    page.getByTestId("payroll-calculation-bonus-add-form-controls"),
+    page.getByTestId("payroll-calculation-card"),
+  );
+});
+
+async function expectPayrollDetailPanelsToShareHeight(page: Page) {
+  const calculationCard = page.getByTestId("payroll-calculation-card");
+  const openItemsPanel = page.getByTestId("payroll-calculation-open-items-panel");
+
+  await expect
+    .poll(async () => {
+      const [calculationCardBox, openItemsPanelBox] = await Promise.all([
+        calculationCard.boundingBox(),
+        openItemsPanel.boundingBox(),
+      ]);
+
+      return Math.abs(
+        (calculationCardBox?.height ?? 0) - (openItemsPanelBox?.height ?? 0),
+      );
+    })
+    .toBeLessThanOrEqual(1);
+}
+
+async function expectElementToStayInside(
+  child: ReturnType<Page["getByTestId"]>,
+  parent: ReturnType<Page["getByTestId"]>,
+) {
+  await expect
+    .poll(async () => {
+      const [childBox, parentBox] = await Promise.all([
+        child.boundingBox(),
+        parent.boundingBox(),
+      ]);
+
+      if (!childBox || !parentBox) {
+        return Number.POSITIVE_INFINITY;
+      }
+
+      return Math.max(
+        parentBox.x - childBox.x,
+        childBox.x + childBox.width - (parentBox.x + parentBox.width),
+        0,
+      );
+    })
+    .toBeLessThanOrEqual(1);
+}
+
 test(`PAY-01 no-open-items ${desktop}`, async ({ page }) => {
   await prepareVisualPage({ page, path: "/payroll", viewport: desktop });
   await page.evaluate(() => document.fonts.ready);
@@ -212,6 +281,7 @@ test(`PAY-01 no-open-items ${desktop}`, async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByText("퇴근시간 변경")).toBeVisible();
   await expect(page.getByRole("button", { name: "급여 확정" })).toBeEnabled();
+  await expectPayrollDetailPanelsToShareHeight(page);
 
   await captureActualScreenshot({
     page,

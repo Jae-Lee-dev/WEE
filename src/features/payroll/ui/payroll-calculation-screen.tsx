@@ -2,7 +2,7 @@
 
 import { ChevronDown, Plus, Printer, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { DetailStateHeader } from "@/shared/ui/detail-state-header";
@@ -71,11 +71,6 @@ const amountToneClassName: Record<PayrollAmountTone, string> = {
   positive: "text-green-400",
   negative: "text-red-500",
   muted: "text-gray-500",
-};
-
-const openItemsPanelHeight: Record<PayrollDetailStateId, string> = {
-  detail: "max-h-[855px]",
-  "no-open-items": "max-h-[855px]",
 };
 
 type PayrollCalculationScreenProps = {
@@ -713,12 +708,35 @@ function PayrollDetailScreen({
     adjustmentFormTarget?.detailKey === detailKey
       ? adjustmentFormTarget.taxScope
       : null;
+  const calculationCardRef = useRef<HTMLDivElement | null>(null);
+  const [calculationCardHeight, setCalculationCardHeight] = useState<
+    number | null
+  >(null);
   const actionErrorMessage =
     status?.kind === "error" ? status.message : "";
   const actionSuccessMessage =
     status?.kind === "success" ? status.message : "";
   useWeeErrorToast(actionErrorMessage, { title: "처리 실패" });
   useWeeSuccessToast(actionSuccessMessage);
+
+  useEffect(() => {
+    const element = calculationCardRef.current;
+
+    if (!element) {
+      setCalculationCardHeight(null);
+      return;
+    }
+
+    const syncHeight = () => {
+      setCalculationCardHeight(Math.ceil(element.getBoundingClientRect().height));
+    };
+
+    syncHeight();
+    const observer = new ResizeObserver(syncHeight);
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <section
@@ -765,18 +783,21 @@ function PayrollDetailScreen({
           <WorkerSummaryCard detail={detail} />
 
           <div className="grid items-start gap-4 xl:grid-cols-[minmax(540px,1fr)_minmax(520px,1fr)]">
-            <PayrollCalculationCard
-              activeAdjustmentTaxScope={activeAdjustmentTaxScope}
-              detail={detail}
-              saving={saving}
-              onCreateAdjustment={onCreateAdjustment}
-              onDeleteAdjustment={onDeleteAdjustment}
-              onHideAdjustmentForm={() => setAdjustmentFormTarget(null)}
-              onShowAdjustmentForm={(taxScope) =>
-                setAdjustmentFormTarget({ detailKey, taxScope })
-              }
-            />
+            <div ref={calculationCardRef} className="min-w-0">
+              <PayrollCalculationCard
+                activeAdjustmentTaxScope={activeAdjustmentTaxScope}
+                detail={detail}
+                saving={saving}
+                onCreateAdjustment={onCreateAdjustment}
+                onDeleteAdjustment={onDeleteAdjustment}
+                onHideAdjustmentForm={() => setAdjustmentFormTarget(null)}
+                onShowAdjustmentForm={(taxScope) =>
+                  setAdjustmentFormTarget({ detailKey, taxScope })
+                }
+              />
+            </div>
             <OpenItemsPanel
+              panelHeight={calculationCardHeight}
               detail={detail}
               recordActionErrorMessage={recordActionErrorMessage}
               recordActionViewModel={recordActionViewModel}
@@ -849,7 +870,10 @@ function PayrollCalculationCard({
   onShowAdjustmentForm: (taxScope: PayrollAdjustmentTaxScope) => void;
 }) {
   return (
-    <section className="rounded-[8px] bg-white px-4 pb-4 pt-4">
+    <section
+      className="rounded-[8px] bg-white px-4 pb-4 pt-4"
+      data-testid="payroll-calculation-card"
+    >
       <div className="flex min-h-7 items-center justify-between gap-4">
         <h2 className="text-h-20 tracking-normal text-gray-900">
           {detail.calculationTitle}
@@ -940,17 +964,12 @@ function AdjustmentCalculationLine({
 }) {
   return (
     <div className="border-b border-gray-200 py-3">
-      <div className="flex min-h-[40px] items-center justify-between gap-4 text-h-18-regular tracking-normal">
+      <div
+        className="flex min-h-[40px] items-center justify-between gap-4 text-h-18-regular tracking-normal"
+        data-testid={`payroll-calculation-adjustment-line-${taxScope}`}
+      >
         <span className="text-gray-600">{row.label}</span>
         <div className="flex items-center gap-3">
-          <span
-            className={cn(
-              "text-right text-h-18-semibold tracking-normal",
-              amountToneClassName[row.tone ?? "default"],
-            )}
-          >
-            {row.value}
-          </span>
           <button
             type="button"
             data-testid={`payroll-calculation-add-adjustment-${taxScope}`}
@@ -1055,13 +1074,16 @@ function AdjustmentForm({
       className="mt-3 rounded-[8px] bg-gray-50 p-3"
       data-testid="payroll-calculation-bonus-add-form"
     >
-      <div className="grid grid-cols-[minmax(180px,1fr)_90px_minmax(150px,0.7fr)_104px] gap-3 text-h-16-semibold tracking-normal text-gray-900">
+      <div className="grid grid-cols-[minmax(0,1fr)_88px_minmax(0,0.9fr)_96px] gap-3 text-h-16-semibold tracking-normal text-gray-900">
         <span>{form.itemLabel}</span>
         <span>{form.operatorLabel}</span>
         <span>{form.amountLabel}</span>
         <span />
       </div>
-      <div className="mt-2 grid grid-cols-[minmax(180px,1fr)_90px_minmax(150px,0.7fr)_104px] gap-3">
+      <div
+        className="mt-2 grid grid-cols-[minmax(0,1fr)_88px_minmax(0,0.9fr)_96px] gap-3"
+        data-testid="payroll-calculation-bonus-add-form-controls"
+      >
         <Input
           aria-label={form.itemLabel}
           className="h-11 min-w-0 rounded-[8px] border-gray-200 bg-white text-h-18-regular tracking-normal text-gray-900"
@@ -1091,7 +1113,7 @@ function AdjustmentForm({
           type="button"
           disabled={!canSubmit}
           onClick={handleSubmit}
-          className="flex h-11 items-center justify-center rounded-full bg-green-400 px-4 text-h-16-semibold tracking-normal text-white transition-colors hover:bg-green-500 disabled:cursor-not-allowed disabled:bg-green-200"
+          className="flex h-11 min-w-0 items-center justify-center rounded-full bg-green-400 px-3 text-h-16-semibold tracking-normal text-white transition-colors hover:bg-green-500 disabled:cursor-not-allowed disabled:bg-green-200"
         >
           <Plus className="size-4" />
           {saving ? "저장 중" : form.submitLabel}
@@ -1171,6 +1193,7 @@ function splitSignedAmount(amount: string) {
 
 function OpenItemsPanel({
   detail,
+  panelHeight,
   recordActionErrorMessage,
   recordActionViewModel,
   saving,
@@ -1178,6 +1201,7 @@ function OpenItemsPanel({
   onResolveOpenItem,
 }: {
   detail: PayrollCalculationDetail;
+  panelHeight: number | null;
   recordActionErrorMessage: string;
   recordActionViewModel: PayrollRecordActionViewModel | null;
   saving: boolean;
@@ -1197,8 +1221,10 @@ function OpenItemsPanel({
     <section
       className={cn(
         "overflow-y-auto rounded-[8px] bg-white px-4 pb-4 pt-4",
-        openItemsPanelHeight[detail.id],
+        panelHeight == null && "max-h-[855px]",
       )}
+      data-testid="payroll-calculation-open-items-panel"
+      style={panelHeight == null ? undefined : { height: panelHeight }}
     >
       <div className="flex items-center gap-3">
         <h2 className="text-h-20 tracking-normal text-gray-900">
