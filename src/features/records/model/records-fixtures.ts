@@ -93,6 +93,7 @@ export type RecordOvertimeCreateCandidate = {
   attendanceLogId: string | null;
   checkInTime: string;
   checkOutTime: string;
+  dateKey: string;
   dateLabel: string;
   defaultEndTime: string;
   defaultStartTime: string;
@@ -100,6 +101,8 @@ export type RecordOvertimeCreateCandidate = {
   dutyName: string;
   label: string;
   locationName: string;
+  recordId: string;
+  workerId: string;
   workerName: string;
 };
 
@@ -525,32 +528,38 @@ export const recordTimelineBlocks = [
 
 export const recordOvertimeCreateCandidates = [
   {
-    id: "record-lee-haeun-english-c-mon",
-    attendanceLabel: "05.04 19:02~21:05 · 대치 A학원",
+    id: "att-lee-haeun-english-c-mon",
+    attendanceLabel: "19:02~21:05 · 대치 A학원",
     attendanceLogId: "att-lee-haeun-english-c-mon",
     checkInTime: "19:02",
     checkOutTime: "21:05",
+    dateKey: "2026-05-04",
     dateLabel: "05.04 (월)",
     defaultEndTime: "21:30",
     defaultStartTime: "21:00",
     dutyName: "영어 C반",
-    label: "05.04 이하은 · 영어 C반",
+    label: "19:02~21:05 · 대치 A학원",
     locationName: "대치 A학원",
+    recordId: "record-lee-haeun-english-c-mon",
+    workerId: "worker-lee-haeun",
     workerName: "이하은",
   },
   {
-    id: "record-kang-taewoo-chemistry-g-mon",
-    attendanceLabel: "05.04 10:00~12:34 · 대치 A학원",
+    id: "att-kang-taewoo-chemistry-g-mon",
+    attendanceLabel: "10:00~12:34 · 대치 A학원",
     attendanceLogId: "att-kang-taewoo-chemistry-g-mon",
     checkInTime: "10:00",
     checkOutTime: "12:34",
+    dateKey: "2026-05-04",
     dateLabel: "05.04 (월)",
     defaultEndTime: "12:30",
     defaultStartTime: "12:00",
     disabledReason: "처리 대기 추가근무 있음",
     dutyName: "화학 G반",
-    label: "05.04 강태우 · 화학 G반",
+    label: "10:00~12:34 · 대치 A학원",
     locationName: "대치 A학원",
+    recordId: "record-kang-taewoo-chemistry-g-mon",
+    workerId: "worker-kang-taewoo",
     workerName: "강태우",
   },
 ] as const satisfies readonly RecordOvertimeCreateCandidate[];

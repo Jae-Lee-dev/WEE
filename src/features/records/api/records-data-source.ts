@@ -509,7 +509,7 @@ async function createFirestoreOvertimeWork(input: RecordOvertimeCreateInput) {
   const recordSnapshot = await getDoc(recordRef);
 
   if (!recordSnapshot.exists()) {
-    throw new Error("기준 근무기록을 찾을 수 없습니다.");
+    throw new Error("연결할 출퇴근 기록을 찾을 수 없습니다.");
   }
 
   const recordData = recordSnapshot.data() as Record<string, unknown>;
@@ -554,8 +554,9 @@ async function createFirestoreOvertimeWork(input: RecordOvertimeCreateInput) {
 
   const existingPendingOvertime = collections.overtimeWorks.find(
     (item) =>
-      readString(item.data.workRecordId, "") === input.recordId &&
-      readString(item.data.status, "submitted") === "submitted",
+      readString(item.data.status, "submitted") === "submitted" &&
+      (readString(item.data.workRecordId, "") === input.recordId ||
+        readString(item.data.attendanceLogId, "") === attendanceLogId),
   );
 
   if (existingPendingOvertime) {
@@ -1791,6 +1792,9 @@ function mapRecordMainView(
   const correctionRequests =
     collections.correctionRequests.map(mapCorrectionRequest);
   const overtimeWorks = collections.overtimeWorks.map(mapOvertimeWork);
+  const submittedOvertimeWorks = overtimeWorks.filter(
+    (work) => work.status === "submitted",
+  );
   const payrollSettings = collections.payrollSettings.map(mapPayrollSetting);
   const getPayrollSetting = (record: WorkRecordModel) =>
     findPayrollSettingForMonth(
@@ -1805,16 +1809,13 @@ function mapRecordMainView(
   const correctionIdsByRecordId = groupIdsByWorkRecordId(
     correctionRequests.filter((request) => request.status === "submitted"),
   );
-  const overtimeIdsByRecordId = groupIdsByWorkRecordId(
-    overtimeWorks.filter((work) => work.status === "submitted"),
-  );
+  const overtimeIdsByRecordId = groupIdsByWorkRecordId(submittedOvertimeWorks);
   const pendingCorrectionByRecordId = toMap(
     correctionRequests.filter((request) => request.status === "submitted"),
     (request) => request.workRecordId,
   );
-  const pendingOvertimeByRecordId = toMap(
-    overtimeWorks.filter((work) => work.status === "submitted"),
-    (work) => work.workRecordId,
+  const pendingOvertimeByRecordId = toMap(submittedOvertimeWorks, (work) =>
+    work.workRecordId,
   );
   const getAttendanceForRecord = (record: WorkRecordModel | null) =>
     record?.attendanceLogId
@@ -1826,6 +1827,11 @@ function mapRecordMainView(
       : null;
   const pendingCorrectionIds = new Set(correctionIdsByRecordId.keys());
   const pendingOvertimeIds = new Set(overtimeIdsByRecordId.keys());
+  const pendingOvertimeAttendanceIds = new Set(
+    submittedOvertimeWorks
+      .map((work) => work.attendanceLogId)
+      .filter((id): id is string => Boolean(id)),
+  );
   const weekNavigation = createWeekNavigation(records);
   const initialWeekStartKey = weekNavigation.initialWeekStartKey;
   const selectedRecord = selectInitialRecord(records, {
@@ -1880,6 +1886,7 @@ function mapRecordMainView(
     initialDetailStateId,
     overtimeCreate: createOvertimeCreateView(records, {
       attendanceById,
+      pendingOvertimeAttendanceIds,
       pendingOvertimeIds,
     }),
     timeline: {
@@ -1958,22 +1965,61 @@ function createOvertimeCreateView(
   records: readonly WorkRecordModel[],
   {
     attendanceById,
+    pendingOvertimeAttendanceIds,
     pendingOvertimeIds,
   }: {
     attendanceById: ReadonlyMap<string, AttendanceLogModel>;
+    pendingOvertimeAttendanceIds: ReadonlySet<string>;
     pendingOvertimeIds: ReadonlySet<string>;
   },
 ) {
+  const candidatesByAttendanceId = new Map<
+    string,
+    { candidate: RecordOvertimeCreateCandidate; sortTime: number }
+  >();
+
+  for (const record of records) {
+    if (!record.attendanceLogId) {
+      continue;
+    }
+
+    const attendance = attendanceById.get(record.attendanceLogId);
+
+    if (!attendance) {
+      continue;
+    }
+
+    const candidate = createOvertimeCreateCandidate(record, {
+      attendance,
+      hasPendingOvertime:
+        record.hasPendingOvertime ||
+        pendingOvertimeIds.has(record.id) ||
+        pendingOvertimeAttendanceIds.has(record.attendanceLogId),
+    });
+    const sortTime = getSortTime(
+      record.effectiveEndAt ??
+        record.plannedEndAt ??
+        attendance.checkOutAt ??
+        attendance.checkInAt,
+    );
+    const current = candidatesByAttendanceId.get(record.attendanceLogId);
+
+    if (
+      !current ||
+      (!candidate.disabledReason && current.candidate.disabledReason) ||
+      sortTime > current.sortTime
+    ) {
+      candidatesByAttendanceId.set(record.attendanceLogId, {
+        candidate,
+        sortTime,
+      });
+    }
+  }
+
   return {
-    candidates: records.map((record) =>
-      createOvertimeCreateCandidate(record, {
-        attendance: record.attendanceLogId
-          ? (attendanceById.get(record.attendanceLogId) ?? null)
-          : null,
-        hasPendingOvertime:
-          record.hasPendingOvertime || pendingOvertimeIds.has(record.id),
-      }),
-    ),
+    candidates: Array.from(candidatesByAttendanceId.values())
+      .map((entry) => entry.candidate)
+      .sort(compareOvertimeCreateCandidates),
     emptyText: "추가근무를 등록할 수 있는 출퇴근 기록이 없습니다.",
   };
 }
@@ -1992,34 +2038,65 @@ function createOvertimeCreateCandidate(
   const recordEndAt = record.effectiveEndAt ?? record.plannedEndAt;
   const defaultStartAt = recordEndAt ?? attendance?.checkInAt ?? null;
   const defaultEndAt = attendance?.checkOutAt ?? defaultStartAt;
+  const dateKey = getOvertimeCreateDateKey(record, attendance);
   const disabledReason = getOvertimeCreateDisabledReason({
     attendance,
     hasPendingOvertime,
     record,
   });
-  const dateLabel = recordDate
-    ? `${formatMonthDay(recordDate)} (${weekDayLabels[recordDate.getDay()]})`
-    : formatRecordDate(record.dateKey);
+  const displayDate = parseDateKey(dateKey) ?? recordDate;
+  const dateLabel = displayDate
+    ? `${formatMonthDay(displayDate)} (${weekDayLabels[displayDate.getDay()]})`
+    : formatRecordDate(dateKey);
 
   return {
-    id: record.id,
-    attendanceLabel: `${formatShortDateTime(
-      attendance?.checkInAt ?? parseDateKey(attendance?.date ?? ""),
-    )}~${formatTime(attendance?.checkOutAt)} · ${
-      attendance?.locationName ?? record.locationName
-    }`,
+    id: attendance?.id ?? record.id,
+    attendanceLabel: `${formatTime(attendance?.checkInAt)}~${formatTime(
+      attendance?.checkOutAt,
+    )} · ${attendance?.locationName ?? record.locationName}`,
     attendanceLogId: record.attendanceLogId,
     checkInTime: formatTime(attendance?.checkInAt),
     checkOutTime: formatTime(attendance?.checkOutAt),
+    dateKey,
     dateLabel,
     defaultEndTime: formatTimeInputValue(defaultEndAt),
     defaultStartTime: formatTimeInputValue(defaultStartAt),
     disabledReason,
     dutyName: record.dutyName,
-    label: `${dateLabel} ${record.workerName} · ${record.dutyName}`,
+    label: `${formatTime(attendance?.checkInAt)}~${formatTime(
+      attendance?.checkOutAt,
+    )} · ${attendance?.locationName ?? record.locationName}`,
     locationName: record.locationName,
+    recordId: record.id,
+    workerId: record.workerId,
     workerName: record.workerName,
   };
+}
+
+function compareOvertimeCreateCandidates(
+  first: RecordOvertimeCreateCandidate,
+  second: RecordOvertimeCreateCandidate,
+) {
+  return (
+    second.dateKey.localeCompare(first.dateKey) ||
+    first.workerName.localeCompare(second.workerName, "ko-KR") ||
+    first.checkInTime.localeCompare(second.checkInTime)
+  );
+}
+
+function getOvertimeCreateDateKey(
+  record: WorkRecordModel,
+  attendance: AttendanceLogModel | null,
+) {
+  if (attendance?.date && parseDateKey(attendance.date)) {
+    return attendance.date;
+  }
+
+  if (attendance?.checkInAt) {
+    return formatDateKey(attendance.checkInAt);
+  }
+
+  return getRecordDateKey(record);
 }
 
 function getOvertimeCreateDisabledReason({

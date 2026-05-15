@@ -144,7 +144,7 @@ export function RecordMainScreen({
     useState(initialTypeFilter);
   const [recordActionSaving, setRecordActionSaving] = useState(false);
   const [overtimeCreateSaving, setOvertimeCreateSaving] = useState(false);
-  const [overtimeCreateRecordId, setOvertimeCreateRecordId] = useState<
+  const [overtimeCreateCandidateId, setOvertimeCreateCandidateId] = useState<
     string | null
   >(null);
   const [errorMessage, setErrorMessage] = useState("");
@@ -202,12 +202,6 @@ export function RecordMainScreen({
   const selectedState = selectedVisibleBlockId
     ? selectedDetailStates[selectedStateId] ?? selectedDetailStates.empty
     : viewModel.detailStates.empty;
-  const selectedOvertimeCandidate = selectedVisibleBlockId
-    ? viewModel.overtimeCreate.candidates.find(
-        (candidate) =>
-          candidate.id === selectedVisibleBlockId && !candidate.disabledReason,
-      )
-    : undefined;
 
   function syncSelectionForFilters(nextFilters: RecordFilterState) {
     if (!selectedBlockId) {
@@ -363,7 +357,7 @@ export function RecordMainScreen({
           ? getWeekStartKeyFromDateKey(nextBlock.dateKey)
           : (nextViewModel.initialWeekStartKey ?? null),
       );
-      setOvertimeCreateRecordId(null);
+      setOvertimeCreateCandidateId(null);
       weeToast.compact({ title: "추가근무를 등록했습니다." });
     } catch (error) {
       weeToast.error({
@@ -473,8 +467,8 @@ export function RecordMainScreen({
         onTypeFilterChange={handleTypeFilterChange}
         onWorkerFilterChange={handleWorkerFilterChange}
         onOpenOvertimeCreate={() =>
-          setOvertimeCreateRecordId(
-            selectedOvertimeCandidate?.id ?? getDefaultOvertimeCandidateId(viewModel),
+          setOvertimeCreateCandidateId(
+            getDefaultOvertimeCandidateId(viewModel, selectedVisibleBlockId),
           )
         }
         onNavigateWeek={handleNavigateWeek}
@@ -494,36 +488,22 @@ export function RecordMainScreen({
           selectedBlockId={selectedVisibleBlockId}
           timeline={timeline}
         />
-        <div className="flex min-h-0 min-w-0 flex-col gap-3">
-          <RecordActionDetailPanel
-            actionSaving={recordActionSaving}
-            className="flex-1"
-            detailStates={selectedDetailStates}
-            onConfirmRecordAction={handleConfirmRecordAction}
-            state={selectedState}
-            onSelectState={(stateId) => {
-              setSelectedStateId(stateId);
-            }}
-          />
-          {selectedOvertimeCandidate ? (
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setOvertimeCreateRecordId(selectedOvertimeCandidate.id)}
-              className="h-11 rounded-[8px] px-4 font-normal tracking-normal"
-            >
-              <Plus className="size-5" strokeWidth={2.2} />
-              이 출퇴근 기록으로 추가근무 등록
-            </Button>
-          ) : null}
-        </div>
+        <RecordActionDetailPanel
+          actionSaving={recordActionSaving}
+          detailStates={selectedDetailStates}
+          onConfirmRecordAction={handleConfirmRecordAction}
+          state={selectedState}
+          onSelectState={(stateId) => {
+            setSelectedStateId(stateId);
+          }}
+        />
       </div>
-      {overtimeCreateRecordId !== null ? (
+      {overtimeCreateCandidateId !== null ? (
         <OvertimeCreateDialog
           candidates={viewModel.overtimeCreate.candidates}
-          defaultRecordId={overtimeCreateRecordId}
+          defaultCandidateId={overtimeCreateCandidateId}
           emptyText={viewModel.overtimeCreate.emptyText}
-          onClose={() => setOvertimeCreateRecordId(null)}
+          onClose={() => setOvertimeCreateCandidateId(null)}
           onCreateOvertime={handleCreateOvertime}
           saving={overtimeCreateSaving}
         />
@@ -532,8 +512,19 @@ export function RecordMainScreen({
   );
 }
 
-function getDefaultOvertimeCandidateId(viewModel: RecordMainViewModel) {
+function getDefaultOvertimeCandidateId(
+  viewModel: RecordMainViewModel,
+  selectedRecordId: string | undefined,
+) {
+  const selectedCandidate = selectedRecordId
+    ? viewModel.overtimeCreate.candidates.find(
+        (candidate) =>
+          candidate.recordId === selectedRecordId && !candidate.disabledReason,
+      )
+    : null;
+
   return (
+    selectedCandidate?.id ??
     viewModel.overtimeCreate.candidates.find(
       (candidate) => !candidate.disabledReason,
     )?.id ??
@@ -544,14 +535,14 @@ function getDefaultOvertimeCandidateId(viewModel: RecordMainViewModel) {
 
 function OvertimeCreateDialog({
   candidates,
-  defaultRecordId,
+  defaultCandidateId,
   emptyText,
   onClose,
   onCreateOvertime,
   saving,
 }: {
   candidates: readonly RecordOvertimeCreateCandidate[];
-  defaultRecordId: string;
+  defaultCandidateId: string;
   emptyText: string;
   onClose: () => void;
   onCreateOvertime: (input: {
@@ -565,38 +556,92 @@ function OvertimeCreateDialog({
   const initialCandidate =
     candidates.find(
       (candidate) =>
-        candidate.id === defaultRecordId && !candidate.disabledReason,
+        candidate.id === defaultCandidateId && !candidate.disabledReason,
     ) ??
     candidates.find((candidate) => !candidate.disabledReason) ??
     candidates[0] ??
     null;
+  const [selectedWorkerId, setSelectedWorkerId] = useState(
+    initialCandidate?.workerId ?? "",
+  );
+  const [selectedDateKey, setSelectedDateKey] = useState(
+    initialCandidate?.dateKey ?? "",
+  );
   const [selectedCandidateId, setSelectedCandidateId] = useState(
     initialCandidate?.id ?? "",
   );
-  const selectedCandidate =
-    candidates.find((candidate) => candidate.id === selectedCandidateId) ??
-    initialCandidate;
   const [startTime, setStartTime] = useState(
-    selectedCandidate?.defaultStartTime ?? "",
+    initialCandidate?.defaultStartTime ?? "",
   );
-  const [endTime, setEndTime] = useState(selectedCandidate?.defaultEndTime ?? "");
+  const [endTime, setEndTime] = useState(initialCandidate?.defaultEndTime ?? "");
   const [reason, setReason] = useState("");
   const [dialogError, setDialogError] = useState("");
-  const candidateOptions: SelectOption[] = candidates.map((candidate) => ({
+  const workerOptions = createOvertimeWorkerOptions(candidates);
+  const workerCandidates = candidates.filter(
+    (candidate) => candidate.workerId === selectedWorkerId,
+  );
+  const dateOptions = createOvertimeDateOptions(workerCandidates);
+  const attendanceCandidates = workerCandidates.filter(
+    (candidate) => candidate.dateKey === selectedDateKey,
+  );
+  const attendanceOptions = attendanceCandidates.map((candidate) => ({
     disabled: Boolean(candidate.disabledReason),
     label: candidate.disabledReason
       ? `${candidate.label} · ${candidate.disabledReason}`
       : candidate.label,
     value: candidate.id,
   }));
+  const selectedCandidate =
+    attendanceCandidates.find(
+      (candidate) => candidate.id === selectedCandidateId,
+    ) ??
+    attendanceCandidates.find((candidate) => !candidate.disabledReason) ??
+    attendanceCandidates[0] ??
+    null;
 
-  function handleCandidateChange(candidateId: string) {
-    const candidate = candidates.find((item) => item.id === candidateId);
-
-    setSelectedCandidateId(candidateId);
+  function applyCandidate(candidate: RecordOvertimeCreateCandidate | null) {
+    setSelectedCandidateId(candidate?.id ?? "");
+    setSelectedDateKey(candidate?.dateKey ?? "");
+    setSelectedWorkerId(candidate?.workerId ?? "");
     setStartTime(candidate?.defaultStartTime ?? "");
     setEndTime(candidate?.defaultEndTime ?? "");
     setDialogError("");
+  }
+
+  function handleWorkerChange(workerId: string) {
+    const nextCandidate =
+      candidates.find(
+        (candidate) =>
+          candidate.workerId === workerId && !candidate.disabledReason,
+      ) ?? candidates.find((candidate) => candidate.workerId === workerId) ?? null;
+
+    applyCandidate(nextCandidate);
+  }
+
+  function handleDateChange(dateKey: string) {
+    const nextCandidate =
+      candidates.find(
+        (candidate) =>
+          candidate.workerId === selectedWorkerId &&
+          candidate.dateKey === dateKey &&
+          !candidate.disabledReason,
+      ) ??
+      candidates.find(
+        (candidate) =>
+          candidate.workerId === selectedWorkerId &&
+          candidate.dateKey === dateKey,
+      ) ??
+      null;
+
+    applyCandidate(nextCandidate);
+  }
+
+  function handleAttendanceChange(candidateId: string) {
+    const nextCandidate =
+      attendanceCandidates.find((candidate) => candidate.id === candidateId) ??
+      null;
+
+    applyCandidate(nextCandidate);
   }
 
   async function handleSubmit() {
@@ -626,7 +671,7 @@ function OvertimeCreateDialog({
       await onCreateOvertime({
         endTime,
         reason: reason.trim(),
-        recordId: selectedCandidate.id,
+        recordId: selectedCandidate.recordId,
         startTime,
       });
     } catch (error) {
@@ -654,20 +699,53 @@ function OvertimeCreateDialog({
         </DialogHeader>
 
         {candidates.length > 0 ? (
-          <label className="mt-5 block">
-            <span className="text-h-18-semibold tracking-normal text-gray-900">
-              기준 근무기록
-            </span>
-            <OptionSelect
-              value={selectedCandidateId}
-              onValueChange={handleCandidateChange}
-              options={candidateOptions}
-              triggerAriaLabel="기준 근무기록"
-              triggerClassName="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-white px-3 text-h-18-regular tracking-normal text-gray-800"
-              contentClassName="z-[70]"
-              itemClassName="text-h-16-medium tracking-normal"
-            />
-          </label>
+          <div className="mt-5 space-y-5">
+            <div className="grid grid-cols-2 gap-4">
+              <label className="block">
+                <span className="text-h-18-semibold tracking-normal text-gray-900">
+                  조교
+                </span>
+                <OptionSelect
+                  value={selectedWorkerId}
+                  onValueChange={handleWorkerChange}
+                  options={workerOptions}
+                  triggerAriaLabel="조교 선택"
+                  triggerClassName="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-white px-3 text-h-18-regular tracking-normal text-gray-800"
+                  contentClassName="z-[70]"
+                  itemClassName="text-h-16-medium tracking-normal"
+                />
+              </label>
+              <label className="block">
+                <span className="text-h-18-semibold tracking-normal text-gray-900">
+                  날짜
+                </span>
+                <OptionSelect
+                  value={selectedDateKey}
+                  onValueChange={handleDateChange}
+                  options={dateOptions}
+                  triggerAriaLabel="근무 날짜"
+                  triggerClassName="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-white px-3 text-h-18-regular tracking-normal text-gray-800"
+                  contentClassName="z-[70]"
+                  itemClassName="text-h-16-medium tracking-normal"
+                />
+              </label>
+            </div>
+            <label className="block">
+              <span className="text-h-18-semibold tracking-normal text-gray-900">
+                출퇴근 기록
+              </span>
+              <OptionSelect
+                value={selectedCandidateId}
+                onValueChange={handleAttendanceChange}
+                options={attendanceOptions}
+                placeholder="출퇴근 기록 없음"
+                triggerAriaLabel="출퇴근 기록"
+                triggerClassName="mt-3 h-11 w-full rounded-[8px] border-gray-200 bg-white px-3 text-h-18-regular tracking-normal text-gray-800"
+                contentClassName="z-[70]"
+                itemClassName="text-h-16-medium tracking-normal"
+              />
+            </label>
+          </div>
         ) : (
           <p className="mt-5 rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3 text-body-16-regular leading-[1.5] tracking-normal text-gray-600">
             {emptyText}
@@ -675,7 +753,10 @@ function OvertimeCreateDialog({
         )}
 
         {selectedCandidate ? (
-          <div className="mt-5 rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3">
+          <div
+            className="mt-5 rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3"
+            data-testid="record-overtime-create-attendance-summary"
+          >
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-body-14-regular leading-[1.45] tracking-normal">
               <span className="text-gray-500">조교</span>
               <span className="text-right text-gray-900">
@@ -766,6 +847,44 @@ function OvertimeCreateDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function createOvertimeWorkerOptions(
+  candidates: readonly RecordOvertimeCreateCandidate[],
+): SelectOption[] {
+  const optionsByWorkerId = new Map<string, SelectOption>();
+
+  for (const candidate of candidates) {
+    if (!optionsByWorkerId.has(candidate.workerId)) {
+      optionsByWorkerId.set(candidate.workerId, {
+        label: candidate.workerName,
+        value: candidate.workerId,
+      });
+    }
+  }
+
+  return Array.from(optionsByWorkerId.values()).sort((first, second) =>
+    String(first.label).localeCompare(String(second.label), "ko-KR"),
+  );
+}
+
+function createOvertimeDateOptions(
+  candidates: readonly RecordOvertimeCreateCandidate[],
+): SelectOption[] {
+  const optionsByDateKey = new Map<string, SelectOption>();
+
+  for (const candidate of candidates) {
+    if (!optionsByDateKey.has(candidate.dateKey)) {
+      optionsByDateKey.set(candidate.dateKey, {
+        label: candidate.dateLabel,
+        value: candidate.dateKey,
+      });
+    }
+  }
+
+  return Array.from(optionsByDateKey.values()).sort((first, second) =>
+    second.value.localeCompare(first.value),
   );
 }
 
