@@ -49,6 +49,53 @@ test(`DUT-01 list-view ${desktop}`, async ({ page }) => {
   });
 });
 
+test("DUT-01 toolbar controls stay inside the screen frame", async ({ page }) => {
+  await prepareVisualPage({ page, path: routePath, viewport: laptop });
+  await page.evaluate(() => document.fonts.ready);
+
+  const metrics = await page.evaluate(() => {
+    const screen = document.querySelector<HTMLElement>(
+      "[data-testid='duty-list-screen']",
+    );
+    const controls = [
+      document.querySelector<HTMLElement>(
+        "[data-testid='duty-list-location-filter']",
+      ),
+      document.querySelector<HTMLElement>("[data-testid='duty-list-tag-filter']"),
+      document.querySelector<HTMLElement>(
+        "[data-testid='duty-list-status-filter']",
+      ),
+      document.querySelector<HTMLElement>("button[aria-label='타임라인 보기']"),
+      document.querySelector<HTMLElement>("button[aria-label='목록 보기']"),
+      [...document.querySelectorAll<HTMLElement>("button")].find((button) =>
+        button.textContent?.includes("근무 개설"),
+      ),
+    ];
+
+    if (!screen || controls.some((control) => !control)) {
+      throw new Error("DUT-01 toolbar measurement target not found");
+    }
+
+    const screenRect = screen.getBoundingClientRect();
+
+    return controls.map((control) => {
+      const controlRect = control!.getBoundingClientRect();
+
+      return {
+        bottom: controlRect.bottom,
+        top: controlRect.top,
+        screenBottom: screenRect.bottom,
+        screenTop: screenRect.top,
+      };
+    });
+  });
+
+  for (const metric of metrics) {
+    expect(metric.top).toBeGreaterThanOrEqual(metric.screenTop);
+    expect(metric.bottom).toBeLessThanOrEqual(metric.screenBottom);
+  }
+});
+
 test(`DUT-01 selected-duty ${desktop}`, async ({ page }) => {
   await prepareVisualPage({ page, path: routePath, viewport: desktop });
   await page.evaluate(() => document.fonts.ready);

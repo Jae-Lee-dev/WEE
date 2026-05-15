@@ -446,7 +446,7 @@ function DutyToolbar({
   }[];
 
   return (
-    <div className="flex h-9 items-center justify-between gap-4">
+    <div className="flex min-h-10 items-center justify-between gap-4">
       <div className="flex min-w-0 items-center gap-3">
         {controls.map((control) => {
           const menuOpen = openFilter === control.key;
