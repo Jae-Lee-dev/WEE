@@ -182,9 +182,9 @@ test("WKR-06 creates worker tags in dialog", async ({ page }) => {
   await expect(dialog.getByRole("button", { name: "저장" })).toBeEnabled();
   await dialog.getByRole("button", { name: "저장" }).click();
 
-  await expect(
-    page.getByText("테스트 태그 근무자 태그를 추가했습니다."),
-  ).toBeVisible();
+  await expect(page.getByTestId("wee-toast")).toContainText(
+    "테스트 태그 근무자 태그를 추가했습니다.",
+  );
   await expect(dialog).toHaveCount(0);
   await expect(
     page.getByTestId("worker-tags-row-first").getByText("테스트 태그"),
@@ -202,9 +202,9 @@ test("WKR-06 edits and deletes worker tags", async ({ page }) => {
   await page.getByRole("option", { name: "비활성" }).click();
   await panel.getByRole("button", { name: "저장" }).click();
 
-  await expect(
-    page.getByText("베테랑 수정 근무자 태그를 수정했습니다."),
-  ).toBeVisible();
+  await expect(page.getByTestId("wee-toast")).toContainText(
+    "베테랑 수정 근무자 태그를 수정했습니다.",
+  );
   await expect(
     page.getByTestId("worker-tags-row-first").getByText("베테랑 수정"),
   ).toBeVisible();
@@ -221,8 +221,8 @@ test("WKR-06 edits and deletes worker tags", async ({ page }) => {
     .getByRole("button", { name: "삭제" })
     .click();
 
-  await expect(
-    page.getByText("베테랑 수정 근무자 태그를 삭제했습니다."),
-  ).toBeVisible();
+  await expect(page.getByTestId("wee-toast")).toContainText(
+    "베테랑 수정 근무자 태그를 삭제했습니다.",
+  );
   await expect(page.getByText("베테랑 수정", { exact: true })).toHaveCount(0);
 });

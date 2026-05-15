@@ -14,7 +14,7 @@ import {
 import { IconNotice } from "@/shared/ui/icons";
 import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
-import { useWeeErrorToast } from "@/shared/ui/wee-toast";
+import { useWeeErrorToast, useWeeSuccessToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
   createScheduleApprovalDataSource,
@@ -71,6 +71,7 @@ export function ScheduleApprovalScreen({
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   useWeeErrorToast(errorMessage, { title: "요청 실패" });
+  useWeeSuccessToast(statusMessage);
   const selectedRequest = viewModel.rows.find(
     (request) => request.id === selectedRequestId,
   );
@@ -112,7 +113,6 @@ export function ScheduleApprovalScreen({
         rejectDialogOpen={rejectDialogOpen}
         rejectLabel={viewModel.rejectLabel}
         saving={saving}
-        statusMessage={statusMessage}
         onBack={() => {
           setSelectedRequestId(undefined);
           setRejectDialogOpen(false);
@@ -298,7 +298,6 @@ function SelectedApprovalState({
   rejectDialogOpen,
   rejectLabel,
   saving,
-  statusMessage,
   onBack,
   onCloseRejectDialog,
   onOpenRejectDialog,
@@ -310,7 +309,6 @@ function SelectedApprovalState({
   rejectDialogOpen: boolean;
   rejectLabel: string;
   saving: boolean;
-  statusMessage: string;
   onBack: () => void;
   onCloseRejectDialog: () => void;
   onOpenRejectDialog: () => void;
@@ -402,15 +400,6 @@ function SelectedApprovalState({
             }}
             onOpenRejectDialog={onOpenRejectDialog}
           />
-
-          {statusMessage ? (
-            <div
-              className="rounded-[8px] border border-green-100 bg-green-50 px-4 py-2.5 text-body-14-medium text-green-500"
-              role="status"
-            >
-              {statusMessage}
-            </div>
-          ) : null}
 
           <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_320px] gap-4">
             <section className="flex min-h-0 min-w-0 flex-col gap-4">

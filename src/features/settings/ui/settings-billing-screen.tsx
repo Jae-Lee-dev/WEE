@@ -4,7 +4,7 @@ import { Check, UserPlus, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Button } from "@/shared/ui/button";
-import { useWeeErrorToast } from "@/shared/ui/wee-toast";
+import { useWeeErrorToast, useWeeSuccessToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import { createSettingsSupportDataSource } from "../api/settings-support-data-source";
 import {
@@ -25,6 +25,7 @@ export function SettingsBillingScreen() {
   const [statusMessage, setStatusMessage] = useState("");
   useWeeErrorToast(loadErrorMessage);
   useWeeErrorToast(actionErrorMessage, { title: "처리 실패" });
+  useWeeSuccessToast(statusMessage);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,14 +71,6 @@ export function SettingsBillingScreen() {
         />
       ) : (
         <>
-          {statusMessage ? (
-            <div
-              className="rounded-[8px] border border-green-100 bg-green-50 px-4 py-2.5 text-body-14-medium text-green-500"
-              role="status"
-            >
-              {statusMessage}
-            </div>
-          ) : null}
           <div className="grid grid-cols-2 gap-4">
             {fixture.plans.map((plan) => (
               <BillingPlanCard

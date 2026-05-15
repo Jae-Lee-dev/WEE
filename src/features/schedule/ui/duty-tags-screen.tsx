@@ -15,7 +15,7 @@ import { Input } from "@/shared/ui/input";
 import { OptionSelect, type SelectOption } from "@/shared/ui/select";
 import { IconCheck } from "@/shared/ui/icons";
 import { SearchField } from "@/shared/ui/search-field";
-import { useWeeErrorToast } from "@/shared/ui/wee-toast";
+import { useWeeErrorToast, useWeeSuccessToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
   createDutyTagsDataSource,
@@ -95,6 +95,7 @@ export function DutyTagsScreen({
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   useWeeErrorToast(errorMessage, { title: "요청 실패" });
+  useWeeSuccessToast(statusMessage);
   const selectedTag = tags.find((row) => row.id === selectedTagId) ?? null;
 
   useEffect(() => {
@@ -252,15 +253,6 @@ export function DutyTagsScreen({
       className="flex h-[calc(100vh-144px)] min-h-140 w-full flex-col gap-4"
       data-testid="duty-tags-screen"
     >
-      {statusMessage ? (
-        <div
-          className="min-h-9 rounded-[8px] border border-green-100 bg-green-50 px-4 py-2.5 text-body-14-medium tracking-normal text-green-500"
-          role="status"
-        >
-          {statusMessage}
-        </div>
-      ) : null}
-
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(430px,1fr)_minmax(380px,520px)] gap-4">
         <DutyTagListPanel
           loading={loading}
@@ -542,7 +534,7 @@ function DutyTagCreateDialog({
             onSearchTextChange={setSearchText}
           />
 
-          <div className="mt-4 max-h-70 overflow-y-auto rounded-[8px] border border-gray-100">
+          <div className="mt-4 h-70 overflow-y-auto rounded-[8px] border border-gray-100">
             <DutyTagAssignmentList
               assignmentError={assignmentError}
               assignmentLoading={assignmentLoading}
@@ -1004,7 +996,7 @@ function DutyTagAssignmentList({
   }
 
   if (assignmentError) {
-    return <DutyTagAssignmentState label={assignmentError} role="alert" />;
+    return <DutyTagAssignmentState label="근무 목록을 표시할 수 없습니다." />;
   }
 
   if (duties.length === 0) {
@@ -1103,15 +1095,13 @@ function DutyTagAssignmentRow({
 
 function DutyTagAssignmentState({
   label,
-  role = "status",
 }: {
   label: string;
-  role?: "alert" | "status";
 }) {
   return (
     <div
       className="flex h-24 items-center justify-center px-4 text-center text-h-18-regular text-gray-500"
-      role={role}
+      role="status"
     >
       {label}
     </div>

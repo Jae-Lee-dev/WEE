@@ -18,7 +18,7 @@ import {
   type TagSearchPickerOption,
 } from "@/shared/ui/tag-search-picker";
 import { Textarea } from "@/shared/ui/textarea";
-import { useWeeErrorToast } from "@/shared/ui/wee-toast";
+import { useWeeErrorToast, useWeeSuccessToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
   countWorkerApplicationRows,
@@ -64,6 +64,7 @@ export function WorkerApplicationsScreen({
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   useWeeErrorToast(errorMessage, { title: "요청 실패" });
+  useWeeSuccessToast(statusMessage);
 
   const selectedApplication = applicationData.rows.find(
     (row) => row.id === selectedApplicationId,
@@ -160,11 +161,6 @@ export function WorkerApplicationsScreen({
         selectedApplication ? `${selectedApplication.id}:${payKind}` : "default"
       }
     >
-      {statusMessage ? (
-        <div className="sr-only" role="status">
-          {statusMessage}
-        </div>
-      ) : null}
       <ApplicationList
         loading={loading}
         rows={applicationData.rows}
@@ -181,7 +177,6 @@ export function WorkerApplicationsScreen({
         }}
         selectedApplication={selectedApplication}
         saving={savingDecision}
-        statusMessage={statusMessage}
         tags={applicationData.tags}
         payKind={payKind}
         onSelectPayKind={setPayKind}
@@ -288,7 +283,6 @@ function ApplicationDecisionPanel({
   onReject,
   selectedApplication,
   saving,
-  statusMessage,
   tags,
   payKind,
   onSelectPayKind,
@@ -297,7 +291,6 @@ function ApplicationDecisionPanel({
   onReject: (input: RejectWorkerApplicationInput) => void;
   selectedApplication: WorkerApplicationRow | undefined;
   saving: boolean;
-  statusMessage: string;
   tags: readonly WorkerApplicationTag[];
   payKind: WorkerApplicationPayKind;
   onSelectPayKind: (payKind: WorkerApplicationPayKind) => void;
@@ -387,14 +380,6 @@ function ApplicationDecisionPanel({
             onSelectPayKind={onSelectPayKind}
             onSelectTaxKind={setTaxKind}
           />
-          {statusMessage ? (
-            <p
-              className="text-h-16-medium text-green-500"
-              role="status"
-            >
-              {statusMessage}
-            </p>
-          ) : null}
         </div>
       </div>
 

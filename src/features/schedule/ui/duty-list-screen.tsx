@@ -36,7 +36,7 @@ import {
   TagSearchPicker,
   type TagSearchPickerOption,
 } from "@/shared/ui/tag-search-picker";
-import { useWeeErrorToast } from "@/shared/ui/wee-toast";
+import { useWeeErrorToast, useWeeSuccessToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
   createDutyDataSource,
@@ -187,6 +187,7 @@ export function DutyListScreen({
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   useWeeErrorToast(errorMessage, { title: "요청 실패" });
+  useWeeSuccessToast(statusMessage);
   const selectedDuty = duties.find((duty) => duty.id === selectedDutyId);
   const filterOptions = useMemo(() => createDutyFilterOptions(duties), [duties]);
   const dutyTagPickerOptions = useMemo(
@@ -292,15 +293,6 @@ export function DutyListScreen({
       data-duty-list-state={selectedDuty ? "selected" : "default"}
       data-testid="duty-list-screen"
     >
-      {statusMessage ? (
-        <div
-          className="flex min-h-9 items-center rounded-[8px] border border-green-100 bg-green-50 px-4 py-2.5 text-body-14-medium tracking-normal text-green-500"
-          role="status"
-        >
-          {statusMessage}
-        </div>
-      ) : null}
-
       <DutyToolbar
         createDisabled={!fixtureMode && loading}
         filterOptions={filterOptions}

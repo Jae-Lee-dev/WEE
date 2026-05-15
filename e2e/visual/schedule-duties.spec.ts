@@ -233,7 +233,7 @@ test("DUT-01 creates duty through data source", async ({ page }) => {
   await dialog.getByRole("button", { name: "근무 저장" }).click();
 
   await expect(dialog).toBeHidden();
-  await expect(page.getByTestId("duty-list-screen")).toContainText(
+  await expect(page.getByTestId("wee-toast")).toContainText(
     "수학 A반 질문 근무를 개설했습니다.",
   );
   await expect(page.getByTestId("duty-detail-panel")).toContainText(

@@ -17,7 +17,7 @@ import {
 import { IconNotice } from "@/shared/ui/icons";
 import { Input } from "@/shared/ui/input";
 import { Segment } from "@/shared/ui/segment";
-import { useWeeErrorToast } from "@/shared/ui/wee-toast";
+import { useWeeErrorToast, useWeeSuccessToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
   RecordActionDetailPanel,
@@ -654,7 +654,10 @@ function PayrollDetailScreen({
 }) {
   const actionErrorMessage =
     status?.kind === "error" ? status.message : "";
+  const actionSuccessMessage =
+    status?.kind === "success" ? status.message : "";
   useWeeErrorToast(actionErrorMessage, { title: "처리 실패" });
+  useWeeSuccessToast(actionSuccessMessage);
 
   return (
     <section
@@ -697,9 +700,6 @@ function PayrollDetailScreen({
         className="flex flex-1 flex-col gap-4 px-4 py-7"
         data-testid={`payroll-calculation-state-${detail.id}`}
       >
-        {status?.kind === "success" ? (
-          <PayrollActionStatusBanner status={status} />
-        ) : null}
         <WorkerSummaryCard detail={detail} />
 
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(540px,1fr)_minmax(520px,1fr)]">
@@ -737,26 +737,6 @@ function getPayrollCalculationDetailTitle(detail: PayrollCalculationDetail) {
   }
 
   return "급여 산정 상세";
-}
-
-function PayrollActionStatusBanner({
-  status,
-}: {
-  status: PayrollActionStatus;
-}) {
-  return (
-    <div
-      className={cn(
-        "min-h-9 rounded-[8px] border px-4 py-2.5 text-body-14-medium tracking-normal",
-        status.kind === "success"
-          ? "border-green-100 bg-green-50 text-green-500"
-          : "border-red-100 bg-red-50 text-red-500",
-      )}
-      role="status"
-    >
-      {status.message}
-    </div>
-  );
 }
 
 function WorkerSummaryCard({ detail }: { detail: PayrollCalculationDetail }) {

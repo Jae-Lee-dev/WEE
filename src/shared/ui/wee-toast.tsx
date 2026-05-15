@@ -41,6 +41,11 @@ type WeeErrorToastOptions = {
   title?: ReactNode;
 } & Pick<WeeToastBaseOptions, "duration" | "id" | "position" | "testId">;
 
+type WeeSuccessToastOptions = Pick<
+  WeeCompactToastOptions,
+  "duration" | "id" | "position" | "testId"
+>;
+
 const WEE_COMPACT_TOAST_ID = "wee-compact-toast";
 const WEE_TOAST_DEFAULT_DURATION_MS = 5000;
 
@@ -103,11 +108,11 @@ function showWeeCompactToast({
   return toast.custom(
     () => <WeeToastSurface>{title}</WeeToastSurface>,
     {
-      duration,
-      id: WEE_COMPACT_TOAST_ID,
-      position: "top-right",
-      testId: "wee-toast",
       ...options,
+      duration,
+      id: options.id ?? WEE_COMPACT_TOAST_ID,
+      position: options.position ?? "top-right",
+      testId: options.testId ?? "wee-toast",
     }
   );
 }
@@ -160,16 +165,44 @@ function useWeeErrorToast(
   }, [duration, id, message, position, testId, title, weeToast]);
 }
 
+function useWeeSuccessToast(
+  message: ReactNode | null | undefined,
+  {
+    duration,
+    id,
+    position,
+    testId,
+  }: WeeSuccessToastOptions = {},
+) {
+  const weeToast = useWeeToast();
+
+  useEffect(() => {
+    if (!message) {
+      return;
+    }
+
+    weeToast.compact({
+      title: message,
+      duration,
+      id,
+      position,
+      testId,
+    });
+  }, [duration, id, message, position, testId, weeToast]);
+}
+
 export {
   showWeeCompactToast,
   showWeeToast,
   useWeeErrorToast,
+  useWeeSuccessToast,
   useWeeToast,
   WeeToastSurface,
 };
 export type {
   WeeCompactToastOptions,
   WeeErrorToastOptions,
+  WeeSuccessToastOptions,
   WeeToastMessageOptions,
   WeeToastOptions,
   WeeToastTone,

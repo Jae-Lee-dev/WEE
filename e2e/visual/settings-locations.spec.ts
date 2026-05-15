@@ -159,7 +159,9 @@ test("SET-02 creates, edits, and deletes location through Firestore", async ({
   await expect(screen).toContainText(locationName);
   await expect(screen).toContainText("서울 마포구 양화로 45");
   await expect(screen).toContainText("90m");
-  await expect(screen).toContainText(`${locationName} 근무지를 등록했습니다.`);
+  await expect(page.getByTestId("wee-toast")).toContainText(
+    `${locationName} 근무지를 등록했습니다.`,
+  );
 
   await page
     .getByTestId("settings-locations-first-row")
@@ -179,7 +181,7 @@ test("SET-02 creates, edits, and deletes location through Firestore", async ({
   await expect(dialog).toBeHidden();
   await expect(screen).toContainText(editedLocationName);
   await expect(screen).toContainText("110m");
-  await expect(screen).toContainText(
+  await expect(page.getByTestId("wee-toast")).toContainText(
     `${editedLocationName} 근무지를 수정했습니다.`,
   );
 
@@ -188,7 +190,7 @@ test("SET-02 creates, edits, and deletes location through Firestore", async ({
     .getByRole("button", { name: "삭제" })
     .click();
   await page.getByRole("dialog").getByRole("button", { name: "삭제" }).click();
-  await expect(screen).toContainText(
+  await expect(page.getByTestId("wee-toast")).toContainText(
     `${editedLocationName} 근무지를 삭제했습니다.`,
   );
   await expect(

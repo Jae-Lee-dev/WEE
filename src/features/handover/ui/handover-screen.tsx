@@ -22,7 +22,7 @@ import {
   DialogTitle,
 } from "@/shared/ui/dialog";
 import { Textarea } from "@/shared/ui/textarea";
-import { useWeeErrorToast } from "@/shared/ui/wee-toast";
+import { useWeeErrorToast, useWeeToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
   createHandoverDataSource,
@@ -103,6 +103,7 @@ export function HandoverScreen() {
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   useWeeErrorToast(errorMessage, { title: "요청 실패" });
+  const weeToast = useWeeToast();
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [pendingNavigation, setPendingNavigation] =
     useState<PendingNavigationTarget | null>(null);
@@ -247,7 +248,8 @@ export function HandoverScreen() {
         setChatMessages((current) =>
           appendAssistantMessage(current, result.message),
         );
-        setStatusMessage("AI 수정안을 문서에 표시했습니다.");
+        setStatusMessage("");
+        weeToast.compact({ title: "AI 수정안을 문서에 표시했습니다." });
       })
       .catch((error: unknown) => {
         setErrorMessage(
@@ -372,7 +374,8 @@ export function HandoverScreen() {
                     setPendingProposal(false);
                     setActiveFormat(null);
                     setPublishDialogOpen(false);
-                    setStatusMessage("인수인계 문서를 게시했습니다.");
+                    setStatusMessage("");
+                    weeToast.compact({ title: "인수인계 문서를 게시했습니다." });
                   })
                   .catch(() => {
                     setErrorMessage("인수인계 문서를 게시하지 못했습니다.");

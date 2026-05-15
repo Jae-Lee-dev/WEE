@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Checkbox } from "@/shared/ui/checkbox";
-import { useWeeErrorToast } from "@/shared/ui/wee-toast";
+import { useWeeErrorToast, useWeeSuccessToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import { createSettingsSupportDataSource } from "../api/settings-support-data-source";
 import {
@@ -23,6 +23,7 @@ export function SettingsNotificationsScreen() {
   const [statusMessage, setStatusMessage] = useState("");
   useWeeErrorToast(errorMessage);
   useWeeErrorToast(actionErrorMessage, { title: "저장 실패" });
+  useWeeSuccessToast(statusMessage);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,14 +98,6 @@ export function SettingsNotificationsScreen() {
       className="mx-auto w-full max-w-[1480px] overflow-hidden rounded-[10px] border border-gray-100 bg-white py-4 tracking-normal"
       data-testid="settings-notifications-screen"
     >
-      {statusMessage ? (
-        <div
-          className="mx-4 mb-3 rounded-[8px] border border-green-100 bg-green-50 px-4 py-3 text-body-14-regular text-green-500"
-          role="status"
-        >
-          {statusMessage}
-        </div>
-      ) : null}
       {loading || errorMessage ? (
         <SettingsNotificationsState
           label={

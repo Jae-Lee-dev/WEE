@@ -11,7 +11,7 @@ import {
 } from "@/shared/ui/dialog";
 import { Input } from "@/shared/ui/input";
 import { OptionSelect } from "@/shared/ui/select";
-import { useWeeErrorToast } from "@/shared/ui/wee-toast";
+import { useWeeErrorToast, useWeeSuccessToast } from "@/shared/ui/wee-toast";
 import {
   createSettingsSupportDataSource,
   type SettingsRulesInput,
@@ -34,6 +34,7 @@ export function SettingsRulesScreen() {
   const [statusMessage, setStatusMessage] = useState("");
   useWeeErrorToast(errorMessage);
   useWeeErrorToast(actionErrorMessage, { title: "저장 실패" });
+  useWeeSuccessToast(statusMessage);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,14 +70,6 @@ export function SettingsRulesScreen() {
       className="mx-auto flex h-[calc(100vh-144px)] min-h-[520px] w-full max-w-[1480px] flex-col items-end gap-4 overflow-hidden rounded-[10px] border border-gray-200 bg-white p-4 tracking-normal"
       data-testid="settings-rules-screen"
     >
-      {statusMessage ? (
-        <div
-          className="w-full rounded-[8px] border border-green-100 bg-green-50 px-4 py-3 text-body-14-regular text-green-500"
-          role="status"
-        >
-          {statusMessage}
-        </div>
-      ) : null}
       {loading || errorMessage ? (
         <SettingsRulesState
           label={

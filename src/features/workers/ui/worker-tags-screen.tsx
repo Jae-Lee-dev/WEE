@@ -18,7 +18,7 @@ import { Input } from "@/shared/ui/input";
 import { OptionSelect, type SelectOption } from "@/shared/ui/select";
 import { IconCheck } from "@/shared/ui/icons";
 import { SearchField } from "@/shared/ui/search-field";
-import { useWeeErrorToast } from "@/shared/ui/wee-toast";
+import { useWeeErrorToast, useWeeSuccessToast } from "@/shared/ui/wee-toast";
 import { cn } from "@/shared/lib/utils";
 import {
   createWorkerTagsDataSource,
@@ -97,6 +97,7 @@ export function WorkerTagsScreen({
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   useWeeErrorToast(errorMessage, { title: "요청 실패" });
+  useWeeSuccessToast(statusMessage);
   const selectedTag = rows.find((row) => row.id === selectedTagId) ?? null;
 
   useEffect(() => {
@@ -254,15 +255,6 @@ export function WorkerTagsScreen({
       className="flex h-[calc(100vh-144px)] min-h-140 w-full flex-col gap-4"
       data-testid="worker-tags-screen"
     >
-      {statusMessage ? (
-        <div
-          className="min-h-9 rounded-[8px] border border-green-100 bg-green-50 px-4 py-2.5 text-body-14-medium tracking-normal text-green-500"
-          role="status"
-        >
-          {statusMessage}
-        </div>
-      ) : null}
-
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(430px,1fr)_minmax(380px,520px)] gap-4">
         <WorkerTagListPanel
           loading={loading}
@@ -449,7 +441,8 @@ function WorkerTagCreateDialog({
     workers,
     normalizedSearchText,
   );
-  const canSave = label.trim().length > 0 && !saving && !assignmentLoading;
+  const canSave =
+    label.trim().length > 0 && !saving && !assignmentLoading && !assignmentError;
 
   useEffect(() => {
     let active = true;
@@ -587,11 +580,11 @@ function WorkerTagCreateDialog({
             />
           </div>
 
-          <div className="mt-4 max-h-70 overflow-y-auto rounded-[8px] border border-gray-100">
+          <div className="mt-4 h-70 overflow-y-auto rounded-[8px] border border-gray-100">
             {assignmentLoading ? (
               <WorkerTagAssignmentState label="조교 목록을 불러오는 중입니다." />
             ) : assignmentError ? (
-              <WorkerTagAssignmentState label={assignmentError} role="alert" />
+              <WorkerTagAssignmentState label="조교 목록을 표시할 수 없습니다." />
             ) : visibleWorkers.length > 0 ? (
               visibleWorkers.map((worker) => {
                 const checked = selectedWorkerIds.includes(worker.id);
@@ -686,6 +679,7 @@ function WorkerTagDetailPanel({
   );
   const [assignmentError, setAssignmentError] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  useWeeErrorToast(assignmentError);
   const normalizedSearchText = debouncedSearchText
     .trim()
     .toLocaleLowerCase("ko-KR");
@@ -702,7 +696,8 @@ function WorkerTagDetailPanel({
       ? fallbackCountText
       : `${selectedWorkerIds.length}명`;
   const title = mode === "edit" ? "근무자 태그 수정" : "근무자 태그 상세";
-  const canSave = label.trim().length > 0 && !saving && !assignmentLoading;
+  const canSave =
+    label.trim().length > 0 && !saving && !assignmentLoading && !assignmentError;
 
   useEffect(() => {
     let active = true;
@@ -894,7 +889,7 @@ function WorkerTagDetailPanel({
             {assignmentLoading ? (
               <WorkerTagAssignmentState label="조교 목록을 불러오는 중입니다." />
             ) : assignmentError ? (
-              <WorkerTagAssignmentState label={assignmentError} role="alert" />
+              <WorkerTagAssignmentState label="조교 목록을 표시할 수 없습니다." />
             ) : visibleWorkers.length > 0 ? (
               visibleWorkers.map((worker) => {
                 const checked = selectedWorkerIds.includes(worker.id);
@@ -1094,15 +1089,13 @@ function WorkerTagAssignmentRow({
 
 function WorkerTagAssignmentState({
   label,
-  role = "status",
 }: {
   label: string;
-  role?: "alert" | "status";
 }) {
   return (
     <div
       className="flex h-24 items-center justify-center px-4 text-center text-h-18-regular text-gray-500"
-      role={role}
+      role="status"
     >
       {label}
     </div>
