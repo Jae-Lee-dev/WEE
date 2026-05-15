@@ -56,8 +56,8 @@ import {
 import {
   createEmptyRecordMainViewModel,
   createVisibleTimeline,
-  createWorkerFilterIdFromName,
-  createWorkerFilterOptionsWithInitialName,
+  createWorkerFilterId,
+  createWorkerFilterOptionsWithInitialWorker,
   emptyRecordFilterOptions,
   getBlockStyle,
   getFilteredBlocks,
@@ -68,6 +68,7 @@ import {
   matchesRecordFilters,
   resolveBlockStateId,
   resolveInitialRecordSelection,
+  resolveWorkerFilterId,
   selectDefaultBlockFromBlocks,
   type PositionedRecordBlock,
   type RecordFilterState,
@@ -77,6 +78,7 @@ type RecordMainScreenProps = {
   dataSource?: RecordsDataSource;
   initialFocusId?: string;
   initialTypeFilterId?: string;
+  initialWorkerIdFilter?: string;
   initialWorkerNameFilter?: string;
 };
 
@@ -111,13 +113,16 @@ export function RecordMainScreen({
   dataSource: dataSourceProp,
   initialFocusId,
   initialTypeFilterId,
+  initialWorkerIdFilter,
   initialWorkerNameFilter,
 }: RecordMainScreenProps = {}) {
   const fixtureMode = shouldUseRecordsFixtureDataSource();
   const fallbackDataSource = useMemo(() => createRecordsDataSource(), []);
   const dataSource = dataSourceProp ?? fallbackDataSource;
-  const initialWorkerFilterId =
-    createWorkerFilterIdFromName(initialWorkerNameFilter);
+  const initialWorkerFilterId = createWorkerFilterId(
+    initialWorkerIdFilter,
+    initialWorkerNameFilter,
+  );
   const initialTypeFilter = normalizeRecordTypeFilterId(initialTypeFilterId);
   const [viewModel, setViewModel] = useState<RecordMainViewModel>(
     fixtureMode
@@ -157,11 +162,18 @@ export function RecordMainScreen({
     null;
   const workerFilterOptions = useMemo(
     () =>
-      createWorkerFilterOptionsWithInitialName(
+      createWorkerFilterOptionsWithInitialWorker(
         viewModel.timeline.filters.location ?? emptyRecordFilterOptions,
-        initialWorkerNameFilter,
+        {
+          workerId: initialWorkerIdFilter,
+          workerName: initialWorkerNameFilter,
+        },
       ),
-    [initialWorkerNameFilter, viewModel.timeline.filters.location],
+    [
+      initialWorkerIdFilter,
+      initialWorkerNameFilter,
+      viewModel.timeline.filters.location,
+    ],
   );
   const weekScopedBlocks = useMemo(
     () =>
@@ -384,13 +396,18 @@ export function RecordMainScreen({
           return;
         }
 
-        const nextWorkerFilterId =
-          createWorkerFilterIdFromName(initialWorkerNameFilter);
         const nextTypeFilterId = normalizeRecordTypeFilterId(initialTypeFilterId);
-        const nextWorkerOptions = createWorkerFilterOptionsWithInitialName(
+        const nextWorkerOptions = createWorkerFilterOptionsWithInitialWorker(
           nextViewModel.timeline.filters.location ?? emptyRecordFilterOptions,
-          initialWorkerNameFilter,
+          {
+            workerId: initialWorkerIdFilter,
+            workerName: initialWorkerNameFilter,
+          },
         );
+        const nextWorkerFilterId = resolveWorkerFilterId(nextWorkerOptions, {
+          workerId: initialWorkerIdFilter,
+          workerName: initialWorkerNameFilter,
+        });
         const initialSelection = resolveInitialRecordSelection(
           nextViewModel,
           initialFocusId,
@@ -443,7 +460,13 @@ export function RecordMainScreen({
     return () => {
       active = false;
     };
-  }, [dataSource, initialFocusId, initialTypeFilterId, initialWorkerNameFilter]);
+  }, [
+    dataSource,
+    initialFocusId,
+    initialTypeFilterId,
+    initialWorkerIdFilter,
+    initialWorkerNameFilter,
+  ]);
 
   return (
     <section
@@ -476,6 +499,7 @@ export function RecordMainScreen({
         selectedTypeFilterId={selectedTypeFilterId}
         selectedWorkerFilterId={selectedWorkerFilterId}
         timeline={timeline}
+        workerFilterOptions={workerFilterOptions}
       />
 
       <div
@@ -904,6 +928,7 @@ function RecordToolbar({
   selectedTypeFilterId,
   selectedWorkerFilterId,
   timeline,
+  workerFilterOptions,
 }: {
   canGoNext: boolean;
   canGoPrevious: boolean;
@@ -916,6 +941,7 @@ function RecordToolbar({
   selectedTypeFilterId: string;
   selectedWorkerFilterId: string;
   timeline: RecordTimelineFixture;
+  workerFilterOptions: readonly RecordsFilterOption[];
 }) {
   const { filters } = timeline;
 
@@ -940,7 +966,7 @@ function RecordToolbar({
       <div className="flex min-w-0 items-center gap-3">
         <FilterSelect
           ariaLabel="조교 필터"
-          options={filters.location ?? []}
+          options={workerFilterOptions}
           value={selectedWorkerFilterId}
           onChange={onWorkerFilterChange}
           widthClassName="w-[128px]"

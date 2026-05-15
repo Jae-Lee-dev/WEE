@@ -54,6 +54,7 @@ export type RecordTimelineBlock = {
   dateKey?: string;
   dayId: RecordTimelineDayId;
   focusIds?: readonly string[];
+  workerId?: string;
   workerName: string;
   dutyName: string;
   locationName: string;
@@ -411,9 +412,9 @@ export const recordTimelineFixture = {
   filters: {
     location: [
       { id: "all", label: "조교 (전체)", selected: true },
-      { id: "kim-seoyeon", label: "김서연" },
-      { id: "song-hyunwoo", label: "송현우" },
-      { id: "lee-haeun", label: "이하은" },
+      { id: "worker-kim-seoyeon", label: "김서연" },
+      { id: "worker-song-hyunwoo", label: "송현우" },
+      { id: "worker-lee-haeun", label: "이하은" },
     ],
     status: [
       { id: "all", label: "상태 (전체)", selected: true },
@@ -1188,6 +1189,7 @@ function timelineBlock(
   return {
     id,
     dayId,
+    workerId: getRecordTimelineFixtureWorkerId(workerName),
     workerName,
     dutyName,
     locationName,
@@ -1202,6 +1204,23 @@ function timelineBlock(
     tone,
     selectedStateId,
   };
+}
+
+function getRecordTimelineFixtureWorkerId(workerName: string) {
+  switch (workerName) {
+    case "강태우":
+      return "worker-kang-taewoo";
+    case "송현우":
+      return "worker-song-hyunwoo";
+    case "정수현":
+      return "worker-jung-suhyun";
+    case "이하은":
+      return "worker-lee-haeun";
+    case "박지민":
+      return "worker-park-jimin";
+    default:
+      return undefined;
+  }
 }
 
 function recordLineSections({

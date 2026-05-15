@@ -197,24 +197,65 @@ export function createWorkerFilterIdFromName(name: string | undefined) {
   return filterId || "all";
 }
 
-export function createWorkerFilterOptionsWithInitialName(
-  options: readonly RecordsFilterOption[],
-  initialWorkerName: string | undefined,
+export function createWorkerFilterId(
+  workerId: string | undefined,
+  workerName: string | undefined,
 ) {
-  const label = initialWorkerName?.trim();
-  const filterId = createWorkerFilterIdFromName(label);
+  const normalizedWorkerId = workerId?.trim();
+
+  return normalizedWorkerId || createWorkerFilterIdFromName(workerName);
+}
+
+export function resolveWorkerFilterId(
+  options: readonly RecordsFilterOption[],
+  initialWorker: {
+    workerId?: string;
+    workerName?: string;
+  },
+) {
+  const workerId = initialWorker.workerId?.trim();
+
+  if (workerId) {
+    return workerId;
+  }
+
+  const label = initialWorker.workerName?.trim();
+
+  if (!label) {
+    return "all";
+  }
+
+  return (
+    options.find((option) => option.label === label)?.id ??
+    createWorkerFilterIdFromName(label)
+  );
+}
+
+export function createWorkerFilterOptionsWithInitialWorker(
+  options: readonly RecordsFilterOption[],
+  initialWorker: {
+    workerId?: string;
+    workerName?: string;
+  },
+) {
+  const workerId = initialWorker.workerId?.trim();
+  const label = initialWorker.workerName?.trim();
+  const filterId = createWorkerFilterId(workerId, label);
 
   if (
-    !label ||
     filterId === "all" ||
-    options.some((option) => option.id === filterId || option.label === label)
+    options.some(
+      (option) =>
+        option.id === filterId ||
+        (!workerId && label ? option.label === label : false),
+    )
   ) {
     return options;
   }
 
   return [
     ...options,
-    { id: filterId, label },
+    { id: filterId, label: label || filterId },
   ] satisfies readonly RecordsFilterOption[];
 }
 
@@ -317,6 +358,8 @@ function matchesWorkerFilter(
   const option = workerOptions.find((candidate) => candidate.id === workerFilterId);
 
   return (
+    block.workerId === workerFilterId ||
+    (option?.id ? option.id === block.workerId : false) ||
     option?.label === block.workerName ||
     workerFilterId === createStableFilterId(block.workerName)
   );

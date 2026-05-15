@@ -10,6 +10,7 @@ export type RecordsPageSearchParams = {
   focus?: string;
   recordId?: string;
   type?: string;
+  workerId?: string;
   workerName?: string;
 };
 
@@ -22,6 +23,7 @@ export function RecordMainPage({
     <RecordMainScreen
       initialFocusId={searchParams.focus ?? searchParams.recordId}
       initialTypeFilterId={searchParams.type}
+      initialWorkerIdFilter={searchParams.workerId}
       initialWorkerNameFilter={searchParams.workerName}
     />
   );

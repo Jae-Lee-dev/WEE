@@ -115,7 +115,15 @@ type RecordsCollections = {
   payStatements: readonly FirestoreDocument[];
   payrollSettings: readonly FirestoreDocument[];
   payrollWorkerMonthRows: readonly FirestoreDocument[];
+  workers: readonly FirestoreDocument[];
   workRecords: readonly FirestoreDocument[];
+};
+
+type WorkerModel = {
+  id: string;
+  name: string;
+  status: string;
+  membershipStatus: string;
 };
 
 type WorkRecordModel = {
@@ -455,6 +463,7 @@ async function loadRecordsCollections(): Promise<RecordsCollections> {
     payrollWorkerMonthRows,
     payrollSettings,
     bonusItems,
+    workers,
   ] = await Promise.all([
     readWorkspaceCollection(workspaceId, "workRecords"),
     readWorkspaceCollection(workspaceId, "anomalyFlags"),
@@ -466,6 +475,7 @@ async function loadRecordsCollections(): Promise<RecordsCollections> {
     readWorkspaceCollection(workspaceId, "payrollWorkerMonthRows"),
     readWorkspaceCollection(workspaceId, "payrollSettings"),
     readWorkspaceCollection(workspaceId, "bonusItems"),
+    readWorkspaceCollection(workspaceId, "workers"),
   ]);
 
   return {
@@ -478,6 +488,7 @@ async function loadRecordsCollections(): Promise<RecordsCollections> {
     payStatements,
     payrollSettings,
     payrollWorkerMonthRows,
+    workers,
     workRecords,
   };
 }
@@ -1784,6 +1795,10 @@ function mapRecordMainView(
   const records = collections.workRecords
     .map(mapWorkRecord)
     .sort(compareRecords);
+  const activeWorkers = collections.workers
+    .map(mapWorker)
+    .filter(isActiveWorker)
+    .sort(compareWorkers);
   const attendanceById = toMap(
     collections.attendanceLogs.map(mapAttendanceLog),
     (log) => log.id,
@@ -1892,7 +1907,7 @@ function mapRecordMainView(
     timeline: {
       ...recordMainFixtureViewModel.timeline,
       weekNavigation,
-      filters: createMainFilters(records),
+      filters: createMainFilters(records, activeWorkers),
       weekLabel: initialWeekStartKey
         ? formatWeekLabelFromStartKey(initialWeekStartKey)
         : createWeekLabel(records),
@@ -2270,6 +2285,17 @@ function mapWorkRecord(document: FirestoreDocument): WorkRecordModel {
   };
 }
 
+function mapWorker(document: FirestoreDocument): WorkerModel {
+  const data = document.data;
+
+  return {
+    id: document.id,
+    membershipStatus: readString(data.membershipStatus, ""),
+    name: readString(data.name, readString(data.displayName, "이름 없는 조교")),
+    status: readString(data.status, "active"),
+  };
+}
+
 function mapAnomalyFlag(document: FirestoreDocument): AnomalyFlagModel {
   const data = document.data;
 
@@ -2425,6 +2451,7 @@ function mapTimelineBlock(
     startMinute: workStartAt?.getMinutes() ?? 0,
     startTime: formatTime(workStartAt),
     tone: getTimelineBlockTone(kind),
+    workerId: record.workerId,
     workerName: record.workerName,
   };
 }
@@ -3362,11 +3389,10 @@ function mapAttendanceLogRow(log: AttendanceLogModel): AttendanceLogRow {
 
 function createMainFilters(
   records: readonly WorkRecordModel[],
+  activeWorkers: readonly WorkerModel[],
 ): Record<string, readonly RecordsFilterOption[]> {
   return {
-    location: createWorkerFilterOptions(
-      records.map((record) => record.workerName),
-    ),
+    location: createMainWorkerFilterOptions(records, activeWorkers),
     status: recordMainFixtureViewModel.timeline.filters.status,
     type: recordMainFixtureViewModel.timeline.filters.type,
   };
@@ -3424,6 +3450,59 @@ function createWorkerFilterOptions(names: readonly string[]) {
       label: name,
     })),
   ] satisfies readonly RecordsFilterOption[];
+}
+
+function createMainWorkerFilterOptions(
+  records: readonly WorkRecordModel[],
+  activeWorkers: readonly WorkerModel[],
+) {
+  const optionsById = new Map<string, RecordsFilterOption>();
+
+  for (const worker of activeWorkers) {
+    if (!worker.id || !worker.name || optionsById.has(worker.id)) {
+      continue;
+    }
+
+    optionsById.set(worker.id, {
+      id: worker.id,
+      label: worker.name,
+    });
+  }
+
+  for (const record of records) {
+    const id = record.workerId || createStableId(record.workerName);
+
+    if (!id || optionsById.has(id)) {
+      continue;
+    }
+
+    optionsById.set(id, {
+      id,
+      label: record.workerName,
+    });
+  }
+
+  return [
+    { id: "all", label: "조교 (전체)", selected: true },
+    ...Array.from(optionsById.values()).sort((first, second) =>
+      first.label.localeCompare(second.label, "ko-KR"),
+    ),
+  ] satisfies readonly RecordsFilterOption[];
+}
+
+function isActiveWorker(worker: WorkerModel) {
+  const inactiveStatuses = new Set([
+    "deleted",
+    "inactive",
+    "pending",
+    "rejected",
+    "suspended",
+  ]);
+
+  return (
+    !inactiveStatuses.has(worker.status) &&
+    !inactiveStatuses.has(worker.membershipStatus)
+  );
 }
 
 function createAnomalyHistoryMetrics(
@@ -4030,6 +4109,10 @@ function compareRecords(first: WorkRecordModel, second: WorkRecordModel) {
       getSortTime(getRecordSortDate(first)) ||
     first.workerName.localeCompare(second.workerName, "ko-KR")
   );
+}
+
+function compareWorkers(first: WorkerModel, second: WorkerModel) {
+  return first.name.localeCompare(second.name, "ko-KR");
 }
 
 function getRecordSortDate(record: WorkRecordModel) {
