@@ -762,7 +762,7 @@ service cloud.firestore {
     function isAttendanceLogCheckOut() {
       let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
       return resource.data.workerId == request.auth.uid
-        && resource.data.checkOutAt == null
+        && resource.data.get('checkOutAt', null) == null
         && changedKeys.hasOnly(['checkOutAt', 'checkOutLocation']);
     }
 
