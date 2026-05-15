@@ -195,18 +195,26 @@ export function DutyTagsScreen({
     try {
       if (currentTag) {
         const tag = await dataSource.updateDutyTag(currentTag, input);
+        const nextTags = await dataSource.listDutyTags();
 
-        setTags((currentTags) =>
-          currentTags.map((row) => (row.id === tag.id ? tag : row)),
+        setTags(nextTags);
+        setSelectedTagId(
+          nextTags.some((row) => row.id === tag.id)
+            ? tag.id
+            : (nextTags[0]?.id ?? null),
         );
-        setSelectedTagId(tag.id);
         setPanelMode("view");
         setStatusMessage(`${tag.label} 근무 태그를 수정했습니다.`);
       } else {
         const tag = await dataSource.createDutyTag(input);
+        const nextTags = await dataSource.listDutyTags();
 
-        setTags((currentTags) => [tag, ...currentTags]);
-        setSelectedTagId(tag.id);
+        setTags(nextTags);
+        setSelectedTagId(
+          nextTags.some((row) => row.id === tag.id)
+            ? tag.id
+            : (nextTags[0]?.id ?? null),
+        );
         setPanelMode("view");
         setCreateDialogOpen(false);
         setStatusMessage(`${tag.label} 근무 태그를 추가했습니다.`);
@@ -432,7 +440,10 @@ function DutyTagCreateDialog({
   const normalizedSearchText = debouncedSearchText
     .trim()
     .toLocaleLowerCase("ko-KR");
-  const visibleDuties = filterDuties(duties, normalizedSearchText);
+  const visibleDuties = getVisibleDutyAssignments(
+    duties,
+    normalizedSearchText,
+  );
   const canSave =
     label.trim().length > 0 && !saving && !assignmentLoading && !assignmentError;
 
@@ -620,7 +631,7 @@ function DutyTagDetailPanel({
   const selectedDuties = duties.filter((duty) =>
     selectedDutyIds.includes(duty.id),
   );
-  const visibleDuties = filterDuties(
+  const visibleDuties = getVisibleDutyAssignments(
     editable ? duties : selectedDuties,
     normalizedSearchText,
   );
@@ -1073,6 +1084,9 @@ function DutyTagAssignmentRow({
     <button
       type="button"
       aria-pressed={checked}
+      data-assignment-id={duty.id}
+      data-server-checked={duty.checked ? "true" : "false"}
+      data-testid="duty-tags-assignment-row"
       disabled={duty.disabled || saving}
       onClick={onToggle}
       className="grid h-11 w-full grid-cols-[minmax(0,1fr)_112px_96px_20px] items-center border-b border-gray-100 px-4 text-left last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:bg-gray-50"
@@ -1180,17 +1194,27 @@ function getDutyTagAppliedCountText(tag: DutyTagRow | null) {
   return `${count ?? 0}건`;
 }
 
-function filterDuties(
+function getVisibleDutyAssignments(
   duties: readonly DutyTagDialogDuty[],
   normalizedSearchText: string,
 ) {
-  return duties.filter((duty) => {
-    if (!normalizedSearchText) {
-      return true;
-    }
+  return duties
+    .map((duty, index) => ({ duty, index }))
+    .filter(({ duty }) => {
+      if (!normalizedSearchText) {
+        return true;
+      }
 
-    return [duty.name, duty.location, duty.weekdays].some((value) =>
-      value.toLocaleLowerCase("ko-KR").includes(normalizedSearchText),
-    );
-  });
+      return [duty.name, duty.location, duty.weekdays].some((value) =>
+        value.toLocaleLowerCase("ko-KR").includes(normalizedSearchText),
+      );
+    })
+    .sort((left, right) => {
+      if (left.duty.checked !== right.duty.checked) {
+        return left.duty.checked ? -1 : 1;
+      }
+
+      return left.index - right.index;
+    })
+    .map(({ duty }) => duty);
 }

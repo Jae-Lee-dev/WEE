@@ -197,18 +197,26 @@ export function WorkerTagsScreen({
     try {
       if (currentTag) {
         const tag = await dataSource.updateWorkerTag(currentTag, input);
+        const nextRows = await dataSource.listWorkerTags();
 
-        setRows((currentRows) =>
-          currentRows.map((row) => (row.id === tag.id ? tag : row)),
+        setRows(nextRows);
+        setSelectedTagId(
+          nextRows.some((row) => row.id === tag.id)
+            ? tag.id
+            : (nextRows[0]?.id ?? null),
         );
-        setSelectedTagId(tag.id);
         setPanelMode("view");
         setStatusMessage(`${tag.label} 근무자 태그를 수정했습니다.`);
       } else {
         const tag = await dataSource.createWorkerTag(input);
+        const nextRows = await dataSource.listWorkerTags();
 
-        setRows((currentRows) => [tag, ...currentRows]);
-        setSelectedTagId(tag.id);
+        setRows(nextRows);
+        setSelectedTagId(
+          nextRows.some((row) => row.id === tag.id)
+            ? tag.id
+            : (nextRows[0]?.id ?? null),
+        );
         setPanelMode("view");
         setCreateDialogOpen(false);
         setStatusMessage(`${tag.label} 근무자 태그를 추가했습니다.`);
@@ -438,10 +446,9 @@ function WorkerTagCreateDialog({
   const normalizedSearchText = debouncedSearchText
     .trim()
     .toLocaleLowerCase("ko-KR");
-  const visibleWorkers = workers.filter((worker) =>
-    normalizedSearchText
-      ? worker.name.toLocaleLowerCase("ko-KR").includes(normalizedSearchText)
-      : true,
+  const visibleWorkers = getVisibleWorkerAssignments(
+    workers,
+    normalizedSearchText,
   );
   const canSave = label.trim().length > 0 && !saving && !assignmentLoading;
 
@@ -686,11 +693,9 @@ function WorkerTagDetailPanel({
   const selectedWorkers = workers.filter((worker) =>
     selectedWorkerIds.includes(worker.id),
   );
-  const visibleWorkers = (editable ? workers : selectedWorkers).filter(
-    (worker) =>
-      normalizedSearchText
-        ? worker.name.toLocaleLowerCase("ko-KR").includes(normalizedSearchText)
-        : true,
+  const visibleWorkers = getVisibleWorkerAssignments(
+    editable ? workers : selectedWorkers,
+    normalizedSearchText,
   );
   const fallbackCountText = getWorkerTagAppliedCountText(tag);
   const currentCountText =
@@ -1070,6 +1075,9 @@ function WorkerTagAssignmentRow({
     <button
       type="button"
       aria-pressed={checked}
+      data-assignment-id={worker.id}
+      data-server-checked={worker.checked ? "true" : "false"}
+      data-testid="worker-tags-assignment-row"
       disabled={worker.disabled || saving}
       onClick={onToggle}
       className="flex h-11 w-full items-center justify-between border-b border-gray-100 px-4 text-left last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-200 disabled:cursor-not-allowed disabled:bg-gray-50"
@@ -1094,6 +1102,27 @@ function WorkerTagAssignmentState({
       {label}
     </div>
   );
+}
+
+function getVisibleWorkerAssignments(
+  workers: readonly WorkerTagDialogWorker[],
+  normalizedSearchText: string,
+) {
+  return workers
+    .map((worker, index) => ({ worker, index }))
+    .filter(({ worker }) =>
+      normalizedSearchText
+        ? worker.name.toLocaleLowerCase("ko-KR").includes(normalizedSearchText)
+        : true,
+    )
+    .sort((left, right) => {
+      if (left.worker.checked !== right.worker.checked) {
+        return left.worker.checked ? -1 : 1;
+      }
+
+      return left.index - right.index;
+    })
+    .map(({ worker }) => worker);
 }
 
 function WorkerTagStatusBadge({ label }: { label: string }) {

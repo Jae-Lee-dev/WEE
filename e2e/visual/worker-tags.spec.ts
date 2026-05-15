@@ -118,6 +118,35 @@ test("WKR-06 detail panel uses clicked tag", async ({ page }) => {
   await expect(panel.getByText("3명")).toBeVisible();
 });
 
+test("WKR-06 local-only checked assignment keeps server order until save", async ({
+  page,
+}) => {
+  await prepareVisualPage({ page, path: "/workers/tags", viewport: desktop });
+
+  await page.getByTestId("worker-tags-edit-trigger-first").click();
+
+  const panel = page.getByTestId("worker-tags-detail-panel");
+  const rows = panel.getByTestId("worker-tags-assignment-row");
+  const orderedIdsBefore = await rows.evaluateAll((nodes) =>
+    nodes.map((node) => node.getAttribute("data-assignment-id")),
+  );
+
+  await expect(rows.nth(0)).toHaveAttribute("data-server-checked", "true");
+  await expect(rows.nth(1)).toHaveAttribute("data-server-checked", "true");
+  await expect(rows.nth(2)).toHaveAttribute("data-server-checked", "true");
+  await expect(rows.nth(3)).toHaveAttribute("data-server-checked", "false");
+
+  await rows.nth(3).click();
+
+  const orderedIdsAfter = await rows.evaluateAll((nodes) =>
+    nodes.map((node) => node.getAttribute("data-assignment-id")),
+  );
+
+  expect(orderedIdsAfter).toEqual(orderedIdsBefore);
+  await expect(rows.nth(3)).toHaveAttribute("aria-pressed", "true");
+  await expect(rows.nth(3)).toHaveAttribute("data-server-checked", "false");
+});
+
 test("WKR-06 creates worker tags in dialog", async ({ page }) => {
   await prepareVisualPage({ page, path: "/workers/tags", viewport: desktop });
 

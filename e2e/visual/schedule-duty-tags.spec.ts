@@ -117,6 +117,40 @@ test("DUT-03 detail panel uses clicked tag", async ({ page }) => {
   await expect(panel.getByText("2건")).toBeVisible();
 });
 
+test("DUT-03 local-only checked assignment keeps server order until save", async ({
+  page,
+}) => {
+  await prepareVisualPage({
+    page,
+    path: "/schedule/duty-tags",
+    viewport: desktop,
+  });
+
+  await page.getByRole("button", { name: "행정 근무 태그 조회" }).click();
+  const panel = page.getByTestId("duty-tags-detail-panel");
+
+  await panel.getByRole("button", { name: "수정" }).click();
+
+  const rows = panel.getByTestId("duty-tags-assignment-row");
+  const orderedIdsBefore = await rows.evaluateAll((nodes) =>
+    nodes.map((node) => node.getAttribute("data-assignment-id")),
+  );
+
+  await expect(rows.nth(0)).toHaveAttribute("data-server-checked", "true");
+  await expect(rows.nth(1)).toHaveAttribute("data-server-checked", "true");
+  await expect(rows.nth(2)).toHaveAttribute("data-server-checked", "false");
+
+  await rows.nth(2).click();
+
+  const orderedIdsAfter = await rows.evaluateAll((nodes) =>
+    nodes.map((node) => node.getAttribute("data-assignment-id")),
+  );
+
+  expect(orderedIdsAfter).toEqual(orderedIdsBefore);
+  await expect(rows.nth(2)).toHaveAttribute("aria-pressed", "true");
+  await expect(rows.nth(2)).toHaveAttribute("data-server-checked", "false");
+});
+
 test("DUT-03 creates duty tags in dialog", async ({ page }) => {
   await prepareVisualPage({
     page,
