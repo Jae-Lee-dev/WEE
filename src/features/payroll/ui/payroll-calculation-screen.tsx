@@ -1115,24 +1115,26 @@ function AdjustmentRow({
   const held = item.statusLabel === "보류";
 
   return (
-    <div className="flex min-h-8 items-center gap-3 rounded-[6px] px-3 text-h-16-regular tracking-normal text-gray-700">
-      <span
-        className={cn(
-          "w-3 shrink-0 text-center text-h-16-semibold tracking-normal",
-          amountToneClassName[item.tone],
-        )}
-      >
-        {sign}
-      </span>
-      <span className="min-w-0 flex-1 truncate">{item.label}</span>
-      <span
-        className={cn(
-          "shrink-0 text-right text-h-16-semibold tracking-normal",
-          amountToneClassName[item.tone],
-        )}
-      >
-        {amount}
-      </span>
+    <div className="flex min-h-8 items-center justify-between gap-3 rounded-[6px] py-1 pl-3 pr-1 text-h-16-regular tracking-normal text-gray-700">
+      <div className="flex min-w-0 items-center gap-2">
+        <span
+          className={cn(
+            "w-3 shrink-0 text-center text-h-16-semibold tracking-normal",
+            amountToneClassName[item.tone],
+          )}
+        >
+          {sign}
+        </span>
+        <span className="min-w-0 truncate">{item.label}</span>
+        <span
+          className={cn(
+            "shrink-0 text-h-16-semibold tracking-normal",
+            amountToneClassName[item.tone],
+          )}
+        >
+          {amount}
+        </span>
+      </div>
       {canDelete ? (
         <button
           type="button"
