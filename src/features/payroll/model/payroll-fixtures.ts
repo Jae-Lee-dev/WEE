@@ -146,6 +146,7 @@ export type PayrollOpenItemAction = {
 export type PayrollOpenItemCard = {
   id: string;
   state: PayrollOpenItemState;
+  workRecordId?: string;
   dateLabel: string;
   title: string;
   locationName: string;
@@ -600,39 +601,6 @@ const resolvedPayrollOpenItemCards = [
   },
 ] as const satisfies readonly PayrollOpenItemCard[];
 
-const monthlyPayrollRecordCards = [
-  {
-    id: "monthly-record-0424-duty-grading",
-    state: "resolved",
-    dateLabel: "04.24 (금)",
-    title: "모의고사 채점",
-    locationName: "대치 A 학원",
-    timeLabel: "13:00~15:00",
-    statusLabel: "근무기록",
-    statusTone: "grey",
-    lines: [
-      { id: "status", label: "상태", value: "승인됨" },
-      { id: "duration", label: "반영 시간", value: "2시간" },
-    ],
-    actions: [],
-  },
-  {
-    id: "monthly-record-0426-question-support",
-    state: "resolved",
-    dateLabel: "04.26 (일)",
-    title: "질문 응대",
-    locationName: "서초 B 학원",
-    timeLabel: "10:00~12:00",
-    statusLabel: "근무기록",
-    statusTone: "grey",
-    lines: [
-      { id: "status", label: "상태", value: "승인됨" },
-      { id: "duration", label: "반영 시간", value: "2시간" },
-    ],
-    actions: [],
-  },
-] as const satisfies readonly PayrollOpenItemCard[];
-
 export const payrollCalculationFixture = {
   route: "/payroll",
   activeTabId: "calculation",
@@ -690,7 +658,7 @@ export const payrollCalculationFixture = {
         title: "월 근무기록",
         totalCount: "10건",
         openCount: "미처리 4건",
-        cards: [...unresolvedPayrollOpenItemCards, ...monthlyPayrollRecordCards],
+        cards: unresolvedPayrollOpenItemCards,
       },
       footer: {
         title: "급여 확정하기",
@@ -713,7 +681,7 @@ export const payrollCalculationFixture = {
       workRecordSection: {
         title: "월 근무기록",
         totalCount: "10건",
-        cards: [...resolvedPayrollOpenItemCards, ...monthlyPayrollRecordCards],
+        cards: resolvedPayrollOpenItemCards,
       },
       footer: {
         title: "급여 확정하기",

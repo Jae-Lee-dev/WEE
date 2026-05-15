@@ -101,7 +101,6 @@ test(`PAY-01 detail ${desktop}`, async ({ page }) => {
   await expect(page.getByText("신입 교육 지원")).toBeVisible();
   await expect(page.getByText("지각 차감")).toBeVisible();
   await expect(page.getByRole("heading", { name: "월 근무기록" })).toBeVisible();
-  await expect(page.getByText("모의고사 채점")).toBeVisible();
   await expect(
     page.getByText("wr_worker_jung_20260424_duty_grading_fri"),
   ).toHaveCount(0);

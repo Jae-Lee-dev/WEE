@@ -1171,18 +1171,12 @@ function buildCalculationDetail({
     records,
     statement,
   });
-  const openWorkRecordIds = collectOpenWorkRecordIds({
-    anomalyFlags,
-    correctionRequests,
-    overtimeWorks,
-    records,
-  });
   const blockingOpenItemCount = openCards.filter(isBlockingOpenItemCard).length;
-  const monthlyRecordCards = buildResolvedWorkRecordCards(
-    records.filter((record) => !openWorkRecordIds.has(record.id)),
+  const workRecordCards = buildWorkRecordSectionCards(
+    records,
+    openCards,
     calculationRules,
   );
-  const workRecordCards = [...openCards, ...monthlyRecordCards];
   const footer = buildCalculationFooter({
     calculationRules,
     openItemCount: blockingOpenItemCount,
@@ -1460,6 +1454,7 @@ function buildOpenItemCards({
       actions: createPayrollResolutionActions("workRecord", record.id),
       dateLabel: formatDateKeyDisplay(record.dateKey),
       id: `${record.id}-payroll-hold`,
+      workRecordId: record.id,
       lines: [
         {
           id: "payroll",
@@ -1492,6 +1487,7 @@ function buildOpenItemCards({
         actions: [action],
         dateLabel: formatDateKeyDisplay(flag.dateKey),
         id: flag.id,
+        workRecordId: flag.workRecordId ?? undefined,
         lines: [
           {
             id: "anomaly",
@@ -1529,6 +1525,7 @@ function buildOpenItemCards({
         actions,
         dateLabel: formatDateKeyDisplay(record?.dateKey ?? ""),
         id: work.id,
+        workRecordId: work.workRecordId ?? undefined,
         lines: [
           { id: "reason", label: "사유", value: work.reason },
           {
@@ -1563,6 +1560,7 @@ function buildOpenItemCards({
         actions,
         dateLabel: formatDateKeyDisplay(record?.dateKey ?? ""),
         id: request.id,
+        workRecordId: request.workRecordId ?? undefined,
         lines: [
           { id: "reason", label: "조교 사유", value: request.reason },
           {
@@ -1667,64 +1665,6 @@ function buildOpenItemCards({
   ];
 }
 
-function collectOpenWorkRecordIds({
-  anomalyFlags,
-  correctionRequests,
-  overtimeWorks,
-  records,
-}: {
-  anomalyFlags: readonly AnomalyFlag[];
-  correctionRequests: readonly CorrectionRequest[];
-  overtimeWorks: readonly OvertimeWork[];
-  records: readonly WorkRecord[];
-}) {
-  const openWorkRecordIds = new Set<string>();
-  const heldCorrectionRecordIds = new Set(
-    correctionRequests
-      .filter((request) => request.payrollStatus === "held")
-      .map((request) => request.workRecordId)
-      .filter((id): id is string => Boolean(id)),
-  );
-
-  records
-    .filter(
-      (record) =>
-        record.payrollApplication === "hold" &&
-        !heldCorrectionRecordIds.has(record.id),
-    )
-    .forEach((record) => openWorkRecordIds.add(record.id));
-
-  anomalyFlags
-    .filter((item) => item.status === "unresolved")
-    .forEach((flag) => {
-      if (flag.workRecordId) {
-        openWorkRecordIds.add(flag.workRecordId);
-      }
-    });
-
-  overtimeWorks
-    .filter(
-      (item) => item.status === "submitted" || item.payrollStatus === "held",
-    )
-    .forEach((work) => {
-      if (work.workRecordId) {
-        openWorkRecordIds.add(work.workRecordId);
-      }
-    });
-
-  correctionRequests
-    .filter(
-      (item) => item.status === "submitted" || item.payrollStatus === "held",
-    )
-    .forEach((request) => {
-      if (request.workRecordId) {
-        openWorkRecordIds.add(request.workRecordId);
-      }
-    });
-
-  return openWorkRecordIds;
-}
-
 function formatWorkRecordReference(record: WorkRecord | undefined) {
   if (!record) {
     return "연결 근무기록 없음";
@@ -1793,14 +1733,43 @@ function isBlockingOpenItemCard(card: PayrollOpenItemCard) {
   return card.statusLabel !== "재확정 필요";
 }
 
-function buildResolvedWorkRecordCards(
+function buildWorkRecordSectionCards(
   records: readonly WorkRecord[],
+  openCards: readonly PayrollOpenItemCard[],
   calculationRules: PayrollCalculationRules,
 ): readonly PayrollOpenItemCard[] {
-  return records.map((record) => ({
+  const openCardsByWorkRecordId = groupBy(
+    openCards.filter((card) => card.workRecordId),
+    (card) => card.workRecordId ?? "",
+  );
+  const consumedOpenCardIds = new Set<string>();
+  const recordCards = [...records].sort(compareWorkRecords).map((record) => {
+    const openRecordCard = openCardsByWorkRecordId[record.id]?.[0];
+
+    if (!openRecordCard) {
+      return buildResolvedWorkRecordCard(record, calculationRules);
+    }
+
+    consumedOpenCardIds.add(openRecordCard.id);
+
+    return openRecordCard;
+  });
+  const remainingOpenCards = openCards.filter(
+    (card) => !consumedOpenCardIds.has(card.id),
+  );
+
+  return [...recordCards, ...remainingOpenCards];
+}
+
+function buildResolvedWorkRecordCard(
+  record: WorkRecord,
+  calculationRules: PayrollCalculationRules,
+): PayrollOpenItemCard {
+  return {
     actions: [],
     dateLabel: formatDateKeyDisplay(record.dateKey),
     id: record.id,
+    workRecordId: record.id,
     lines: [
       {
         id: "status",
@@ -1819,7 +1788,25 @@ function buildResolvedWorkRecordCards(
     statusTone: record.anomalyType === "none" ? "grey" : "pink",
     timeLabel: formatRecordTime(record),
     title: record.dutyName,
-  }));
+  };
+}
+
+function compareWorkRecords(left: WorkRecord, right: WorkRecord) {
+  const dateCompare = left.dateKey.localeCompare(right.dateKey);
+
+  if (dateCompare !== 0) {
+    return dateCompare;
+  }
+
+  return getWorkRecordSortTime(left) - getWorkRecordSortTime(right);
+}
+
+function getWorkRecordSortTime(record: WorkRecord) {
+  return (
+    record.effectiveStartAt?.getTime() ??
+    record.plannedStartAt?.getTime() ??
+    Number.POSITIVE_INFINITY
+  );
 }
 
 function buildCalculationFooter({
